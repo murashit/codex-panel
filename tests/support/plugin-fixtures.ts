@@ -1,3 +1,11 @@
+import {
+  disconnectedChatLeaseFixture,
+  threadGoalQueriesFixture,
+  threadReplacementPublicationFixture,
+  threadTitlePortFixture,
+  workspacePanelsFixture,
+} from "../features/chat/support/host-contracts";
+import { chatMetadataCacheFixture, chatVaultFixture } from "./chat-obsidian";
 // @vitest-environment jsdom
 
 import { FileSystemAdapter } from "obsidian";
@@ -98,20 +106,8 @@ export function chatView(
           openLinkText: vi.fn(),
           requestSaveLayout: vi.fn(),
         },
-        vault: {
-          on: vi.fn(() => ({})),
-          offref: vi.fn(),
-          getFiles: vi.fn(() => []),
-          getMarkdownFiles: vi.fn(() => []),
-          getAbstractFileByPath: vi.fn(() => null),
-        },
-        metadataCache: {
-          on: vi.fn(() => ({})),
-          offref: vi.fn(),
-          getFirstLinkpathDest: vi.fn(() => null),
-          fileToLinktext: vi.fn((_file: unknown, _sourcePath: string) => ""),
-          getFileCache: vi.fn(() => null),
-        },
+        vault: chatVaultFixture(),
+        metadataCache: chatMetadataCacheFixture(),
       },
       containerEl,
     } as never,
@@ -128,40 +124,14 @@ export function chatView(
 function chatHostFixture(): CodexChatHost {
   const settings: CodexPanelSettings = { ...DEFAULT_SETTINGS, codexPath: "codex", sendShortcut: "enter" };
   return {
-    appServerConnection: {
-      createLease: () => ({
-        connect: vi.fn().mockResolvedValue({
-          codexHome: "/tmp/codex",
-          platformFamily: "unix",
-          platformOs: "macos",
-          userAgent: "codex-test",
-        }),
-        currentClient: () => null,
-        updateThreadSubscriptions: vi.fn(),
-        recordThreadSubscription: vi.fn(),
-        withThreadActivation: async (_threadId, operation) => operation(),
-        isConnected: () => false,
-        disconnect: vi.fn(),
-      }),
-    },
+    appServerConnection: { createLease: disconnectedChatLeaseFixture },
     appServerContext: { codexPath: settings.codexPath, vaultPath: "/vault" },
     threadMutations: threadMutationCommandsMock(),
-    threadTitlePort: {
-      persistedContext: vi.fn().mockResolvedValue(null),
-      generateTitle: vi.fn().mockResolvedValue(null),
-    },
+    threadTitlePort: threadTitlePortFixture(),
     threadAutoTitleWork: { submit: vi.fn() },
     runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
     settings: chatPanelSettingsAccess(settings),
-    workspace: {
-      returnFromForkDraft: vi.fn().mockResolvedValue(true),
-      openForkDraft: vi.fn(),
-      openThreadInNewView: vi.fn(),
-      openThreadInAvailableView: vi.fn(),
-      openThreadFromPanel: vi.fn(),
-      openTurnDiff: vi.fn(),
-      notifyPanelActivityChanged: vi.fn(),
-    },
+    workspace: workspacePanelsFixture(),
     appServerQueries: {
       metadataSnapshot: vi.fn(() => null),
       metadataDiagnosticsSnapshot: vi.fn(() => createServerDiagnostics()),
@@ -190,14 +160,7 @@ function chatHostFixture(): CodexChatHost {
         mcpError: null,
       }),
     },
-    threadGoalQueries: {
-      snapshot: vi.fn(() => null),
-      observe: vi.fn((_threadId, listener) => {
-        listener(null);
-        return () => undefined;
-      }),
-      observeChanges: vi.fn(() => () => undefined),
-    },
+    threadGoalQueries: threadGoalQueriesFixture(),
     threadCatalog: {
       fetchActiveThreads: vi.fn(() => Promise.resolve([])),
       refreshActiveThreads: vi.fn(() => Promise.resolve()),
@@ -211,10 +174,7 @@ function chatHostFixture(): CodexChatHost {
       apply: vi.fn(),
       applyBatch: vi.fn(),
     },
-    threadReplacementPublication: {
-      begin: vi.fn(() => ({ attach: vi.fn(), finish: vi.fn() })),
-      visibleThreadId: vi.fn((_threads, threadId) => threadId),
-    },
+    threadReplacementPublication: threadReplacementPublicationFixture(),
   };
 }
 

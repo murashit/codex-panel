@@ -213,12 +213,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     const messages: string[] = [];
     const commands = runtimeCommandsFixture(store, port, messages, {
       runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }),
-      availableModels: [
-        {
-          ...modelFixture("gpt-5.5", "fast"),
-          supportedReasoningEfforts: ["low", "medium"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
-        },
-      ],
+      availableModels: [modelFixture("gpt-5.5", "fast", ["low", "medium"])],
     });
 
     await expect(commands.requestReasoningEffort("ultra")).resolves.toBe(false);
@@ -234,13 +229,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     const messages: string[] = [];
     const commands = runtimeCommandsFixture(store, port, messages, {
       runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }),
-      availableModels: [
-        modelFixture("gpt-5.5", "fast"),
-        {
-          ...modelFixture("gpt-5.4-mini", "fast"),
-          supportedReasoningEfforts: ["low", "medium"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
-        },
-      ],
+      availableModels: [modelFixture("gpt-5.5", "fast"), modelFixture("gpt-5.4-mini", "fast", ["low", "medium"])],
     });
 
     await expect(commands.requestReasoningEffort("high")).resolves.toBe(true);
@@ -263,10 +252,12 @@ describe("createChatRuntimeSettingsCommands", () => {
   });
 
   it.each(["request", "reset"] as const)("updates model and normalized effort atomically through %s", async (kind) => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5", reasoningEffort: "high" } } });
-    const store = createChatStateStore(state);
+    const store = createChatStateStore(
+      chatStateFixture({
+        activeThread: { id: "thread" },
+        runtime: { active: { model: "gpt-5.5", reasoningEffort: "high" } },
+      }),
+    );
     const port = settingsPortFixture();
     const messages: string[] = [];
     const commands = runtimeCommandsFixture(
@@ -275,13 +266,7 @@ describe("createChatRuntimeSettingsCommands", () => {
       messages,
       {
         runtimeConfig: runtimeConfigFixture({ model: kind === "reset" ? "gpt-5.4-mini" : "gpt-5.5", reasoningEffort: "high" }),
-        availableModels: [
-          modelFixture("gpt-5.5", "fast"),
-          {
-            ...modelFixture("gpt-5.4-mini", "fast"),
-            supportedReasoningEfforts: ["low", "medium"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
-          },
-        ],
+        availableModels: [modelFixture("gpt-5.5", "fast"), modelFixture("gpt-5.4-mini", "fast", ["low", "medium"])],
       },
       [{ model: "gpt-5.4-mini", reasoningEffort: "medium" }],
     );
@@ -376,9 +361,7 @@ describe("createChatRuntimeSettingsCommands", () => {
   });
 
   it("warns without reporting collaboration mode as applied when no effective model is available", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const store = createChatStateStore(state);
+    const store = createChatStateStore(chatStateFixture({ activeThread: { id: "thread" } }));
     const port = settingsPortFixture();
     const messages: string[] = [];
     const commands = runtimeCommandsFixture(store, port, messages, {
@@ -433,9 +416,7 @@ describe("createChatRuntimeSettingsCommands", () => {
   });
 
   it("does not commit stale runtime updates after returning to the same thread", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const store = createChatStateStore(state);
+    const store = createChatStateStore(chatStateFixture({ activeThread: { id: "thread" } }));
     const port = settingsPortFixture({
       updateThreadSettings: vi.fn().mockImplementation(async () => {
         store.dispatch({ type: "active-thread/cleared" });
@@ -457,9 +438,7 @@ describe("createChatRuntimeSettingsCommands", () => {
   });
 
   it("does not report stale runtime update failures after returning to the same thread", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const store = createChatStateStore(state);
+    const store = createChatStateStore(chatStateFixture({ activeThread: { id: "thread" } }));
     const port = settingsPortFixture({
       updateThreadSettings: vi.fn().mockImplementation(async () => {
         store.dispatch({ type: "active-thread/cleared" });
@@ -479,10 +458,12 @@ describe("createChatRuntimeSettingsCommands", () => {
   });
 
   it.each([true, false])("carries normalized effort through consecutive models (first accepted=%s)", async (accepted) => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5", reasoningEffort: "high" } } });
-    const store = createChatStateStore(state);
+    const store = createChatStateStore(
+      chatStateFixture({
+        activeThread: { id: "thread" },
+        runtime: { active: { model: "gpt-5.5", reasoningEffort: "high" } },
+      }),
+    );
     const firstUpdate = deferred<boolean>();
     const secondUpdate = deferred<boolean>();
     const port = settingsPortFixture({
@@ -499,14 +480,8 @@ describe("createChatRuntimeSettingsCommands", () => {
         runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", reasoningEffort: "high" }),
         availableModels: [
           modelFixture("gpt-5.5", "fast"),
-          {
-            ...modelFixture("gpt-mini", "fast"),
-            supportedReasoningEfforts: ["medium"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
-          },
-          {
-            ...modelFixture("gpt-next", "fast"),
-            supportedReasoningEfforts: ["medium"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
-          },
+          modelFixture("gpt-mini", "fast", ["medium"]),
+          modelFixture("gpt-next", "fast", ["medium"]),
         ],
       },
       [
@@ -540,10 +515,12 @@ describe("createChatRuntimeSettingsCommands", () => {
   });
 
   it("commits the model anchor when effort changes during a normalized model update", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5", reasoningEffort: "high" } } });
-    const store = createChatStateStore(state);
+    const store = createChatStateStore(
+      chatStateFixture({
+        activeThread: { id: "thread" },
+        runtime: { active: { model: "gpt-5.5", reasoningEffort: "high" } },
+      }),
+    );
     const modelUpdate = deferred<boolean>();
     const effortUpdate = deferred<boolean>();
     const port = settingsPortFixture({
@@ -558,13 +535,7 @@ describe("createChatRuntimeSettingsCommands", () => {
       [],
       {
         runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", reasoningEffort: "high" }),
-        availableModels: [
-          modelFixture("gpt-5.5", "fast"),
-          {
-            ...modelFixture("gpt-mini", "fast"),
-            supportedReasoningEfforts: ["low", "medium"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
-          },
-        ],
+        availableModels: [modelFixture("gpt-5.5", "fast"), modelFixture("gpt-mini", "fast", ["low", "medium"])],
       },
       [{ model: "gpt-mini", reasoningEffort: "medium" }, { reasoningEffort: "low" }],
     );
@@ -586,9 +557,7 @@ describe("createChatRuntimeSettingsCommands", () => {
   });
 
   it("settles newly requested settings inside its queued turn-submission command", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const store = createChatStateStore(state);
+    const store = createChatStateStore(chatStateFixture({ activeThread: { id: "thread" } }));
     const firstUpdate = deferred<boolean>();
     const port = settingsPortFixture({
       updateThreadSettings: vi
@@ -701,9 +670,7 @@ describe("createChatRuntimeSettingsCommands", () => {
   });
 
   it("toggles auto-review and reports the user-visible result", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const store = createChatStateStore(state);
+    const store = createChatStateStore(chatStateFixture({ activeThread: { id: "thread" } }));
     const port = settingsPortFixture();
     const messages: string[] = [];
     const commands = runtimeCommandsFixture(store, port, messages, {}, [
@@ -772,14 +739,14 @@ function runtimeSnapshotFixture(state: ChatState, shared: RuntimeSnapshotFixture
   });
 }
 
-function modelFixture(model: string, fastTierId: string): ModelMetadata {
+function modelFixture(model: string, fastTierId: string, efforts: readonly string[] = ["low", "medium", "high"]): ModelMetadata {
   return {
     id: model,
     model,
     displayName: model,
     description: "",
     hidden: false,
-    supportedReasoningEfforts: ["low", "medium", "high"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+    supportedReasoningEfforts: efforts.map((reasoningEffort) => ({ reasoningEffort, description: "" })),
     defaultReasoningEffort: "medium",
     inputModalities: [],
     serviceTiers: [{ id: fastTierId, name: "Fast" }],

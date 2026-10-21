@@ -1,3 +1,4 @@
+import { threadGoalFixture } from "./support/thread-goal";
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,7 +8,6 @@ import type { AppServerServerRequestResponder } from "../src/app-server/connecti
 import { AppServerClient } from "../src/app-server/connection/client";
 import * as contextConnection from "../src/app-server/connection/context-connection";
 import type { ServerRequest } from "../src/app-server/connection/rpc-messages";
-import type { ThreadGoal } from "../src/domain/threads/goal";
 import { CodexExecutionRuntime } from "../src/execution-runtime";
 import type { ChatRuntimeView, CodexChatHost } from "../src/features/chat/host/contracts";
 import type { ThreadPickerController } from "../src/features/thread-picker/modal.obsidian";
@@ -242,8 +242,8 @@ describe("CodexExecutionRuntime", () => {
   it("updates thread goal cache even when no panel lease receives the notification", () => {
     const runtime = executionRuntime();
     const chat = attachChatHost(runtime);
-    const previous = goalFixture({ objective: "Old" });
-    const next = goalFixture({ objective: "Latest" });
+    const previous = threadGoalFixture({ objective: "Old" });
+    const next = threadGoalFixture({ objective: "Latest" });
     contextConnectionMock.instances[0]?.handlers.onNotification({
       method: "thread/goal/updated",
       params: { threadId: "thread", turnId: null, goal: { ...previous, createdAt: 1, updatedAt: 1 } },
@@ -451,16 +451,4 @@ function mockToolInventoryRequests(): void {
     .thenResolve({ marketplaces: [], marketplaceLoadErrors: [] })
     .calledWith("mcpServerStatus/list", expect.anything())
     .thenResolve({ data: [], nextCursor: null });
-}
-
-function goalFixture(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
-  return {
-    threadId: "thread",
-    objective: "Finish",
-    status: "active",
-    tokenBudget: null,
-    tokensUsed: 0,
-    timeUsedSeconds: 0,
-    ...overrides,
-  };
 }

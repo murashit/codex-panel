@@ -1,8 +1,8 @@
-import { type App, TFile } from "obsidian";
+import type { App } from "obsidian";
 import { describe, expect, it } from "vitest";
-
 import { isAbsoluteFileHref, vaultRelativeFileLinkTarget } from "../../../../../src/domain/files/vault-links";
 import { vaultFileLinkTarget } from "../../../../../src/features/chat/host/thread-stream/vault-file-links.obsidian";
+import { markdownFileFixture as tFile } from "../../../../support/vault-file";
 
 describe("markdown file links", () => {
   it("resolves absolute vault paths", () => {
@@ -88,9 +88,4 @@ function appFixture(paths: string[]): App {
       getAbstractFileByPath: (path: string) => files.get(path) ?? null,
     },
   } as unknown as App;
-}
-
-function tFile(path: string): TFile {
-  const basename = path.split("/").pop()?.replace(/\.md$/, "") ?? path;
-  return Object.assign(new TFile(), { path, basename });
 }

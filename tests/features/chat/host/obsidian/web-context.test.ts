@@ -96,17 +96,7 @@ describe("web context reader", () => {
   it("rejects HTTP error responses", async () => {
     requestUrl.mockResolvedValue({ headers: {}, json: {}, arrayBuffer: new ArrayBuffer(0), status: 400, text: "Error" });
 
-    await expect(
-      readWebUrl(
-        {
-          prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-          viewWindow: () => window,
-        },
-        "https://example.com/article",
-        "",
-        {} as ComposerInputSnapshot,
-      ),
-    ).rejects.toThrow("Web request failed for https://example.com/article (HTTP 400).");
+    await expect(readArticle()).rejects.toThrow("Web request failed for https://example.com/article (HTTP 400).");
 
     expect(htmlToMarkdown).not.toHaveBeenCalled();
   });
@@ -114,17 +104,7 @@ describe("web context reader", () => {
   it("rejects empty converted content", async () => {
     htmlToMarkdown.mockReturnValue("  \n");
 
-    await expect(
-      readWebUrl(
-        {
-          prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-          viewWindow: () => window,
-        },
-        "https://example.com/article",
-        "",
-        {} as ComposerInputSnapshot,
-      ),
-    ).rejects.toThrow("No readable web content found for https://example.com/article");
+    await expect(readArticle()).rejects.toThrow("No readable web content found for https://example.com/article");
   });
 
   it("rejects non-HTTP URLs before fetching", async () => {
@@ -204,3 +184,12 @@ describe("web context reader", () => {
     }
   });
 });
+
+function readArticle() {
+  return readWebUrl(
+    { prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }), viewWindow: () => window },
+    "https://example.com/article",
+    "",
+    {} as ComposerInputSnapshot,
+  );
+}

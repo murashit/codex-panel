@@ -5,6 +5,7 @@ import {
   appServerApprovalRequest as toPendingApproval,
 } from "../../../../../../src/features/chat/app-server/inbound/server-request-adapter";
 import type { PendingApproval } from "../../../../../../src/features/chat/domain/pending-requests/model";
+import { commandApprovalRequestFixture, permissionsApprovalRequestFixture } from "../../../../../support/server-requests";
 
 type ApprovalRequest = Extract<
   ServerRequest,
@@ -31,25 +32,7 @@ function approvalResponseAt(request: ApprovalRequest, approval: NonNullable<Retu
 
 describe("approval model", () => {
   it("classifies command approvals and builds v2 decisions", () => {
-    const request: ApprovalRequest = {
-      id: 1,
-      method: "item/commandExecution/requestApproval",
-      params: {
-        kind: "command",
-        command: "npm run build",
-        cwd: "/tmp/project",
-        threadId: "thread",
-        turnId: "turn",
-        itemId: "item",
-        environmentId: null,
-        startedAtMs: 1,
-        reason: null,
-        commandActions: [],
-        proposedExecpolicyAmendment: null,
-        proposedNetworkPolicyAmendments: [],
-        availableDecisions: ["accept", "acceptForSession", "decline", "cancel"],
-      },
-    };
+    const request: ApprovalRequest = commandApprovalRequestFixture(1, { command: "npm run build", itemId: "item" });
     const approval = expectPresent(toPendingApproval(request));
 
     expect(approval.title).toBe("Command approval");
@@ -88,20 +71,7 @@ describe("approval model", () => {
   });
 
   it("builds permission grants only for accept actions", () => {
-    const request: ApprovalRequest = {
-      id: 2,
-      method: "item/permissions/requestApproval",
-      params: {
-        cwd: "/tmp/project",
-        threadId: "thread",
-        turnId: "turn",
-        itemId: "item",
-        environmentId: null,
-        startedAtMs: 1,
-        reason: "Need network",
-        permissions: { network: { enabled: true }, fileSystem: null },
-      },
-    };
+    const request: ApprovalRequest = permissionsApprovalRequestFixture(2, { itemId: "item" });
     expect(approvalResponse(request, "decline")).toEqual({ permissions: {}, scope: "turn" });
     expect(approvalResponse(request, "accept")).toEqual({
       permissions: { network: { enabled: true } },
@@ -135,26 +105,12 @@ describe("approval model", () => {
     const allowApiDecision = {
       applyNetworkPolicyAmendment: { network_policy_amendment: { host: "api.github.com", action: "allow" } },
     } as const;
-    const request: ApprovalRequest = {
-      id: 30,
-      method: "item/commandExecution/requestApproval",
-      params: {
-        kind: "command",
-        command: null,
-        cwd: "/tmp/project",
-        threadId: "thread",
-        turnId: "turn",
-        itemId: "command",
-        environmentId: null,
-        startedAtMs: 1,
-        reason: "Needs network access",
-        networkApprovalContext: { host: "registry.npmjs.org", protocol: "https" },
-        commandActions: [],
-        proposedExecpolicyAmendment: null,
-        proposedNetworkPolicyAmendments: [],
-        availableDecisions: [allowRegistryDecision, allowApiDecision, "decline"],
-      },
-    };
+    const request: ApprovalRequest = commandApprovalRequestFixture(30, {
+      command: null,
+      reason: "Needs network access",
+      networkApprovalContext: { host: "registry.npmjs.org", protocol: "https" },
+      availableDecisions: [allowRegistryDecision, allowApiDecision, "decline"],
+    });
     const approval = expectPresent(toPendingApproval(request));
     const options = approvalActionOptions(approval);
 
@@ -179,28 +135,14 @@ describe("approval model", () => {
     const acceptExecpolicyDecision = {
       acceptWithExecpolicyAmendment: { execpolicy_amendment: ["npm", "test"] as string[] },
     } as const;
-    const request: ApprovalRequest = {
-      id: 33,
-      method: "item/commandExecution/requestApproval",
-      params: {
-        kind: "command",
-        command: "npm test",
-        cwd: "/tmp/project",
-        threadId: "thread",
-        turnId: "turn",
-        itemId: "command",
-        environmentId: null,
-        startedAtMs: 1,
-        reason: null,
-        commandActions: [],
-        proposedExecpolicyAmendment: ["npm", "test"],
-        proposedNetworkPolicyAmendments: [
-          { host: "registry.npmjs.org", action: "allow" },
-          { host: "example.com", action: "deny" },
-        ],
-        availableDecisions: [allowNetworkDecision, denyNetworkDecision, acceptExecpolicyDecision],
-      },
-    };
+    const request: ApprovalRequest = commandApprovalRequestFixture(33, {
+      proposedExecpolicyAmendment: ["npm", "test"],
+      proposedNetworkPolicyAmendments: [
+        { host: "registry.npmjs.org", action: "allow" },
+        { host: "example.com", action: "deny" },
+      ],
+      availableDecisions: [allowNetworkDecision, denyNetworkDecision, acceptExecpolicyDecision],
+    });
     const approval = expectPresent(toPendingApproval(request));
     const options = approvalActionOptions(approval);
 
@@ -271,25 +213,13 @@ describe("approval model", () => {
 
   it("shows approval reasons first in pending request summaries", () => {
     const command = expectPresent(
-      toPendingApproval({
-        id: 20,
-        method: "item/commandExecution/requestApproval",
-        params: {
-          kind: "command",
+      toPendingApproval(
+        commandApprovalRequestFixture(20, {
           command: "npm run build",
-          cwd: "/tmp/project",
-          threadId: "thread",
-          turnId: "turn",
-          itemId: "command",
-          environmentId: null,
-          startedAtMs: 1,
           reason: "Needs unsandboxed access",
-          commandActions: [],
-          proposedExecpolicyAmendment: null,
-          proposedNetworkPolicyAmendments: [],
           availableDecisions: ["accept", "decline"],
-        },
-      }),
+        }),
+      ),
     );
     const fileChange = expectPresent(
       toPendingApproval({
@@ -305,22 +235,7 @@ describe("approval model", () => {
         },
       }),
     );
-    const permissions = expectPresent(
-      toPendingApproval({
-        id: 22,
-        method: "item/permissions/requestApproval",
-        params: {
-          cwd: "/tmp/project",
-          threadId: "thread",
-          turnId: "turn",
-          itemId: "permissions",
-          environmentId: null,
-          startedAtMs: 1,
-          reason: "Need network",
-          permissions: { network: { enabled: true }, fileSystem: null },
-        },
-      }),
-    );
+    const permissions = expectPresent(toPendingApproval(permissionsApprovalRequestFixture(22)));
 
     expect(command.summary).toBe("Needs unsandboxed access\nnpm run build");
     expect(fileChange.summary).toBe("Write outside workspace\ngrant root: /tmp/project");
@@ -328,22 +243,7 @@ describe("approval model", () => {
   });
 
   it("keeps approval details semantic and omits raw payloads", () => {
-    const approval = expectPresent(
-      toPendingApproval({
-        id: 23,
-        method: "item/permissions/requestApproval",
-        params: {
-          cwd: "/tmp/project",
-          threadId: "thread",
-          turnId: "turn",
-          itemId: "permissions",
-          environmentId: null,
-          startedAtMs: 1,
-          reason: "Need network",
-          permissions: { network: { enabled: true }, fileSystem: null },
-        },
-      }),
-    );
+    const approval = expectPresent(toPendingApproval(permissionsApprovalRequestFixture(23)));
 
     expect(approval.details).toEqual([
       { key: "reason", value: "Need network" },
@@ -354,16 +254,8 @@ describe("approval model", () => {
 
   it("preserves whitespace in permission paths shown for approval", () => {
     const approval = expectPresent(
-      toPendingApproval({
-        id: 24,
-        method: "item/permissions/requestApproval",
-        params: {
-          cwd: "/tmp/project",
-          threadId: "thread",
-          turnId: "turn",
-          itemId: "permissions",
-          environmentId: null,
-          startedAtMs: 1,
+      toPendingApproval(
+        permissionsApprovalRequestFixture(24, {
           reason: null,
           permissions: {
             network: null,
@@ -380,8 +272,8 @@ describe("approval model", () => {
               ],
             },
           },
-        },
-      }),
+        }),
+      ),
     );
 
     expect(approval.details).toContainEqual({
@@ -393,18 +285,9 @@ describe("approval model", () => {
 
   it("formats command approval request payloads as compact detail rows", () => {
     const approval = expectPresent(
-      toPendingApproval({
-        id: 25,
-        method: "item/commandExecution/requestApproval",
-        params: {
-          kind: "command",
+      toPendingApproval(
+        commandApprovalRequestFixture(25, {
           command: "rg TODO src && sed -n '1,20p' src/main.ts",
-          cwd: "/tmp/project",
-          threadId: "thread",
-          turnId: "turn",
-          itemId: "command",
-          environmentId: null,
-          startedAtMs: 1,
           reason: "Needs network access",
           networkApprovalContext: { host: "registry.npmjs.org", protocol: "https" },
           commandActions: [
@@ -426,8 +309,8 @@ describe("approval model", () => {
             { host: "example.com", action: "deny" },
           ],
           availableDecisions: ["accept", "decline"],
-        },
-      }),
+        }),
+      ),
     );
 
     expect(approval.details).toEqual([
@@ -476,25 +359,7 @@ describe("approval model", () => {
   it.each([
     {
       name: "command approval",
-      request: {
-        id: 3,
-        method: "item/commandExecution/requestApproval",
-        params: {
-          kind: "command",
-          command: "npm test",
-          cwd: "/tmp/project",
-          threadId: "thread",
-          turnId: "turn",
-          itemId: "command",
-          environmentId: null,
-          startedAtMs: 1,
-          reason: null,
-          commandActions: [],
-          proposedExecpolicyAmendment: null,
-          proposedNetworkPolicyAmendments: [],
-          availableDecisions: ["acceptForSession", "cancel", "decline"],
-        },
-      },
+      request: commandApprovalRequestFixture(3, { availableDecisions: ["acceptForSession", "cancel", "decline"] }),
       acceptSession: { decision: "acceptForSession" },
       cancel: { decision: "cancel" },
     },

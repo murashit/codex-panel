@@ -26,11 +26,7 @@ describe("createToolbarPanelActions", () => {
   });
 
   it("closes mutually exclusive toolbar panels on outside pointers", () => {
-    const stateStore = createChatStateStore(createChatState());
-    const actions = createToolbarPanelActions({
-      stateStore,
-      threadCommands: { archiveThread: vi.fn() } as unknown as ThreadCommands,
-    });
+    const { stateStore, actions } = toolbarPanelActionsFixture();
     actions.toggleHistory();
     expect(stateStore.getState().ui.toolbarPanel).toBe("history");
 
@@ -43,11 +39,7 @@ describe("createToolbarPanelActions", () => {
   });
 
   it("keeps the panel open during rename while clearing archive confirmation on an outside pointer", () => {
-    const stateStore = createChatStateStore(createChatState());
-    const actions = createToolbarPanelActions({
-      stateStore,
-      threadCommands: { archiveThread: vi.fn() } as unknown as ThreadCommands,
-    });
+    const { stateStore, actions } = toolbarPanelActionsFixture();
     actions.toggleHistory();
     actions.startArchive("thread");
 
@@ -61,11 +53,7 @@ describe("createToolbarPanelActions", () => {
   });
 
   it("keeps archive confirmation only for pointers inside its confirmation row", () => {
-    const stateStore = createChatStateStore(createChatState());
-    const actions = createToolbarPanelActions({
-      stateStore,
-      threadCommands: { archiveThread: vi.fn() } as unknown as ThreadCommands,
-    });
+    const { stateStore, actions } = toolbarPanelActionsFixture();
     actions.toggleHistory();
     actions.startArchive("thread");
 
@@ -135,3 +123,12 @@ describe("createToolbarPanelActions", () => {
     });
   });
 });
+
+function toolbarPanelActionsFixture() {
+  const stateStore = createChatStateStore(createChatState());
+  const actions = createToolbarPanelActions({
+    stateStore,
+    threadCommands: { archiveThread: vi.fn() } as unknown as ThreadCommands,
+  });
+  return { stateStore, actions };
+}

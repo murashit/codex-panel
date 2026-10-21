@@ -6,7 +6,6 @@ import type { GrantedPermissionProfile } from "../../../../generated/app-server/
 import type { McpServerElicitationRequestResponse } from "../../../../generated/app-server/v2/McpServerElicitationRequestResponse";
 import type { PermissionsRequestApprovalResponse } from "../../../../generated/app-server/v2/PermissionsRequestApprovalResponse";
 import type { ToolRequestUserInputResponse } from "../../../../generated/app-server/v2/ToolRequestUserInputResponse";
-import { jsonPreview } from "../../../../shared/ui/json-preview";
 import type {
   ApprovalAction,
   ApprovalActionIntent,
@@ -21,7 +20,9 @@ import type {
   PendingUserInput,
   PendingUserInputQuestion,
 } from "../../domain/pending-requests/model";
+import { addOptional, stringValue } from "../display-values";
 import { permissionRows } from "../mappers/thread-stream/permission-rows";
+import { asRecordOrNull, nonEmptyString, nullableString } from "../value-readers";
 
 type SimpleApprovalDecision = "accept" | "acceptForSession" | "decline" | "cancel";
 type CommandApprovalDecision = CommandExecutionRequestApprovalResponse["decision"];
@@ -445,34 +446,6 @@ function networkPolicyAmendmentLabel(value: unknown): string {
   if (!value || typeof value !== "object") return stringValue(value, "rule");
   const amendment = value as { action?: unknown; host?: unknown };
   return `${nonEmptyString(amendment.action) ?? "rule"} ${nonEmptyString(amendment.host) ?? "(unknown host)"}`;
-}
-
-function addOptional(rows: ApprovalDetailRow[], key: string, value: unknown): void {
-  if (value === null || value === undefined) return;
-  if (Array.isArray(value) && value.length === 0) return;
-  rows.push({ key, value: stringValue(value) });
-}
-
-function stringValue(value: unknown, fallback = ""): string {
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
-  if (Array.isArray(value) && value.every((item) => typeof item === "string" || typeof item === "number" || typeof item === "boolean")) {
-    return value.join("\n");
-  }
-  if (value === null || value === undefined) return fallback;
-  return jsonPreview(value);
-}
-
-function nonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
-}
-
-function nullableString(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
-}
-
-function asRecordOrNull(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
 
 function pendingUserInputParams(params: UserInputParams): PendingUserInput["params"] | null {

@@ -2,11 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient, ClientResponseByMethod } from "../../../../src/app-server/connection/client";
 import { AppServerRpcError } from "../../../../src/app-server/connection/json-rpc-client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
-import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
+import type { TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { CodexInput } from "../../../../src/domain/input/input";
 import { createChatAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
 import { preparedUserInputWithWikiLinkReferencesSkillsAndContext } from "../../../../src/features/chat/application/composer/wikilink-context";
-import { appServerTurnFixture } from "../../../support/app-server-records";
+import {
+  appServerAgentMessageFixture as agentMessage,
+  appServerCompletedTurnFixture as turn,
+  appServerUserMessageFixture as userMessage,
+} from "../../../support/app-server-records";
 import { deferred } from "../../../support/async";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
@@ -141,11 +145,8 @@ describe("chat app-server adapters", () => {
   );
 
   it("starts turns with the session vault path and returns chat-owned turn ids", async () => {
-    const request = vi.fn().mockResolvedValue({ turn: { id: "turn-1" } });
-    const client = { request } as unknown as AppServerClient;
-    const adapter = createTestGateway({
-      currentClient: () => client,
-    }).turn;
+    const { request, gateway } = gatewayWithResponse({ turn: { id: "turn-1" } });
+    const adapter = gateway.turn;
 
     await expect(
       adapter.startTurn({
@@ -164,11 +165,8 @@ describe("chat app-server adapters", () => {
   });
 
   it("starts turns with wikilink and active file context in one app-server payload", async () => {
-    const request = vi.fn().mockResolvedValue({ turn: { id: "turn-1" } });
-    const client = { request } as unknown as AppServerClient;
-    const adapter = createTestGateway({
-      currentClient: () => client,
-    }).turn;
+    const { request, gateway } = gatewayWithResponse({ turn: { id: "turn-1" } });
+    const adapter = gateway.turn;
     const text = "Compare [[Alpha]] with the active file.";
     const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
       text,
@@ -220,11 +218,8 @@ describe("chat app-server adapters", () => {
   });
 
   it("uses the steer client id to namespace bounded context", async () => {
-    const request = vi.fn().mockResolvedValue({});
-    const client = { request } as unknown as AppServerClient;
-    const adapter = createTestGateway({
-      currentClient: () => client,
-    }).turn;
+    const { request, gateway } = gatewayWithResponse({});
+    const adapter = gateway.turn;
 
     await adapter.steerTurn({
       threadId: "thread",
@@ -247,11 +242,8 @@ describe("chat app-server adapters", () => {
   });
 
   it("compacts threads through a connected app-server client", async () => {
-    const request = vi.fn().mockResolvedValue({});
-    const client = { request } as unknown as AppServerClient;
-    const adapter = createTestGateway({
-      currentClient: () => client,
-    }).threadCommands;
+    const { request, gateway } = gatewayWithResponse({});
+    const adapter = gateway.threadCommands;
 
     await expect(adapter.compactThread("thread")).resolves.toEqual({ kind: "completed", value: undefined });
 
@@ -259,11 +251,8 @@ describe("chat app-server adapters", () => {
   });
 
   it("forks threads with the session vault path and returns panel threads", async () => {
-    const request = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
-    const client = { request } as unknown as AppServerClient;
-    const adapter = createTestGateway({
-      currentClient: () => client,
-    }).threadStart;
+    const { request, gateway } = gatewayWithResponse({ thread: threadRecord("forked") });
+    const adapter = gateway.threadStart;
 
     const outcome = await adapter.forkThread("source", {});
 
@@ -275,11 +264,8 @@ describe("chat app-server adapters", () => {
   });
 
   it("forks through a selected turn with an inclusive marker", async () => {
-    const request = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
-    const client = { request } as unknown as AppServerClient;
-    const adapter = createTestGateway({
-      currentClient: () => client,
-    }).threadStart;
+    const { request, gateway } = gatewayWithResponse({ thread: threadRecord("forked") });
+    const adapter = gateway.threadStart;
 
     await adapter.forkThread("source", { position: { kind: "through-turn", turnId: "turn-2" } });
 
@@ -292,11 +278,8 @@ describe("chat app-server adapters", () => {
   });
 
   it("applies active runtime overrides to a rollback fork", async () => {
-    const request = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
-    const client = { request } as unknown as AppServerClient;
-    const adapter = createTestGateway({
-      currentClient: () => client,
-    }).threadStart;
+    const { request, gateway } = gatewayWithResponse({ thread: threadRecord("forked") });
+    const adapter = gateway.threadStart;
 
     await adapter.forkThread("source", {
       position: { kind: "before-turn", turnId: "turn-3" },
@@ -327,11 +310,8 @@ describe("chat app-server adapters", () => {
   });
 
   it("preserves explicit default reasoning and service tier values on a rollback fork", async () => {
-    const request = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
-    const client = { request } as unknown as AppServerClient;
-    const adapter = createTestGateway({
-      currentClient: () => client,
-    }).threadStart;
+    const { request, gateway } = gatewayWithResponse({ thread: threadRecord("forked") });
+    const adapter = gateway.threadStart;
 
     await adapter.forkThread("source", {
       position: { kind: "before-turn", turnId: "turn-3" },
@@ -545,20 +525,8 @@ function threadStartResponse(threadId: string, overrides: Partial<AppServerThrea
   };
 }
 
-function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
-  return appServerTurnFixture({
-    id: "turn",
-    items,
-    itemsView: "full",
-    status: "completed",
-    ...overrides,
-  });
-}
-
-function userMessage(id: string, text: string): TurnItem {
-  return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
-}
-
-function agentMessage(id: string, text: string): TurnItem {
-  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null, delivery: null, questions: null };
+function gatewayWithResponse(response: unknown) {
+  const request = vi.fn().mockResolvedValue(response);
+  const client = { request } as unknown as AppServerClient;
+  return { request, gateway: createTestGateway({ currentClient: () => client }) };
 }

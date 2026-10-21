@@ -154,14 +154,8 @@ describe("turn diff view decisions", () => {
   });
 
   it("does not persist the session-only diff payload in view state", () => {
-    const containerEl = document.createElement("div");
-    const view = new CodexTurnDiffView({ containerEl } as unknown as WorkspaceLeaf);
-    view.setDiffPayload({
-      threadId: "thread",
-      turnId: "turn",
-      files: ["src/main.ts"],
-      diff: "@@\n-old\n+new",
-    });
+    const view = diffView();
+    view.setDiffPayload(diffPayload());
 
     expect(view.getState()).toEqual({});
     expect(view.contentEl.textContent).toContain("old");
@@ -173,14 +167,8 @@ describe("turn diff view decisions", () => {
       ...navigator,
       clipboard: { writeText },
     });
-    const containerEl = document.createElement("div");
-    const view = new CodexTurnDiffView({ containerEl } as unknown as WorkspaceLeaf);
-    view.setDiffPayload({
-      threadId: "thread",
-      turnId: "turn",
-      files: ["src/main.ts"],
-      diff: "@@\n-old\n+new",
-    });
+    const view = diffView();
+    view.setDiffPayload(diffPayload());
 
     view.contentEl.querySelector<HTMLButtonElement>(".codex-panel-turn-diff__copy")?.click();
 
@@ -190,8 +178,7 @@ describe("turn diff view decisions", () => {
   });
 
   it("unmounts the turn diff Preact root when the view closes", async () => {
-    const containerEl = document.createElement("div");
-    const view = new CodexTurnDiffView({ containerEl } as unknown as WorkspaceLeaf);
+    const view = diffView();
 
     view.setDiffPayload({
       threadId: "thread",
@@ -207,3 +194,16 @@ describe("turn diff view decisions", () => {
     expect(view.contentEl.childElementCount).toBe(0);
   });
 });
+
+function diffView() {
+  return new CodexTurnDiffView({ containerEl: document.createElement("div") } as unknown as WorkspaceLeaf);
+}
+
+function diffPayload() {
+  return {
+    threadId: "thread",
+    turnId: "turn",
+    files: ["src/main.ts"],
+    diff: "@@\n-old\n+new",
+  };
+}

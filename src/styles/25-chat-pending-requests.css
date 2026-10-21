@@ -1,3 +1,10 @@
+.codex-panel__user-input-header,
+.codex-panel__mcp-elicitation-label {
+  color: var(--codex-panel-item-title-color);
+  font-size: var(--codex-panel-item-title-size);
+  font-weight: var(--codex-panel-item-title-weight);
+}
+
 .codex-panel__pending-request-block {
   display: flex;
   flex-direction: column;
@@ -65,12 +72,6 @@
   margin-top: var(--codex-panel-item-gap);
 }
 
-.codex-panel__user-input-header {
-  color: var(--codex-panel-item-title-color);
-  font-size: var(--codex-panel-item-title-size);
-  font-weight: var(--codex-panel-item-title-weight);
-}
-
 .codex-panel__user-input-prompt {
   color: var(--text-muted);
   font-size: var(--font-ui-small);
@@ -83,7 +84,8 @@
   margin-top: calc(var(--codex-panel-section-gap) - var(--codex-panel-control-gap));
 }
 
-.codex-panel__user-input-option {
+.codex-panel__user-input-option,
+.codex-panel__mcp-elicitation-option {
   position: relative;
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
@@ -97,7 +99,8 @@
   cursor: default;
 }
 
-.codex-panel__user-input-option:hover {
+.codex-panel__user-input-option:hover,
+.codex-panel__mcp-elicitation-option:hover {
   color: var(--nav-item-color-hover, var(--text-normal));
   background: var(--background-modifier-hover);
 }
@@ -114,7 +117,8 @@
   font-size: var(--font-ui-smaller);
 }
 
-.codex-panel__user-input-text {
+.codex-panel__user-input-text,
+.codex-panel__mcp-elicitation-input {
   width: 100%;
   min-height: var(--codex-panel-size-user-input-text-min-height);
   min-width: 0;
@@ -152,9 +156,6 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--codex-panel-item-gap);
-  color: var(--codex-panel-item-title-color);
-  font-size: var(--codex-panel-item-title-size);
-  font-weight: var(--codex-panel-item-title-weight);
 }
 
 .codex-panel__mcp-elicitation-required {
@@ -169,13 +170,6 @@
   line-height: var(--line-height-tight);
 }
 
-.codex-panel__mcp-elicitation-input {
-  width: 100%;
-  min-height: var(--codex-panel-size-user-input-text-min-height);
-  min-width: 0;
-  font-size: var(--font-ui-small);
-}
-
 .codex-panel__mcp-elicitation-options {
   display: grid;
   gap: var(--codex-panel-control-gap);
@@ -183,25 +177,6 @@
   margin: 0;
   border: 0;
   padding: 0;
-}
-
-.codex-panel__mcp-elicitation-option {
-  position: relative;
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: var(--codex-panel-control-gap) var(--codex-panel-item-gap);
-  align-items: start;
-  padding: 0 var(--codex-panel-control-gap);
-  border-radius: var(--radius-s);
-  color: var(--text-muted);
-  font-size: var(--font-ui-small);
-  line-height: var(--line-height-tight);
-  cursor: default;
-}
-
-.codex-panel__mcp-elicitation-option:hover {
-  color: var(--nav-item-color-hover, var(--text-normal));
-  background: var(--background-modifier-hover);
 }
 
 .codex-panel__mcp-elicitation-radio,

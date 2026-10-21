@@ -295,17 +295,7 @@ describe("VaultNoteCandidateProvider", () => {
   });
 
   it("shows the matching retained selection only while its owning panel is foreground", () => {
-    const file = tFile("notes/Alpha.md", "Alpha");
-    const view = markdownView(file, {
-      selection: "selected text",
-      from: { line: 2, ch: 4 },
-      to: { line: 3, ch: 1 },
-    });
-    const app = appFixture({
-      activeView: view,
-      abstractFiles: new Map([[file.path, file]]),
-      linktexts: new Map([[file.path, "Alpha"]]),
-    });
+    const { view, app } = retainedSelectionFixture();
     let panelForeground = true;
     const provider = new VaultComposerContextReferenceProvider(app, () => panelForeground);
     const selection = provider.contextReferences("Inbox.md").selection;
@@ -407,17 +397,7 @@ describe("VaultNoteCandidateProvider", () => {
   });
 
   it("routes retained selection visibility independently between panel providers", () => {
-    const file = tFile("notes/Alpha.md", "Alpha");
-    const view = markdownView(file, {
-      selection: "selected text",
-      from: { line: 2, ch: 4 },
-      to: { line: 3, ch: 1 },
-    });
-    const app = appFixture({
-      activeView: view,
-      abstractFiles: new Map([[file.path, file]]),
-      linktexts: new Map([[file.path, "Alpha"]]),
-    });
+    const { app } = retainedSelectionFixture();
     let firstForeground = true;
     let secondForeground = false;
     const first = new VaultComposerContextReferenceProvider(app, () => firstForeground);
@@ -595,4 +575,19 @@ function tagFixtureForPath(
 
 function vaultFiles(files: { basename: string; path: string; stat: { mtime: number } }[]): TFile[] {
   return files.map((file) => Object.assign(tFile(file.path, file.basename), { stat: file.stat }));
+}
+
+function retainedSelectionFixture() {
+  const file = tFile("notes/Alpha.md", "Alpha");
+  const view = markdownView(file, {
+    selection: "selected text",
+    from: { line: 2, ch: 4 },
+    to: { line: 3, ch: 1 },
+  });
+  const app = appFixture({
+    activeView: view,
+    abstractFiles: new Map([[file.path, file]]),
+    linktexts: new Map([[file.path, "Alpha"]]),
+  });
+  return { view, app };
 }

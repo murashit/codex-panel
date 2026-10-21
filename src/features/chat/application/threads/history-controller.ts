@@ -53,20 +53,11 @@ export class HistoryController {
     this.dispatch({ type: "thread-stream/history-loading-set", loading: false });
   }
 
-  async loadLatest(threadId = activeThreadId(this.state), options: LatestHistoryDisplayOptions = {}): Promise<void> {
-    if (!threadId || this.state.panelThread.kind === "fork-draft") return;
-    const load = this.startLoading(threadId);
-    try {
-      const response = await this.host.source.readHistoryPage(threadId, null, 20);
-      if (!response) return;
-      if (!this.isCurrent(load)) return;
-      this.applyLatestPage(threadId, response, options, load.stableItems);
-    } catch (error) {
-      if (!this.isCurrent(load)) return;
-      this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      this.finishLoading(load);
-    }
+  loadLatest(threadId = activeThreadId(this.state), options: LatestHistoryDisplayOptions = {}): Promise<void> {
+    if (!threadId || this.state.panelThread.kind === "fork-draft") return Promise.resolve();
+    return this.loadPage(threadId, null, (response, stableItems) => {
+      this.applyLatestPage(threadId, response, options, stableItems);
+    });
   }
 
   applyInitialPage(threadId: string, response: ThreadHistoryPage, options: LatestHistoryDisplayOptions = {}): boolean {
@@ -90,21 +81,30 @@ export class HistoryController {
     return true;
   }
 
-  async loadOlder(): Promise<void> {
+  loadOlder(): Promise<void> {
     const state = this.state;
     const threadId = historySourceThreadId(state);
-    if (!threadId || !state.threadStream.historyCursor || state.threadStream.loadingHistory) return;
-    const cursor = state.threadStream.historyCursor;
+    if (!threadId || !state.threadStream.historyCursor || state.threadStream.loadingHistory) return Promise.resolve();
+    return this.loadPage(threadId, state.threadStream.historyCursor, (response, stableItems) => {
+      this.publishHistoryItems(
+        reconcileForkDisplayItems(stableItems, response.items, { missingTurns: "prepend" }),
+        response.nextCursor,
+        stableItems,
+      );
+    });
+  }
+
+  private async loadPage(
+    threadId: string,
+    cursor: string | null,
+    applyPage: (response: ThreadHistoryPage, stableItems: readonly ThreadStreamItem[]) => void,
+  ): Promise<void> {
     const load = this.startLoading(threadId);
     try {
       const response = await this.host.source.readHistoryPage(threadId, cursor, 20);
       if (!response) return;
       if (!this.isCurrent(load)) return;
-      this.publishHistoryItems(
-        reconcileForkDisplayItems(load.stableItems, response.items, { missingTurns: "prepend" }),
-        response.nextCursor,
-        load.stableItems,
-      );
+      applyPage(response, load.stableItems);
     } catch (error) {
       if (!this.isCurrent(load)) return;
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));

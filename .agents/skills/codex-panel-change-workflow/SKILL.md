@@ -19,6 +19,8 @@ Use the independent review conditions in `AGENTS.md`. Give reviewers the require
 
 Apply [Review and Simplify a Change](../../../docs/development.md#review-and-simplify-a-change) and [Write Tests That Survive Refactoring](../../../docs/development.md#write-tests-that-survive-refactoring) to the related implementation, tests, fixtures, and documentation, including pre-existing paths outside the diff. Review the assurance provided by the existing and proposed arrangement together, rather than justifying additions individually.
 
+For change review after implementation and the separate simplification pass, run `npm run review:duplication` and assess matches using [Investigate Duplication](../../../docs/development.md#investigate-duplication). Judge existing and new code equally; generated bindings are excluded and the report is review information, not a zero-duplication gate.
+
 After review-driven edits, recheck the affected contracts, comparisons, and validation. If a later change could alter a review judgment, have that part assessed again against the final head, using independent review where required. A review or CI pass for an earlier state does not establish completion of the final change.
 
 Once substantial implementation works and known findings are resolved, request the separate fresh read-only simplification pass required by `AGENTS.md`, using the neutral reviewer instructions above and the shared comparison criteria. The primary agent owns the decision: assess the related structure and alternatives, implement worthwhile improvements, then review and validate the result. Record the comparison and decision briefly in the work discussion. Review agreement does not replace this assessment.

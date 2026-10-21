@@ -191,43 +191,27 @@ describe("runtime control resolution", () => {
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBe("fast");
   });
 
-  it("treats the catalog Fast service tier id as fast mode while preserving the id", () => {
+  it.each([
+    { name: "catalog Fast tier id", reportedTier: "priority", expectedTier: "priority", expectedFast: true },
+    { name: "reported default tier after clearing Fast", reportedTier: "default", expectedTier: "default", expectedFast: false },
+  ])("resolves the $name", ({ reportedTier, expectedTier, expectedFast }) => {
     const model = {
       ...modelFixture("gpt-5.5"),
       serviceTiers: [{ id: "priority", name: "Fast" }],
     };
-    // app-server may advertise Fast with an id such as "priority";
-    // last verified against codex app-server 0.142.0.
+    // The Fast display name can identify an app-server tier id such as "priority".
     const snapshot = runtimeSnapshot({
       activeThreadId: "thread",
-      active: { model: "gpt-5.5", serviceTier: "priority" },
+      active: { model: "gpt-5.5", serviceTier: reportedTier },
       runtimeConfig: runtimeConfigFromAppServerFixture({ model: "gpt-5.5" }),
       availableModels: [model],
     });
 
     const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
 
-    expect(resolution.serviceTier.effective).toBe("priority");
-    expect(resolution.fastMode.active).toBe(true);
+    expect(resolution.serviceTier.effective).toBe(expectedTier);
+    expect(resolution.fastMode.active).toBe(expectedFast);
     expect(resolution.fastMode.serviceTierRequestValue).toBe("priority");
-  });
-
-  it("treats the app-server reported default tier after clearing Fast as fast mode off", () => {
-    const model = {
-      ...modelFixture("gpt-5.5"),
-      serviceTiers: [{ id: "priority", name: "Fast" }],
-    };
-    const snapshot = runtimeSnapshot({
-      activeThreadId: "thread",
-      active: { model: "gpt-5.5", serviceTier: "default" },
-      runtimeConfig: runtimeConfigFromAppServerFixture({ model: "gpt-5.5" }),
-      availableModels: [model],
-    });
-
-    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
-
-    expect(resolution.serviceTier.effective).toBe("default");
-    expect(resolution.fastMode.active).toBe(false);
   });
 
   it("uses requested Fast mode above active and configured service tiers", () => {

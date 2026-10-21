@@ -109,23 +109,7 @@ describe("ComposerShell decisions", () => {
     const parent = document.createElement("div");
 
     mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, composerCallbacks(), {
-      fatal: null,
-      context: {
-        cells: [
-          { text: "⣿", placeholder: false },
-          { text: "⣶", placeholder: false },
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-        ],
-        percent: "42%",
-      },
-      statusSummary: "Context 42%, plan on, auto-review off, fast on, model gpt-5.5, reasoning effort high",
-      model: "gpt-5.5",
-      effort: "high",
-      planActive: true,
-      autoReviewActive: false,
-      fastAvailable: true,
-      fastActive: true,
+      ...activeComposerMetaFixture(),
       modelChoices: [
         { label: "gpt-5.5", onClick: vi.fn() },
         { label: "gpt-5.4", onClick: vi.fn() },
@@ -201,23 +185,7 @@ describe("ComposerShell decisions", () => {
     const selectEffort = vi.fn();
 
     mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, callbacks, {
-      fatal: null,
-      context: {
-        cells: [
-          { text: "⣿", placeholder: false },
-          { text: "⣶", placeholder: false },
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-        ],
-        percent: "42%",
-      },
-      statusSummary: "Context 42%, plan on, auto-review off, fast on, model gpt-5.5, reasoning effort high",
-      model: "gpt-5.5",
-      effort: "high",
-      planActive: true,
-      autoReviewActive: false,
-      fastAvailable: true,
-      fastActive: true,
+      ...activeComposerMetaFixture(),
       modelChoices: [
         { label: "gpt-5.5", onClick: vi.fn() },
         { label: "gpt-5.4", onClick: selectModel },
@@ -329,23 +297,7 @@ describe("ComposerShell decisions", () => {
     const parent = document.createElement("div");
 
     mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, composerCallbacks(), {
-      fatal: null,
-      context: {
-        cells: [
-          { text: "⣿", placeholder: false },
-          { text: "⣶", placeholder: false },
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-        ],
-        percent: "42%",
-      },
-      statusSummary: "Context 42%, plan on, auto-review off, fast on, model gpt-5.5, reasoning effort high",
-      model: "gpt-5.5",
-      effort: "high",
-      planActive: true,
-      autoReviewActive: false,
-      fastAvailable: true,
-      fastActive: true,
+      ...activeComposerMetaFixture(),
       modelChoices: [],
       effortChoices: [],
     });
@@ -382,25 +334,11 @@ describe("ComposerShell decisions", () => {
     const parent = document.createElement("div");
 
     mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, composerCallbacks(), {
+      ...DEFAULT_COMPOSER_META,
       fatal: "Codex app-server disconnected",
-      context: {
-        cells: [
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-        ],
-        percent: "--%",
-      },
       statusSummary: "Codex app-server disconnected",
       model: "",
-      effort: null,
-      planActive: false,
-      autoReviewActive: false,
       fastAvailable: false,
-      fastActive: false,
-      modelChoices: [],
-      effortChoices: [],
     });
 
     expect(parent.querySelector(".codex-panel__composer-meta-fatal")?.textContent).toBe("Codex app-server disconnected");
@@ -601,3 +539,27 @@ describe("ComposerShell decisions", () => {
     expect(composer.style.overflowY).toBe("auto");
   });
 });
+
+function activeComposerMetaFixture(): ComposerMetaViewModel {
+  return {
+    fatal: null,
+    context: {
+      cells: [
+        { text: "⣿", placeholder: false },
+        { text: "⣶", placeholder: false },
+        { text: "⣀", placeholder: true },
+        { text: "⣀", placeholder: true },
+      ],
+      percent: "42%",
+    },
+    statusSummary: "Context 42%, plan on, auto-review off, fast on, model gpt-5.5, reasoning effort high",
+    model: "gpt-5.5",
+    effort: "high",
+    planActive: true,
+    autoReviewActive: false,
+    fastAvailable: true,
+    fastActive: true,
+    modelChoices: [],
+    effortChoices: [],
+  };
+}

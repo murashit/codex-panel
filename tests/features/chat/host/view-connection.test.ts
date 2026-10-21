@@ -12,11 +12,14 @@ import { deferred, waitForAsyncWork } from "../../../support/async";
 import {
   chatHost,
   chatView,
+  chatViewForClient,
   chatViewRuntimeOwner,
   completedTurn,
   connectedClient,
   connectionMockState,
+  expectMetadataRequestedOnce,
   expectRequestTimes,
+  openedChatView,
   requestMethods,
   requiredButton,
   requiredTextArea,
@@ -37,9 +40,7 @@ describe("CodexChatView connection lifecycle", () => {
       "thread/read": vi.fn().mockResolvedValue({ thread: threadFixture("thread-1"), readState: { revision: "read", firstUnread: null } }),
       "thread/readState/update": markRead,
     });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
+    const view = await openedChatView(client);
     await view.surface.activateThread("thread-1", { focus: false });
     await waitForAsyncWork(() => expectRequestTimes(client, "thread/read", 1));
 
@@ -145,9 +146,7 @@ describe("CodexChatView connection lifecycle", () => {
         return response.promise;
       }),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
+    const view = await openedChatView(client);
     const opening = view.surface.activateThread("thread-1", { focus: false });
     await waitForAsyncWork(() => expectRequestTimes(client, "thread/resume", 1));
     // App-server sends the snapshot before replay, without a turn/started notification.
@@ -232,17 +231,12 @@ describe("CodexChatView connection lifecycle", () => {
 
   it("shares post-initialize metadata loading across concurrent connect calls", async () => {
     const client = connectedClient();
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     await Promise.all([view.surface.connect(), view.surface.connect()]);
 
     expect(connectionMockState().connectCalls).toBe(1);
-    expectRequestTimes(client, "config/read", 1);
-    expectRequestTimes(client, "model/list", 1);
-    expectRequestTimes(client, "skills/list", 1);
-    expectRequestTimes(client, "permissionProfile/list", 1);
-    expectRequestTimes(client, "account/rateLimits/read", 1);
+    expectMetadataRequestedOnce(client);
     expectRequestTimes(client, "thread/list", 2);
   });
 
@@ -251,8 +245,7 @@ describe("CodexChatView connection lifecycle", () => {
     const client = connectedClient({
       "config/read": vi.fn(() => config.promise),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     const opening = view.surface.activateThread("thread-1");
     await waitForAsyncWork(() => {
@@ -283,15 +276,8 @@ describe("CodexChatView connection lifecycle", () => {
   });
 
   it("keeps the latest explicit target when an older activation finishes later", async () => {
-    const delayed = deferred<ReturnType<typeof resumedThread>>();
-    const client = connectedClient({
-      "thread/resume": vi.fn((params) => {
-        const { threadId } = params as { threadId: string };
-        return threadId === "thread-b" ? delayed.promise : Promise.resolve(resumedThread(threadId));
-      }),
-    });
-    connectionMockState().client = client;
-    const view = await chatView();
+    const { client, delayed } = delayedThreadResumeClient("thread-b");
+    const view = await chatViewForClient(client);
     await view.surface.activateThread("thread-a", { focus: false });
 
     const openingB = view.surface.activateThread("thread-b", { focus: false });
@@ -313,8 +299,7 @@ describe("CodexChatView connection lifecycle", () => {
       "thread/resume": vi.fn().mockResolvedValue(resumedThread("thread-a")),
       "thread/turns/list": vi.fn(() => history.promise),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     const opening = view.surface.activateThread("thread-a", { focus: false });
     await waitForAsyncWork(() => {
@@ -335,9 +320,7 @@ describe("CodexChatView connection lifecycle", () => {
         return threadId === "thread-b" ? Promise.reject(new Error("Resume failed")) : Promise.resolve(resumedThread(threadId));
       }),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
+    const view = await openedChatView(client);
     await view.surface.activateThread("thread-a", { focus: false });
     view.surface.setComposerText("Keep this draft");
 
@@ -348,15 +331,8 @@ describe("CodexChatView connection lifecycle", () => {
   });
 
   it("does not replace explicit navigation with a passive panel focus", async () => {
-    const delayed = deferred<ReturnType<typeof resumedThread>>();
-    const client = connectedClient({
-      "thread/resume": vi.fn((params) => {
-        const { threadId } = params as { threadId: string };
-        return threadId === "thread-b" ? delayed.promise : Promise.resolve(resumedThread(threadId));
-      }),
-    });
-    connectionMockState().client = client;
-    const view = await chatView();
+    const { client, delayed } = delayedThreadResumeClient("thread-b");
+    const view = await chatViewForClient(client);
     await view.surface.activateThread("thread-a", { focus: false });
 
     const openingB = view.surface.activateThread("thread-b", { focus: false });
@@ -446,9 +422,7 @@ describe("CodexChatView connection lifecycle", () => {
         });
       }),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
+    const view = await openedChatView(client);
     await view.surface.activateThread("thread-1", { focus: false });
 
     await waitForAsyncWork(() => {
@@ -548,9 +522,7 @@ describe("CodexChatView connection lifecycle", () => {
       "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("ephemeral-a") }),
       "thread/goal/get": vi.fn().mockRejectedValue(new Error("ephemeral goals are unsupported")),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
+    const view = await openedChatView(client);
 
     await view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
     await waitForAsyncWork(() => {
@@ -566,9 +538,7 @@ describe("CodexChatView connection lifecycle", () => {
       "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("side") }),
       "thread/resume": vi.fn().mockResolvedValue(resumedThread("other")),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
+    const view = await openedChatView(client);
     await view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
     expect(view.surface.openPanelSnapshot().turnBusy).toBe(true);
     const switching =
@@ -585,9 +555,7 @@ describe("CodexChatView connection lifecycle", () => {
       "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("side") }),
       "turn/start": vi.fn(() => started.promise),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
+    const view = await openedChatView(client);
     const opening = view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
     await waitForAsyncWork(() => expectRequestTimes(client, "turn/start", 1));
     await view.surface.startNewThread();
@@ -644,9 +612,7 @@ describe("CodexChatView connection lifecycle", () => {
         return {};
       }),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
+    const view = await openedChatView(client);
     await view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
     connectionMockState().onNotification?.({
       method: "turn/completed",
@@ -663,9 +629,7 @@ describe("CodexChatView connection lifecycle", () => {
       "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
       "thread/fork": vi.fn(() => fork.promise),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
+    const view = await openedChatView(client);
 
     const opening = view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
     await waitForAsyncWork(() => expectRequestTimes(client, "thread/fork", 1));
@@ -680,9 +644,7 @@ describe("CodexChatView connection lifecycle", () => {
       "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
       "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("side") }),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
+    const view = await openedChatView(client);
 
     await view.surface.applyForkDraft(sideChatDraft("source", "Source"), initialMessage);
 
@@ -702,9 +664,7 @@ describe("CodexChatView connection lifecycle", () => {
       "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("side") }),
       "turn/start": vi.fn(() => turn.promise),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
+    const view = await openedChatView(client);
     const opening = view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
     await waitForAsyncWork(() => expectRequestTimes(client, "turn/start", 1));
     const input = requiredTextArea(view.containerEl, ".codex-panel__composer-input");
@@ -799,9 +759,7 @@ describe("CodexChatView connection lifecycle", () => {
       "thread/start": vi.fn(() => start.promise),
       "thread/goal/set": vi.fn().mockResolvedValue({ goal }),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
+    const view = await openedChatView(client);
     view.surface.setComposerText("Keep my unsent prompt");
 
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Show chat actions"]')?.click();
@@ -862,9 +820,7 @@ describe("CodexChatView connection lifecycle", () => {
     const client = connectedClient({
       "thread/goal/get": vi.fn().mockRejectedValue(new Error("goal unavailable")),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
+    const view = await openedChatView(client);
 
     await view.surface.activateThread("thread-1", { focus: false });
     await waitForAsyncWork(() => {
@@ -875,13 +831,8 @@ describe("CodexChatView connection lifecycle", () => {
   });
 
   it("keeps a goal update notification over an earlier in-flight goal read", async () => {
-    const oldRead = deferred<{ goal: ThreadGoal | null }>();
-    const client = connectedClient({
-      "thread/goal/get": vi.fn(() => oldRead.promise),
-    });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
+    const { client, oldRead } = pendingGoalReadClient();
+    const view = await openedChatView(client);
 
     const opening = view.surface.activateThread("thread-1", { focus: false });
     await waitForAsyncWork(() => {
@@ -907,13 +858,8 @@ describe("CodexChatView connection lifecycle", () => {
   });
 
   it("keeps a goal notification when the canceled read later rejects", async () => {
-    const oldRead = deferred<{ goal: ThreadGoal | null }>();
-    const client = connectedClient({
-      "thread/goal/get": vi.fn(() => oldRead.promise),
-    });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
+    const { client, oldRead } = pendingGoalReadClient();
+    const view = await openedChatView(client);
 
     const opening = view.surface.activateThread("thread-1", { focus: false });
     await waitForAsyncWork(() => {
@@ -933,13 +879,8 @@ describe("CodexChatView connection lifecycle", () => {
   });
 
   it("keeps a goal clear notification over an earlier in-flight goal read", async () => {
-    const oldRead = deferred<{ goal: ThreadGoal | null }>();
-    const client = connectedClient({
-      "thread/goal/get": vi.fn(() => oldRead.promise),
-    });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
+    const { client, oldRead } = pendingGoalReadClient();
+    const view = await openedChatView(client);
 
     const opening = view.surface.activateThread("thread-1", { focus: false });
     await waitForAsyncWork(() => {
@@ -967,8 +908,7 @@ describe("CodexChatView connection lifecycle", () => {
           }),
       ),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     const connecting = view.surface.connect();
     await waitForAsyncWork(() => {
@@ -1017,8 +957,7 @@ describe("CodexChatView connection lifecycle", () => {
     const client = connectedClient({
       "config/read": vi.fn(() => config.promise),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     const connecting = view.surface.connect();
     await waitForAsyncWork(() => {
@@ -1057,4 +996,21 @@ function mcpStatus(name: string) {
     authStatus: "oAuth" as const,
     runtimeStatus: "connected" as const,
   };
+}
+
+function delayedThreadResumeClient(delayedThreadId: string) {
+  const delayed = deferred<ReturnType<typeof resumedThread>>();
+  const client = connectedClient({
+    "thread/resume": vi.fn((params) => {
+      const { threadId } = params as { threadId: string };
+      return threadId === delayedThreadId ? delayed.promise : Promise.resolve(resumedThread(threadId));
+    }),
+  });
+  return { client, delayed };
+}
+
+function pendingGoalReadClient() {
+  const oldRead = deferred<{ goal: ThreadGoal | null }>();
+  const client = connectedClient({ "thread/goal/get": vi.fn(() => oldRead.promise) });
+  return { client, oldRead };
 }

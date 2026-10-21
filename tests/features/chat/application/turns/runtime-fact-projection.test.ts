@@ -108,16 +108,7 @@ describe("TurnRuntimeFact projection", () => {
     let state = activeRunningState();
     state = chatReducer(state, {
       type: "thread-stream/pending-steer-added",
-      item: {
-        id: "local-steer",
-        clientId: "local-steer",
-        kind: "dialogue",
-        dialogueKind: "user",
-        role: "user",
-        text: "follow up",
-        turnId: "turn-active",
-        contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
-      },
+      item: pendingSteerFixture({ contextAttachments: [{ label: "Web page", detail: "https://example.com/" }] }),
     });
 
     const projection = projectTurnRuntimeFact(state, {
@@ -161,15 +152,7 @@ describe("TurnRuntimeFact projection", () => {
     ]);
     state = chatReducer(state, {
       type: "thread-stream/pending-steer-added",
-      item: {
-        id: "local-steer",
-        clientId: "local-steer",
-        kind: "dialogue",
-        dialogueKind: "user",
-        role: "user",
-        text: "follow up",
-        turnId: "turn-active",
-      },
+      item: pendingSteerFixture(),
     });
 
     const projection = projectTurnRuntimeFact(state, {
@@ -205,15 +188,7 @@ describe("TurnRuntimeFact projection", () => {
     let state = activeRunningState();
     state = chatReducer(state, {
       type: "thread-stream/pending-steer-added",
-      item: {
-        id: "local-steer",
-        clientId: "local-steer",
-        kind: "dialogue",
-        dialogueKind: "user",
-        role: "user",
-        text: "follow up",
-        turnId: "turn-active",
-      },
+      item: pendingSteerFixture(),
     });
 
     const projection = projectTurnRuntimeFact(state, {
@@ -289,3 +264,18 @@ describe("TurnRuntimeFact projection", () => {
     expect(next.activeTurn.pendingSteers).toEqual([]);
   });
 });
+
+function pendingSteerFixture(
+  overrides: Partial<Extract<ThreadStreamItem, { kind: "dialogue"; dialogueKind: "user" }>> = {},
+): Extract<ThreadStreamItem, { kind: "dialogue"; dialogueKind: "user" }> {
+  return {
+    id: "local-steer",
+    clientId: "local-steer",
+    kind: "dialogue",
+    dialogueKind: "user",
+    role: "user",
+    text: "follow up",
+    turnId: "turn-active",
+    ...overrides,
+  };
+}

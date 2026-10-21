@@ -432,14 +432,7 @@ describe("CodexPanelPlugin runtime integration", () => {
   });
 
   it.each(["showToolbar", "newConversationsEphemeral"] as const)("refreshes only chat settings when %s changes", async (key) => {
-    const chatLeaf = leaf();
-    chatLeaf.view = chatView(CodexChatView, chatLeaf);
-    const refreshChat = vi.spyOn((chatLeaf.view as CodexChatView).surface, "refreshSettings");
-    const threadsView = Object.create(CodexThreadsView.prototype) as InstanceType<typeof CodexThreadsView>;
-    const refreshThreads = vi.spyOn(threadsView, "refreshSettings");
-    const threadsLeaf = leaf();
-    threadsLeaf.view = threadsView;
-    const plugin = await pluginWithLeaves([chatLeaf], { threadsLeaves: [threadsLeaf] });
+    const { plugin, refreshChat, refreshThreads } = await settingsSurfaces();
 
     await plugin.runtime.settingTabHost().publishSettings({ ...plugin.settings, [key]: !plugin.settings[key] });
 
@@ -448,14 +441,7 @@ describe("CodexPanelPlugin runtime integration", () => {
   });
 
   it("refreshes chat and Threads settings when the archive default changes", async () => {
-    const chatLeaf = leaf();
-    chatLeaf.view = chatView(CodexChatView, chatLeaf);
-    const refreshChat = vi.spyOn((chatLeaf.view as CodexChatView).surface, "refreshSettings");
-    const threadsView = Object.create(CodexThreadsView.prototype) as InstanceType<typeof CodexThreadsView>;
-    const refreshThreads = vi.spyOn(threadsView, "refreshSettings");
-    const threadsLeaf = leaf();
-    threadsLeaf.view = threadsView;
-    const plugin = await pluginWithLeaves([chatLeaf], { threadsLeaves: [threadsLeaf] });
+    const { plugin, refreshChat, refreshThreads } = await settingsSurfaces();
 
     await plugin.runtime
       .settingTabHost()
@@ -465,3 +451,15 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(refreshThreads).toHaveBeenCalledOnce();
   });
 });
+
+async function settingsSurfaces() {
+  const chatLeaf = leaf();
+  chatLeaf.view = chatView(CodexChatView, chatLeaf);
+  const refreshChat = vi.spyOn((chatLeaf.view as CodexChatView).surface, "refreshSettings");
+  const threadsView = Object.create(CodexThreadsView.prototype) as InstanceType<typeof CodexThreadsView>;
+  const refreshThreads = vi.spyOn(threadsView, "refreshSettings");
+  const threadsLeaf = leaf();
+  threadsLeaf.view = threadsView;
+  const plugin = await pluginWithLeaves([chatLeaf], { threadsLeaves: [threadsLeaf] });
+  return { plugin, refreshChat, refreshThreads };
+}

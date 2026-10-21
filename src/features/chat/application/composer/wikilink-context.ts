@@ -236,9 +236,7 @@ function parseWikiLink(raw: string): ParsedWikiLink | null {
 }
 
 function parseWikiLinkTarget(linktext: string): { path: string; subpath: string } {
-  const headingIndex = linktext.indexOf("#");
-  const blockIndex = linktext.indexOf("^");
-  const subpathStart = headingIndex === -1 ? blockIndex : blockIndex === -1 ? headingIndex : Math.min(headingIndex, blockIndex);
+  const subpathStart = linktext.search(/[#^]/);
   return subpathStart === -1
     ? { path: linktext, subpath: "" }
     : { path: linktext.slice(0, subpathStart), subpath: linktext.slice(subpathStart) };

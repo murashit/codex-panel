@@ -81,12 +81,7 @@ describe("ConnectionManager", () => {
 
   it("shares an in-flight connection attempt", async () => {
     let transport!: SilentTransport;
-    const manager = new ConnectionManager(
-      "/bin/codex",
-      "/vault",
-      TEST_INITIALIZE_PARAMS,
-      testClientFactory({ onTransport: (next) => (transport = next) }),
-    );
+    const manager = managerFixture((next) => (transport = next));
 
     const first = manager.connect(silentConnectionHandlers());
     const second = manager.connect(silentConnectionHandlers());
@@ -124,12 +119,7 @@ describe("ConnectionManager", () => {
   it("transitions to disconnected when a connected client exits", async () => {
     let transport!: SilentTransport;
     const onExit = vi.fn();
-    const manager = new ConnectionManager(
-      "/bin/codex",
-      "/vault",
-      TEST_INITIALIZE_PARAMS,
-      testClientFactory({ onTransport: (next) => (transport = next) }),
-    );
+    const manager = managerFixture((next) => (transport = next));
     const connecting = manager.connect({ ...silentConnectionHandlers(), onExit });
     transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } });
     await connecting;
@@ -143,12 +133,7 @@ describe("ConnectionManager", () => {
   it("rejects app-server exit during initialization without reporting a connected-client exit", async () => {
     let transport!: SilentTransport;
     const onExit = vi.fn();
-    const manager = new ConnectionManager(
-      "/bin/codex",
-      "/vault",
-      TEST_INITIALIZE_PARAMS,
-      testClientFactory({ onTransport: (next) => (transport = next) }),
-    );
+    const manager = managerFixture((next) => (transport = next));
 
     const connecting = manager.connect({ ...silentConnectionHandlers(), onExit });
     transport.emitExit();
@@ -161,12 +146,7 @@ describe("ConnectionManager", () => {
   it("marks initialization completed after disconnect as stale", async () => {
     let transport!: SilentTransport;
     const onExit = vi.fn();
-    const manager = new ConnectionManager(
-      "/bin/codex",
-      "/vault",
-      TEST_INITIALIZE_PARAMS,
-      testClientFactory({ onTransport: (next) => (transport = next) }),
-    );
+    const manager = managerFixture((next) => (transport = next));
 
     const connecting = manager.connect({ ...silentConnectionHandlers(), onExit });
     manager.disconnect();
@@ -180,12 +160,7 @@ describe("ConnectionManager", () => {
 
   it("stops the transport when disconnecting an initialized client", async () => {
     let transport!: SilentTransport;
-    const manager = new ConnectionManager(
-      "/bin/codex",
-      "/vault",
-      TEST_INITIALIZE_PARAMS,
-      testClientFactory({ onTransport: (next) => (transport = next) }),
-    );
+    const manager = managerFixture((next) => (transport = next));
     const connecting = manager.connect(silentConnectionHandlers());
     transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } });
     await connecting;
@@ -226,4 +201,8 @@ function testClientFactory(options: {
         return transport;
       },
     });
+}
+
+function managerFixture(onTransport: (transport: SilentTransport) => void) {
+  return new ConnectionManager("/bin/codex", "/vault", TEST_INITIALIZE_PARAMS, testClientFactory({ onTransport }));
 }

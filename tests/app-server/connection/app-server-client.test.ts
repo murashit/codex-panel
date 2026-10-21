@@ -65,31 +65,35 @@ class FakeTransport implements AppServerTransport {
   }
 }
 
-async function connectedClient(
-  handlerOverrides: Partial<AppServerClientHandlers> = {},
-): Promise<{ client: AppServerClient; transport: FakeTransport }> {
-  let transport!: FakeTransport;
+function clientFixture(handlerOverrides: Partial<AppServerClientHandlers> = {}) {
+  let transport: FakeTransport | undefined;
   const client = createTestClient({
-    handlers: {
-      onNotification: () => undefined,
-      onServerRequest: () => undefined,
-      onLog: () => undefined,
-      onExit: () => undefined,
-      ...handlerOverrides,
-    },
+    handlers: handlerOverrides,
     transportFactory: (handlers) => {
       transport = new FakeTransport(handlers);
       return transport;
     },
   });
-  const connecting = client.connect();
-  transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+  return {
+    client,
+    get transport() {
+      return expectTransport(transport);
+    },
+  };
+}
+
+async function connectedClient(
+  handlerOverrides: Partial<AppServerClientHandlers> = {},
+): Promise<{ client: AppServerClient; transport: FakeTransport }> {
+  const fixture = clientFixture(handlerOverrides);
+  const connecting = fixture.client.connect();
+  fixture.transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
   await connecting;
-  return { client, transport };
+  return { client: fixture.client, transport: fixture.transport };
 }
 
 function createTestClient(options: {
-  handlers: AppServerClientHandlers;
+  handlers?: Partial<AppServerClientHandlers>;
   requestTimeoutMs?: number;
   transportFactory: (handlers: AppServerTransportHandlers) => AppServerTransport;
   initializeParams?: InitializeParams;
@@ -97,7 +101,13 @@ function createTestClient(options: {
   return new AppServerClient({
     codexPath: "/bin/codex",
     cwd: "/vault",
-    handlers: options.handlers,
+    handlers: {
+      onNotification: () => undefined,
+      onServerRequest: () => undefined,
+      onLog: () => undefined,
+      onExit: () => undefined,
+      ...options.handlers,
+    },
     initializeParams: options.initializeParams ?? TEST_INITIALIZE_PARAMS,
     requestTimeoutMs: options.requestTimeoutMs ?? 500,
     transportFactory: options.transportFactory,
@@ -488,23 +498,8 @@ describe("AppServerClient", () => {
   });
 
   it("does not notify external exit handlers for intentional disconnect exits", async () => {
-    let transport!: FakeTransport;
     const onExit = vi.fn();
-    const client = createTestClient({
-      handlers: {
-        onNotification: () => undefined,
-        onServerRequest: () => undefined,
-        onLog: () => undefined,
-        onExit,
-      },
-      transportFactory: (handlers) => {
-        transport = new FakeTransport(handlers);
-        return transport;
-      },
-    });
-    const connecting = client.connect();
-    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
-    await connecting;
+    const { client, transport } = await connectedClient({ onExit });
 
     client.disconnect();
     transport.emitExit(0);
@@ -513,23 +508,8 @@ describe("AppServerClient", () => {
   });
 
   it("fails active transports on transport error without waiting for exit", async () => {
-    let transport!: FakeTransport;
     const onExit = vi.fn();
-    const client = createTestClient({
-      handlers: {
-        onNotification: () => undefined,
-        onServerRequest: () => undefined,
-        onLog: () => undefined,
-        onExit,
-      },
-      transportFactory: (handlers) => {
-        transport = new FakeTransport(handlers);
-        return transport;
-      },
-    });
-    const connecting = client.connect();
-    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
-    await connecting;
+    const { client, transport } = await connectedClient({ onExit });
     const listing = listModels(client);
 
     transport.emitError(new Error("transport failed"));
@@ -549,12 +529,7 @@ describe("AppServerClient", () => {
     const transports: FakeTransport[] = [];
     const onExit = vi.fn();
     const client = createTestClient({
-      handlers: {
-        onNotification: () => undefined,
-        onServerRequest: () => undefined,
-        onLog: () => undefined,
-        onExit,
-      },
+      handlers: { onExit },
       transportFactory: (handlers) => {
         const transport = new FakeTransport(handlers);
         transports.push(transport);
@@ -591,22 +566,12 @@ describe("AppServerClient", () => {
       clearTimeout,
       setTimeout,
     });
-    let transport!: FakeTransport;
     const onExit = vi.fn();
-    const client = createTestClient({
-      handlers: {
-        onNotification: () => undefined,
-        onServerRequest: () => undefined,
-        onLog: () => undefined,
-        onExit,
-      },
-      transportFactory: (handlers) => {
-        transport = new FakeTransport(handlers);
-        return transport;
-      },
-    });
+    const fixture = clientFixture({ onExit });
+    const { client } = fixture;
 
     const connecting = client.connect();
+    const { transport } = fixture;
     await Promise.all([
       expect(connecting).rejects.toThrow("Codex app-server request timed out: initialize"),
       vi.advanceTimersByTimeAsync(500),
@@ -619,22 +584,12 @@ describe("AppServerClient", () => {
   });
 
   it("rejects connect without notifying external exit handlers when transport exits during initialize", async () => {
-    let transport!: FakeTransport;
     const onExit = vi.fn();
-    const client = createTestClient({
-      handlers: {
-        onNotification: () => undefined,
-        onServerRequest: () => undefined,
-        onLog: () => undefined,
-        onExit,
-      },
-      transportFactory: (handlers) => {
-        transport = new FakeTransport(handlers);
-        return transport;
-      },
-    });
+    const fixture = clientFixture({ onExit });
+    const { client } = fixture;
 
     const connecting = client.connect();
+    const { transport } = fixture;
     transport.emitExit(1);
 
     await expect(connecting).rejects.toThrow("Codex app-server exited: 1");
@@ -699,22 +654,7 @@ describe("AppServerClient", () => {
       setTimeout,
     });
     const logs: string[] = [];
-    let transport!: FakeTransport;
-    const client = createTestClient({
-      handlers: {
-        onNotification: () => undefined,
-        onServerRequest: () => undefined,
-        onLog: (message) => logs.push(message),
-        onExit: () => undefined,
-      },
-      transportFactory: (handlers) => {
-        transport = new FakeTransport(handlers);
-        return transport;
-      },
-    });
-    const connecting = client.connect();
-    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
-    await connecting;
+    const { client, transport } = await connectedClient({ onLog: (message) => logs.push(message) });
 
     const reading = readFile(client, "/tmp/slow.jsonl", { timeoutMs: 10 });
     const sent = latestSent(transport);

@@ -55,3 +55,12 @@ function isUnsafeVaultPathChar(char: string): boolean {
   const code = char.charCodeAt(0);
   return code < 32 || (char.length === 1 && code >= 0xd800 && code <= 0xdfff) || UNSAFE_VAULT_PATH_CHARS.includes(char);
 }
+
+export function splitVaultFilename(filename: string): { stem: string; extension: string } {
+  const dotIndex = filename.lastIndexOf(".");
+  if (dotIndex <= 0) return { stem: filename, extension: "" };
+  return {
+    stem: filename.slice(0, dotIndex),
+    extension: filename.slice(dotIndex),
+  };
+}

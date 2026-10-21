@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-
 import type { ThreadStreamItem } from "../../../../../../src/features/chat/domain/thread-stream/items";
 import { textContents, topLevelDetailsSummaries } from "../../../../../support/dom";
+import { agentItemFixture } from "./fixtures";
 import { setupThreadStreamRendering } from "./setup";
 
 setupThreadStreamRendering();
@@ -317,22 +317,16 @@ describe("panel thread stream item rendering", () => {
     const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
-        {
-          id: "agent-1",
-          kind: "agent",
-          role: "tool",
-          coordinationUpdate: "snapshot",
+        agentItemFixture({
           text: "Spawn agent",
-          turnId: "turn",
           action: "spawn",
           status: "completed",
-          senderThreadId: "parent",
           targets: [{ threadId: "child" }],
           prompt: "Inspect the renderer.",
           model: "gpt-5.5",
           reasoningEffort: "high",
           agents: [{ threadId: "child", status: "completed", executionState: "completed", message: "Done" }],
-        },
+        }),
       ],
     });
 
@@ -393,22 +387,13 @@ describe("panel thread stream item rendering", () => {
       openThreadInNewView,
       disclosures: testDisclosures({ details: ["agent-1:agent-details"] }),
       items: [
-        {
-          id: "agent-1",
-          kind: "agent",
-          role: "tool",
-          coordinationUpdate: "snapshot",
+        agentItemFixture({
           text: "Wait for agent",
-          turnId: "turn",
           action: "wait",
           status: "completed",
-          senderThreadId: "parent",
           targets: [{ threadId: "child" }],
-          prompt: null,
-          model: null,
-          reasoningEffort: null,
           agents: [{ threadId: "child", status: "completed", executionState: "completed", message: "Done" }],
-        },
+        }),
       ],
     });
 
@@ -424,22 +409,14 @@ describe("panel thread stream item rendering", () => {
     const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
-        {
-          id: "agent-1",
-          kind: "agent",
-          role: "tool",
-          coordinationUpdate: "snapshot",
+        agentItemFixture({
           text: "Spawn agent",
-          turnId: "turn",
           action: "spawn",
           status: "running",
-          senderThreadId: "parent",
           targets: [{ threadId: "child" }],
           prompt: `Inspect the renderer.\n${"a".repeat(180)}`,
-          model: null,
-          reasoningEffort: null,
           agents: [],
-        },
+        }),
       ],
     });
 
@@ -459,22 +436,13 @@ describe("panel thread stream item rendering", () => {
     const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
-        {
-          id: "agent-1",
-          kind: "agent",
-          role: "tool",
-          coordinationUpdate: "snapshot",
+        agentItemFixture({
           text: "Wait for agent",
-          turnId: "turn",
           action: "wait",
           status: "completed",
-          senderThreadId: "parent",
           targets: [{ threadId }],
-          prompt: null,
-          model: null,
-          reasoningEffort: null,
           agents: [{ threadId, status: "completed", executionState: "completed", message: longMessage }],
-        },
+        }),
       ],
       onDisclosureToggle,
     });
@@ -502,25 +470,16 @@ describe("panel thread stream item rendering", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       openThreadInNewView,
       items: [
-        {
-          id: "agent-1",
-          kind: "agent",
-          role: "tool",
-          coordinationUpdate: "snapshot",
+        agentItemFixture({
           text: "Wait for agent",
-          turnId: "turn",
           action: "wait",
           status: "running",
-          senderThreadId: "parent",
           targets: [{ threadId: "done" }, { threadId: "running" }],
-          prompt: null,
-          model: null,
-          reasoningEffort: null,
           agents: [
             { threadId: "done", status: "completed", executionState: "completed", message: null },
             { threadId: "running", status: "running", executionState: "running", message: "Inspecting renderer" },
           ],
-        },
+        }),
       ],
     });
 
@@ -586,25 +545,16 @@ describe("panel thread stream item rendering", () => {
     const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
-        {
-          id: "agent-1",
-          kind: "agent",
-          role: "tool",
-          coordinationUpdate: "snapshot",
+        agentItemFixture({
           text: "Wait for agent",
-          turnId: "turn",
           action: "wait",
           status: "completed",
-          senderThreadId: "parent",
           targets: [{ threadId: "failed" }, { threadId: "running" }],
-          prompt: null,
-          model: null,
-          reasoningEffort: null,
           agents: [
             { threadId: "failed", status: "errored", executionState: "failed", message: "Failed" },
             { threadId: "running", status: "running", executionState: "running", message: null },
           ],
-        },
+        }),
       ],
     });
 

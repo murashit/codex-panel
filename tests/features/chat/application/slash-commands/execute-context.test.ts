@@ -3,6 +3,7 @@ import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { executeContextSlashCommand } from "../../../../../src/features/chat/application/slash-commands/execute-context";
 import { panelThreadFixture } from "../../../../support/panel-thread";
+import { slashGoalsFixture, slashSubmissionFixture } from "../../support/slash-command-ports";
 
 type ContextCommandContext = Parameters<typeof executeContextSlashCommand>[2];
 
@@ -10,7 +11,7 @@ function context(overrides: Partial<ContextCommandContext> = {}): ContextCommand
   return {
     activeThreadId: "thread-1",
     listedThreads: [thread({ id: "thread-1", name: "Current" })],
-    submission: { isCurrent: vi.fn(() => true), markAdopted: vi.fn(), adoptPanelTarget: vi.fn() },
+    submission: slashSubmissionFixture(),
     referThread: vi.fn().mockResolvedValue({ text: "referenced", input: [{ type: "text", text: "referenced" }] }),
     readWebUrl: vi.fn().mockResolvedValue({
       text: "https://example.com/article 要約して",
@@ -19,12 +20,7 @@ function context(overrides: Partial<ContextCommandContext> = {}): ContextCommand
         { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "Readable article" },
       ],
     }),
-    goals: {
-      activeGoal: vi.fn(() => null),
-      setObjective: vi.fn().mockResolvedValue(true),
-      setStatus: vi.fn().mockResolvedValue(true),
-      clear: vi.fn().mockResolvedValue(true),
-    },
+    goals: slashGoalsFixture(),
     addSystemMessage: vi.fn(),
     addStructuredSystemMessage: vi.fn(),
     ...overrides,

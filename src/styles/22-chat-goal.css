@@ -30,7 +30,8 @@
   min-width: 0;
 }
 
-.codex-panel__goal-role {
+.codex-panel__goal-role,
+.codex-panel__stream-item-role {
   display: flex;
   align-items: center;
   gap: var(--codex-panel-item-gap);
@@ -70,7 +71,8 @@
   max-height: var(--codex-panel-size-goal-objective-collapse-max-height);
 }
 
-.codex-panel__goal-objective--collapsed::after {
+.codex-panel__goal-objective--collapsed::after,
+.codex-panel__stream-item-content--collapsed::after {
   content: "";
   position: absolute;
   right: 0;

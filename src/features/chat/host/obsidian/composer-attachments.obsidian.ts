@@ -1,6 +1,6 @@
 import type { App } from "obsidian";
 
-import { sanitizeVaultPathSegment, vaultRelativeFolderPath } from "../../../../domain/files/vault-write-paths";
+import { sanitizeVaultPathSegment, splitVaultFilename, vaultRelativeFolderPath } from "../../../../domain/files/vault-write-paths";
 import { DEFAULT_ATTACHMENT_FOLDER } from "../../../../settings/preferences";
 import { createObsidianVaultPathDestination } from "../../../../shared/vault/write-destination.obsidian";
 import { ensureVaultFolder, uniqueVaultPath, withVaultWriteLock } from "../../../../shared/vault/write-operations";
@@ -98,15 +98,6 @@ function sanitizeFilename(value: string): string {
   return "";
 }
 
-function splitFilename(filename: string): { stem: string; extension: string } {
-  const dotIndex = filename.lastIndexOf(".");
-  if (dotIndex <= 0) return { stem: filename, extension: "" };
-  return {
-    stem: filename.slice(0, dotIndex),
-    extension: filename.slice(dotIndex),
-  };
-}
-
 function isImageFile(file: File, path: string): boolean {
   const type = file.type.toLowerCase();
   if (type.startsWith("image/")) return true;
@@ -126,7 +117,7 @@ function extensionForMimeType(type: string): string | null {
 
 function attachmentDisplayName(path: string): string {
   const filename = path.split("/").pop() ?? path;
-  const { stem } = splitFilename(filename);
+  const { stem } = splitVaultFilename(filename);
   return stem || filename;
 }
 

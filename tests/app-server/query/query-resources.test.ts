@@ -19,6 +19,7 @@ import type { RateLimitSnapshot } from "../../../src/domain/runtime/usage";
 import type { ThreadGoal } from "../../../src/domain/threads/goal";
 import type { Thread } from "../../../src/domain/threads/model";
 import { deferred } from "../../support/async";
+import { threadGoalFixture } from "../../support/thread-goal";
 
 describe("app-server query resources", () => {
   it("shares thread goal reads and scopes them by thread", async () => {
@@ -41,8 +42,8 @@ describe("app-server query resources", () => {
 
   it("publishes exact goal notification transitions once", () => {
     const cache = cacheWithRequestHandlers({});
-    const current = goalFixture({ objective: "Current" });
-    const next = goalFixture({ objective: "Next" });
+    const current = threadGoalFixture({ objective: "Current" });
+    const next = threadGoalFixture({ objective: "Next" });
     cache.threadGoalQueries.applyNotification({
       method: "thread/goal/updated",
       params: { threadId: "thread", turnId: null, goal: { ...current, createdAt: 1, updatedAt: 1 } },
@@ -74,7 +75,7 @@ describe("app-server query resources", () => {
 
   it("unsubscribes one goal observer without interrupting another", () => {
     const cache = cacheWithRequestHandlers({});
-    const goal = goalFixture({ objective: "Current" });
+    const goal = threadGoalFixture({ objective: "Current" });
     cache.threadGoalQueries.applyNotification({
       method: "thread/goal/updated",
       params: { threadId: "thread", turnId: null, goal: { ...goal, createdAt: 1, updatedAt: 1 } },
@@ -470,11 +471,7 @@ describe("app-server query resources", () => {
   });
 
   it("loads active thread history one page at a time", async () => {
-    const listThreads = vi
-      .fn()
-      .mockResolvedValueOnce({ data: [thread("first")], nextCursor: "page-2" })
-      .mockResolvedValueOnce({ data: [thread("second")], nextCursor: null });
-    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+    const { cache, listThreads } = paginatedCatalogFixture();
 
     await cache.threadCatalog.refreshActiveThreads();
     expect(cache.threadCatalog.hasMoreActiveThreads()).toBe(true);
@@ -557,11 +554,7 @@ describe("app-server query resources", () => {
   });
 
   it("keeps the recent window stable across event projections", async () => {
-    const listThreads = vi
-      .fn()
-      .mockResolvedValueOnce({ data: [thread("first")], nextCursor: "page-2" })
-      .mockResolvedValueOnce({ data: [thread("second")], nextCursor: null });
-    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+    const { cache } = paginatedCatalogFixture();
     await cache.threadCatalog.refreshActiveThreads();
     await cache.threadCatalog.loadMoreActiveThreads();
 
@@ -674,11 +667,7 @@ describe("app-server query resources", () => {
   });
 
   it("updates a loaded thread in place instead of inventing a new rank", async () => {
-    const listThreads = vi
-      .fn()
-      .mockResolvedValueOnce({ data: [thread("first")], nextCursor: "page-2" })
-      .mockResolvedValueOnce({ data: [thread("second")], nextCursor: null });
-    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+    const { cache, listThreads } = paginatedCatalogFixture();
     await cache.threadCatalog.refreshActiveThreads();
     await cache.threadCatalog.loadMoreActiveThreads();
 
@@ -925,13 +914,7 @@ describe("app-server query resources", () => {
 
   it("publishes each metadata resource without waiting for unrelated refreshes", async () => {
     const skills = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
-    const cache = cacheWithRequestHandlers({
-      "config/read": vi.fn().mockResolvedValue({}),
-      "model/list": vi.fn().mockResolvedValue({ data: [] }),
-      "skills/list": vi.fn(() => skills.promise),
-      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
-      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
-    });
+    const cache = cacheWithRequestHandlers(metadataRequestHandlers({ "skills/list": vi.fn(() => skills.promise) }));
     const runtimeConfigListener = vi.fn();
     const modelsListener = vi.fn();
     const skillsListener = vi.fn();
@@ -1003,13 +986,7 @@ describe("app-server query resources", () => {
       .mockRejectedValueOnce(new Error("skills offline"))
       .mockImplementationOnce(() => retry.promise)
       .mockImplementationOnce(() => nextRetry.promise);
-    const cache = cacheWithRequestHandlers({
-      "config/read": vi.fn().mockResolvedValue({}),
-      "model/list": vi.fn().mockResolvedValue({ data: [] }),
-      "skills/list": listSkills,
-      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
-      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
-    });
+    const cache = cacheWithRequestHandlers(metadataRequestHandlers({ "skills/list": listSkills }));
     await cache.metadataQueries.ensureAppServerMetadata();
     const listener = vi.fn();
     const unsubscribe = cache.metadataQueries.observeMetadataResource("skills", listener);
@@ -1083,13 +1060,7 @@ describe("app-server query resources", () => {
       .fn()
       .mockImplementationOnce(() => stale.promise)
       .mockImplementationOnce(() => fresh.promise);
-    const cache = cacheWithRequestHandlers({
-      "config/read": vi.fn().mockResolvedValue({}),
-      "model/list": vi.fn().mockResolvedValue({ data: [] }),
-      "skills/list": listSkills,
-      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
-      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
-    });
+    const cache = cacheWithRequestHandlers(metadataRequestHandlers({ "skills/list": listSkills }));
 
     const fullRefresh = cache.metadataQueries.ensureAppServerMetadata();
     await flushMicrotasks();
@@ -1105,13 +1076,12 @@ describe("app-server query resources", () => {
 
   it("rejects an initial metadata refresh when runtime config fails after optional resources settle", async () => {
     const skills = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
-    const cache = cacheWithRequestHandlers({
-      "config/read": vi.fn().mockRejectedValue(new Error("config offline")),
-      "model/list": vi.fn().mockResolvedValue({ data: [] }),
-      "skills/list": vi.fn(() => skills.promise),
-      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
-      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
-    });
+    const cache = cacheWithRequestHandlers(
+      metadataRequestHandlers({
+        "config/read": vi.fn().mockRejectedValue(new Error("config offline")),
+        "skills/list": vi.fn(() => skills.promise),
+      }),
+    );
     let settled = false;
     const refresh = cache.metadataQueries.refreshAppServerMetadata().finally(() => {
       settled = true;
@@ -1130,13 +1100,7 @@ describe("app-server query resources", () => {
       .fn()
       .mockResolvedValueOnce({ data: [{ skills: [catalogSkill("old")] }] })
       .mockResolvedValueOnce({ data: [{ skills: [catalogSkill("new")] }] });
-    const cache = cacheWithRequestHandlers({
-      "config/read": readConfig,
-      "model/list": vi.fn().mockResolvedValue({ data: [] }),
-      "skills/list": listSkills,
-      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
-      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
-    });
+    const cache = cacheWithRequestHandlers(metadataRequestHandlers({ "config/read": readConfig, "skills/list": listSkills }));
     await cache.metadataQueries.refreshAppServerMetadata();
 
     await expect(cache.metadataQueries.refreshAppServerMetadata()).rejects.toThrow("config offline");
@@ -1260,18 +1224,6 @@ function createCache(clientAccess: AppServerClientAccess, context: AppServerExec
   };
 }
 
-function goalFixture(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
-  return {
-    threadId: "thread",
-    objective: "Finish",
-    status: "active",
-    tokenBudget: null,
-    tokensUsed: 0,
-    timeUsedSeconds: 0,
-    ...overrides,
-  };
-}
-
 function permissionProfile(id: string): RuntimePermissionProfileSummary {
   return { id, description: null, allowed: true };
 }
@@ -1361,4 +1313,23 @@ async function flushMicrotasks(): Promise<void> {
   for (let index = 0; index < 10; index += 1) {
     await Promise.resolve();
   }
+}
+
+function paginatedCatalogFixture() {
+  const listThreads = vi
+    .fn()
+    .mockResolvedValueOnce({ data: [thread("first")], nextCursor: "page-2" })
+    .mockResolvedValueOnce({ data: [thread("second")], nextCursor: null });
+  return { cache: cacheWithRequestHandlers({ "thread/list": listThreads }), listThreads };
+}
+
+function metadataRequestHandlers(overrides: Record<string, (params: unknown) => Promise<unknown>>) {
+  return {
+    "config/read": vi.fn().mockResolvedValue({}),
+    "model/list": vi.fn().mockResolvedValue({ data: [] }),
+    "skills/list": vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
+    "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+    "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
+    ...overrides,
+  };
 }

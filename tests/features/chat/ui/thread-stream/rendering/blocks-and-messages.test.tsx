@@ -8,6 +8,7 @@ import type { ThreadStreamItem } from "../../../../../../src/features/chat/domai
 import { ThreadStreamMarkdownRenderer } from "../../../../../../src/features/chat/host/thread-stream/markdown-renderer.obsidian";
 import { deferred } from "../../../../../support/async";
 import { attributeValues, textContents, topLevelDetailsSummaries } from "../../../../../support/dom";
+import { commandItemFixture } from "./fixtures";
 import { setupThreadStreamRendering } from "./setup";
 
 setupThreadStreamRendering();
@@ -388,12 +389,7 @@ describe("panel thread stream rendering and action menu", () => {
           element.textContent = `rendered:${text}`;
         }),
       );
-    const markdownRenderer = new ThreadStreamMarkdownRenderer({
-      app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
-      owner: {} as never,
-      vaultPath: "/vault",
-      openThread: vi.fn(),
-    });
+    const markdownRenderer = markdownRendererFixture();
     const baseContext = {
       renderMarkdown: (element: HTMLElement, text: string) => {
         markdownRenderer.renderObsidianMarkdown(element, text);
@@ -506,12 +502,7 @@ describe("panel thread stream rendering and action menu", () => {
         element.textContent = `fresh:${text}`;
         return Promise.resolve();
       });
-    const markdownRenderer = new ThreadStreamMarkdownRenderer({
-      app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
-      owner: {} as never,
-      vaultPath: "/vault",
-      openThread: vi.fn(),
-    });
+    const markdownRenderer = markdownRendererFixture();
 
     markdownRenderer.renderObsidianMarkdown(parent, "old");
     markdownRenderer.renderObsidianMarkdown(parent, "new");
@@ -710,19 +701,12 @@ describe("panel thread stream rendering and action menu", () => {
     const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
-        {
-          id: "cmd-1",
-          kind: "command",
-          role: "tool",
-          commandTarget: { kind: "command", commandLine: "npm run check" },
-          turnId: "turn",
-          command: "npm run check",
-          cwd: "/vault",
+        commandItemFixture({
           statusLabel: "Failed",
           exitCode: 1,
           resultLabel: "exit 1",
           output: "stderr details",
-        },
+        }),
       ],
     });
 
@@ -742,17 +726,10 @@ describe("panel thread stream rendering and action menu", () => {
     const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
-        {
-          id: "cmd-1",
-          kind: "command",
-          role: "tool",
-          commandTarget: { kind: "command", commandLine: "npm run check" },
-          turnId: "turn",
-          command: "npm run check",
-          cwd: "/vault",
+        commandItemFixture({
           statusLabel: "Running",
           output: "",
-        },
+        }),
       ],
     });
 
@@ -770,17 +747,12 @@ describe("panel thread stream rendering and action menu", () => {
     const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
-        {
-          id: "cmd-1",
-          kind: "command",
-          role: "tool",
+        commandItemFixture({
           commandTarget: { kind: "search", query: "semantic target", path: "/vault/src" },
-          turnId: "turn",
           command: "different raw command",
-          cwd: "/vault",
           statusLabel: "Completed",
           output: "results",
-        },
+        }),
       ],
     });
 
@@ -951,3 +923,12 @@ describe("panel thread stream rendering and action menu", () => {
     expect(assistant.querySelector(".codex-panel__open-turn-diff")).toBeNull();
   });
 });
+
+function markdownRendererFixture() {
+  return new ThreadStreamMarkdownRenderer({
+    app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
+    owner: {} as never,
+    vaultPath: "/vault",
+    openThread: vi.fn(),
+  });
+}

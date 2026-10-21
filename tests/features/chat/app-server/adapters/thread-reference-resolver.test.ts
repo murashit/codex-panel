@@ -82,12 +82,7 @@ describe("thread reference resolver", () => {
 
   it("reports when the referenced thread has no readable turns", async () => {
     const request = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
-    const client = { request } as unknown as AppServerClient;
-    const resolver = createThreadReferenceResolver({
-      currentClient: () => client,
-      prepareInput: vi.fn(),
-      setStatus: vi.fn(),
-    });
+    const resolver = resolverWithRequest(request);
 
     await expect(resolver(threadFixture(), "summarize", { sourcePath: "snapshot.md" } as never)).rejects.toThrow(
       "Referenced thread has no readable turns.",
@@ -97,12 +92,7 @@ describe("thread reference resolver", () => {
 
   it("reports app-server history failures", async () => {
     const request = vi.fn().mockRejectedValue(new Error("history unavailable"));
-    const client = { request } as unknown as AppServerClient;
-    const resolver = createThreadReferenceResolver({
-      currentClient: () => client,
-      prepareInput: vi.fn(),
-      setStatus: vi.fn(),
-    });
+    const resolver = resolverWithRequest(request);
 
     await expect(resolver(threadFixture(), "summarize", { sourcePath: "snapshot.md" } as never)).rejects.toThrow("history unavailable");
   });
@@ -113,4 +103,9 @@ function threadFixture(): Thread {
     id: "019abcde-0000-7000-8000-000000000001",
     name: "Other",
   });
+}
+
+function resolverWithRequest(request: AppServerClient["request"]) {
+  const client = { request } as unknown as AppServerClient;
+  return createThreadReferenceResolver({ currentClient: () => client, prepareInput: vi.fn(), setStatus: vi.fn() });
 }

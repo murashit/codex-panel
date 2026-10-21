@@ -345,11 +345,8 @@ describe("CodexThreadsView", () => {
     const renameThreadRequest = vi.fn<ThreadsViewHost["threadMutations"]["renameThread"]>(() => saved.promise);
     const view = await threadsView(threadsHost({ threadMutations: threadMutationCommandsMock({ renameThread: renameThreadRequest }) }));
 
-    await view.refresh();
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    const firstInput = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
-    expect(firstInput).not.toBeNull();
-    if (!firstInput) return;
+    await openRenameEditor(view);
+    const firstInput = renameInput(view);
     changeInputValue(firstInput, "  Saved   title  ");
     firstInput.dispatchEvent(new FocusEvent("blur"));
     await waitForAsyncWork(() => {
@@ -371,10 +368,8 @@ describe("CodexThreadsView", () => {
     const renameThreadRequest = vi.fn<ThreadsViewHost["threadMutations"]["renameThread"]>(() => saved.promise);
     const view = await threadsView(threadsHost({ threadMutations: threadMutationCommandsMock({ renameThread: renameThreadRequest }) }));
 
-    await view.refresh();
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    const firstInput = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
-    if (!firstInput) throw new Error("Missing rename input");
+    await openRenameEditor(view);
+    const firstInput = renameInput(view);
     changeInputValue(firstInput, "Saved title");
     firstInput.dispatchEvent(new FocusEvent("blur"));
     await waitForAsyncWork(() => expect(renameThreadRequest).toHaveBeenCalledOnce());
@@ -431,12 +426,8 @@ describe("CodexThreadsView", () => {
     titlePort.generateTitle.mockResolvedValue("Threads rename UI");
     const view = await threadsView(threadsHost({ threadTitlePort: titlePort }));
 
-    await view.refresh();
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    await waitForAsyncWork(() => {
-      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(false);
-    });
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
+    await openRenameEditor(view);
+    await startAutoName(view);
 
     await waitForAsyncWork(() => {
       expect(titlePort.persistedContext).toHaveBeenCalledExactlyOnceWith("thread");
@@ -451,8 +442,7 @@ describe("CodexThreadsView", () => {
     titlePort.persistedContext.mockReturnValue(history.promise);
     const view = await threadsView(threadsHost({ threadTitlePort: titlePort }));
 
-    await view.refresh();
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    await openRenameEditor(view);
     await waitForAsyncWork(() => {
       expect(titlePort.persistedContext).toHaveBeenCalledOnce();
     });
@@ -477,11 +467,9 @@ describe("CodexThreadsView", () => {
       }),
     );
 
-    await view.refresh();
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    await openRenameEditor(view);
     await waitForAsyncWork(() => expect(titlePort.persistedContext).toHaveBeenCalledOnce());
-    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
-    if (!input) throw new Error("Missing rename input");
+    const input = renameInput(view);
     input.dispatchEvent(new FocusEvent("blur"));
     changeInputValue(input, "Changed while saving");
     history.resolve({ userRequest: "Name this", assistantResponse: "Done." });
@@ -506,12 +494,8 @@ describe("CodexThreadsView", () => {
     titlePort.generateTitle.mockReturnValue(generatedTitle.promise);
     const view = await threadsView(threadsHost({ threadTitlePort: titlePort }));
 
-    await view.refresh();
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    await waitForAsyncWork(() => {
-      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(false);
-    });
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
+    await openRenameEditor(view);
+    await startAutoName(view);
     await waitForAsyncWork(() => {
       expect(titlePort.generateTitle).toHaveBeenCalledOnce();
     });
@@ -533,21 +517,15 @@ describe("CodexThreadsView", () => {
     const view = await threadsView(threadsHost({ threadTitlePort: titlePort }));
     document.body.append(view.containerEl);
 
-    await view.refresh();
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    await waitForAsyncWork(() => {
-      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(false);
-    });
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
+    await openRenameEditor(view);
+    await startAutoName(view);
     await waitForAsyncWork(() => {
       expect(titlePort.generateTitle).toHaveBeenCalledOnce();
       expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')).toBeNull();
       expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]')).not.toBeNull();
     });
 
-    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
-    expect(input).not.toBeNull();
-    if (!input) return;
+    const input = renameInput(view);
     expect(input.disabled).toBe(true);
     const generationSignal = titlePort.generateTitle.mock.calls[0]?.[1];
     expect(generationSignal?.aborted).toBe(false);
@@ -695,4 +673,27 @@ function threadFixture(overrides: Partial<Thread> = {}): Thread {
     updatedAt: 1,
     ...overrides,
   };
+}
+
+function renameInput(view: CodexThreadsView): HTMLInputElement {
+  const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
+  if (!input) throw new Error("Missing rename input");
+  return input;
+}
+
+async function openRenameEditor(view: CodexThreadsView): Promise<void> {
+  await view.refresh();
+  const button = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]');
+  if (!button) throw new Error("Missing rename thread button");
+  button.click();
+}
+
+async function startAutoName(view: CodexThreadsView): Promise<void> {
+  await waitForAsyncWork(() => {
+    const button = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]');
+    expect(button?.disabled).toBe(false);
+  });
+  const button = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]');
+  if (!button) throw new Error("Missing auto-name thread button");
+  button.click();
 }

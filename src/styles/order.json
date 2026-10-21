@@ -1,7 +1,7 @@
 [
   "00-tokens.css",
   "10-shared-ui.css",
-  "11-shared-diff.css",
+  "11-shared-code.css",
   "12-shared-motion.css",
   "20-chat-shell.css",
   "21-chat-toolbar.css",

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createThreadAutoTitleWork } from "../../../../src/features/threads/workflows/thread-auto-title-work";
+import type { ThreadFact } from "../../../../src/features/threads/workflows/thread-facts";
 import type { ThreadMutationCommands } from "../../../../src/features/threads/workflows/thread-mutation-commands";
 import { deferred } from "../../../support/async";
 
@@ -33,26 +34,19 @@ describe("thread auto-title work", () => {
     });
   });
 
-  it("lets a manual thread-name fact supersede pending generated work", async () => {
+  it.each([
+    {
+      name: "a manual thread-name fact supersedes pending generated work",
+      fact: { type: "thread-renamed", threadId: "thread", name: "Manual title" },
+    },
+    { name: "archiving the thread cancels pending generated work", fact: { type: "thread-archived", threadId: "thread" } },
+  ] satisfies { name: string; fact: ThreadFact }[])("$name", async ({ fact }) => {
     const generation = deferred<string | null>();
     const fixture = workFixture(() => generation.promise);
 
     fixture.work.submit("thread", titleContext());
     await vi.waitFor(() => expect(fixture.generateTitle).toHaveBeenCalledOnce());
-    fixture.work.applyThreadFact({ type: "thread-renamed", threadId: "thread", name: "Manual title" });
-    generation.resolve("Generated title");
-    await flushPromises();
-
-    expect(fixture.renameThread).not.toHaveBeenCalled();
-  });
-
-  it("cancels pending generated work when the thread is archived", async () => {
-    const generation = deferred<string | null>();
-    const fixture = workFixture(() => generation.promise);
-
-    fixture.work.submit("thread", titleContext());
-    await vi.waitFor(() => expect(fixture.generateTitle).toHaveBeenCalledOnce());
-    fixture.work.applyThreadFact({ type: "thread-archived", threadId: "thread" });
+    fixture.work.applyThreadFact(fact);
     generation.resolve("Generated title");
     await flushPromises();
 

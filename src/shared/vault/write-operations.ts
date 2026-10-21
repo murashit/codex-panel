@@ -1,3 +1,5 @@
+import { splitVaultFilename } from "../../domain/files/vault-write-paths";
+
 export interface VaultPathDestination {
   readonly writeLockKey?: object;
   normalizePath(path: string): string;
@@ -52,13 +54,4 @@ export async function uniqueVaultPath(
     suffix += 1;
   }
   return candidate;
-}
-
-function splitVaultFilename(filename: string): { stem: string; extension: string } {
-  const dotIndex = filename.lastIndexOf(".");
-  if (dotIndex <= 0) return { stem: filename, extension: "" };
-  return {
-    stem: filename.slice(0, dotIndex),
-    extension: filename.slice(dotIndex),
-  };
 }

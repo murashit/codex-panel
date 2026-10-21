@@ -1,5 +1,7 @@
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import { AppServerContextConnection } from "../../../../src/app-server/connection/context-connection";
+import { chatMetadataCacheFixture, chatVaultFixture, chatWorkspaceFixture } from "../../../support/chat-obsidian";
+import { threadTitlePortFixture, workspacePanelsFixture } from "../support/host-contracts";
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, expect, vi } from "vitest";
@@ -441,22 +443,17 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       });
     },
     threadMutations: threadMutationCommandsMock(overrides.threadMutations),
-    threadTitlePort: {
-      persistedContext: vi.fn().mockResolvedValue(null),
-      generateTitle: vi.fn().mockResolvedValue(null),
-    },
+    threadTitlePort: threadTitlePortFixture(),
     threadAutoTitleWork: { submit: vi.fn() },
     runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
     settings: chatPanelSettingsAccess(settings),
-    workspace: {
-      returnFromForkDraft: vi.fn().mockResolvedValue(true),
-      openForkDraft: vi.fn(),
+    workspace: workspacePanelsFixture({
       openThreadInNewView: overrides.openThreadInNewView ?? vi.fn(),
       openThreadInAvailableView: overrides.openThreadInAvailableView ?? vi.fn(),
       openThreadFromPanel: overrides.openThreadFromPanel ?? vi.fn(),
       openTurnDiff: overrides.openTurnDiff ?? vi.fn(),
       notifyPanelActivityChanged: overrides.notifyPanelActivityChanged ?? vi.fn(),
-    },
+    }),
     appServerQueries,
     toolInventoryQueries: overrides.toolInventoryQueries ?? {
       snapshot: vi.fn(() => null),
@@ -519,27 +516,11 @@ export async function chatView(
     {
       app: {
         workspace: {
-          getActiveFile: vi.fn(() => null),
-          getActiveViewOfType: vi.fn(() => null),
-          getLastOpenFiles: vi.fn(() => []),
-          on: vi.fn(() => ({})),
-          openLinkText: vi.fn(),
+          ...chatWorkspaceFixture(),
           requestSaveLayout: options.requestSaveLayout ?? vi.fn(),
         },
-        vault: {
-          on: vi.fn(() => ({})),
-          offref: vi.fn(),
-          getFiles: vi.fn(() => []),
-          getMarkdownFiles: vi.fn(() => []),
-          getAbstractFileByPath: vi.fn(() => null),
-        },
-        metadataCache: {
-          on: vi.fn(() => ({})),
-          offref: vi.fn(),
-          getFirstLinkpathDest: vi.fn(() => null),
-          fileToLinktext: vi.fn(() => ""),
-          getFileCache: vi.fn(() => null),
-        },
+        vault: chatVaultFixture(),
+        metadataCache: chatMetadataCacheFixture(),
       },
       containerEl,
     } as never,
@@ -564,4 +545,21 @@ export async function chatView(
   };
   createdViews.push(tracked);
   return view;
+}
+
+export async function openedChatView(client: TestAppServerClient, options: Parameters<typeof chatView>[0] = {}) {
+  const view = await chatViewForClient(client, options);
+  await view.onOpen();
+  return view;
+}
+
+export function expectMetadataRequestedOnce(client: TestAppServerClient): void {
+  for (const method of ["config/read", "model/list", "skills/list", "permissionProfile/list", "account/rateLimits/read"]) {
+    expectRequestTimes(client, method, 1);
+  }
+}
+
+export function chatViewForClient(client: TestAppServerClient, options: Parameters<typeof chatView>[0] = {}) {
+  connectionMockState().client = client;
+  return chatView(options);
 }

@@ -16,6 +16,7 @@ import { ChatResumeWorkTracker } from "../../../../../src/features/chat/applicat
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
+import { taskProgressFixture as taskProgress } from "../../support/thread-stream";
 
 function activation(threadId: string, overrides: Partial<ThreadResumeSnapshot> = {}): ThreadResumeSnapshot {
   return {
@@ -323,18 +324,6 @@ function tokenUsageFixture(inputTokens: number): ThreadTokenUsage {
     last: { inputTokens, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: inputTokens + 2 },
     total: { inputTokens, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: inputTokens + 2 },
     modelContextWindow: 1000,
-  };
-}
-
-function taskProgress(turnId: string): ThreadStreamItem {
-  return {
-    id: `plan-progress-${turnId}`,
-    kind: "taskProgress",
-    role: "tool",
-    turnId,
-    explanation: null,
-    steps: [{ step: "Keep this", status: "completed" }],
-    executionState: "completed",
   };
 }
 

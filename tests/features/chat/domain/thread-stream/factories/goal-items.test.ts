@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
-
-import type { ThreadGoal } from "../../../../../../src/domain/threads/goal";
 import { goalChangeItem } from "../../../../../../src/features/chat/domain/thread-stream/factories/goal-items";
+import { threadGoalFixture } from "../../../../../support/thread-goal";
 
 describe("goal thread stream items", () => {
   it("keeps goal event summaries compact while retaining the full objective in details", () => {
     const objective = `Ship ${"the feature ".repeat(20)}`.trim();
-    const item = goalChangeItem("goal", null, goal({ objective }));
+    const item = goalChangeItem("goal", null, threadGoalFixture({ objective }));
 
     expect(item).toMatchObject({
       kind: "goal",
@@ -19,15 +18,3 @@ describe("goal thread stream items", () => {
     expect(item?.text.endsWith("...")).toBe(true);
   });
 });
-
-function goal(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
-  return {
-    threadId: "thread",
-    objective: "Finish",
-    status: "active",
-    tokenBudget: null,
-    tokensUsed: 0,
-    timeUsedSeconds: 0,
-    ...overrides,
-  };
-}

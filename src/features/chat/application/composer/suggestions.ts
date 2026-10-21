@@ -1,3 +1,4 @@
+import { normalizedUniqueTags, normalizeTag } from "../../../../domain/notes/tags";
 import type { ModelMetadata, SkillMetadata } from "../../../../domain/runtime/catalog";
 import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime/permissions";
 import type { Thread } from "../../../../domain/threads/model";
@@ -162,23 +163,6 @@ function activeTagSuggestions(
 
 function tagCandidateList(tagCandidates: readonly string[] | (() => readonly string[])): readonly string[] {
   return typeof tagCandidates === "function" ? tagCandidates() : tagCandidates;
-}
-
-function normalizedUniqueTags(tags: readonly string[]): string[] {
-  const seen = new Set<string>();
-  const normalizedTags: string[] = [];
-  for (const tag of tags) {
-    const normalized = normalizeTag(tag);
-    const key = normalized.toLowerCase();
-    if (!normalized || seen.has(key)) continue;
-    seen.add(key);
-    normalizedTags.push(normalized);
-  }
-  return normalizedTags.sort((a, b) => a.localeCompare(b));
-}
-
-function normalizeTag(tag: string): string {
-  return tag.trim().replace(/^#+/, "");
 }
 
 function tagSuggestionScore(tag: string, query: string): number {

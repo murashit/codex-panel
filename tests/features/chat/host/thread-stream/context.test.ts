@@ -1,6 +1,12 @@
+import { markdownFileFixture as tFile } from "../../../../support/vault-file";
+import {
+  serverRequestActionsFixture,
+  threadStreamActionsFixture,
+  threadStreamDependenciesFixture,
+} from "../../support/thread-stream-dependencies";
 // @vitest-environment jsdom
 
-import { MarkdownRenderer, TFile } from "obsidian";
+import { MarkdownRenderer } from "obsidian";
 import { h } from "preact";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -22,6 +28,7 @@ import { ThreadStreamViewport } from "../../../../../src/features/chat/ui/thread
 import { renderUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { reducerStoreFixture } from "../../support/reducer-store";
 import { threadStreamModelFromChatState } from "../../support/shell-selectors";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { withChatStateStableThreadStreamItems } from "../../support/thread-stream";
@@ -355,8 +362,7 @@ function testThreadStreamSurfaceContext(options: {
   vaultPath: string;
   dispatch: (action: ChatAction) => void;
 }): ChatThreadStreamDependencies {
-  return {
-    panelId: "test-panel",
+  return threadStreamDependenciesFixture({
     vaultPath: options.vaultPath,
     setDisclosureOpen: (bucket, id, open) => {
       options.dispatch({ type: "ui/disclosure-set", bucket, id, open });
@@ -364,32 +370,7 @@ function testThreadStreamSurfaceContext(options: {
     setForkMenuItem: (itemId) => {
       options.dispatch({ type: "ui/thread-stream-fork-menu-set", itemId });
     },
-    loadOlderTurns: vi.fn(),
-    renderObsidianMarkdown: vi.fn(),
-    renderStreamMarkdown: vi.fn(),
-    copyDialogueText: vi.fn(),
-    actions: {
-      rollbackThread: vi.fn(),
-      forkThreadFromTurn: vi.fn(),
-      implementPlan: vi.fn(),
-      openThreadInAvailableView: vi.fn(),
-      openThreadInNewView: vi.fn(),
-      openTurnDiff: vi.fn(),
-    },
-    requests: {
-      actions: {
-        resolveApproval: vi.fn(),
-        resolveUserInput: vi.fn(),
-        skipUserInput: vi.fn(),
-        cancelUserInput: vi.fn(),
-        resolveMcpElicitation: vi.fn(),
-        setApprovalDetailsExpanded: vi.fn(),
-        setUserInputDraft: vi.fn(),
-        setMcpElicitationDraft: vi.fn(),
-      },
-      consumeAutoFocus: () => false,
-    },
-  };
+  });
 }
 
 function markdownLinkContext(openLinkText = vi.fn(), vaultPath = "/vault", vaultFiles: string[] = []) {
@@ -411,9 +392,11 @@ function markdownLinkContext(openLinkText = vi.fn(), vaultPath = "/vault", vault
   };
 }
 
-async function renderedInternalLink(
+async function renderedAnchor(
   context: ReturnType<typeof markdownLinkContext>,
   linkOptions: Parameters<HTMLElement["createEl"]>[1],
+  markdown: string,
+  selector: string,
 ): Promise<{ link: HTMLAnchorElement; cleanup: () => void }> {
   const parent = document.createElement("div");
   document.body.appendChild(parent);
@@ -428,13 +411,13 @@ async function renderedInternalLink(
     openThread: vi.fn(),
   });
 
-  markdownRenderer.renderObsidianMarkdown(parent, "[[Link]]");
+  markdownRenderer.renderObsidianMarkdown(parent, markdown);
   await Promise.resolve();
   await Promise.resolve();
   renderMarkdown.mockRestore();
 
-  const link = parent.querySelector<HTMLAnchorElement>("a.internal-link");
-  if (!link) throw new Error("Expected rendered internal link");
+  const link = parent.querySelector<HTMLAnchorElement>(selector);
+  if (!link) throw new Error("Expected rendered anchor");
   return {
     link,
     cleanup: () => {
@@ -443,36 +426,12 @@ async function renderedInternalLink(
   };
 }
 
-async function renderedTag(
-  context: ReturnType<typeof markdownLinkContext>,
-  linkOptions: Parameters<HTMLElement["createEl"]>[1],
-): Promise<{ link: HTMLAnchorElement; cleanup: () => void }> {
-  const parent = document.createElement("div");
-  document.body.appendChild(parent);
-  const renderMarkdown = vi.spyOn(MarkdownRenderer, "render").mockImplementationOnce((_app, _text, staging) => {
-    staging.createEl("a", linkOptions);
-    return Promise.resolve();
-  });
-  const markdownRenderer = new ThreadStreamMarkdownRenderer({
-    app: context.app as never,
-    owner: {} as never,
-    vaultPath: context.vaultPath,
-    openThread: vi.fn(),
-  });
+function renderedInternalLink(context: ReturnType<typeof markdownLinkContext>, linkOptions: Parameters<HTMLElement["createEl"]>[1]) {
+  return renderedAnchor(context, linkOptions, "[[Link]]", "a.internal-link");
+}
 
-  markdownRenderer.renderObsidianMarkdown(parent, "#tag");
-  await Promise.resolve();
-  await Promise.resolve();
-  renderMarkdown.mockRestore();
-
-  const link = parent.querySelector<HTMLAnchorElement>("a.tag");
-  if (!link) throw new Error("Expected rendered tag");
-  return {
-    link,
-    cleanup: () => {
-      parent.remove();
-    },
-  };
+function renderedTag(context: ReturnType<typeof markdownLinkContext>, linkOptions: Parameters<HTMLElement["createEl"]>[1]) {
+  return renderedAnchor(context, linkOptions, "#tag", "a.tag");
 }
 
 interface TestThreadStreamSurface {
@@ -490,7 +449,7 @@ function threadStreamSurface(
 ): TestThreadStreamSurface {
   const files = new Map(vaultFiles.map((path) => [path, tFile(path)]));
   const scrollPortBinding = createChatThreadStreamScrollBinding();
-  const stateStore = testStoreForState(state);
+  const stateStore = reducerStoreFixture(state);
   const openThreadInAvailableView = vi.fn<(threadId: string) => void>();
   const context = createChatThreadStreamDependencies({
     panelId: "test-panel",
@@ -508,46 +467,13 @@ function threadStreamSurface(
     stateStore,
     vaultPath,
     loadOlderTurns: vi.fn(),
-    actions: {
-      rollbackThread: vi.fn(),
-      forkThreadFromTurn: vi.fn(),
-      implementPlan: vi.fn(),
-      openThreadInAvailableView,
-      openThreadInNewView: vi.fn(),
-      openTurnDiff: vi.fn(),
-    },
+    actions: { ...threadStreamActionsFixture(), openThreadInAvailableView },
     requests: {
-      actions: {
-        resolveApproval: vi.fn(),
-        resolveUserInput: vi.fn(),
-        skipUserInput: vi.fn(),
-        cancelUserInput: vi.fn(),
-        resolveMcpElicitation: vi.fn(),
-        setApprovalDetailsExpanded: vi.fn(),
-        setUserInputDraft: vi.fn(),
-        setMcpElicitationDraft: vi.fn(),
-      },
+      actions: serverRequestActionsFixture(),
       consumeAutoFocus: () => false,
     },
   });
   return { context, openThreadInAvailableView, scrollPortBinding, stateStore };
-}
-
-function testStoreForState(state: ChatState): ChatStateStore {
-  let current = state;
-  return {
-    getState: () => current,
-    dispatch(action: ChatAction) {
-      current = chatReducer(current, action);
-      return current;
-    },
-    subscribe: () => () => undefined,
-  };
-}
-
-function tFile(path: string): TFile {
-  const basename = path.split("/").pop()?.replace(/\.md$/, "") ?? path;
-  return Object.assign(new TFile(), { path, basename });
 }
 
 function threadStreamViewport(parent: HTMLElement): HTMLElement {

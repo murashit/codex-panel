@@ -21,7 +21,6 @@ import { executeContextSlashCommand } from "../../../../../src/features/chat/app
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { submitComposer } from "../../../../../src/features/chat/application/submission/composer-submit-command";
-import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { createGoalCommands } from "../../../../../src/features/chat/application/threads/goal-commands";
 import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
 import { ChatComposerController } from "../../../../../src/features/chat/host/composer/controller";
@@ -36,6 +35,7 @@ import { substringMatcher } from "../../application/composer/fuzzy-matcher.test-
 import { chatSharedDisplayValuesFixture } from "../../support/shared-display-values";
 import { composerModelFromChatState } from "../../support/shell-selectors";
 import { chatStateFixture, chatStateWith } from "../../support/state";
+import { pendingWebSubmissionFixture } from "../../support/web-submission";
 
 installObsidianDomShims();
 
@@ -82,18 +82,6 @@ function attachmentSaveResult(attachments: readonly ComposerAttachment[]) {
   return { attachments, failures: [] };
 }
 
-function defaultComposerAttachmentOptions(): Pick<
-  ComposerControllerOptions,
-  "attachmentHandler" | "fuzzyMatcher" | "onAttachmentError" | "sharedResources"
-> {
-  return {
-    attachmentHandler: { saveFiles: async () => attachmentSaveResult([]) },
-    fuzzyMatcher: substringMatcher,
-    onAttachmentError: vi.fn(),
-    sharedResources: sharedResourcesFixture(),
-  };
-}
-
 function sharedResourcesFixture(
   options: { skills?: readonly SkillMetadata[]; threads?: readonly import("../../../../../src/domain/threads/model").Thread[] } = {},
 ): ComposerControllerOptions["sharedResources"] {
@@ -108,18 +96,15 @@ function sharedResourcesFixture(
   };
 }
 
-function composerControllerFixture(
-  options: { stateStore?: ChatStateStore; controller?: Partial<ComposerControllerOptions>; renderActions?: ChatComposerRenderActions } = {},
-): {
-  controller: ChatComposerController;
-  parent: HTMLElement;
-  renderShell: () => void;
-  stateStore: ChatStateStore;
-} {
-  const stateStore = options.stateStore ?? createChatStateStore();
-  const parent = document.createElement("div");
-  const controller = new ChatComposerController({
-    ...defaultComposerAttachmentOptions(),
+function composerControllerOptions(
+  stateStore: ChatStateStore,
+  overrides: Partial<ComposerControllerOptions> = {},
+): ComposerControllerOptions {
+  return {
+    attachmentHandler: { saveFiles: async () => attachmentSaveResult([]) },
+    fuzzyMatcher: substringMatcher,
+    onAttachmentError: vi.fn(),
+    sharedResources: sharedResourcesFixture(),
     noteCandidateProvider: noteProvider(),
     contextReferenceProvider: contextProvider(),
     sourcePath: () => "",
@@ -133,9 +118,22 @@ function composerControllerFixture(
     toggleAutoReview: vi.fn(),
     toggleFast: vi.fn(),
     canFocus: () => true,
-    ...options.controller,
+    ...overrides,
     stateStore,
-  });
+  };
+}
+
+function composerControllerFixture(
+  options: { stateStore?: ChatStateStore; controller?: Partial<ComposerControllerOptions>; renderActions?: ChatComposerRenderActions } = {},
+): {
+  controller: ChatComposerController;
+  parent: HTMLElement;
+  renderShell: () => void;
+  stateStore: ChatStateStore;
+} {
+  const stateStore = options.stateStore ?? createChatStateStore();
+  const parent = document.createElement("div");
+  const controller = new ChatComposerController(composerControllerOptions(stateStore, options.controller));
   const renderShell = vi.fn(() => renderComposerController(parent, controller, stateStore, options.renderActions));
   trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
   return { controller, parent, renderShell, stateStore };
@@ -571,17 +569,7 @@ describe("ChatComposerController", () => {
   it("locks composer input while keeping button and keyboard cancellation of a web import available", () => {
     const submit = vi.fn();
     const { controller, stateStore, parent, renderShell } = composerControllerFixture({ renderActions: { submit } });
-    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
-    if (!pending) throw new Error("Expected pending web submission");
-    stateStore.dispatch({
-      type: "web-submission/pending",
-      submission: {
-        id: pending.id,
-        item: pending,
-        targetThreadId: null,
-        phase: "cancellable",
-      },
-    });
+    stateStore.dispatch({ type: "web-submission/pending", submission: pendingWebSubmissionFixture(null, { phase: "cancellable" }) });
 
     renderShell();
     const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
@@ -599,17 +587,7 @@ describe("ChatComposerController", () => {
   it("locks composer input without offering cancel after a web submission commits", () => {
     const submit = vi.fn();
     const { stateStore, parent, renderShell } = composerControllerFixture({ renderActions: { submit } });
-    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
-    if (!pending) throw new Error("Expected pending web submission");
-    stateStore.dispatch({
-      type: "web-submission/pending",
-      submission: {
-        id: pending.id,
-        item: pending,
-        targetThreadId: null,
-        phase: "committed",
-      },
-    } as never);
+    stateStore.dispatch({ type: "web-submission/pending", submission: pendingWebSubmissionFixture(null, { phase: "committed" }) });
 
     renderShell();
     const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
@@ -757,7 +735,6 @@ describe("ChatComposerController", () => {
 
   it("keeps Tab wikilink insertion before closing brackets while Enter lands after them", () => {
     const stateStore = createChatStateStore();
-    const parent = document.createElement("div");
     const notes = [
       {
         basename: "Beta Note",
@@ -769,29 +746,12 @@ describe("ChatComposerController", () => {
         recentIndex: null,
       },
     ];
-    let controller: ChatComposerController | null = null;
-    const renderShell = vi.fn(() => {
-      if (!controller) throw new Error("Expected controller.");
-      renderComposerController(parent, controller, stateStore);
-    });
-    controller = new ChatComposerController({
-      ...defaultComposerAttachmentOptions(),
-      noteCandidateProvider: noteProvider({ candidates: () => notes }),
-      contextReferenceProvider: contextProvider(),
-      sourcePath: () => "",
+    const { parent, renderShell } = composerControllerFixture({
       stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      runtimeActions: composerRuntimeActions(),
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      canFocus: () => true,
+      controller: {
+        noteCandidateProvider: noteProvider({ candidates: () => notes }),
+      },
     });
-    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
     setTextAreaValue(composer(parent), "[[bet");
@@ -814,14 +774,8 @@ describe("ChatComposerController", () => {
   });
 
   it("does not insert a saved attachment into a later thread or draft", async () => {
-    const saved = deferred<ComposerAttachment[]>();
     const stateStore = createChatStateStore(chatStateWith(chatStateFixture(), { activeThread: { id: "thread-first" } }));
-    const { controller, parent, renderShell } = composerControllerFixture({
-      stateStore,
-      controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
-      },
-    });
+    const { controller, parent, renderShell, saved } = pendingAttachmentFixture(stateStore);
     renderShell();
     controller.setDraft("first draft");
     composer(parent).setSelectionRange(5, 5);
@@ -857,14 +811,8 @@ describe("ChatComposerController", () => {
   });
 
   it("does not insert a saved attachment after leaving and returning to the same thread state", async () => {
-    const saved = deferred<ComposerAttachment[]>();
     const stateStore = createChatStateStore(chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } }));
-    const { controller, parent, renderShell } = composerControllerFixture({
-      stateStore,
-      controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
-      },
-    });
+    const { controller, parent, renderShell, saved } = pendingAttachmentFixture(stateStore);
     renderShell();
     controller.setDraft("same draft");
     composer(parent).setSelectionRange(4, 4);
@@ -882,12 +830,7 @@ describe("ChatComposerController", () => {
   });
 
   it("keeps a pending attachment at its placeholder while the draft is edited", async () => {
-    const saved = deferred<ComposerAttachment[]>();
-    const { controller, parent, renderShell } = composerControllerFixture({
-      controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
-      },
-    });
+    const { controller, parent, renderShell, saved } = pendingAttachmentFixture();
     renderShell();
     controller.setDraft("before after");
     composer(parent).setSelectionRange(6, 6);
@@ -947,10 +890,7 @@ describe("ChatComposerController", () => {
       },
     });
     renderShell();
-    setTextAreaValue(composer(parent), "@sel");
-    composer(parent).setSelectionRange(4, 4);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    insertSelectionSuggestion(parent);
     const draft = composer(parent).value;
     expect(controller.captureInputSnapshot().selectionSnapshots).toEqual([selection]);
 
@@ -1001,7 +941,6 @@ describe("ChatComposerController", () => {
 
   it("preserves the exact web draft and pasted image attachments across connection exit and late fetch success", async () => {
     const stateStore = createChatStateStore();
-    const parent = document.createElement("div");
     const attachmentHandler: ComposerAttachmentHandler = {
       saveFiles: vi.fn().mockResolvedValue(
         attachmentSaveResult([
@@ -1014,30 +953,12 @@ describe("ChatComposerController", () => {
         ]),
       ),
     };
-    let controller: ChatComposerController | null = null;
-    const renderShell = vi.fn(() => {
-      if (!controller) throw new Error("Expected controller.");
-      renderComposerController(parent, controller, stateStore);
-    });
-    controller = new ChatComposerController({
-      ...defaultComposerAttachmentOptions(),
-      noteCandidateProvider: noteProvider(),
-      contextReferenceProvider: contextProvider(),
-      attachmentHandler,
-      sourcePath: () => "",
+    const { controller, parent, renderShell } = composerControllerFixture({
       stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      runtimeActions: composerRuntimeActions(),
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      canFocus: () => true,
+      controller: {
+        attachmentHandler,
+      },
     });
-    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
@@ -1094,23 +1015,7 @@ describe("ChatComposerController", () => {
   it("accepts protected file dragovers before dropped files are readable", () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
-    const controller = new ChatComposerController({
-      ...defaultComposerAttachmentOptions(),
-      noteCandidateProvider: noteProvider(),
-      contextReferenceProvider: contextProvider(),
-      sourcePath: () => "",
-      stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      runtimeActions: composerRuntimeActions(),
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      canFocus: () => true,
-    });
+    const controller = new ChatComposerController(composerControllerOptions(stateStore, {}));
     const dataTransfer = {
       files: [],
       items: [{ kind: "file", getAsFile: vi.fn(() => null) }],
@@ -1129,7 +1034,6 @@ describe("ChatComposerController", () => {
 
   it("keeps the composer editable but requires a new Send after attachment saves settle", async () => {
     const stateStore = createChatStateStore();
-    const parent = document.createElement("div");
     const attachment: ComposerAttachment = {
       kind: "image",
       name: "diagram",
@@ -1144,31 +1048,14 @@ describe("ChatComposerController", () => {
         }).then(attachmentSaveResult),
       ),
     };
-    let controller: ChatComposerController | null = null;
-    const renderShell = vi.fn(() => {
-      if (!controller) throw new Error("Expected controller.");
-      renderComposerController(parent, controller, stateStore, { submit });
-    });
     const submit = vi.fn();
-    controller = new ChatComposerController({
-      ...defaultComposerAttachmentOptions(),
-      noteCandidateProvider: noteProvider(),
-      contextReferenceProvider: contextProvider(),
-      attachmentHandler,
-      sourcePath: () => "",
+    const { parent, renderShell } = composerControllerFixture({
       stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      runtimeActions: composerRuntimeActions(),
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      canFocus: () => true,
+      controller: {
+        attachmentHandler,
+      },
+      renderActions: { submit },
     });
-    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
@@ -1270,17 +1157,16 @@ describe("ChatComposerController", () => {
     expect(submit).not.toHaveBeenCalled();
   });
 
-  it("restores selected draft text and caret when attachment saving fails", async () => {
-    const saved = deferred<ComposerAttachment[]>();
-    const { controller, parent, renderShell } = composerControllerFixture({
-      controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
-      },
-    });
+  it.each([
+    { label: "original placeholder", editPlaceholderLabel: false },
+    { label: "edited placeholder", editPlaceholderLabel: true },
+  ])("restores selected text and caret when attachment saving fails with $label", async ({ editPlaceholderLabel }) => {
+    const { controller, parent, renderShell, saved } = pendingAttachmentFixture();
     controller.setDraft("keep selected text");
     renderShell();
     composer(parent).setSelectionRange(5, 13);
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
+    if (editPlaceholderLabel) controller.setDraft(composer(parent).value.replace("Saving attachment…", "Uploading…"));
     composer(parent).setSelectionRange(0, 0);
 
     saved.reject(new Error("Attachment save failed."));
@@ -1293,12 +1179,7 @@ describe("ChatComposerController", () => {
   });
 
   it("settles an attachment after its placeholder label is edited", async () => {
-    const saved = deferred<ComposerAttachment[]>();
-    const { controller, parent, renderShell } = composerControllerFixture({
-      controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
-      },
-    });
+    const { controller, parent, renderShell, saved } = pendingAttachmentFixture();
     controller.setDraft("Keep this draft");
     renderShell();
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
@@ -1318,28 +1199,6 @@ describe("ChatComposerController", () => {
 
     expect(composer(parent).value).toBe("Keep this draft\n![[Codex Attachments/diagram.png]]");
     expect(composer(parent).value).not.toContain("codex-panel-pending-attachment:");
-    expect(composer(parent).selectionStart).toBe(0);
-  });
-
-  it("restores selected text without synthetic separators after the placeholder label is edited", async () => {
-    const saved = deferred<ComposerAttachment[]>();
-    const { controller, parent, renderShell } = composerControllerFixture({
-      controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
-      },
-    });
-    controller.setDraft("keep selected text");
-    renderShell();
-    composer(parent).setSelectionRange(5, 13);
-    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
-    controller.setDraft(composer(parent).value.replace("Saving attachment…", "Uploading…"));
-    composer(parent).setSelectionRange(0, 0);
-
-    saved.reject(new Error("Attachment save failed."));
-    await flushComposerAttachment();
-    await flushComposerAttachment();
-
-    expect(composer(parent).value).toBe("keep selected text");
     expect(composer(parent).selectionStart).toBe(0);
   });
 
@@ -1402,24 +1261,11 @@ describe("ChatComposerController", () => {
       saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)),
     };
     const submit = vi.fn();
-    const controller = new ChatComposerController({
-      ...defaultComposerAttachmentOptions(),
-      noteCandidateProvider: noteProvider(),
-      contextReferenceProvider: contextProvider(),
-      attachmentHandler,
-      sourcePath: () => "",
-      stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      runtimeActions: composerRuntimeActions(),
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      canFocus: () => true,
-    });
+    const controller = new ChatComposerController(
+      composerControllerOptions(stateStore, {
+        attachmentHandler,
+      }),
+    );
 
     renderComposerController(parent, controller, stateStore, { submit });
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
@@ -1443,7 +1289,6 @@ describe("ChatComposerController", () => {
 
   it("saves dropped non-image files, inserts a wikilink, and sends a file reference", async () => {
     const stateStore = createChatStateStore();
-    const parent = document.createElement("div");
     const attachmentHandler: ComposerAttachmentHandler = {
       saveFiles: vi.fn().mockResolvedValue(
         attachmentSaveResult([
@@ -1456,30 +1301,12 @@ describe("ChatComposerController", () => {
         ]),
       ),
     };
-    let controller: ChatComposerController | null = null;
-    const renderShell = vi.fn(() => {
-      if (!controller) throw new Error("Expected controller.");
-      renderComposerController(parent, controller, stateStore);
-    });
-    controller = new ChatComposerController({
-      ...defaultComposerAttachmentOptions(),
-      noteCandidateProvider: noteProvider(),
-      contextReferenceProvider: contextProvider(),
-      attachmentHandler,
-      sourcePath: () => "",
+    const { controller, parent, renderShell } = composerControllerFixture({
       stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      runtimeActions: composerRuntimeActions(),
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      canFocus: () => true,
+      controller: {
+        attachmentHandler,
+      },
     });
-    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
     composer(parent).dispatchEvent(transferEvent("drop", "dataTransfer", [new File(["pdf"], "paper.pdf", { type: "application/pdf" })]));
@@ -1495,34 +1322,18 @@ describe("ChatComposerController", () => {
 
   it("freezes active file context when inserting the active suggestion", async () => {
     const stateStore = createChatStateStore();
-    const parent = document.createElement("div");
     let references: ComposerContextReferences = {
       activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
       selection: null,
     };
-    let controller: ChatComposerController | null = null;
-    const renderShell = vi.fn(() => {
-      if (!controller) throw new Error("Expected controller.");
-      renderComposerController(parent, controller, stateStore);
-    });
-    controller = new ChatComposerController({
-      ...defaultComposerAttachmentOptions(),
-      noteCandidateProvider: noteProvider({ resolveFileReference: () => null }),
-      contextReferenceProvider: contextProvider(() => references),
-      sourcePath: () => "Inbox.md",
+    const { controller, parent, renderShell } = composerControllerFixture({
       stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      runtimeActions: composerRuntimeActions(),
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      canFocus: () => true,
+      controller: {
+        noteCandidateProvider: noteProvider({ resolveFileReference: () => null }),
+        contextReferenceProvider: contextProvider(() => references),
+        sourcePath: () => "Inbox.md",
+      },
     });
-    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
     setTextAreaValue(composer(parent), "@active");
@@ -1554,23 +1365,14 @@ describe("ChatComposerController", () => {
       activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
       selection: null,
     };
-    const controller = new ChatComposerController({
-      ...defaultComposerAttachmentOptions(),
-      noteCandidateProvider: noteProvider({ resolveFileReference: () => null }),
-      contextReferenceProvider: contextProvider(() => references),
-      sourcePath: () => "Inbox.md",
-      stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => true,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      runtimeActions: composerRuntimeActions(),
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      canFocus: () => true,
-    });
+    const controller = new ChatComposerController(
+      composerControllerOptions(stateStore, {
+        noteCandidateProvider: noteProvider({ resolveFileReference: () => null }),
+        contextReferenceProvider: contextProvider(() => references),
+        sourcePath: () => "Inbox.md",
+        referenceActiveNoteOnSend: () => true,
+      }),
+    );
 
     const snapshot = controller.captureInputSnapshot();
     references = {
@@ -1592,7 +1394,6 @@ describe("ChatComposerController", () => {
 
   it("freezes selection context when inserting the selection suggestion", async () => {
     const stateStore = createChatStateStore();
-    const parent = document.createElement("div");
     let references = {
       activeNote: null,
       selection: {
@@ -1615,40 +1416,21 @@ describe("ChatComposerController", () => {
       .mockReturnValueOnce(secondBetaSelectionEmphasis)
       .mockReturnValueOnce(nextDraftBetaSelectionEmphasis)
       .mockReturnValueOnce(submittedBetaSelectionEmphasis);
-    let controller: ChatComposerController | null = null;
-    const renderShell = vi.fn(() => {
-      if (!controller) throw new Error("Expected controller.");
-      renderComposerController(parent, controller, stateStore);
-    });
-    controller = new ChatComposerController({
-      ...defaultComposerAttachmentOptions(),
-      noteCandidateProvider: noteProvider({
-        resolveFileReference: (target) => (target === "notes/Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
-      }),
-      contextReferenceProvider: {
-        ...contextProvider(() => references),
-        retainSelectionEmphasis,
-      },
-      sourcePath: () => "",
+    const { controller, parent, renderShell } = composerControllerFixture({
       stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      runtimeActions: composerRuntimeActions(),
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      canFocus: () => true,
+      controller: {
+        noteCandidateProvider: noteProvider({
+          resolveFileReference: (target) => (target === "notes/Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
+        }),
+        contextReferenceProvider: {
+          ...contextProvider(() => references),
+          retainSelectionEmphasis,
+        },
+      },
     });
-    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
-    setTextAreaValue(composer(parent), "@sel");
-    composer(parent).setSelectionRange(4, 4);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    insertSelectionSuggestion(parent);
     const completedSelectionReference = composer(parent).value;
     const snapshot = controller.captureInputSnapshot();
     references = {
@@ -1698,10 +1480,7 @@ describe("ChatComposerController", () => {
     expect(alphaSelectionEmphasis.release).not.toHaveBeenCalled();
     expect(secondBetaSelectionEmphasis.release).not.toHaveBeenCalled();
 
-    setTextAreaValue(composer(parent), "@sel");
-    composer(parent).setSelectionRange(composer(parent).value.length, composer(parent).value.length);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    insertSelectionSuggestion(parent);
     expect(retainSelectionEmphasis).toHaveBeenCalledTimes(4);
 
     claim?.settle("failed");
@@ -1722,10 +1501,7 @@ describe("ChatComposerController", () => {
     composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
     expect(nextDraftBetaSelectionEmphasis.release).toHaveBeenCalledOnce();
 
-    setTextAreaValue(composer(parent), "@sel");
-    composer(parent).setSelectionRange(composer(parent).value.length, composer(parent).value.length);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    insertSelectionSuggestion(parent);
     const acceptedClaim = controller.claimSubmission();
     expect(submittedBetaSelectionEmphasis.setEnabled).toHaveBeenLastCalledWith(false);
     acceptedClaim?.settle("accepted");
@@ -1749,30 +1525,7 @@ describe("ChatComposerController", () => {
 
   it("navigates suggestions and keeps them dismissed until the input changes", () => {
     const stateStore = createChatStateStore();
-    const parent = document.createElement("div");
-    let controller: ChatComposerController | null = null;
-    const renderShell = vi.fn(() => {
-      if (!controller) throw new Error("Expected controller.");
-      renderComposerController(parent, controller, stateStore);
-    });
-    controller = new ChatComposerController({
-      ...defaultComposerAttachmentOptions(),
-      noteCandidateProvider: noteProvider(),
-      contextReferenceProvider: contextProvider(),
-      sourcePath: () => "",
-      stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      runtimeActions: composerRuntimeActions(),
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      canFocus: () => true,
-    });
-    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
+    const { parent, renderShell } = composerControllerFixture({ stateStore, controller: {} });
 
     renderShell();
     setTextAreaValue(composer(parent), "/");
@@ -1809,31 +1562,12 @@ describe("ChatComposerController", () => {
   it("keeps suggestions closed after inserting at a cursor before later trigger text", () => {
     const stateStore = createChatStateStore();
     stateStore.dispatch({ type: "composer/draft-set", draft: "/pla then $ob" });
-    const parent = document.createElement("div");
-    let controller: ChatComposerController | null = null;
-    const renderShell = vi.fn(() => {
-      if (!controller) throw new Error("Expected controller.");
-      renderComposerController(parent, controller, stateStore);
-    });
-    controller = new ChatComposerController({
-      ...defaultComposerAttachmentOptions(),
-      sharedResources: sharedResourcesFixture({ skills: [skill("obsidian-search")] }),
-      noteCandidateProvider: noteProvider(),
-      contextReferenceProvider: contextProvider(),
-      sourcePath: () => "",
+    const { parent, renderShell } = composerControllerFixture({
       stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      runtimeActions: composerRuntimeActions(),
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      canFocus: () => true,
+      controller: {
+        sharedResources: sharedResourcesFixture({ skills: [skill("obsidian-search")] }),
+      },
     });
-    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
     composer(parent).setSelectionRange(4, 4);
@@ -1966,4 +1700,21 @@ function expectPresent<T>(value: T | null | undefined): T {
   expect(value).not.toBeNull();
   expect(value).not.toBeUndefined();
   return value as T;
+}
+
+function pendingAttachmentFixture(stateStore = createChatStateStore()) {
+  const saved = deferred<ComposerAttachment[]>();
+  const fixture = composerControllerFixture({
+    stateStore,
+    controller: { attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) } },
+  });
+  return { ...fixture, saved };
+}
+
+function insertSelectionSuggestion(parent: HTMLElement): void {
+  const input = composer(parent);
+  setTextAreaValue(input, "@sel");
+  input.setSelectionRange(input.value.length, input.value.length);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
 }

@@ -1,15 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { activePanelOperationDecision } from "../../../../../src/features/chat/application/panel-operation-policy";
-import { activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/model";
+import { createChatState } from "../../../../../src/features/chat/application/state/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { chatThreadStreamViewState } from "../../../../../src/features/chat/application/state/turn-scope";
 import { SubmissionInput } from "../../../../../src/features/chat/application/submission/input-claim";
-import {
-  implementPlan,
-  implementPlanTarget,
-  type PlanImplementationHost,
-} from "../../../../../src/features/chat/application/submission/plan-implementation";
-import { collaborationModeIntentValue, setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
+import { implementPlan, type PlanImplementationHost } from "../../../../../src/features/chat/application/submission/plan-implementation";
+import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred } from "../../../../support/async";
 import { threadActivationFixture } from "../../../../support/thread-activation";
@@ -80,50 +74,60 @@ function createPlanImplementationHost() {
   };
 }
 
-function implementPlanTargetFromState(state: ReturnType<ChatStateStore["getState"]>) {
-  return implementPlanTarget({
-    hasConversation: activeThreadState(state) !== null || state.panelThread.kind === "fork-draft",
-    modeAllowed: activePanelOperationDecision(state, "implement-plan").kind === "allowed",
-    activeTurn: state.activeTurn,
-    collaborationMode: collaborationModeIntentValue(state.runtime.pending.collaborationMode, state.runtime.active.collaborationMode),
-    threadStream: chatThreadStreamViewState(state.threadStream, state.activeTurn),
-  });
-}
-
 describe("implementPlan", () => {
-  it("finds the latest proposed plan only when the thread is idle and in plan mode", () => {
-    const stateStore = createChatStateStore(createChatState());
-    const first = planItem("first");
-    const latest = planItem("latest");
-    resumeThread(stateStore, [first, latest]);
+  it.each(["", "edit first"])("implements the latest completed plan without consuming draft %j", async (draft) => {
+    const { host, sendTurnText, stateStore } = createPlanImplementationHost();
+    resumeThread(stateStore, [planItem("first"), planItem("latest")]);
+    stateStore.dispatch({ type: "composer/draft-set", draft });
 
-    expect(implementPlanTargetFromState(stateStore.getState())).toEqual({ itemId: latest.id });
+    await implementPlan(host, "latest");
 
-    stateStore.dispatch({ type: "composer/draft-set", draft: "edit first" });
+    expect(sendTurnText).toHaveBeenCalledWith(expect.objectContaining({ text: "Please implement this plan." }));
+    expect(stateStore.getState().composer.draft).toBe(draft);
+  });
 
-    expect(implementPlanTargetFromState(stateStore.getState())).toEqual({ itemId: latest.id });
-
+  it("does not implement a plan when the pending intent leaves Plan mode", async () => {
+    const { host, ensureConnected, sendTurnText, stateStore } = createPlanImplementationHost();
+    resumeThread(stateStore, [planItem("plan")]);
     stateStore.dispatch({
       type: "runtime/pending-intent-patched",
       patch: { collaborationMode: { kind: "set", value: "default" } },
     });
-    expect(implementPlanTargetFromState(stateStore.getState())).toBeNull();
 
+    await implementPlan(host, "plan");
+
+    expect(ensureConnected).not.toHaveBeenCalled();
+    expect(sendTurnText).not.toHaveBeenCalled();
+  });
+
+  it("does not implement a plan while its thread has a running turn", async () => {
+    const { host, ensureConnected, sendTurnText, stateStore } = createPlanImplementationHost();
+    resumeThread(stateStore, [planItem("plan")]);
     stateStore.dispatch({
       type: "runtime/pending-intent-patched",
       patch: { collaborationMode: { kind: "set", value: "plan" } },
     });
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
-    expect(implementPlanTargetFromState(stateStore.getState())).toBeNull();
+
+    await implementPlan(host, "plan");
+
+    expect(ensureConnected).not.toHaveBeenCalled();
+    expect(sendTurnText).not.toHaveBeenCalled();
   });
 
-  it("ignores streaming proposed plans until they are implementable turn outcomes", () => {
-    const stateStore = createChatStateStore(createChatState());
-    const completed = planItem("completed");
-    const streaming = streamingPlanItem("streaming");
-    resumeThread(stateStore, [completed, streaming]);
+  it("ignores a newer streaming plan and implements the completed outcome", async () => {
+    const { host, ensureConnected, sendTurnText, stateStore } = createPlanImplementationHost();
+    resumeThread(stateStore, [planItem("completed"), streamingPlanItem("streaming")]);
 
-    expect(implementPlanTargetFromState(stateStore.getState())).toEqual({ itemId: completed.id });
+    await implementPlan(host, "streaming");
+
+    expect(ensureConnected).not.toHaveBeenCalled();
+    expect(sendTurnText).not.toHaveBeenCalled();
+
+    await implementPlan(host, "completed");
+
+    expect(ensureConnected).toHaveBeenCalledOnce();
+    expect(sendTurnText).toHaveBeenCalledWith(expect.objectContaining({ text: "Please implement this plan." }));
   });
 
   it.each(["persistent", "ephemeral"] as const)("implements the offered plan in a %s chat after leaving Plan mode", async (kind) => {
@@ -134,7 +138,6 @@ describe("implementPlan", () => {
       [plan],
       kind === "persistent" ? { kind } : { kind, mode: "side-chat" as const, sourceThreadId: "source", sourceThreadTitle: "Source" },
     );
-    expect(implementPlanTargetFromState(stateStore.getState())).toEqual({ itemId: plan.id });
     stateStore.dispatch({ type: "ui/panel-set", panel: "status-panel" });
 
     await implementPlan(host, plan.id);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { threadStreamLayoutBlocks as projectThreadStreamLayoutBlocks } from "../../../../../src/features/chat/ui/thread-stream/layout";
+import { taskProgressFixture } from "../../support/thread-stream";
 
 const DEFAULT_WORKSPACE_ROOT = "/vault";
 
@@ -57,15 +58,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
     const items: ThreadStreamItem[] = [
       { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "t1" },
       commandItem("c1", "npm test", "t1"),
-      {
-        id: "a1",
-        kind: "dialogue",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-        role: "assistant",
-        text: "The check stopped.",
-        turnId: "t1",
-      },
+      assistantDialogue("a1", "The check stopped.", "t1"),
       {
         id: "turn-error:t1",
         kind: "system",
@@ -113,20 +106,12 @@ describe("display block grouping keeps thread stream details subordinate to conv
         turnId: "t1",
         approval: { status: "allowed", scope: "turn", request: "Approval", auditFacts: [] },
       },
-      {
-        id: "a1",
-        kind: "dialogue",
-        role: "assistant",
-        text: "done",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
+      assistantDialogue("a1", "done", "t1"),
     ];
 
     const blocks = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT);
 
-    expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "turn-t1-activity", "a1"]);
+    expect(blockIds(blocks)).toEqual(["u1", "turn-t1-activity", "a1"]);
     expect(blocks[1]).toMatchObject({
       summary: "Work details",
       items: [
@@ -149,53 +134,21 @@ describe("display block grouping keeps thread stream details subordinate to conv
     const items: ThreadStreamItem[] = [
       { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "t1" },
       { id: "r1", kind: "reasoning", role: "tool", text: "", turnId: "t1", statusLabel: "Completed", executionState: "completed" },
-      {
-        id: "a1",
-        kind: "dialogue",
-        role: "assistant",
-        text: "done",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
+      assistantDialogue("a1", "done", "t1"),
     ];
 
     const blocks = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT);
-    expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "a1"]);
+    expect(blockIds(blocks)).toEqual(["u1", "a1"]);
   });
 
   it("collapses earlier assistant responses with their turn details", () => {
     const items: ThreadStreamItem[] = [
       { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "t1" },
-      {
-        id: "a1",
-        kind: "dialogue",
-        role: "assistant",
-        text: "I'll inspect it.",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
+      assistantDialogue("a1", "I'll inspect it.", "t1"),
       commandItem("c1", "rg issue", "t1"),
-      {
-        id: "a2",
-        kind: "dialogue",
-        role: "assistant",
-        text: "I found the cause.",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
+      assistantDialogue("a2", "I found the cause.", "t1"),
       fileChangeItem("f1", "t1"),
-      {
-        id: "a3",
-        kind: "dialogue",
-        role: "assistant",
-        text: "done",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
+      assistantDialogue("a3", "done", "t1"),
     ];
 
     const blocks = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT);
@@ -212,20 +165,12 @@ describe("display block grouping keeps thread stream details subordinate to conv
       { id: "s1", kind: "system", role: "system", text: "debug before hook" },
       commandItem("c1", "npm test", "t1"),
       { id: "s2", kind: "system", role: "system", text: "debug after hook" },
-      {
-        id: "a1",
-        kind: "dialogue",
-        role: "assistant",
-        text: "done",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
+      assistantDialogue("a1", "done", "t1"),
     ];
 
     const blocks = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT);
 
-    expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["s1", "s2", "turn-t1-activity", "a1"]);
+    expect(blockIds(blocks)).toEqual(["s1", "s2", "turn-t1-activity", "a1"]);
   });
 
   it("adds steering markers to completed turn work details without hiding the steering message", () => {
@@ -234,20 +179,12 @@ describe("display block grouping keeps thread stream details subordinate to conv
       commandItem("c1", "rg issue", "t1"),
       { id: "u2", kind: "dialogue", dialogueKind: "user", role: "user", text: "also check tests", turnId: "t1", clientId: "local-steer-1" },
       commandItem("c2", "npm test", "t1"),
-      {
-        id: "a1",
-        kind: "dialogue",
-        role: "assistant",
-        text: "done",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
+      assistantDialogue("a1", "done", "t1"),
     ];
 
     const blocks = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT);
 
-    expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "u2", "turn-t1-activity", "a1"]);
+    expect(blockIds(blocks)).toEqual(["u1", "u2", "turn-t1-activity", "a1"]);
     expect(blocks[2]).toMatchObject({
       summary: "Work details",
       items: [
@@ -268,15 +205,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
       { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "t1" },
       { id: "u2", kind: "dialogue", dialogueKind: "user", role: "user", text: "also check tests", turnId: "t1" },
       { id: "u3", kind: "dialogue", dialogueKind: "user", role: "user", text: "and update docs", turnId: "t1" },
-      {
-        id: "a1",
-        kind: "dialogue",
-        role: "assistant",
-        text: "done",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
+      assistantDialogue("a1", "done", "t1"),
     ];
 
     const blocks = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT);
@@ -294,15 +223,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
   it("keeps active turn activities expanded", () => {
     const items: ThreadStreamItem[] = [
       { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "t1" },
-      {
-        id: "a1",
-        kind: "dialogue",
-        role: "assistant",
-        text: "done",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
+      assistantDialogue("a1", "done", "t1"),
     ];
 
     expect(threadStreamLayoutBlocks(items, "t1", DEFAULT_WORKSPACE_ROOT).map((block) => block.type)).toEqual(["item", "item"]);
@@ -311,45 +232,19 @@ describe("display block grouping keeps thread stream details subordinate to conv
   it("keeps active task progress chronological in the display model", () => {
     const items: ThreadStreamItem[] = [
       { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "t1" },
-      {
-        id: "plan-progress-t1",
-        kind: "taskProgress",
-        role: "tool",
-        text: "[>] Patch UI",
-        turnId: "t1",
-        explanation: null,
-        steps: [{ step: "Patch UI", status: "inProgress" }],
-        executionState: "running",
-      },
-      {
-        id: "a1",
-        kind: "dialogue",
-        role: "assistant",
-        text: "working",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
+      taskProgressItem(),
+      assistantDialogue("a1", "working", "t1"),
     ];
 
     const blocks = threadStreamLayoutBlocks(items, "t1", DEFAULT_WORKSPACE_ROOT);
 
-    expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "plan-progress-t1", "a1"]);
+    expect(blockIds(blocks)).toEqual(["u1", "plan-progress-t1", "a1"]);
   });
 
   it("groups task progress and agent activity inside completed turn work details", () => {
     const items: ThreadStreamItem[] = [
       { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "t1" },
-      {
-        id: "plan-progress-t1",
-        kind: "taskProgress",
-        role: "tool",
-        text: "[>] Patch UI",
-        turnId: "t1",
-        explanation: null,
-        steps: [{ step: "Patch UI", status: "inProgress" }],
-        executionState: "running",
-      },
+      taskProgressItem(),
       {
         id: "agent-1",
         kind: "agent",
@@ -366,15 +261,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
         reasoningEffort: null,
         agents: [{ threadId: "child", status: "completed", executionState: "completed", message: null }],
       },
-      {
-        id: "a1",
-        kind: "dialogue",
-        role: "assistant",
-        text: "done",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
+      assistantDialogue("a1", "done", "t1"),
     ];
 
     const blocks = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT);
@@ -388,24 +275,8 @@ describe("display block grouping keeps thread stream details subordinate to conv
     const items: ThreadStreamItem[] = [
       fileChangeItem("f1", "t1", "src/main.ts"),
       fileChangeItem("f2", "t1", "styles.css"),
-      {
-        id: "a1",
-        kind: "dialogue",
-        role: "assistant",
-        text: "intermediate",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
-      {
-        id: "a2",
-        kind: "dialogue",
-        role: "assistant",
-        text: "done",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
+      assistantDialogue("a1", "intermediate", "t1"),
+      assistantDialogue("a2", "done", "t1"),
     ];
 
     const assistantBlock = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT).find(
@@ -415,18 +286,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
   });
 
   it("adds turn diff metadata to the final assistant message only when aggregated diff exists", () => {
-    const items: ThreadStreamItem[] = [
-      fileChangeItem("f1", "t1", "src/main.ts"),
-      {
-        id: "a1",
-        kind: "dialogue",
-        role: "assistant",
-        text: "done",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
-    ];
+    const items: ThreadStreamItem[] = [fileChangeItem("f1", "t1", "src/main.ts"), assistantDialogue("a1", "done", "t1")];
 
     const withoutDiff = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT).find(
       (block) => block.type === "item" && block.item.role === "assistant",
@@ -444,15 +304,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
     const items: ThreadStreamItem[] = [
       fileChangeItem("f1", "t1", "src/main.ts"),
       autoReviewResultItem("review-1", "t1"),
-      {
-        id: "a1",
-        kind: "dialogue",
-        role: "assistant",
-        text: "still working",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
+      assistantDialogue("a1", "still working", "t1"),
     ];
 
     const assistantBlock = threadStreamLayoutBlocks(items, "t1", DEFAULT_WORKSPACE_ROOT).find(
@@ -468,15 +320,7 @@ describe("workspace-relative presentation paths", () => {
       fileChangeItem("f1", "t1", "/vault/project/src/main.ts"),
       fileChangeItem("f2", "t1", "/vault/project/styles.css"),
       fileChangeItem("f3", "t1", "/tmp/outside.txt"),
-      {
-        id: "a1",
-        kind: "dialogue",
-        role: "assistant",
-        text: "done",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
+      assistantDialogue("a1", "done", "t1"),
     ];
 
     const assistantBlock = threadStreamLayoutBlocks(items, null, "/vault/project").find(
@@ -485,3 +329,19 @@ describe("workspace-relative presentation paths", () => {
     expect(assistantBlock).toMatchObject({ annotations: { editedFiles: ["/tmp/outside.txt", "src/main.ts", "styles.css"] } });
   });
 });
+
+function assistantDialogue(id: string, text: string, turnId: string): ThreadStreamItem {
+  return { id, kind: "dialogue", role: "assistant", text, turnId, dialogueKind: "assistantResponse", dialogueState: "completed" };
+}
+
+function taskProgressItem(): ThreadStreamItem {
+  return taskProgressFixture("t1", {
+    text: "[>] Patch UI",
+    steps: [{ step: "Patch UI", status: "inProgress" }],
+    executionState: "running",
+  });
+}
+
+function blockIds(blocks: ReturnType<typeof projectThreadStreamLayoutBlocks>): string[] {
+  return blocks.map((block) => (block.type === "item" ? block.item.id : block.id));
+}

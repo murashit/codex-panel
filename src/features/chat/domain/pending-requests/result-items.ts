@@ -1,3 +1,4 @@
+import { definedProp } from "../../../../domain/objects/optional-properties";
 import type { ThreadStreamItem, ThreadStreamUserInputQuestionResult } from "../thread-stream/items";
 import {
   type ApprovalAction,
@@ -123,8 +124,4 @@ function formatMcpElicitationContentValue(value: McpElicitationContentValue | un
   if (Array.isArray(value)) return value.join(", ");
   if (value === null || typeof value === "undefined") return "";
   return String(value);
-}
-
-function definedProp<Key extends string, Value>(key: Key, value: Value | null | undefined): Record<Key, Value> | Record<string, never> {
-  return value === null || value === undefined ? {} : ({ [key]: value } as Record<Key, Value>);
 }

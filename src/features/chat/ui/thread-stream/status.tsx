@@ -10,9 +10,8 @@ export function agentRunSummaryNode(view: AgentRunSummaryView, context: Pick<Thr
 
 export function statusNode(view: ThreadStreamStatusView): UiNode {
   if (view.kind === "taskProgress") return <TaskProgress view={view} />;
-  if (view.kind === "contextCompaction") return <ContextCompaction view={view} />;
   if (view.kind === "reasoning") return <Reasoning view={view} />;
-  return <GenericStatus view={view} />;
+  return <TextStatus view={view} />;
 }
 
 export function createStatusStreamItemClassName(className: string, tone?: "warning"): string {
@@ -73,15 +72,7 @@ function TaskProgress({ view }: { view: Extract<ThreadStreamStatusView, { kind: 
   );
 }
 
-function ContextCompaction({ view }: { view: Extract<ThreadStreamStatusView, { kind: "contextCompaction" }> }): UiNode {
-  return (
-    <StatusStreamItem label={view.label} className={view.className} state={view.state}>
-      <div className="codex-panel__stream-summary">{view.text}</div>
-    </StatusStreamItem>
-  );
-}
-
-function GenericStatus({ view }: { view: Extract<ThreadStreamStatusView, { kind: "generic" }> }): UiNode {
+function TextStatus({ view }: { view: Extract<ThreadStreamStatusView, { kind: "generic" | "contextCompaction" }> }): UiNode {
   return (
     <StatusStreamItem label={view.label} className={view.className} state={view.state}>
       <div className="codex-panel__stream-summary">{view.text}</div>

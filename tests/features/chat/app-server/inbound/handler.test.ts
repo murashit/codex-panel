@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import type { TurnRecord } from "../../../../../src/app-server/protocol/turn";
 import {
@@ -12,10 +12,20 @@ import {
 } from "../../../../../src/features/chat/app-server/inbound/server-request-adapter";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { activeThreadState, type ChatState } from "../../../../../src/features/chat/application/state/model";
-import { type ChatAction, chatReducer } from "../../../../../src/features/chat/application/state/reducer";
-import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import { panelThreadSubscriptions } from "../../../../../src/features/chat/application/threads/thread-subscriptions";
-import { appServerThreadFixture, appServerTurnFixture } from "../../../../support/app-server-records";
+import {
+  appServerAgentMessageFixture,
+  appServerThreadFixture,
+  appServerTurnFixture,
+  appServerUserMessageFixture,
+} from "../../../../support/app-server-records";
+import {
+  commandApprovalRequestFixture,
+  permissionsApprovalRequestFixture,
+  userInputRequestFixture,
+} from "../../../../support/server-requests";
+import { reducerStoreFixture } from "../../support/reducer-store";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 
@@ -27,7 +37,7 @@ type TestChatInboundHandler = Omit<ChatInboundHandler, "handleNotification"> & {
 };
 
 function handlerForState(state = chatStateFixture(), actions: Partial<ChatInboundHandlerEffects> = {}): TestChatInboundHandler {
-  const store = testStoreForState(state);
+  const store = reducerStoreFixture(state);
   const handler = createChatInboundHandler(
     store,
     {
@@ -44,16 +54,12 @@ function handlerForState(state = chatStateFixture(), actions: Partial<ChatInboun
   });
 }
 
-function testStoreForState(state: ChatState): ChatStateStore {
-  let current = state;
-  return {
-    getState: () => current,
-    dispatch(action: ChatAction) {
-      current = chatReducer(current, action);
-      return current;
-    },
-    subscribe: () => () => undefined,
-  };
+function turnNotification(
+  method: "turn/started" | "turn/completed",
+  threadId: string,
+  turn: Parameters<typeof appServerTurnFixture>[0],
+): Extract<ServerNotification, { method: "turn/started" | "turn/completed" }> {
+  return { method, params: { threadId, turn: appServerTurnFixture(turn) } };
 }
 
 function activeRunningState(): ChatState {
@@ -112,15 +118,7 @@ describe("ChatInboundHandler", () => {
           threadId: "thread-active",
           turnId: "turn-active",
           completedAtMs: 2,
-          item: {
-            type: "agentMessage",
-            id: "a1",
-            text: "Progress update",
-            phase: null,
-            memoryCitation: null,
-            delivery: "async",
-            questions: null,
-          },
+          item: appServerAgentMessageFixture("a1", "Progress update", { phase: null, delivery: "async" }),
         },
       } satisfies Extract<ServerNotification, { method: "item/completed" }>);
 
@@ -150,7 +148,7 @@ describe("ChatInboundHandler", () => {
       );
     });
 
-    it("preserves streamed plan text until completion", () => {
+    it("preserves streamed plan text and reconciles its completed turn", () => {
       const state = activeRunningState();
       const handler = handlerForState(state);
 
@@ -169,29 +167,14 @@ describe("ChatInboundHandler", () => {
           dialogueState: "streaming",
         },
       ]);
-    });
-
-    it("marks streamed plan deltas completed when the completed turn reconciles", () => {
-      const state = activeRunningState();
-      const handler = handlerForState(state);
-
-      handler.handleNotification({
-        method: "item/plan/delta",
-        params: { threadId: "thread-active", turnId: "turn-active", itemId: "p1", delta: "<proposed_plan>\n# Plan" },
-      } satisfies Extract<ServerNotification, { method: "item/plan/delta" }>);
-
-      handler.handleNotification({
-        method: "turn/completed",
-        params: {
-          threadId: "thread-active",
-          turn: appServerTurnFixture({
-            id: "turn-active",
-            status: "completed",
-            itemsView: "full",
-            items: [{ type: "plan", id: "p1", text: "<proposed_plan>\n# Plan\n</proposed_plan>" }],
-          }),
-        },
-      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+      handler.handleNotification(
+        turnNotification("turn/completed", "thread-active", {
+          id: "turn-active",
+          status: "completed",
+          itemsView: "full",
+          items: [{ type: "plan", id: "p1", text: "<proposed_plan>\n# Plan\n</proposed_plan>" }],
+        }),
+      );
 
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual([
         expect.objectContaining({
@@ -339,19 +322,15 @@ describe("ChatInboundHandler", () => {
       ]);
       const handler = handlerForState(state);
 
-      handler.handleNotification({
-        method: "turn/started",
-        params: {
-          threadId: "thread-active",
-          turn: appServerTurnFixture({
-            id: "turn-active",
-            status: "inProgress",
-            startedAt: 1,
-            itemsView: "full",
-            items: [],
-          }),
-        },
-      } satisfies Extract<ServerNotification, { method: "turn/started" }>);
+      handler.handleNotification(
+        turnNotification("turn/started", "thread-active", {
+          id: "turn-active",
+          status: "inProgress",
+          startedAt: 1,
+          itemsView: "full",
+          items: [],
+        }),
+      );
 
       handler.handleNotification({
         method: "hook/completed",
@@ -365,32 +344,17 @@ describe("ChatInboundHandler", () => {
       });
       expect(handler.currentState().activeTurn.lifecycle).toEqual({ kind: "running", turnId: "turn-active" });
 
-      handler.handleNotification({
-        method: "turn/completed",
-        params: {
-          threadId: "thread-active",
-          turn: appServerTurnFixture({
-            id: "turn-active",
-            status: "completed",
-            startedAt: 1,
-            completedAt: 2,
-            durationMs: 1,
-            itemsView: "full",
-            items: [
-              { type: "userMessage", id: "u1", clientId: "local-user-1", content: [{ type: "text", text: "hello", text_elements: [] }] },
-              {
-                type: "agentMessage",
-                id: "a1",
-                text: "done",
-                phase: "final_answer",
-                memoryCitation: null,
-                delivery: null,
-                questions: null,
-              },
-            ],
-          }),
-        },
-      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+      handler.handleNotification(
+        turnNotification("turn/completed", "thread-active", {
+          id: "turn-active",
+          status: "completed",
+          startedAt: 1,
+          completedAt: 2,
+          durationMs: 1,
+          itemsView: "full",
+          items: [appServerUserMessageFixture("u1", "hello", { clientId: "local-user-1" }), appServerAgentMessageFixture("a1", "done")],
+        }),
+      );
 
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["u1", "hook-hook-1-1", "a1"]);
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual(
@@ -420,31 +384,17 @@ describe("ChatInboundHandler", () => {
       const maybeNameThread = vi.fn();
       const handler = handlerForState(state, { maybeNameThread });
 
-      handler.handleNotification({
-        method: "turn/completed",
-        params: {
-          threadId: "thread-active",
-          turn: appServerTurnFixture({
-            id: "stale-turn",
-            status: "completed",
-            startedAt: 1,
-            completedAt: 2,
-            durationMs: 1,
-            itemsView: "full",
-            items: [
-              {
-                type: "agentMessage",
-                id: "a1",
-                text: "stale",
-                phase: "final_answer",
-                memoryCitation: null,
-                delivery: null,
-                questions: null,
-              },
-            ],
-          }),
-        },
-      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+      handler.handleNotification(
+        turnNotification("turn/completed", "thread-active", {
+          id: "stale-turn",
+          status: "completed",
+          startedAt: 1,
+          completedAt: 2,
+          durationMs: 1,
+          itemsView: "full",
+          items: [appServerAgentMessageFixture("a1", "stale")],
+        }),
+      );
 
       expect(handler.currentState().activeTurn.lifecycle).toEqual({ kind: "starting", anchorItemId: "local-user-1" });
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1"]);
@@ -475,42 +425,23 @@ describe("ChatInboundHandler", () => {
       });
       const handler = handlerForState(state);
 
-      handler.handleServerRequest({
-        id: 41,
-        method: "item/tool/requestUserInput",
-        params: {
-          threadId: "thread-active",
-          turnId: "turn-active",
-          itemId: "input-1",
+      handler.handleServerRequest(
+        userInputRequestFixture(41, {
           questions: [{ id: "scope", header: "Scope", question: "What should I do?", isOther: false, isSecret: false, options: null }],
           isBlocking: true,
-          autoResolutionMs: null,
-        },
-      });
+        }),
+      );
 
       expect(handler.currentState().requests.pendingUserInputs).toHaveLength(1);
     });
 
     it("queues and resolves requestUserInput server requests", () => {
-      let state = activeRunningState();
-      state = chatStateWith(state, {
-        requests: {
-          mcpElicitationDrafts: new Map([
-            ["45:mcp:title", "Fix tests"],
-            ["45:mcp:notify", "false"],
-          ]),
-        },
-      });
+      const state = activeRunningState();
       const respondToServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { respondToServerRequest });
 
-      handler.handleServerRequest({
-        id: 42,
-        method: "item/tool/requestUserInput",
-        params: {
-          threadId: "thread-active",
-          turnId: "turn-active",
-          itemId: "input-1",
+      handler.handleServerRequest(
+        userInputRequestFixture(42, {
           questions: [
             {
               id: "scope",
@@ -522,9 +453,8 @@ describe("ChatInboundHandler", () => {
             },
           ],
           isBlocking: true,
-          autoResolutionMs: null,
-        },
-      });
+        }),
+      );
 
       expect(handler.currentState().requests.pendingUserInputs).toMatchObject([{ requestId: 42, params: { isBlocking: true } }]);
       handler.resolveUserInput(42, { scope: "Narrow" });
@@ -540,25 +470,25 @@ describe("ChatInboundHandler", () => {
       });
     });
 
-    it("auto-resolves non-blocking requestUserInput server requests after the client grace period", () => {
-      vi.useFakeTimers();
-      vi.stubGlobal("window", globalThis);
-      try {
+    describe("non-blocking user-input timers", () => {
+      beforeEach(() => {
+        vi.useFakeTimers();
+        vi.stubGlobal("window", globalThis);
+      });
+      afterEach(() => {
+        vi.unstubAllGlobals();
+        vi.useRealTimers();
+      });
+
+      it("auto-resolves non-blocking requestUserInput server requests after the client grace period", () => {
         const respondToServerRequest = vi.fn(() => true);
         const handler = handlerForState(activeRunningState(), { respondToServerRequest });
 
-        handler.handleServerRequest({
-          id: 44,
-          method: "item/tool/requestUserInput",
-          params: {
-            threadId: "thread-active",
-            turnId: "turn-active",
-            itemId: "input-1",
-            questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+        handler.handleServerRequest(
+          userInputRequestFixture(44, {
             isBlocking: false,
-            autoResolutionMs: null,
-          },
-        });
+          }),
+        );
 
         expect(handler.currentState().requests.pendingUserInputs).toEqual([
           expect.objectContaining({ requestId: 44, params: expect.objectContaining({ isBlocking: false }) }),
@@ -569,31 +499,17 @@ describe("ChatInboundHandler", () => {
         vi.advanceTimersByTime(1);
         expect(respondToServerRequest).toHaveBeenCalledWith(44, { answers: {} });
         expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
-      } finally {
-        vi.unstubAllGlobals();
-        vi.useRealTimers();
-      }
-    });
+      });
 
-    it("cancels non-blocking user-input auto-resolution when the server resolves the request", () => {
-      vi.useFakeTimers();
-      vi.stubGlobal("window", globalThis);
-      try {
+      it("cancels non-blocking user-input auto-resolution when the server resolves the request", () => {
         const respondToServerRequest = vi.fn(() => true);
         const handler = handlerForState(activeRunningState(), { respondToServerRequest });
 
-        handler.handleServerRequest({
-          id: 45,
-          method: "item/tool/requestUserInput",
-          params: {
-            threadId: "thread-active",
-            turnId: "turn-active",
-            itemId: "input-1",
-            questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+        handler.handleServerRequest(
+          userInputRequestFixture(45, {
             isBlocking: false,
-            autoResolutionMs: null,
-          },
-        });
+          }),
+        );
         handler.handleNotification({
           method: "serverRequest/resolved",
           params: { threadId: "thread-active", requestId: 45 },
@@ -602,31 +518,17 @@ describe("ChatInboundHandler", () => {
         vi.advanceTimersByTime(120_000);
         expect(respondToServerRequest).not.toHaveBeenCalled();
         expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
-      } finally {
-        vi.unstubAllGlobals();
-        vi.useRealTimers();
-      }
-    });
+      });
 
-    it("extends non-blocking user-input auto-resolution after interaction", () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(1_000);
-      vi.stubGlobal("window", globalThis);
-      try {
+      it("extends non-blocking user-input auto-resolution after interaction", () => {
+        vi.setSystemTime(1_000);
         const respondToServerRequest = vi.fn(() => true);
         const handler = handlerForState(activeRunningState(), { respondToServerRequest });
-        handler.handleServerRequest({
-          id: 46,
-          method: "item/tool/requestUserInput",
-          params: {
-            threadId: "thread-active",
-            turnId: "turn-active",
-            itemId: "input-1",
-            questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+        handler.handleServerRequest(
+          userInputRequestFixture(46, {
             isBlocking: false,
-            autoResolutionMs: null,
-          },
-        });
+          }),
+        );
 
         vi.advanceTimersByTime(100_000);
         handler.extendUserInputAutoResolution(46);
@@ -636,30 +538,16 @@ describe("ChatInboundHandler", () => {
         expect(respondToServerRequest).not.toHaveBeenCalled();
         vi.advanceTimersByTime(1);
         expect(respondToServerRequest).toHaveBeenCalledWith(46, { answers: {} });
-      } finally {
-        vi.unstubAllGlobals();
-        vi.useRealTimers();
-      }
-    });
+      });
 
-    it("skips non-blocking user input with an empty answer response", () => {
-      vi.useFakeTimers();
-      vi.stubGlobal("window", globalThis);
-      try {
+      it("skips non-blocking user input with an empty answer response", () => {
         const respondToServerRequest = vi.fn(() => true);
         const handler = handlerForState(activeRunningState(), { respondToServerRequest });
-        handler.handleServerRequest({
-          id: 47,
-          method: "item/tool/requestUserInput",
-          params: {
-            threadId: "thread-active",
-            turnId: "turn-active",
-            itemId: "input-1",
-            questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+        handler.handleServerRequest(
+          userInputRequestFixture(47, {
             isBlocking: false,
-            autoResolutionMs: null,
-          },
-        });
+          }),
+        );
 
         handler.skipUserInput(47);
 
@@ -667,10 +555,7 @@ describe("ChatInboundHandler", () => {
         expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
         vi.advanceTimersByTime(120_000);
         expect(respondToServerRequest).toHaveBeenCalledTimes(1);
-      } finally {
-        vi.unstubAllGlobals();
-        vi.useRealTimers();
-      }
+      });
     });
 
     it("rejects cancelled requestUserInput server requests", () => {
@@ -678,18 +563,11 @@ describe("ChatInboundHandler", () => {
       const rejectServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { rejectServerRequest });
 
-      handler.handleServerRequest({
-        id: 43,
-        method: "item/tool/requestUserInput",
-        params: {
-          threadId: "thread-active",
-          turnId: "turn-active",
-          itemId: "input-1",
-          questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+      handler.handleServerRequest(
+        userInputRequestFixture(43, {
           isBlocking: true,
-          autoResolutionMs: null,
-        },
-      });
+        }),
+      );
 
       handler.cancelUserInput(43);
       expect(rejectServerRequest).toHaveBeenCalledWith(43, -32000, "User cancelled input request.");
@@ -763,20 +641,7 @@ describe("ChatInboundHandler", () => {
       const respondToServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { respondToServerRequest });
 
-      handler.handleServerRequest({
-        id: 46,
-        method: "mcpServer/elicitation/request",
-        params: {
-          threadId: "thread-active",
-          turnId: "turn-active",
-          serverName: "github",
-          mode: "url",
-          _meta: null,
-          message: "Confirm in browser",
-          url: "https://example.com/confirm",
-          elicitationId: "elicit-1",
-        },
-      });
+      handler.handleServerRequest(mcpUrlRequestFixture());
 
       handler.resolveMcpElicitation(46, "accept");
 
@@ -794,20 +659,7 @@ describe("ChatInboundHandler", () => {
       const respondToServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { respondToServerRequest });
 
-      handler.handleServerRequest({
-        id: 46,
-        method: "mcpServer/elicitation/request",
-        params: {
-          threadId: "thread-active",
-          turnId: "turn-active",
-          serverName: "github",
-          mode: "url",
-          _meta: null,
-          message: "Confirm in browser",
-          url: "https://example.com/confirm",
-          elicitationId: "elicit-1",
-        },
-      });
+      handler.handleServerRequest(mcpUrlRequestFixture());
 
       handler.resolveMcpElicitation(46, "decline");
 
@@ -992,30 +844,20 @@ describe("ChatInboundHandler", () => {
       const rejectServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { rejectServerRequest });
 
-      const otherThread = handler.handleServerRequest({
-        id: 51,
-        method: "item/tool/requestUserInput",
-        params: {
+      const otherThread = handler.handleServerRequest(
+        userInputRequestFixture(51, {
           threadId: "thread-other",
-          turnId: "turn-active",
           itemId: "input",
-          questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
           isBlocking: true,
-          autoResolutionMs: null,
-        },
-      });
-      const otherTurn = handler.handleServerRequest({
-        id: 52,
-        method: "item/tool/requestUserInput",
-        params: {
-          threadId: "thread-active",
+        }),
+      );
+      const otherTurn = handler.handleServerRequest(
+        userInputRequestFixture(52, {
           turnId: "turn-other",
           itemId: "input",
-          questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
           isBlocking: true,
-          autoResolutionMs: null,
-        },
-      });
+        }),
+      );
 
       expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
       expect(otherThread).toBe(false);
@@ -1107,35 +949,27 @@ describe("ChatInboundHandler", () => {
       trackDirectSubagent(handler, "child", "child-turn");
       handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "shared-command"));
 
-      handler.handleNotification({
-        method: "turn/completed",
-        params: {
-          threadId: "thread-active",
-          turn: appServerTurnFixture({
-            id: "turn-active",
-            status: "completed",
-            startedAt: 1,
-            completedAt: 2,
-            durationMs: 1,
-            itemsView: "full",
-            items: [],
-          }),
-        },
-      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+      handler.handleNotification(
+        turnNotification("turn/completed", "thread-active", {
+          id: "turn-active",
+          status: "completed",
+          startedAt: 1,
+          completedAt: 2,
+          durationMs: 1,
+          itemsView: "full",
+          items: [],
+        }),
+      );
       expect(handler.currentState().requests.approvals).toEqual([]);
-      handler.handleNotification({
-        method: "turn/started",
-        params: {
-          threadId: "thread-active",
-          turn: appServerTurnFixture({
-            id: "next-turn",
-            status: "inProgress",
-            startedAt: 3,
-            itemsView: "full",
-            items: [],
-          }),
-        },
-      } satisfies Extract<ServerNotification, { method: "turn/started" }>);
+      handler.handleNotification(
+        turnNotification("turn/started", "thread-active", {
+          id: "next-turn",
+          status: "inProgress",
+          startedAt: 3,
+          itemsView: "full",
+          items: [],
+        }),
+      );
       handler.handleNotification({
         method: "item/reasoning/summaryTextDelta",
         params: {
@@ -1170,18 +1004,13 @@ describe("ChatInboundHandler", () => {
       const rejectServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { rejectServerRequest });
 
-      const handled = handler.handleServerRequest({
-        id: 53,
-        method: "item/tool/requestUserInput",
-        params: {
-          threadId: "thread-active",
+      const handled = handler.handleServerRequest(
+        userInputRequestFixture(53, {
           turnId: "turn-stale",
           itemId: "input",
-          questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
           isBlocking: true,
-          autoResolutionMs: null,
-        },
-      });
+        }),
+      );
 
       expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
       expect(handled).toBe(false);
@@ -1401,19 +1230,15 @@ describe("ChatInboundHandler", () => {
         method: "thread/started",
         params: { thread: directSubagentThread("child", "thread-active") },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
-      handler.handleNotification({
-        method: "turn/started",
-        params: {
-          threadId: "child",
-          turn: appServerTurnFixture({
-            id: "child-turn",
-            status: "inProgress",
-            startedAt: 1,
-            itemsView: "full",
-            items: [],
-          }),
-        },
-      } satisfies Extract<ServerNotification, { method: "turn/started" }>);
+      handler.handleNotification(
+        turnNotification("turn/started", "child", {
+          id: "child-turn",
+          status: "inProgress",
+          startedAt: 1,
+          itemsView: "full",
+          items: [],
+        }),
+      );
       handler.handleNotification({
         method: "item/reasoning/summaryTextDelta",
         params: {
@@ -1430,12 +1255,7 @@ describe("ChatInboundHandler", () => {
           threadId: "child",
           turnId: "child-turn",
           startedAtMs: 1,
-          item: {
-            type: "userMessage",
-            id: "child-user",
-            clientId: "child-client",
-            content: [{ type: "text", text: "child prompt", text_elements: [] }],
-          },
+          item: appServerUserMessageFixture("child-user", "child prompt", { clientId: "child-client" }),
         },
       } satisfies Extract<ServerNotification, { method: "item/started" }>);
       handler.handleNotification({
@@ -1459,21 +1279,17 @@ describe("ChatInboundHandler", () => {
       });
       expect(handler.currentState().activeTurn.subagents.byThreadId.has("unrelated")).toBe(false);
 
-      handler.handleNotification({
-        method: "turn/completed",
-        params: {
-          threadId: "child",
-          turn: appServerTurnFixture({
-            id: "child-turn",
-            status: "interrupted",
-            startedAt: 1,
-            completedAt: 2,
-            durationMs: 1,
-            itemsView: "full",
-            items: [],
-          }),
-        },
-      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+      handler.handleNotification(
+        turnNotification("turn/completed", "child", {
+          id: "child-turn",
+          status: "interrupted",
+          startedAt: 1,
+          completedAt: 2,
+          durationMs: 1,
+          itemsView: "full",
+          items: [],
+        }),
+      );
 
       expect(handler.currentState().activeTurn.subagents.byThreadId.get("child")).toMatchObject({
         liveness: "stopped",
@@ -1617,12 +1433,7 @@ describe("ChatInboundHandler", () => {
           threadId: "thread-active",
           turnId: "turn-active",
           startedAtMs: 1,
-          item: {
-            type: "userMessage",
-            id: "server-steer",
-            clientId: "local-steer",
-            content: [{ type: "text", text: "follow up", text_elements: [] }],
-          },
+          item: appServerUserMessageFixture("server-steer", "follow up", { clientId: "local-steer" }),
         },
       } satisfies Extract<ServerNotification, { method: "item/started" }>);
 
@@ -1664,36 +1475,17 @@ describe("ChatInboundHandler", () => {
           threadId: "thread-active",
           turnId: "turn-active",
           startedAtMs: 1,
-          item: {
-            type: "userMessage",
-            id: "server-steer",
-            clientId: "local-steer-1",
-            content: [{ type: "text", text: "steer", text_elements: [] }],
-          },
+          item: appServerUserMessageFixture("server-steer", "steer", { clientId: "local-steer-1" }),
         },
       } satisfies Extract<ServerNotification, { method: "item/started" }>);
-      handler.handleNotification({
-        method: "turn/completed",
-        params: {
-          threadId: "thread-active",
-          turn: appServerTurnFixture({
-            id: "turn-active",
-            status: "completed",
-            itemsView: "summary",
-            items: [
-              {
-                type: "agentMessage",
-                id: "a2",
-                text: "second done",
-                phase: "final_answer",
-                memoryCitation: null,
-                delivery: null,
-                questions: null,
-              },
-            ],
-          }),
-        },
-      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+      handler.handleNotification(
+        turnNotification("turn/completed", "thread-active", {
+          id: "turn-active",
+          status: "completed",
+          itemsView: "summary",
+          items: [appServerAgentMessageFixture("a2", "second done")],
+        }),
+      );
 
       expect(handler.currentState().activeTurn.pendingSteers).toEqual([]);
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual([
@@ -1720,10 +1512,7 @@ describe("ChatInboundHandler", () => {
         id: "turn-active",
         status: "completed",
         itemsView: "full",
-        items: [
-          { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
-          { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null, delivery: null, questions: null },
-        ],
+        items: [appServerUserMessageFixture("u1", "hello"), appServerAgentMessageFixture("a1", "done")],
       }) satisfies TurnRecord;
 
       handler.handleNotification({
@@ -1834,22 +1623,18 @@ describe("ChatInboundHandler", () => {
       status: "failed" | "interrupted",
       error: NonNullable<TurnRecord["error"]>,
     ): void {
-      handler.handleNotification({
-        method: "turn/completed",
-        params: {
-          threadId: "thread-active",
-          turn: appServerTurnFixture({
-            id: "turn-active",
-            status,
-            error,
-            itemsView: "full",
-            items: [],
-            startedAt: 1,
-            completedAt: 2,
-            durationMs: 1,
-          }),
-        },
-      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+      handler.handleNotification(
+        turnNotification("turn/completed", "thread-active", {
+          id: "turn-active",
+          status,
+          error,
+          itemsView: "full",
+          items: [],
+          startedAt: 1,
+          completedAt: 2,
+          durationMs: 1,
+        }),
+      );
     }
 
     it("replaces an equivalent error notification but retains an earlier retry reason", () => {
@@ -1936,20 +1721,7 @@ describe("ChatInboundHandler", () => {
           action: { type: "command", source: "shell", command: "npm test", cwd: "/vault" },
         },
       } satisfies Extract<ServerNotification, { method: "item/autoApprovalReview/started" }>);
-      handler.handleNotification({
-        method: "item/autoApprovalReview/completed",
-        params: {
-          threadId: "thread-active",
-          turnId: "turn-active",
-          startedAtMs: 1,
-          completedAtMs: 2,
-          reviewId: "review-1",
-          targetItemId: "cmd-1",
-          decisionSource: "agent",
-          review: { status: "approved", riskLevel: "low", userAuthorization: "medium", rationale: "Allowed by policy." },
-          action: { type: "command", source: "shell", command: "npm test", cwd: "/vault" },
-        },
-      } satisfies Extract<ServerNotification, { method: "item/autoApprovalReview/completed" }>);
+      handler.handleNotification(completedAutoReviewFixture());
 
       expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(1);
       expect(chatStateThreadStreamItems(handler.currentState())[0]).toMatchObject({
@@ -1970,20 +1742,7 @@ describe("ChatInboundHandler", () => {
         method: "guardianWarning",
         params: { threadId: "thread-active", message: "Auto-review approved: npm test" },
       } satisfies Extract<ServerNotification, { method: "guardianWarning" }>);
-      handler.handleNotification({
-        method: "item/autoApprovalReview/completed",
-        params: {
-          threadId: "thread-active",
-          turnId: "turn-active",
-          startedAtMs: 1,
-          completedAtMs: 2,
-          reviewId: "review-1",
-          targetItemId: "cmd-1",
-          decisionSource: "agent",
-          review: { status: "approved", riskLevel: "low", userAuthorization: "medium", rationale: "Allowed by policy." },
-          action: { type: "command", source: "shell", command: "npm test", cwd: "/vault" },
-        },
-      } satisfies Extract<ServerNotification, { method: "item/autoApprovalReview/completed" }>);
+      handler.handleNotification(completedAutoReviewFixture());
 
       expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(1);
       expect(chatStateThreadStreamItems(handler.currentState())[0]).toMatchObject({
@@ -1998,20 +1757,7 @@ describe("ChatInboundHandler", () => {
       const state = activeRunningState();
       const handler = handlerForState(state);
 
-      handler.handleNotification({
-        method: "item/autoApprovalReview/completed",
-        params: {
-          threadId: "thread-active",
-          turnId: "turn-active",
-          startedAtMs: 1,
-          completedAtMs: 2,
-          reviewId: "review-1",
-          targetItemId: "cmd-1",
-          decisionSource: "agent",
-          review: { status: "approved", riskLevel: "low", userAuthorization: "medium", rationale: "Allowed by policy." },
-          action: { type: "command", source: "shell", command: "npm test", cwd: "/vault" },
-        },
-      } satisfies Extract<ServerNotification, { method: "item/autoApprovalReview/completed" }>);
+      handler.handleNotification(completedAutoReviewFixture());
       handler.handleNotification({
         method: "guardianWarning",
         params: { threadId: "thread-active", message: "Auto-review approved: npm test" },
@@ -2025,25 +1771,7 @@ describe("ChatInboundHandler", () => {
 
 function supportedApprovalRequests(): ServerRequest[] {
   return [
-    {
-      id: 10,
-      method: "item/commandExecution/requestApproval",
-      params: {
-        kind: "command",
-        command: "npm test",
-        cwd: "/tmp/project",
-        threadId: "thread",
-        turnId: "turn",
-        itemId: "command",
-        environmentId: null,
-        startedAtMs: 1,
-        reason: null,
-        commandActions: [],
-        proposedExecpolicyAmendment: null,
-        proposedNetworkPolicyAmendments: [],
-        availableDecisions: ["accept", "acceptForSession", "decline", "cancel"],
-      },
-    },
+    commandApprovalRequestFixture(10),
     {
       id: 11,
       method: "item/fileChange/requestApproval",
@@ -2056,36 +1784,12 @@ function supportedApprovalRequests(): ServerRequest[] {
         grantRoot: "/tmp/project",
       },
     },
-    {
-      id: 12,
-      method: "item/permissions/requestApproval",
-      params: {
-        cwd: "/tmp/project",
-        threadId: "thread",
-        turnId: "turn",
-        itemId: "permissions",
-        environmentId: null,
-        startedAtMs: 1,
-        reason: "Need access",
-        permissions: { network: null, fileSystem: null },
-      },
-    },
+    permissionsApprovalRequestFixture(12, { reason: "Need access", permissions: { network: null, fileSystem: null } }),
   ];
 }
 
 function userInputRequest(id: number): ServerRequest {
-  return {
-    id,
-    method: "item/tool/requestUserInput",
-    params: {
-      threadId: "thread",
-      turnId: "turn",
-      itemId: "input",
-      questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
-      isBlocking: true,
-      autoResolutionMs: null,
-    },
-  };
+  return userInputRequestFixture(id, { threadId: "thread", turnId: "turn", itemId: "input", isBlocking: true });
 }
 
 function mcpElicitationRequest(id: number): ServerRequest {
@@ -2111,26 +1815,7 @@ function commandApprovalRequest(
   itemId: string,
   approvalId: string | null = null,
 ): ServerRequest {
-  return {
-    id,
-    method: "item/commandExecution/requestApproval",
-    params: {
-      kind: "command",
-      command: "npm test",
-      cwd: "/tmp/project",
-      threadId,
-      turnId,
-      itemId,
-      approvalId,
-      environmentId: null,
-      startedAtMs: 1,
-      reason: null,
-      commandActions: [],
-      proposedExecpolicyAmendment: null,
-      proposedNetworkPolicyAmendments: [],
-      availableDecisions: ["accept", "acceptForSession", "decline", "cancel"],
-    },
-  };
+  return commandApprovalRequestFixture(id, { threadId, turnId, itemId, approvalId });
 }
 
 function trackDirectSubagent(handler: TestChatInboundHandler, threadId: string, turnId: string): void {
@@ -2224,4 +1909,38 @@ function unknownRequest(): ServerRequest {
     method: "appServer/newFutureRequest",
     params: { secret: "do-not-render" },
   } as unknown as ServerRequest;
+}
+
+function mcpUrlRequestFixture(): Extract<ServerRequest, { method: "mcpServer/elicitation/request" }> {
+  return {
+    id: 46,
+    method: "mcpServer/elicitation/request",
+    params: {
+      threadId: "thread-active",
+      turnId: "turn-active",
+      serverName: "github",
+      mode: "url",
+      _meta: null,
+      message: "Confirm in browser",
+      url: "https://example.com/confirm",
+      elicitationId: "elicit-1",
+    },
+  };
+}
+
+function completedAutoReviewFixture(): Extract<ServerNotification, { method: "item/autoApprovalReview/completed" }> {
+  return {
+    method: "item/autoApprovalReview/completed",
+    params: {
+      threadId: "thread-active",
+      turnId: "turn-active",
+      startedAtMs: 1,
+      completedAtMs: 2,
+      reviewId: "review-1",
+      targetItemId: "cmd-1",
+      decisionSource: "agent",
+      review: { status: "approved", riskLevel: "low", userAuthorization: "medium", rationale: "Allowed by policy." },
+      action: { type: "command", source: "shell", command: "npm test", cwd: "/vault" },
+    },
+  };
 }

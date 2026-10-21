@@ -1,23 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-
 import { executeRuntimeSlashCommand } from "../../../../../src/features/chat/application/slash-commands/execute-runtime";
+import { slashRuntimeSettingsFixture, slashSubmissionFixture } from "../../support/slash-command-ports";
 
 type RuntimeContext = Parameters<typeof executeRuntimeSlashCommand>[2];
 
 function context(overrides: Partial<RuntimeContext> = {}): RuntimeContext {
   return {
-    submission: { isCurrent: vi.fn(() => true), markAdopted: vi.fn(), adoptPanelTarget: vi.fn() },
-    runtimeSettings: {
-      toggleFastMode: vi.fn(),
-      toggleCollaborationMode: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      requestModel: vi.fn(),
-      resetModelToConfig: vi.fn(),
-      requestPermissionProfile: vi.fn(),
-      resetPermissionProfileToConfig: vi.fn(),
-      requestReasoningEffort: vi.fn(),
-      resetReasoningEffortToConfig: vi.fn(),
-    },
+    submission: slashSubmissionFixture(),
+    runtimeSettings: slashRuntimeSettingsFixture(),
     addSystemMessage: vi.fn(),
     addStructuredSystemMessage: vi.fn(),
     statusDetails: () => [{ auditFacts: [{ key: "Thread", value: "thread-1" }] }],

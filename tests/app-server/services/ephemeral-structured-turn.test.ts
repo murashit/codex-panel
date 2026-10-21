@@ -1,3 +1,4 @@
+import { appServerAgentMessageFixture as agentMessage, appServerCompletedTurnFixture as turn } from "../../support/app-server-records";
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
@@ -12,7 +13,7 @@ import type { ServerNotification } from "../../../src/generated/app-server/Serve
 import type { ServerRequest } from "../../../src/generated/app-server/ServerRequest";
 import type { Thread as AppServerThread } from "../../../src/generated/app-server/v2/Thread";
 import type { ThreadStartResponse } from "../../../src/generated/app-server/v2/ThreadStartResponse";
-import { appServerThreadFixture, appServerTurnFixture } from "../../support/app-server-records";
+import { appServerThreadFixture } from "../../support/app-server-records";
 
 interface TurnStartResponse {
   turn: TurnRecord;
@@ -540,20 +541,6 @@ function thread(id: string): AppServerThread {
     source: "unknown",
     turns: [],
   });
-}
-
-function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
-  return appServerTurnFixture({
-    id: "turn",
-    items,
-    itemsView: "full",
-    status: "completed",
-    ...overrides,
-  });
-}
-
-function agentMessage(id: string, text: string): TurnItem {
-  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null, delivery: null, questions: null };
 }
 
 function completedItemNotification(threadId: string, turnId: string, item: TurnItem): ServerNotification {

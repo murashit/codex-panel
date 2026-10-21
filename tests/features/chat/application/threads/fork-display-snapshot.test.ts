@@ -9,6 +9,7 @@ import {
   reconcileForkDisplayItems,
 } from "../../../../../src/features/chat/application/threads/fork-display-snapshot";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import { taskProgressFixture as taskProgress } from "../../support/thread-stream";
 
 describe("fork display snapshots", () => {
   it.each([
@@ -163,18 +164,6 @@ function message(id: string, turnId: string, text = id): ThreadStreamItem {
     text,
     dialogueState: "completed",
     turnId,
-  };
-}
-
-function taskProgress(turnId: string): ThreadStreamItem {
-  return {
-    id: `plan-progress-${turnId}`,
-    kind: "taskProgress",
-    role: "tool",
-    turnId,
-    explanation: null,
-    steps: [{ step: "Keep this", status: "completed" }],
-    executionState: "completed",
   };
 }
 
