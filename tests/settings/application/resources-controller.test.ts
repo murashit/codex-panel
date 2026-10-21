@@ -1,56 +1,21 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { modelMetadataFromCatalogModels } from "../../../src/app-server/protocol/catalog";
-import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
-import type { ModelMetadata } from "../../../src/domain/runtime/catalog";
+import type { HookItem, ModelMetadata } from "../../../src/domain/runtime/catalog";
 import type { Thread } from "../../../src/domain/threads/model";
+import type { SettingsHookCatalog, SettingsResources } from "../../../src/settings/application/resources";
 import { SettingsResourcesController } from "../../../src/settings/application/resources-controller";
-import type { SettingsTabHost } from "../../../src/settings/host/contracts";
-import type { ObservedResult } from "../../../src/shared/async/observed-result";
+import type { ObservedResult, ObservedResultListener } from "../../../src/shared/async/observed-result";
 import { deferred } from "../../support/async";
-import {
-  appServerThread,
-  flushPromises,
-  hook,
-  model,
-  panelThread,
-  settingsClient,
-  settingsContextClientMock,
-  settingsRequestClient,
-  settingsTabHost,
-  useContextClients,
-} from "../test-support";
-
-type SettingsResourcesSnapshot = ReturnType<SettingsResourcesController["snapshot"]>;
-
-const noop = (): void => undefined;
-
-function settingsResourcesController(
-  host: SettingsTabHost,
-  callbacks: { display(): void; notify(message: string): void },
-): SettingsResourcesController {
-  return new SettingsResourcesController(host.resources, callbacks);
-}
+import { modelMetadataFixture } from "../../support/model-metadata";
+import { panelThreadFixture } from "../../support/panel-thread";
 
 describe("SettingsResourcesController", () => {
-  beforeEach(() => {
-    settingsContextClientMock.mockReset();
-  });
-
   it("publishes archived thread catalog updates", () => {
-    const archived = archivedThreadEmitter();
-    const display = vi.fn();
-    const controller = settingsResourcesController(
-      settingsTabHost({
-        observeArchived: archived.observe,
-      }),
-      { display, notify: noop },
-    );
-
+    const { controller, archived, display } = controllerFixture();
     controller.activate();
     display.mockClear();
-    const archivedThreads = [panelThread({ id: "thread-archived", preview: "Archived elsewhere", archived: true })];
-    archived.emit(archivedThreads);
+
+    archived.emit([panelThreadFixture({ id: "thread-archived", preview: "Archived elsewhere", archived: true })]);
 
     expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["Archived elsewhere"]);
     expect(controller.snapshot().archivedThreadsLifecycle.kind).toBe("idle");
@@ -58,33 +23,27 @@ describe("SettingsResourcesController", () => {
   });
 
   it("refreshes completed sections while another resource remains loading", async () => {
-    const firstModels = deferred<ModelMetadata[]>();
-    const firstClient = settingsClient();
-    useContextClients(firstClient);
-    const refreshModels = vi.fn(() => firstModels.promise);
-    const refreshArchived = vi
-      .fn()
-      .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old", archived: true })])
-      .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New", archived: true })]);
-    const controller = settingsResourcesController(settingsTabHost({ refreshModels, refreshArchived }), {
-      display: noop,
-      notify: noop,
-    });
+    const { controller, resources, models, archived } = controllerFixture();
+    const firstModels = deferred<readonly ModelMetadata[]>();
+    resources.queries.refreshModels.mockReturnValue(firstModels.promise);
     controller.activate();
 
     const firstRefresh = controller.refresh();
-    await flushPromises();
+    models.emit(null, { isFetching: true });
+    archived.emit([panelThreadFixture({ id: "thread-old", preview: "Old", archived: true })]);
     expect(controller.canRefresh()).toBe(true);
     expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["Old"]);
     const secondRefresh = controller.refresh();
-    await flushPromises();
+    archived.emit([panelThreadFixture({ id: "thread-new", preview: "New", archived: true })]);
 
-    expect(refreshArchived).toHaveBeenCalledTimes(2);
-    expect(settingsContextClientMock).toHaveBeenCalledTimes(2);
+    expect(resources.threadCatalog.refreshArchivedThreads).toHaveBeenCalledTimes(2);
+    expect(resources.queries.refreshHooks).toHaveBeenCalledTimes(2);
     expect(controller.snapshot().modelsLifecycle.kind).toBe("loading");
     expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["New"]);
 
-    firstModels.resolve(modelMetadataFromCatalogModels([model("gpt-old")]));
+    const loadedModels = [modelMetadataFixture("gpt-old")];
+    models.emit(loadedModels);
+    firstModels.resolve(loadedModels);
     await Promise.all([firstRefresh, secondRefresh]);
 
     expect(controller.modelMetadata().map((item) => item.model)).toEqual(["gpt-old"]);
@@ -92,106 +51,78 @@ describe("SettingsResourcesController", () => {
   });
 
   it("does not display dynamic refresh results after disposal", async () => {
-    useContextClients(settingsClient());
-    const models = deferred<ModelMetadata[]>();
-    const display = vi.fn();
-    const unsubscribeModels = vi.fn();
-    const observeModels = vi.fn(() => unsubscribeModels);
-    const controller = settingsResourcesController(
-      settingsTabHost({
-        modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-cached")]),
-        observeModels,
-        refreshModels: vi.fn(() => models.promise),
-        refreshArchived: vi.fn().mockResolvedValue([]),
-      }),
-      { display, notify: noop },
-    );
-
+    const { controller, resources, models, display } = controllerFixture();
+    const loading = deferred<readonly ModelMetadata[]>();
+    resources.queries.refreshModels.mockReturnValue(loading.promise);
+    models.emit([modelMetadataFixture("gpt-cached")]);
     controller.activate();
-    expect(observeModels).toHaveBeenCalledOnce();
     expect(controller.modelMetadata().map((item) => item.model)).toEqual(["gpt-cached"]);
     expect(display).toHaveBeenCalled();
     const refresh = controller.refresh();
-    await flushPromises();
-    display.mockClear();
+
     controller.dispose();
-    expect(unsubscribeModels).toHaveBeenCalledOnce();
-    models.resolve([]);
+    display.mockClear();
+    models.emit([]);
+    loading.resolve([]);
     await refresh;
 
+    expect(models.unsubscribe).toHaveBeenCalledOnce();
     expect(display).not.toHaveBeenCalled();
   });
 
   it("reloads hooks after the settings view is hidden and shown again", async () => {
-    const firstHooks = deferred<unknown>();
-    const firstClient = settingsClient();
-    firstClient.requestHandlers["hooks/list"] = vi.fn(() => firstHooks.promise);
-    const secondClient = settingsClient({ hooks: [hook({ key: "hook-after-reopen" })] });
-    useContextClients(firstClient, secondClient);
-    const controller = settingsResourcesController(settingsTabHost(), { display: noop, notify: noop });
-
+    const { controller, resources, hooks } = controllerFixture();
+    const firstHooks = deferred<void>();
+    resources.queries.refreshHooks.mockReturnValueOnce(firstHooks.promise);
     controller.activate();
     controller.maybeAutoLoad();
-    await flushPromises();
     controller.dispose();
-    firstHooks.resolve({ data: [{ cwd: "/vault", hooks: [], warnings: [], errors: [] }] });
-    await flushPromises();
+    firstHooks.resolve(undefined);
+    await firstHooks.promise;
 
     controller.activate();
     controller.maybeAutoLoad();
-    await flushPromises();
+    hooks.emit(hookCatalog(hookFixture({ key: "hook-after-reopen" })));
 
     expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-after-reopen" })]);
-    expect(firstClient.requestHandlers["hooks/list"]).toHaveBeenCalledOnce();
-    expect(secondClient.requestHandlers["hooks/list"]).toHaveBeenCalledOnce();
+    expect(resources.queries.refreshHooks).toHaveBeenCalledTimes(2);
   });
 
   it("settles a pending hook mutation after the settings view is hidden and shown again", async () => {
-    const write = deferred<unknown>();
-    const client = settingsClient({ hooks: [hook({ key: "hook-after-write", trustStatus: "trusted" })] });
-    client.requestHandlers["config/batchWrite"] = vi.fn(() => write.promise);
-    useContextClients(client);
-    const controller = settingsResourcesController(settingsTabHost(), { display: noop, notify: noop });
-
+    const { controller, resources, hooks } = controllerFixture();
+    const write = deferred<void>();
+    resources.queries.trustHook.mockReturnValue(write.promise);
     controller.activate();
-    const mutation = controller.trustHook(hook({ key: "hook-after-write", trustStatus: "untrusted" }));
-    await flushPromises();
+    const mutation = controller.trustHook(hookFixture({ trustStatus: "untrusted" }));
     controller.dispose();
     controller.activate();
     controller.maybeAutoLoad();
 
-    expect(settingsContextClientMock).toHaveBeenCalledOnce();
-
-    write.resolve({});
+    expect(resources.queries.refreshHooks).not.toHaveBeenCalled();
+    hooks.emit(hookCatalog(hookFixture({ key: "hook-after-write" })));
+    write.resolve(undefined);
     await mutation;
 
-    expect(controller.snapshot().hookCatalog?.hooks).toEqual([
-      expect.objectContaining({ key: "hook-after-write", trustStatus: "trusted" }),
-    ]);
+    expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-after-write" })]);
     expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "idle" });
   });
 
-  it.each([true, false])("writes hook enabled=%s and publishes the refreshed catalog", async (enabled) => {
-    const write = deferred<unknown>();
-    const client = settingsClient({ hooks: [hook({ enabled })] });
-    client.requestHandlers["config/batchWrite"] = vi.fn(() => write.promise);
-    useContextClients(client);
-    const display = vi.fn();
-    const controller = settingsResourcesController(settingsTabHost(), { display, notify: noop });
+  it.each([true, false])("locks hook controls until the enabled=%s operation settles", async (enabled) => {
+    const { controller, resources, hooks, display } = controllerFixture();
+    const write = deferred<void>();
+    resources.queries.setHookEnabled.mockReturnValue(write.promise);
     controller.activate();
+    const hook = hookFixture({ enabled: !enabled });
 
-    const mutation = controller.setHookEnabled(hook({ enabled: !enabled }), enabled);
-    await flushPromises();
-    expect(client.requestHandlers["config/batchWrite"]).toHaveBeenCalledExactlyOnceWith({
-      edits: [{ keyPath: "hooks.state", value: { "hook-key": { enabled } }, mergeStrategy: "upsert" }],
-      reloadUserConfig: true,
-    });
+    const mutation = controller.setHookEnabled(hook, enabled);
+    expect(resources.queries.setHookEnabled).toHaveBeenCalledExactlyOnceWith(hook, enabled);
     expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "loading" });
-    await controller.setHookEnabled(hook(), !enabled);
-    expect(client.requestHandlers["config/batchWrite"]).toHaveBeenCalledOnce();
+    await controller.setHookEnabled(hook, !enabled);
+    expect(resources.queries.setHookEnabled).toHaveBeenCalledOnce();
     display.mockClear();
 
-    write.resolve({});
+    hooks.emit(hookCatalog(hookFixture({ enabled })));
+    write.resolve(undefined);
     await mutation;
 
     expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-key", enabled })]);
@@ -200,137 +131,92 @@ describe("SettingsResourcesController", () => {
   });
 
   it("keeps hook operation failures out of catalog state", async () => {
-    const failedClient = settingsClient();
-    failedClient.requestHandlers["config/batchWrite"] = vi.fn().mockRejectedValue(new Error("write failed"));
-    const refreshedClient = settingsClient({ hooks: [hook({ key: "hook-refreshed" })] });
-    useContextClients(failedClient, refreshedClient);
-    const notify = vi.fn();
-    const controller = settingsResourcesController(settingsTabHost(), { display: noop, notify });
+    const { controller, resources, hooks, notify } = controllerFixture();
+    resources.queries.trustHook.mockRejectedValue(new Error("write failed"));
     controller.activate();
 
-    await controller.trustHook(hook({ trustStatus: "untrusted" }));
+    await controller.trustHook(hookFixture({ trustStatus: "untrusted" }));
     expect(controller.snapshot().hooksLifecycle.kind).toBe("idle");
     expect(notify).toHaveBeenCalledExactlyOnceWith("Could not trust hook: write failed");
 
     controller.dispose();
     controller.activate();
     await controller.refresh();
+    hooks.emit(hookCatalog(hookFixture({ key: "hook-refreshed" })));
 
     expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "idle" });
     expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-refreshed" })]);
   });
 
-  it("does not publish an old-context hook mutation over a replacement-context refresh", async () => {
-    const oldWrite = deferred<unknown>();
-    const oldClient = settingsClient({ hooks: [hook({ key: "hook-old-context" })] });
-    oldClient.requestHandlers["config/batchWrite"] = vi.fn(() => oldWrite.promise);
-    const newClient = settingsClient({ hooks: [hook({ key: "hook-new-context" })] });
-    useContextClients(oldClient, newClient);
-    const host = settingsTabHost();
-    const notify = vi.fn();
-    const controller = settingsResourcesController(host, { display: noop, notify });
+  it("does not publish an old-context hook mutation over replacement resources", async () => {
+    const { controller, resources, hooks, notify } = controllerFixture();
+    const oldWrite = deferred<void>();
+    resources.queries.trustHook.mockReturnValue(oldWrite.promise);
     controller.activate();
-
-    const oldMutation = controller.trustHook(hook({ key: "hook-old-context", trustStatus: "untrusted" }));
-    await flushPromises();
-    controller.replaceResources(settingsTabHost().resources);
+    const oldMutation = controller.trustHook(hookFixture({ trustStatus: "untrusted" }));
+    const replacement = resourceFixture();
+    controller.replaceResources(replacement.resources);
     await controller.refresh();
-
+    replacement.hooks.emit(hookCatalog(hookFixture({ key: "hook-new-context" })));
     expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-new-context" })]);
 
-    oldWrite.resolve({});
+    hooks.emit(hookCatalog(hookFixture({ key: "hook-old-context" })));
+    oldWrite.resolve(undefined);
     await oldMutation;
 
     expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-new-context" })]);
+    expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "idle" });
     expect(notify).not.toHaveBeenCalled();
   });
 
   it("refreshes models and hooks while an archived thread operation is loading", async () => {
-    const staleRestore = deferred<{ thread: ThreadRecord }>();
-    const initialClient = settingsClient({ hooks: [hook({ key: "hook-old" })] });
-    const restoreClient = settingsRequestClient({
-      "thread/unarchive": vi.fn(() => staleRestore.promise),
-    });
-    const newerClient = settingsClient({ hooks: [hook({ key: "hook-new" })] });
-    useContextClients(initialClient, restoreClient, newerClient);
-    const refreshArchived = vi
-      .fn()
-      .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old archived", archived: true })])
-      .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New archived", archived: true })]);
-    const refreshModels = vi
-      .fn()
-      .mockResolvedValueOnce(modelMetadataFromCatalogModels([model("gpt-old")]))
-      .mockResolvedValueOnce(modelMetadataFromCatalogModels([model("gpt-new")]));
-    const controller = settingsResourcesController(settingsTabHost({ refreshArchived, refreshModels }), {
-      display: noop,
-      notify: noop,
-    });
+    const { controller, resources, models, hooks, archived } = controllerFixture();
+    const restoreResult = deferred<Thread>();
+    resources.threadMutations.restoreThread.mockReturnValue(restoreResult.promise);
     controller.activate();
-
     await controller.refresh();
+    archived.emit([panelThreadFixture({ id: "thread-old", preview: "Old archived", archived: true })]);
+
     const restore = controller.restoreArchivedThread("thread-old");
-    await flushPromises();
     expect(controller.canRefresh()).toBe(true);
     await controller.refresh();
+    models.emit([modelMetadataFixture("gpt-new")]);
+    hooks.emit(hookCatalog(hookFixture({ key: "hook-new" })));
 
-    expect(refreshArchived).toHaveBeenCalledOnce();
-    expect(refreshModels).toHaveBeenCalledTimes(2);
-    expect(settingsContextClientMock).toHaveBeenCalledTimes(3);
+    expect(resources.threadCatalog.refreshArchivedThreads).toHaveBeenCalledOnce();
+    expect(resources.queries.refreshModels).toHaveBeenCalledTimes(2);
+    expect(resources.queries.refreshHooks).toHaveBeenCalledTimes(2);
     expect(controller.modelMetadata().map((item) => item.model)).toEqual(["gpt-new"]);
     expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-new" })]);
     expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["Old archived"]);
 
-    staleRestore.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
+    restoreResult.resolve(panelThreadFixture({ id: "thread-old" }));
     await restore;
   });
 
   it("rejects a conflicting archived mutation while one is pending, including after reopening", async () => {
-    const restoreResult = deferred<{ thread: ThreadRecord }>();
-    const restoreRequest = vi.fn(() => restoreResult.promise);
-    const deleteRequest = vi.fn().mockResolvedValue({});
-    const restoreClient = settingsRequestClient({
-      "thread/unarchive": restoreRequest,
-    });
-    const deleteClient = settingsRequestClient({
-      "thread/delete": deleteRequest,
-    });
-    useContextClients(restoreClient, deleteClient);
-    const controller = settingsResourcesController(settingsTabHost(), {
-      display: noop,
-      notify: noop,
-    });
+    const { controller, resources } = controllerFixture();
+    const restoreResult = deferred<Thread>();
+    resources.threadMutations.restoreThread.mockReturnValue(restoreResult.promise);
 
     const restore = controller.restoreArchivedThread("thread-old");
     await controller.deleteArchivedThread("thread-old");
     controller.dispose();
     controller.activate();
     const deletion = controller.deleteArchivedThread("thread-old");
-    await flushPromises();
 
-    expect(restoreRequest).toHaveBeenCalledOnce();
-    expect(deleteRequest).not.toHaveBeenCalled();
-    expect(settingsContextClientMock).toHaveBeenCalledOnce();
-
-    restoreResult.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
+    expect(resources.threadMutations.restoreThread).toHaveBeenCalledExactlyOnceWith("thread-old");
+    expect(resources.threadMutations.deleteThread).not.toHaveBeenCalled();
+    restoreResult.resolve(panelThreadFixture({ id: "thread-old" }));
     await Promise.all([restore, deletion]);
-    expect(controller.snapshot().archivedThreadsLifecycle.kind).toBe("idle");
 
-    expect(deleteRequest).not.toHaveBeenCalled();
-    expect(settingsContextClientMock).toHaveBeenCalledOnce();
+    expect(controller.snapshot().archivedThreadsLifecycle.kind).toBe("idle");
+    expect(resources.threadMutations.deleteThread).not.toHaveBeenCalled();
   });
 
   it("keeps archived operation failures out of catalog state", async () => {
-    const failedRestoreClient = settingsRequestClient({
-      "thread/unarchive": vi.fn().mockRejectedValue(new Error("restore failed")),
-    });
-    useContextClients(failedRestoreClient, settingsClient());
-    const notify = vi.fn();
-    const controller = settingsResourcesController(
-      settingsTabHost({
-        refreshArchived: vi.fn().mockResolvedValue([panelThread({ id: "thread-refreshed", archived: true })]),
-      }),
-      { display: noop, notify },
-    );
+    const { controller, resources, archived, notify } = controllerFixture();
+    resources.threadMutations.restoreThread.mockRejectedValue(new Error("restore failed"));
     controller.activate();
 
     await controller.restoreArchivedThread("thread-old");
@@ -340,54 +226,36 @@ describe("SettingsResourcesController", () => {
     controller.dispose();
     controller.activate();
     await controller.refresh();
+    archived.emit([panelThreadFixture({ id: "thread-refreshed", archived: true })]);
 
     expect(controller.snapshot().archivedThreadsLifecycle).toEqual({ kind: "idle" });
     expect(controller.snapshot().archivedThreads?.map((thread) => thread.id)).toEqual(["thread-refreshed"]);
   });
 
   it("lets a completed archived mutation settle after the settings view is disposed", async () => {
-    const restoreResult = deferred<{ thread: ThreadRecord }>();
-    const restoreClient = settingsRequestClient({
-      "thread/unarchive": vi.fn(() => restoreResult.promise),
-    });
-    const display = vi.fn();
-    useContextClients(restoreClient);
-    const controller = settingsResourcesController(settingsTabHost(), {
-      display,
-      notify: noop,
-    });
-
+    const { controller, resources, display } = controllerFixture();
+    const restoreResult = deferred<Thread>();
+    resources.threadMutations.restoreThread.mockReturnValue(restoreResult.promise);
     const restore = controller.restoreArchivedThread("thread-old");
-    await flushPromises();
     controller.dispose();
     display.mockClear();
 
-    restoreResult.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored after close" }) });
+    restoreResult.resolve(panelThreadFixture({ id: "thread-old" }));
     await restore;
 
     expect(display).not.toHaveBeenCalled();
   });
 
   it("does not publish an old-context archived mutation over replacement resources", async () => {
-    const oldRestore = deferred<{ thread: ThreadRecord }>();
-    const oldClient = settingsRequestClient({
-      "thread/unarchive": vi.fn(() => oldRestore.promise),
-    });
-    useContextClients(oldClient, settingsClient());
-    const host = settingsTabHost();
-    const notify = vi.fn();
-    const controller = settingsResourcesController(host, { display: noop, notify });
+    const { controller, resources, notify } = controllerFixture();
+    const oldRestore = deferred<Thread>();
+    resources.threadMutations.restoreThread.mockReturnValue(oldRestore.promise);
     controller.activate();
-
     const staleMutation = controller.restoreArchivedThread("thread-old");
-    await flushPromises();
-    controller.replaceResources(
-      settingsTabHost({
-        archivedThreads: [panelThread({ id: "thread-new", preview: "New context", archived: true })],
-      }).resources,
-    );
+    const replacement = resourceFixture();
+    controller.replaceResources(replacement.resources);
     await controller.refresh();
-
+    replacement.archived.emit([panelThreadFixture({ id: "thread-new", archived: true })]);
     expect(controller.snapshot().archivedThreads?.map((thread) => thread.id)).toEqual(["thread-new"]);
 
     oldRestore.reject(new Error("Old context failed"));
@@ -398,53 +266,107 @@ describe("SettingsResourcesController", () => {
     expect(notify).not.toHaveBeenCalled();
   });
 
-  it("displays restored archived thread state after recording the active catalog event", async () => {
-    const snapshots: SettingsResourcesSnapshot[] = [];
-    const archived = archivedThreadEmitter();
-    const initialClient = settingsClient();
-    const restoreClient = settingsRequestClient({
-      "thread/unarchive": vi.fn(async () => {
-        archived.emit([]);
-        return { thread: appServerThread({ id: "thread-old", preview: "Restored old" }) };
-      }),
-    });
-    useContextClients(initialClient, restoreClient);
-    const controllerRef: { current: SettingsResourcesController | null } = { current: null };
-    const controller = settingsResourcesController(
-      settingsTabHost({
-        archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
-        observeArchived: archived.observe,
-      }),
-      {
-        display: () => {
-          const snapshot = controllerRef.current?.snapshot();
-          if (snapshot) snapshots.push(snapshot);
-        },
-        notify: noop,
-      },
-    );
-    controllerRef.current = controller;
+  it("displays the updated archived catalog when a restore finishes", async () => {
+    const { controller, resources, archived, display } = controllerFixture();
+    const restoreResult = deferred<Thread>();
+    resources.threadMutations.restoreThread.mockReturnValue(restoreResult.promise);
     controller.activate();
+    archived.emit([panelThreadFixture({ id: "thread-old", archived: true })]);
+    const restore = controller.restoreArchivedThread("thread-old");
+    archived.emit([]);
+    expect(controller.snapshot().archivedThreads).toEqual([]);
+    expect(controller.snapshot().archivedThreadsLifecycle.kind).toBe("loading");
+    display.mockClear();
+    const displayed: ReturnType<SettingsResourcesController["snapshot"]>[] = [];
+    display.mockImplementation(() => displayed.push(controller.snapshot()));
 
-    await controller.refresh();
-    snapshots.length = 0;
-    await controller.restoreArchivedThread("thread-old");
+    restoreResult.resolve(panelThreadFixture({ id: "thread-old" }));
+    await restore;
 
-    expect(snapshots.at(-1)?.archivedThreads).toEqual([]);
-    expect(snapshots.at(-1)?.archivedThreadsLifecycle.kind).toBe("idle");
+    expect(display).toHaveBeenCalledOnce();
+    expect(displayed).toMatchObject([{ archivedThreads: [], archivedThreadsLifecycle: { kind: "idle" } }]);
   });
 });
 
-function archivedThreadEmitter() {
-  let listener: ((result: ObservedResult<readonly Thread[]>) => void) | null = null;
+function controllerFixture() {
+  const fixture = resourceFixture();
+  const display = vi.fn();
+  const notify = vi.fn();
   return {
-    observe(next: (result: ObservedResult<readonly Thread[]>) => void) {
-      listener = next;
-      return () => undefined;
+    ...fixture,
+    display,
+    notify,
+    controller: new SettingsResourcesController(fixture.resources, { display, notify }),
+  };
+}
+
+function resourceFixture() {
+  const models = observedResults<readonly ModelMetadata[]>();
+  const hooks = observedResults<SettingsHookCatalog>();
+  const archived = observedResults<readonly Thread[]>();
+  const resources = {
+    queries: {
+      observeModelsResult: models.observe,
+      observeHooksResult: hooks.observe,
+      fetchModels: vi.fn<SettingsResources["queries"]["fetchModels"]>().mockResolvedValue([]),
+      refreshModels: vi.fn<SettingsResources["queries"]["refreshModels"]>().mockResolvedValue([]),
+      refreshHooks: vi.fn<SettingsResources["queries"]["refreshHooks"]>().mockResolvedValue(undefined),
+      trustHook: vi.fn<SettingsResources["queries"]["trustHook"]>().mockResolvedValue(undefined),
+      setHookEnabled: vi.fn<SettingsResources["queries"]["setHookEnabled"]>().mockResolvedValue(undefined),
     },
-    emit(threads: readonly Thread[]) {
-      if (!listener) throw new Error("Expected archived thread observer");
-      listener({ value: threads, error: null, isFetching: false });
+    threadCatalog: {
+      archivedThreadsSnapshot: () => archived.snapshot().value,
+      observeArchivedThreadsResult: archived.observe,
+      refreshArchivedThreads: vi.fn<SettingsResources["threadCatalog"]["refreshArchivedThreads"]>().mockResolvedValue([]),
     },
+    threadMutations: {
+      restoreThread: vi
+        .fn<SettingsResources["threadMutations"]["restoreThread"]>()
+        .mockResolvedValue(panelThreadFixture({ id: "restored" })),
+      deleteThread: vi.fn<SettingsResources["threadMutations"]["deleteThread"]>().mockResolvedValue(undefined),
+    },
+  } satisfies SettingsResources;
+  return { resources, models, hooks, archived };
+}
+
+function observedResults<T>() {
+  let result: ObservedResult<T> = { value: null, error: null, isFetching: false };
+  const listeners = new Set<ObservedResultListener<T>>();
+  const unsubscribe = vi.fn();
+  return {
+    unsubscribe,
+    snapshot: () => result,
+    observe(listener: ObservedResultListener<T>) {
+      listeners.add(listener);
+      listener(result);
+      return () => {
+        listeners.delete(listener);
+        unsubscribe();
+      };
+    },
+    emit(value: T | null, state: Partial<Omit<ObservedResult<T>, "value">> = {}) {
+      result = { value, error: null, isFetching: false, ...state };
+      for (const listener of listeners) listener(result);
+    },
+  };
+}
+
+function hookCatalog(...hooks: HookItem[]): SettingsHookCatalog {
+  return { hooks, warnings: [], errors: [] };
+}
+
+function hookFixture(overrides: Partial<HookItem> = {}): HookItem {
+  return {
+    key: "hook-key",
+    eventName: "postToolUse",
+    matcher: "apply_patch",
+    handlerSummary: "node hook.js",
+    statusMessage: null,
+    sourcePath: "/vault/.codex/hooks.json",
+    enabled: true,
+    isManaged: false,
+    currentHash: "hash",
+    trustStatus: "trusted",
+    ...overrides,
   };
 }

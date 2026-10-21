@@ -11,6 +11,7 @@ import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
+import { selectChatPanelComposer } from "../../../../../src/features/chat/host/composer/view-projection";
 import type { ChatPanelEnvironment, CodexChatHost } from "../../../../../src/features/chat/host/contracts";
 import { createChatPanelSessionRuntime } from "../../../../../src/features/chat/host/session/runtime";
 import { createChatThreadStreamScrollBinding } from "../../../../../src/features/chat/host/thread-stream/scroll-binding";
@@ -24,12 +25,11 @@ import { createServerDiagnostics } from "../../../../support/runtime-diagnostics
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { threadMutationCommandsMock } from "../../../../support/thread-mutations";
 import { chatPanelSettingsAccess } from "../../support/settings";
-import { chatSharedDisplayValuesFixture } from "../../support/shared-display-values";
-import { composerModelFromChatState } from "../../support/shell-selectors";
+import { chatComposerSharedValuesFixture } from "../../support/shared-display-values";
 
 installObsidianDomShims();
 
-const emptySharedResources = chatSharedDisplayValuesFixture();
+const emptySharedResources = chatComposerSharedValuesFixture();
 
 describe("chat panel session runtime", () => {
   let panelRoot: HTMLElement;
@@ -279,7 +279,7 @@ describe("chat panel session runtime", () => {
     threadStreamScrollBinding.mountScrollPort({ dispatchScrollCommand });
     const composer = document.body.createEl("textarea");
     runtime.composer.controller
-      .renderState(composerModelFromChatState(stateStore.getState(), emptySharedResources), { submit: vi.fn() })
+      .renderState(selectChatPanelComposer(stateStore.getState(), emptySharedResources), { submit: vi.fn() })
       .onComposer(composer);
     composer.focus();
     expect(runtime.composer.controller.hasFocus()).toBe(true);
@@ -335,7 +335,7 @@ describe("chat panel session runtime", () => {
           isDefault: false,
         }));
         const presentation = panel.runtime.composer.controller.renderState(
-          composerModelFromChatState(panel.stateStore.getState(), chatSharedDisplayValuesFixture({ availableModels })),
+          selectChatPanelComposer(panel.stateStore.getState(), chatComposerSharedValuesFixture({ models: availableModels })),
           { submit: vi.fn() },
         );
         const choice = presentation.meta.modelChoices.find((choice) => choice.label === model);

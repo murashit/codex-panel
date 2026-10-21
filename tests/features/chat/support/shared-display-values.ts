@@ -1,66 +1,23 @@
-import type { ModelMetadata, SkillMetadata } from "../../../../src/domain/runtime/catalog";
-import type { MetadataResourceDiagnostics } from "../../../../src/domain/runtime/diagnostics";
 import { createMetadataResourceDiagnostics } from "../../../../src/domain/runtime/diagnostics";
-import type { RuntimeConfigSnapshot } from "../../../../src/domain/runtime/settings";
-import type { ToolInventorySnapshot } from "../../../../src/domain/runtime/tool-inventory";
-import type { RateLimitSnapshot } from "../../../../src/domain/runtime/usage";
-import type { Thread } from "../../../../src/domain/threads/model";
 import type { ChatPanelComposerSharedValues } from "../../../../src/features/chat/host/composer/view-projection";
 import type { ChatPanelToolbarSharedValues } from "../../../../src/features/chat/host/toolbar/view-projection";
 
-export interface ChatSharedDisplayValues {
-  readonly threads: readonly Thread[];
-  readonly hasMoreThreads: boolean;
-  readonly threadListFetching: boolean;
-  readonly isFetchingNextPage: boolean;
-  readonly threadListError: string | null;
-  readonly runtimeConfig: RuntimeConfigSnapshot | null;
-  readonly availableModels: readonly ModelMetadata[];
-  readonly availableSkills: readonly SkillMetadata[];
-  readonly rateLimit: RateLimitSnapshot | null;
-  readonly metadataDiagnostics: MetadataResourceDiagnostics;
-  readonly toolInventory: ToolInventorySnapshot | null;
-}
-
-export function chatSharedDisplayValuesFixture(patch: Partial<ChatSharedDisplayValues> = {}): ChatSharedDisplayValues {
+export function chatComposerSharedValuesFixture(patch: Partial<ChatPanelComposerSharedValues> = {}): ChatPanelComposerSharedValues {
   return {
-    threads: [],
-    hasMoreThreads: false,
-    threadListFetching: false,
-    isFetchingNextPage: false,
-    threadListError: null,
     runtimeConfig: null,
-    availableModels: [],
-    availableSkills: [],
+    models: [],
     rateLimit: null,
-    metadataDiagnostics: createMetadataResourceDiagnostics(),
-    toolInventory: null,
     ...patch,
   };
 }
 
-export function toolbarSharedValues(shared: ChatSharedDisplayValues): ChatPanelToolbarSharedValues {
+export function chatToolbarSharedValuesFixture(patch: Partial<ChatPanelToolbarSharedValues> = {}): ChatPanelToolbarSharedValues {
   return {
-    activeThreads: {
-      threads: shared.threads,
-      hasMore: shared.hasMoreThreads,
-      isFetching: shared.threadListFetching,
-      isFetchingNextPage: shared.isFetchingNextPage,
-      error: shared.threadListError,
-    },
-    runtimeConfig: shared.runtimeConfig,
-    models: shared.availableModels,
-    skills: shared.availableSkills,
-    rateLimit: shared.rateLimit,
-    metadataDiagnostics: shared.metadataDiagnostics,
-    toolInventory: shared.toolInventory,
-  };
-}
-
-export function composerSharedValues(shared: ChatSharedDisplayValues): ChatPanelComposerSharedValues {
-  return {
-    runtimeConfig: shared.runtimeConfig,
-    models: shared.availableModels,
-    rateLimit: shared.rateLimit,
+    ...chatComposerSharedValuesFixture(),
+    activeThreads: { threads: [], hasMore: false, isFetching: false, isFetchingNextPage: false, error: null },
+    skills: [],
+    metadataDiagnostics: createMetadataResourceDiagnostics(),
+    toolInventory: null,
+    ...patch,
   };
 }

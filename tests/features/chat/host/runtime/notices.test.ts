@@ -1,26 +1,28 @@
 import { describe, expect, it } from "vitest";
+import type { ModelMetadata, SkillMetadata } from "../../../../../src/domain/runtime/catalog";
+import { createMetadataResourceDiagnostics } from "../../../../../src/domain/runtime/diagnostics";
 import type { ToolInventorySnapshot } from "../../../../../src/domain/runtime/tool-inventory";
 import { createChatPanelRuntimeNotices } from "../../../../../src/features/chat/host/runtime/notices";
 import { modelMetadataFixture } from "../../../../support/model-metadata";
 import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";
-import { createServerDiagnostics } from "../../../../support/runtime-diagnostics";
-import { type ChatSharedDisplayValues, chatSharedDisplayValuesFixture } from "../../support/shared-display-values";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("createChatPanelRuntimeNotices", () => {
   it("builds slash-command runtime details from panel state and shared resources", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
-    const shared = chatSharedDisplayValuesFixture({
-      runtimeConfig: runtimeConfigFromAppServerFixture({
-        model: "gpt-5.5",
-        model_provider: "openai",
-        model_reasoning_effort: "high",
-        service_tier: "fast",
-      }),
-      availableModels: [modelMetadataFixture("gpt-5.5")],
+    const runtimeConfig = runtimeConfigFromAppServerFixture({
+      model: "gpt-5.5",
+      model_provider: "openai",
+      model_reasoning_effort: "high",
+      service_tier: "fast",
     });
-    const projection = noticesFixture(() => state, runtimeShared(shared));
+    const models = [modelMetadataFixture("gpt-5.5")];
+    const shared = noticesSharedFixture({
+      runtimeConfigSnapshot: () => runtimeConfig,
+      modelsSnapshot: () => models,
+    });
+    const projection = noticesFixture(() => state, shared);
 
     expect(projection.statusDetails()).toEqual([
       {
@@ -72,7 +74,7 @@ describe("createChatPanelRuntimeNotices", () => {
         },
       },
     });
-    const projection = noticesFixture(() => state, runtimeShared(chatSharedDisplayValuesFixture()));
+    const projection = noticesFixture(() => state, noticesSharedFixture());
 
     expect(projection.permissionDetails()).toEqual([
       {
@@ -103,13 +105,14 @@ describe("createChatPanelRuntimeNotices", () => {
         },
       },
     });
-    const shared = chatSharedDisplayValuesFixture({
-      runtimeConfig: runtimeConfigFromAppServerFixture({
-        approvals_reviewer: "user",
-        approval_policy: "on-request",
-      }),
+    const runtimeConfig = runtimeConfigFromAppServerFixture({
+      approvals_reviewer: "user",
+      approval_policy: "on-request",
     });
-    const projection = noticesFixture(() => state, runtimeShared(shared));
+    const shared = noticesSharedFixture({
+      runtimeConfigSnapshot: () => runtimeConfig,
+    });
+    const projection = noticesFixture(() => state, shared);
 
     expect(projection.permissionDetails()).toEqual([
       {
@@ -139,7 +142,7 @@ describe("createChatPanelRuntimeNotices", () => {
         },
       },
     });
-    const projection = noticesFixture(() => state, runtimeShared(chatSharedDisplayValuesFixture()));
+    const projection = noticesFixture(() => state, noticesSharedFixture());
 
     expect(projection.permissionDetails()[0]?.auditFacts).toEqual([
       { key: "Profile", value: ":workspace" },
@@ -184,7 +187,7 @@ describe("createChatPanelRuntimeNotices", () => {
         },
       },
     });
-    const projection = noticesFixture(() => state, runtimeShared(chatSharedDisplayValuesFixture(), inventory));
+    const projection = noticesFixture(() => state, noticesSharedFixture({ toolInventorySnapshot: () => inventory }));
 
     expect(projection.connectionDiagnosticDetails()[0]).toMatchObject({
       title: "Process",
@@ -202,14 +205,20 @@ describe("createChatPanelRuntimeNotices", () => {
   });
 });
 
-function runtimeShared(shared: ChatSharedDisplayValues, toolInventory: ToolInventorySnapshot | null = null) {
+type NoticesSharedResources = Parameters<typeof createChatPanelRuntimeNotices>[0]["sharedResources"];
+
+function noticesSharedFixture(overrides: Partial<NoticesSharedResources> = {}): NoticesSharedResources {
+  const models: readonly ModelMetadata[] = [];
+  const skills: readonly SkillMetadata[] = [];
+  const diagnostics = createMetadataResourceDiagnostics();
   return {
-    runtimeConfigSnapshot: () => shared.runtimeConfig,
-    skillsSnapshot: () => shared.availableSkills,
-    rateLimitsSnapshot: () => shared.rateLimit,
-    modelsSnapshot: () => shared.availableModels,
-    metadataDiagnosticsSnapshot: () => shared.metadataDiagnostics ?? createServerDiagnostics(),
-    toolInventorySnapshot: () => toolInventory,
+    runtimeConfigSnapshot: () => null,
+    skillsSnapshot: () => skills,
+    rateLimitsSnapshot: () => null,
+    modelsSnapshot: () => models,
+    metadataDiagnosticsSnapshot: () => diagnostics,
+    toolInventorySnapshot: () => null,
+    ...overrides,
   };
 }
 

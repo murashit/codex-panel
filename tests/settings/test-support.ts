@@ -31,7 +31,7 @@ export function panelThread(overrides: Partial<Thread> = {}): Thread {
   });
 }
 
-export function appServerThread(overrides: Partial<ThreadRecord> = {}): ThreadRecord {
+function appServerThread(overrides: Partial<ThreadRecord> = {}): ThreadRecord {
   return {
     id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
     sessionId: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
@@ -141,7 +141,7 @@ export function useContextClients(...clients: SettingsRequestClient[]): void {
   }
 }
 
-export function settingsRequestClient(
+function settingsRequestClient(
   handlers: Record<string, ReturnType<typeof vi.fn<(params?: unknown, options?: unknown) => unknown>>>,
 ): SettingsRequestClient {
   return {

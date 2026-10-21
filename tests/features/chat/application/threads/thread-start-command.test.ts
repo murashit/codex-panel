@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { RuntimeConfigSnapshot } from "../../../../../src/domain/runtime/settings";
 import type { Thread, ThreadActivationSnapshot } from "../../../../../src/domain/threads/model";
 import type { EffectOutcome } from "../../../../../src/features/chat/application/effect-outcome";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
@@ -15,7 +16,6 @@ import { deferred } from "../../../../support/async";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { threadActivationFixture } from "../../../../support/thread-activation";
-import { type ChatSharedDisplayValues, chatSharedDisplayValuesFixture } from "../../support/shared-display-values";
 import { chatStateFixture } from "../../support/state";
 import { pendingWebSubmissionFixture } from "../../support/web-submission";
 
@@ -154,22 +154,20 @@ describe("thread start commands", () => {
 
   it("starts threads with service tier and permissions from effective config", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const config = runtimeConfigFixture();
-    const shared = chatSharedDisplayValuesFixture({
-      runtimeConfig: {
-        ...config,
-        serviceTier: "flex",
-        startupPermissions: {
-          ...config.startupPermissions,
-          activePermissionProfile: { id: ":workspace", extends: null },
-        },
+    const baseConfig = runtimeConfigFixture();
+    const startupConfig = {
+      ...baseConfig,
+      serviceTier: "flex",
+      startupPermissions: {
+        ...baseConfig.startupPermissions,
+        activePermissionProfile: { id: ":workspace", extends: null },
       },
-    });
+    };
     const startThread = vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started"))));
     const commands = threadStartCommands({
       stateStore,
       effects: { forkSideChat: vi.fn(), forkThread: vi.fn(), startThread },
-      runtimeSnapshotForState: runtimeSnapshotForShared(shared),
+      runtimeSnapshotForState: runtimeSnapshotForConfig(startupConfig),
     });
 
     await commands.startThread();
@@ -277,18 +275,18 @@ function threadStartCommands(overrides: Pick<ThreadStartCommandHost, "stateStore
     withThreadActivation: async (operation) => operation(),
     onThreadActivated: vi.fn(),
     hydrateCreatedFork: vi.fn(),
-    runtimeSnapshotForState: runtimeSnapshotForShared(chatSharedDisplayValuesFixture()),
+    runtimeSnapshotForState: runtimeSnapshotForConfig(),
     recordStartedThread: vi.fn(),
     ...overrides,
   });
 }
 
-function runtimeSnapshotForShared(shared: ChatSharedDisplayValues) {
+function runtimeSnapshotForConfig(config: RuntimeConfigSnapshot | null = null) {
   return (state: Parameters<typeof runtimeSnapshotForChatState>[0]) =>
     runtimeSnapshotForChatState(state, {
-      runtimeConfigSnapshot: () => shared.runtimeConfig,
-      rateLimitsSnapshot: () => shared.rateLimit,
-      modelsSnapshot: () => shared.availableModels,
+      runtimeConfigSnapshot: () => config,
+      rateLimitsSnapshot: () => null,
+      modelsSnapshot: () => [],
     });
 }
 

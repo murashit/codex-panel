@@ -2,13 +2,8 @@
 
 import { h } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ordinaryComposerAction } from "../../../../../src/features/chat/domain/composer/action";
 import type { ComposerMetaViewModel, ComposerShellProps } from "../../../../../src/features/chat/ui/composer/composer";
-import {
-  type ComposerCallbacks,
-  ComposerShell,
-  scrollComposerSuggestionIntoView,
-} from "../../../../../src/features/chat/ui/composer/composer";
+import { ComposerShell, scrollComposerSuggestionIntoView } from "../../../../../src/features/chat/ui/composer/composer";
 import { syncComposerHeight } from "../../../../../src/features/chat/ui/composer/height";
 import { renderUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { waitForAsyncWork } from "../../../../support/async";
@@ -16,8 +11,6 @@ import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomSh
 
 installObsidianDomShims();
 afterEach(() => vi.restoreAllMocks());
-
-type ComposerSuggestion = Parameters<ComposerCallbacks["onSuggestionInsert"]>[0];
 
 const DEFAULT_COMPOSER_META: ComposerMetaViewModel = {
   fatal: null,
@@ -41,47 +34,45 @@ const DEFAULT_COMPOSER_META: ComposerMetaViewModel = {
   effortChoices: [],
 };
 
+function composerPropsFixture(overrides: Partial<ComposerShellProps> = {}): ComposerShellProps {
+  return {
+    viewId: "view",
+    draft: "",
+    busy: false,
+    action: "send",
+    submissionDisabled: false,
+    directInputDisabled: false,
+    runtimeControlsDisabled: false,
+    sendDisabled: false,
+    webSubmissionCancellable: false,
+    normalPlaceholder: "Ask Codex...",
+    suggestions: [],
+    selectedSuggestionIndex: 0,
+    pendingSelection: null,
+    onPendingSelectionApplied: vi.fn(),
+    callbacks: composerCallbacks(),
+    meta: DEFAULT_COMPOSER_META,
+    onComposer: vi.fn(),
+    ...overrides,
+  };
+}
+
 function mountComposerShell(
   parent: HTMLElement,
-  viewId: string,
-  draft: string,
-  busy: boolean,
-  canInterrupt: boolean,
-  normalPlaceholder: string,
-  suggestions: readonly ComposerSuggestion[],
-  selectedSuggestionIndex: number,
-  callbacks: ComposerCallbacks,
-  meta?: ComposerMetaViewModel,
-  webSubmissionPending = false,
-  webSubmissionCancellable = webSubmissionPending,
-  sendDisabled = false,
-  runtimeControlsDisabled = false,
-  directInputDisabled = false,
+  overrides: Partial<Omit<ComposerShellProps, "onComposer">> = {},
 ): { composer: HTMLTextAreaElement } {
   const elements: { composer: HTMLTextAreaElement | null } = { composer: null };
   renderUiRoot(
     parent,
-    h(ComposerShell, {
-      viewId,
-      draft,
-      busy,
-      action: ordinaryComposerAction({ canInterrupt, hasDraft: draft.trim().length > 0, directInputBlocked: directInputDisabled }),
-      submissionDisabled: webSubmissionPending,
-      directInputDisabled,
-      runtimeControlsDisabled,
-      sendDisabled,
-      webSubmissionCancellable,
-      normalPlaceholder,
-      suggestions,
-      selectedSuggestionIndex,
-      pendingSelection: null,
-      onPendingSelectionApplied: vi.fn(),
-      callbacks,
-      meta: meta ?? DEFAULT_COMPOSER_META,
-      onComposer: (composer) => {
-        if (composer) elements.composer = composer;
-      },
-    }),
+    h(
+      ComposerShell,
+      composerPropsFixture({
+        ...overrides,
+        onComposer: (composer) => {
+          elements.composer = composer;
+        },
+      }),
+    ),
   );
   if (!elements.composer) throw new Error("Expected composer shell elements to mount.");
   return { composer: elements.composer };
@@ -108,16 +99,18 @@ describe("ComposerShell decisions", () => {
   it("renders composer meta as interactive context and runtime text without changing normal text", () => {
     const parent = document.createElement("div");
 
-    mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, composerCallbacks(), {
-      ...activeComposerMetaFixture(),
-      modelChoices: [
-        { label: "gpt-5.5", onClick: vi.fn() },
-        { label: "gpt-5.4", onClick: vi.fn() },
-      ],
-      effortChoices: [
-        { label: "medium", onClick: vi.fn() },
-        { label: "high", onClick: vi.fn() },
-      ],
+    mountComposerShell(parent, {
+      meta: {
+        ...activeComposerMetaFixture(),
+        modelChoices: [
+          { label: "gpt-5.5", onClick: vi.fn() },
+          { label: "gpt-5.4", onClick: vi.fn() },
+        ],
+        effortChoices: [
+          { label: "medium", onClick: vi.fn() },
+          { label: "high", onClick: vi.fn() },
+        ],
+      },
     });
 
     const modeIcons = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-icon"));
@@ -139,17 +132,11 @@ describe("ComposerShell decisions", () => {
   it("disables runtime controls without disabling side-chat composition", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
-    mountComposerShell(
-      parent,
-      "view",
-      "Continue the side chat",
-      false,
-      false,
-      "Ask in side chat...",
-      [],
-      0,
+    mountComposerShell(parent, {
+      draft: "Continue the side chat",
+      normalPlaceholder: "Ask in side chat...",
       callbacks,
-      {
+      meta: {
         fatal: null,
         context: { cells: [], percent: "0%" },
         statusSummary: "Context 0%, plan off, auto-review off, fast off, model gpt-5.5, reasoning effort high",
@@ -162,11 +149,8 @@ describe("ComposerShell decisions", () => {
         modelChoices: [{ label: "gpt-5.5", onClick: vi.fn() }],
         effortChoices: [{ label: "high", onClick: vi.fn() }],
       },
-      false,
-      false,
-      false,
-      true,
-    );
+      runtimeControlsDisabled: true,
+    });
 
     expect(parent.querySelector<HTMLTextAreaElement>(".codex-panel__composer-input")?.readOnly).toBe(false);
     expect(parent.querySelector<HTMLButtonElement>(".codex-panel__send")?.disabled).toBe(false);
@@ -184,16 +168,19 @@ describe("ComposerShell decisions", () => {
     const selectModel = vi.fn();
     const selectEffort = vi.fn();
 
-    mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, callbacks, {
-      ...activeComposerMetaFixture(),
-      modelChoices: [
-        { label: "gpt-5.5", onClick: vi.fn() },
-        { label: "gpt-5.4", onClick: selectModel },
-      ],
-      effortChoices: [
-        { label: "medium", onClick: selectEffort },
-        { label: "high", onClick: vi.fn() },
-      ],
+    mountComposerShell(parent, {
+      callbacks,
+      meta: {
+        ...activeComposerMetaFixture(),
+        modelChoices: [
+          { label: "gpt-5.5", onClick: vi.fn() },
+          { label: "gpt-5.4", onClick: selectModel },
+        ],
+        effortChoices: [
+          { label: "medium", onClick: selectEffort },
+          { label: "high", onClick: vi.fn() },
+        ],
+      },
     });
 
     const [planButton, reviewButton, fastButton] = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-icon"));
@@ -248,18 +235,21 @@ describe("ComposerShell decisions", () => {
   it("keeps Fast visible but ignores interaction when the selected model does not support it", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
-    mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, callbacks, {
-      fatal: null,
-      context: { cells: [], percent: "0%" },
-      statusSummary: "Context 0%, plan off, auto-review off, fast off, model gpt-5.4-mini, reasoning effort medium",
-      model: "gpt-5.4-mini",
-      effort: "medium",
-      planActive: false,
-      autoReviewActive: false,
-      fastAvailable: false,
-      fastActive: false,
-      modelChoices: [],
-      effortChoices: [],
+    mountComposerShell(parent, {
+      callbacks,
+      meta: {
+        fatal: null,
+        context: { cells: [], percent: "0%" },
+        statusSummary: "Context 0%, plan off, auto-review off, fast off, model gpt-5.4-mini, reasoning effort medium",
+        model: "gpt-5.4-mini",
+        effort: "medium",
+        planActive: false,
+        autoReviewActive: false,
+        fastAvailable: false,
+        fastActive: false,
+        modelChoices: [],
+        effortChoices: [],
+      },
     });
 
     const fastButton = parent.querySelector<HTMLElement>('[data-icon="zap"]');
@@ -272,23 +262,12 @@ describe("ComposerShell decisions", () => {
   it("shows a read-only composer without suggestions while input is locked", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
-    const { composer } = mountComposerShell(
-      parent,
-      "view",
-      "/mo",
-      false,
-      false,
-      "Ask Codex...",
-      [{ display: "model", detail: "", replacement: "/model", start: 0 }],
-      0,
+    const { composer } = mountComposerShell(parent, {
+      draft: "/mo",
+      suggestions: [{ display: "model", detail: "", replacement: "/model", start: 0 }],
       callbacks,
-      undefined,
-      false,
-      false,
-      false,
-      false,
-      true,
-    );
+      directInputDisabled: true,
+    });
     expect(composer.readOnly).toBe(true);
     expect(parent.querySelector('[role="option"]')).toBeNull();
   });
@@ -296,10 +275,12 @@ describe("ComposerShell decisions", () => {
   it("hides only the needed composer meta fields for measured overflow and restores them when space returns", async () => {
     const parent = document.createElement("div");
 
-    mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, composerCallbacks(), {
-      ...activeComposerMetaFixture(),
-      modelChoices: [],
-      effortChoices: [],
+    mountComposerShell(parent, {
+      meta: {
+        ...activeComposerMetaFixture(),
+        modelChoices: [],
+        effortChoices: [],
+      },
     });
 
     const status = parent.querySelector<HTMLElement>(".codex-panel__composer-meta-status");
@@ -333,12 +314,14 @@ describe("ComposerShell decisions", () => {
   it("replaces composer meta with fatal status text", () => {
     const parent = document.createElement("div");
 
-    mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, composerCallbacks(), {
-      ...DEFAULT_COMPOSER_META,
-      fatal: "Codex app-server disconnected",
-      statusSummary: "Codex app-server disconnected",
-      model: "",
-      fastAvailable: false,
+    mountComposerShell(parent, {
+      meta: {
+        ...DEFAULT_COMPOSER_META,
+        fatal: "Codex app-server disconnected",
+        statusSummary: "Codex app-server disconnected",
+        model: "",
+        fastAvailable: false,
+      },
     });
 
     expect(parent.querySelector(".codex-panel__composer-meta-fatal")?.textContent).toBe("Codex app-server disconnected");
@@ -349,20 +332,13 @@ describe("ComposerShell decisions", () => {
   it("renders composer suggestions inside the composer root", () => {
     const parent = document.createElement("div");
     const onSuggestionInsert = vi.fn();
-    const { composer } = mountComposerShell(
-      parent,
-      "view",
-      "",
-      false,
-      false,
-      "Ask Codex...",
-      [{ display: "/help", detail: "Show help", replacement: "/help", start: 0 }],
-      0,
-      {
+    const { composer } = mountComposerShell(parent, {
+      suggestions: [{ display: "/help", detail: "Show help", replacement: "/help", start: 0 }],
+      callbacks: {
         ...composerCallbacks(),
         onSuggestionInsert,
       },
-    );
+    });
 
     const suggestions = parent.querySelector<HTMLElement>(".codex-panel__composer-suggestions");
     if (!suggestions) throw new Error("Expected composer suggestions to render.");
@@ -381,19 +357,12 @@ describe("ComposerShell decisions", () => {
   it("clears composer suggestion accessibility state on rerender", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
-    const { composer } = mountComposerShell(
-      parent,
-      "view",
-      "",
-      false,
-      false,
-      "Ask Codex...",
-      [{ display: "/help", detail: "Show help", replacement: "/help", start: 0 }],
-      0,
+    const { composer } = mountComposerShell(parent, {
+      suggestions: [{ display: "/help", detail: "Show help", replacement: "/help", start: 0 }],
       callbacks,
-    );
+    });
 
-    mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, callbacks);
+    mountComposerShell(parent, { callbacks });
 
     const suggestions = parent.querySelector<HTMLElement>(".codex-panel__composer-suggestions");
     expect(composer.hasAttribute("aria-activedescendant")).toBe(false);
@@ -403,7 +372,7 @@ describe("ComposerShell decisions", () => {
   it("reports composer draft changes from the controlled input", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
-    const { composer } = mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, callbacks);
+    const { composer } = mountComposerShell(parent, { callbacks });
 
     changeInputValue(composer, "Draft text");
 
@@ -417,25 +386,11 @@ describe("ComposerShell decisions", () => {
     const onComposer = vi.fn();
     const measuredHeight = vi.spyOn(HTMLTextAreaElement.prototype, "scrollHeight", "get").mockReturnValue(120);
 
-    const props = {
-      viewId: "view",
+    const props = composerPropsFixture({
       draft: "line one\nline two",
-      busy: false,
-      action: "send",
-      submissionDisabled: false,
-      directInputDisabled: false,
-      runtimeControlsDisabled: false,
-      sendDisabled: false,
-      webSubmissionCancellable: false,
-      normalPlaceholder: "Ask Codex...",
-      suggestions: [],
-      selectedSuggestionIndex: 0,
-      pendingSelection: null,
-      onPendingSelectionApplied: vi.fn(),
       callbacks,
-      meta: DEFAULT_COMPOSER_META,
       onComposer,
-    } satisfies ComposerShellProps;
+    });
     renderUiRoot(parent, h(ComposerShell, props));
     const composer = parent.querySelector<HTMLTextAreaElement>(".codex-panel__composer-input");
     if (!composer) throw new Error("Expected composer shell elements to mount.");
@@ -491,10 +446,10 @@ describe("ComposerShell decisions", () => {
     expect(container.scrollTop).toBe(48);
   });
 
-  it("uses the composer action for interrupt only when a running turn has no steering text", () => {
+  it("renders the supplied interrupt and steer actions", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
-    const { composer } = mountComposerShell(parent, "view", "", true, true, "Ask Codex...", [], 0, callbacks);
+    const { composer } = mountComposerShell(parent, { busy: true, action: "interrupt", callbacks });
     let sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
 
     expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
@@ -503,7 +458,7 @@ describe("ComposerShell decisions", () => {
     expect(sendButton?.classList.contains("is-steer")).toBe(false);
     expect(sendButton?.dataset["icon"]).toBe("square");
 
-    mountComposerShell(parent, "view", "adjust course", true, true, "Ask Codex...", [], 0, callbacks);
+    mountComposerShell(parent, { draft: "adjust course", busy: true, action: "steer", callbacks });
     sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
     expect(sendButton?.getAttribute("aria-label")).toBe("Steer");
     expect(composer.getAttribute("placeholder")).toBe("Steer the current turn...");
@@ -515,7 +470,7 @@ describe("ComposerShell decisions", () => {
   it("disables steering while a send-only attachment barrier is active", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
-    mountComposerShell(parent, "view", "steer later", true, true, "Ask Codex...", [], 0, callbacks, undefined, false, false, true);
+    mountComposerShell(parent, { draft: "steer later", busy: true, action: "steer", callbacks, sendDisabled: true });
     const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
     expect(sendButton?.getAttribute("aria-label")).toBe("Steer");
     expect(sendButton?.disabled).toBe(true);
