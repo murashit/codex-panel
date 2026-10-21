@@ -185,6 +185,8 @@
         }
       },
       "nursery": {
+        "noLoopFunc": "error",
+        "noUnmodifiedLoopCondition": "error",
         "noExcessiveSelectorClasses": {
           "level": "error",
           "options": {
@@ -193,10 +195,12 @@
         }
       },
       "style": {
-        "noCommonJs": "error"
+        "noCommonJs": "error",
+        "useReadonlyClassProperties": "error"
       },
       "suspicious": {
-        "noImportCycles": "error"
+        "noImportCycles": "error",
+        "noUnassignedVariables": "error"
       }
     }
   }

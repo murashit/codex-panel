@@ -22,8 +22,8 @@ describe("thread stream item updates", () => {
             executionState: "completed",
             output: ids.includes(targetId) ? nextOutput || previousOutput : nextOutput,
           });
-          for (const original of items) {
-            if (original.id !== String(targetId)) expect(result.find((item) => item.id === original.id)).toBe(original);
+          for (const original of items.filter((item) => item.id !== String(targetId))) {
+            expect(result.find((item) => item.id === original.id)).toBe(original);
           }
         },
       ),

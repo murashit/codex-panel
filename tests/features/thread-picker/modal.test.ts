@@ -29,10 +29,10 @@ describe("threadPickerSuggestions", () => {
     expect(host.completeHistoryLoads).toBe(0);
     expect(host.sharedRefreshes).toBe(0);
 
-    if (failFirst) {
-      await expect(modal.getSuggestions("needle")).resolves.toEqual([]);
-      expect(notices.at(-1)).toBe("Search unavailable");
-    }
+    const previousNotices = notices.length;
+    const failedSuggestions = failFirst ? await modal.getSuggestions("needle") : null;
+    expect(failedSuggestions).toEqual(failFirst ? [] : null);
+    expect(notices.slice(previousNotices)).toEqual(failFirst ? ["Search unavailable"] : []);
     const [needleSuggestions] = await Promise.all([modal.getSuggestions("needle"), modal.getSuggestions("target")]);
     expect(needleSuggestions.map((item) => item.thread.id)).toEqual(["older-target"]);
     await expect(modal.getSuggestions("needle")).resolves.toEqual(needleSuggestions);

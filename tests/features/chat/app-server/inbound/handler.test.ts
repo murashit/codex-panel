@@ -1239,22 +1239,25 @@ describe("ChatInboundHandler", () => {
           return handler.currentState().requests.pendingMcpElicitations.length;
         },
       },
-      {
-        name: "current-time response",
-        actions: { respondToServerRequest: vi.fn(() => false) },
-        exercise(handler: TestChatInboundHandler) {
-          handler.handleServerRequest(currentTimeRequest(58, "thread"));
-        },
-        expectedMessages: ["Could not send current time because Codex app-server is not connected."],
-        pending: null,
-      },
     ])("reports failed $name delivery without resolving pending actions", ({ actions, exercise, expectedMessages, pending }) => {
       const handler = handlerForState(activeRequestState(), actions);
 
       exercise(handler);
 
-      if (pending) expect(pending(handler)).toBe(1);
+      expect(pending(handler)).toBe(1);
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => ("text" in item ? item.text : ""))).toEqual(expectedMessages);
+    });
+
+    it("reports failed current-time delivery without adding a pending request", () => {
+      const initialState = activeRequestState();
+      const handler = handlerForState(initialState, { respondToServerRequest: vi.fn(() => false) });
+
+      handler.handleServerRequest(currentTimeRequest(58, "thread"));
+
+      expect(handler.currentState().requests).toEqual(initialState.requests);
+      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => ("text" in item ? item.text : ""))).toEqual([
+        "Could not send current time because Codex app-server is not connected.",
+      ]);
     });
 
     it("clears only the resolved request and its draft across request families", () => {

@@ -66,11 +66,6 @@ function currentChatHost(plugin: CodexPanelPlugin): CodexChatHost {
 }
 
 describe("CodexPanelPlugin runtime integration", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-    vi.useRealTimers();
-  });
-
   beforeEach(() => {
     vi.useRealTimers();
     contextConnectionClientMock.mockReset();
@@ -89,6 +84,11 @@ describe("CodexPanelPlugin runtime integration", () => {
         dispose() {}
       } as never,
     );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it("repairs duplicate ownership on panel activity changes without hydrating panels", async () => {
@@ -313,8 +313,7 @@ describe("CodexPanelPlugin runtime integration", () => {
 
     await expect(publication).rejects.toThrow("runtime reset");
     expect(plugin.settings.codexPath).toBe("codex");
-    expect(plugin.saveSettings).toHaveBeenCalledOnce();
-    expect(plugin.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ codexPath: "codex-next" }));
+    expect(plugin.saveSettings).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ codexPath: "codex-next" }));
   });
 
   it("does not publish a replacement after a synchronous reset during view detachment", async () => {
@@ -393,13 +392,11 @@ describe("CodexPanelPlugin runtime integration", () => {
       else started.resolve({ turn: { id: "late-turn" } });
       await closing;
       await expect(opening).resolves.toBe(stage === "start");
-      if (replacementSnapshot) expect(view.surface.openPanelSnapshot()).toEqual(replacementSnapshot);
+      expect(action === "replace" ? view.surface.openPanelSnapshot() : null).toEqual(replacementSnapshot);
       expect(original.client.request.mock.calls.length).toBe(requestCount);
       expect(original.client.request.mock.calls.some(([method]) => method === "turn/interrupt")).toBe(false);
-      if (action === "replace") {
-        expect(plugin.settings.codexPath).toBe("codex-next");
-        if (!removed) expect(view.isRuntimeAttached()).toBe(true);
-      }
+      expect(plugin.settings.codexPath).toBe(action === "replace" ? "codex-next" : "codex");
+      expect(view.isRuntimeAttached()).toBe(action === "replace" && !removed);
       for (const replacement of contexts.slice(1)) expect(replacement.disconnect).not.toHaveBeenCalled();
       await view.onClose();
       plugin.runtime.reset();

@@ -96,19 +96,18 @@ describe("CodexChatView thread state", () => {
       });
     } else await view.surface.activateThread(destination);
 
-    if (destination === "unavailable") expectRequestTimes(client, "thread/unsubscribe", 0);
-    else
-      await waitForAsyncWork(() =>
-        expect(client.request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: source }, expect.anything()),
-      );
+    await waitForAsyncWork(() =>
+      expect(client.request.mock.calls.filter(([method]) => method === "thread/unsubscribe")).toMatchObject(
+        destination === "unavailable" ? [] : [["thread/unsubscribe", { threadId: source }, {}]],
+      ),
+    );
     expect(requestMethods(client)).not.toContain("turn/interrupt");
     expect(surface.openPanelSnapshot()).toMatchObject({
       threadId: destination === "unavailable" ? source : destination === "other" ? "other" : null,
       ...(destination === "unavailable" ? { turnBusy: true } : {}),
       hasForkDraft: destination === "fork-draft",
     });
-    if (destination === "other")
-      expect(client.request).not.toHaveBeenCalledWith("thread/unsubscribe", { threadId: "other" }, expect.anything());
+    expect(client.request).not.toHaveBeenCalledWith("thread/unsubscribe", { threadId: "other" }, expect.anything());
     await view.onClose();
     expect(shared.disconnect).not.toHaveBeenCalled();
     shared.connection.dispose();
@@ -287,13 +286,14 @@ describe("CodexChatView thread state", () => {
     await view.surface.activateThread("thread");
     await view.surface.startNewThread();
     await waitForAsyncWork(() => expectRequestTimes(client, "thread/unsubscribe", 1));
-    const reopening = view.surface.activateThread("thread");
+    const surface = view.surface;
+    const reopening = surface.activateThread("thread");
     expectRequestTimes(client, "thread/resume", 1);
     if (closes) await view.onClose();
     released.resolve({ status: "unsubscribed" });
     await reopening;
     expectRequestTimes(client, "thread/resume", closes ? 1 : 2);
-    if (!closes) expect(view.surface.openPanelSnapshot().threadId).toBe("thread");
+    expect(surface.openPanelSnapshot().threadId).toBe(closes ? null : "thread");
     expectRequestTimes(client, "thread/unsubscribe", 1);
     await view.onClose();
     shared.connection.dispose();

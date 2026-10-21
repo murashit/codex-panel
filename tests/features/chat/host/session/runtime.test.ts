@@ -91,18 +91,14 @@ describe("chat panel session runtime", () => {
       else runtime.commands.invalidateThreadWork();
 
       expect(generateTitle.mock.calls[0]?.[1].aborted).toBe(true);
-      if (scope === "active-thread") {
-        // Clearing the active identity also resets its UI; cancellation itself does not.
-        expect(stateStore.getState().ui.rename).toEqual({ kind: "idle" });
-        rename.start("thread");
-        await waitForAsyncWork(() => expect(stateStore.getState().ui.rename).toMatchObject({ autoName: { kind: "ready" } }));
-      } else {
-        expect(stateStore.getState().ui.rename).toMatchObject({
-          kind: "editing",
-          draft: "Keep my draft",
-          autoName: { kind: "ready", context },
-        });
-      }
+      // Clearing the active identity also resets its UI; cancellation itself does not.
+      expect(stateStore.getState().ui.rename).toEqual(
+        scope === "active-thread"
+          ? { kind: "idle" }
+          : { kind: "editing", threadId: "thread", draft: "Keep my draft", autoName: { kind: "ready", context } },
+      );
+      if (scope === "active-thread") rename.start("thread");
+      await waitForAsyncWork(() => expect(stateStore.getState().ui.rename).toMatchObject({ autoName: { kind: "ready" } }));
       rename.autoName("thread");
       await waitForAsyncWork(() => expect(stateStore.getState().ui.rename).toMatchObject({ kind: "editing", draft: "Fresh title" }));
       oldTitle.reject(new Error("Cancelled generation"));

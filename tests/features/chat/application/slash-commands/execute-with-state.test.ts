@@ -127,19 +127,19 @@ describe("executePanelSlashCommand", () => {
       });
 
       expect(loadSavedThread).not.toHaveBeenCalled();
-      if (command === "resume") {
-        expect(ensureConnected).toHaveBeenCalledOnce();
-        expect(host.resumeThread).toHaveBeenCalledWith("other");
-      } else {
-        expect(ensureConnected).not.toHaveBeenCalled();
-        if (command === "reconnect") expect(host.reconnect).toHaveBeenCalledOnce();
-        else if (command === "clear") expect(host.startNewThread).toHaveBeenCalledOnce();
-        else
-          expect(host.addStructuredSystemMessage).toHaveBeenCalledWith(
-            command === "help" ? "Available slash commands" : "Connection diagnostics",
-            expect.any(Array),
-          );
-      }
+      expect(ensureConnected).toHaveBeenCalledTimes(command === "resume" ? 1 : 0);
+      expect(vi.mocked(host.resumeThread).mock.calls).toEqual(command === "resume" ? [["other"]] : []);
+      expect(host.reconnect).toHaveBeenCalledTimes(command === "reconnect" ? 1 : 0);
+      expect(host.startNewThread).toHaveBeenCalledTimes(command === "clear" ? 1 : 0);
+      const expectedDetails = expect.any(Array);
+      const expectedMessages = {
+        help: [["Available slash commands", expectedDetails]],
+        doctor: [["Connection diagnostics", expectedDetails]],
+        reconnect: [],
+        clear: [],
+        resume: [],
+      };
+      expect(vi.mocked(host.addStructuredSystemMessage).mock.calls).toEqual(expectedMessages[command]);
     },
   );
 

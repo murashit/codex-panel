@@ -33,8 +33,6 @@ const contextConnectionMock = {
 const openThreadPickerMock = vi.fn();
 
 describe("CodexExecutionRuntime", () => {
-  afterEach(() => vi.restoreAllMocks());
-
   beforeEach(() => {
     vi.spyOn(threadPicker, "openThreadPicker").mockImplementation(openThreadPickerMock);
     vi.spyOn(contextConnection, "AppServerContextConnection").mockImplementation(
@@ -79,6 +77,8 @@ describe("CodexExecutionRuntime", () => {
     contextConnectionMock.client.request.mockReset();
     contextConnectionMock.instances.length = 0;
   });
+
+  afterEach(() => vi.restoreAllMocks());
 
   describe("thread picker ownership", () => {
     it("replaces the active picker and disposes only the current picker", () => {
@@ -126,8 +126,7 @@ describe("CodexExecutionRuntime", () => {
     runtime.dispose();
     facts.apply({ type: "thread-archived", threadId: "after-dispose" });
 
-    expect(onThreadFacts).toHaveBeenCalledOnce();
-    expect(onThreadFacts).toHaveBeenCalledWith([{ type: "thread-archived", threadId: "before-dispose" }]);
+    expect(onThreadFacts).toHaveBeenCalledExactlyOnceWith([{ type: "thread-archived", threadId: "before-dispose" }]);
   });
 
   it("uses one context connection for shared reads and panel sessions", async () => {
@@ -171,8 +170,7 @@ describe("CodexExecutionRuntime", () => {
       params: { threadId: "descendant" },
     });
 
-    expect(onThreadFacts).toHaveBeenCalledOnce();
-    expect(onThreadFacts).toHaveBeenCalledWith([{ type: "thread-archived", threadId: "descendant" }]);
+    expect(onThreadFacts).toHaveBeenCalledExactlyOnceWith([{ type: "thread-archived", threadId: "descendant" }]);
   });
 
   it("reuses hydrated metadata across chat panels in one execution context", async () => {

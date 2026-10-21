@@ -55,12 +55,10 @@ describe("conversation header", () => {
       const indicator = parent.querySelector(".codex-panel__conversation-persistence");
       expect(indicator?.parentElement?.firstElementChild).toBe(indicator);
       expect(indicator?.nextElementSibling?.textContent).toBe(title);
-      if (ephemeral === null) {
-        expect(indicator?.getAttribute("aria-hidden")).toBe("true");
-        expect(indicator?.hasAttribute("aria-label")).toBe(false);
-      } else {
-        expect(indicator?.getAttribute("aria-label")).toBe(ephemeral ? "Temporary conversation" : "Regular conversation");
-      }
+      expect(indicator?.getAttribute("aria-hidden")).toBe(ephemeral === null ? "true" : null);
+      expect(indicator?.getAttribute("aria-label")).toBe(
+        ephemeral === null ? null : ephemeral ? "Temporary conversation" : "Regular conversation",
+      );
     } finally {
       unmountUiRoot(parent);
     }

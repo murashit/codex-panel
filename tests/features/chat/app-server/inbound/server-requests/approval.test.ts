@@ -519,15 +519,13 @@ describe("approval model", () => {
     "builds action responses for $name",
     ({ request, acceptSession, cancel }) => {
       const approval = expectPresent(toPendingApproval(request));
-      if (approval.kind === "command") {
-        expect(approvalResponseAt(request, approval, 0)).toEqual(acceptSession);
-        expect(approvalResponseAt(request, approval, 1)).toEqual(cancel);
-        expect(approvalResponseAt(request, approval, 2)).toEqual({ decision: "decline" });
-        return;
-      }
-      expect(approvalResponse(request, "accept-session")).toEqual(acceptSession);
-      expect(approvalResponse(request, "cancel")).toEqual(cancel);
-      expect(approvalResponse(request, "decline")).toEqual({ decision: "decline" });
+      const actions =
+        request.method === "item/commandExecution/requestApproval"
+          ? approvalActionOptions(approval).map((option) => option.action)
+          : (["accept-session", "cancel", "decline"] as const);
+      expect(approvalResponse(request, expectPresent(actions[0]))).toEqual(acceptSession);
+      expect(approvalResponse(request, expectPresent(actions[1]))).toEqual(cancel);
+      expect(approvalResponse(request, expectPresent(actions[2]))).toEqual({ decision: "decline" });
     },
   );
 });

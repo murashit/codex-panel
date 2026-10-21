@@ -1,3 +1,4 @@
+import vitest from "@vitest/eslint-plugin";
 import { defineConfig } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
 import { PlainTextParser } from "eslint-plugin-obsidianmd/dist/lib/plainTextParser.js";
@@ -53,6 +54,32 @@ export default defineConfig([
         },
       ],
       "@typescript-eslint/require-await": "off",
+    },
+  },
+  {
+    ...vitest.configs.recommended,
+    files: ["tests/**/*.{ts,tsx}"],
+    languageOptions: {
+      parser: tseslint.parser,
+    },
+    rules: {
+      ...vitest.configs.recommended.rules,
+      "vitest/expect-expect": [
+        "error",
+        {
+          assertFunctionNames: [
+            "expect",
+            "assert",
+            "expectAllowedOperations",
+            "expectNotificationRouteKind",
+            "expectRequestRouteKind",
+            "expectRequestTimes",
+          ],
+        },
+      ],
+      // Vitest supports a second argument for assertion failure context.
+      "vitest/valid-expect": ["error", { maxArgs: 2 }],
+      "vitest/prefer-hooks-in-order": "error",
     },
   },
   {

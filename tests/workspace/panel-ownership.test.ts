@@ -33,11 +33,8 @@ describe("panel ownership", () => {
         );
         const duplicates = duplicatePanels(input);
         const retained = input.filter((entry) => !duplicates.has(entry));
-        for (const entry of input) {
-          if (entry.threadId === null) {
-            expect(retained).toContain(entry);
-            continue;
-          }
+        expect(retained.filter((entry) => entry.threadId === null)).toEqual(input.filter((entry) => entry.threadId === null));
+        for (const entry of input.filter((entry) => entry.threadId !== null)) {
           const group = input.filter((candidate) => candidate.threadId === entry.threadId);
           const owner = group.find((candidate) => candidate.active) ?? group.find((candidate) => candidate.attached) ?? group[0];
           expect(retained.filter((candidate) => candidate.threadId === entry.threadId)).toEqual([owner]);

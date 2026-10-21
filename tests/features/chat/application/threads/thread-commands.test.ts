@@ -334,7 +334,7 @@ describe("thread management commands", () => {
   it("rolls back the first turn to an empty local prefix", async () => {
     const host = hostMock({ items: turnItems().slice(0, 2), activeThread: { id: "source" } });
     await threadCommands(host).rollbackThread("source");
-    expect(host.openForkDraft).toHaveBeenCalledWith(
+    expect(host.openForkDraft).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
         draft: expect.objectContaining({ boundary: { kind: "before-turn", turnId: "turn-1" }, initialPrompt: "one" }),
         display: { items: [], turnDiffs: new Map(), historyCursor: null },

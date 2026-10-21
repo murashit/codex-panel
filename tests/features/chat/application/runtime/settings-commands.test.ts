@@ -686,8 +686,11 @@ describe("createChatRuntimeSettingsCommands", () => {
       const commands = runtimeCommandsFixture(store, port, messages, { runtimeConfig: runtimeConfigFixture() });
       const before = store.getState();
       await expect(commands[command](), target).resolves.toBe(target === "empty");
-      if (target === "empty") expect(store.getState().runtime.pending[field]).toEqual({ kind: "unchanged" });
-      else expect(store.getState(), target).toEqual(before);
+      const expectedState =
+        target === "empty"
+          ? { ...before, runtime: { ...before.runtime, pending: { ...before.runtime.pending, [field]: { kind: "unchanged" } } } }
+          : before;
+      expect(store.getState(), target).toEqual(expectedState);
       expect(port.updateThreadSettings, target).not.toHaveBeenCalled();
       expect(messages, target).toEqual(
         target === "empty"

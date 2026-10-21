@@ -126,10 +126,8 @@ describe("createGoalCommands", () => {
       const effects = effectsFixture();
       const commands = createGoalCommands({ stateStore, effects, startThread, ensureConnected, addSystemMessage: vi.fn() });
       const pending = commands.saveObjective("Keep this goal", null);
-      if (phase === "during-connection") {
-        await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalledOnce());
-        stateStore.dispatch({ type: "panel/ephemeral-choice-set", ephemeral: true });
-      }
+      await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalledTimes(phase === "during-connection" ? 1 : 0));
+      if (phase === "during-connection") stateStore.dispatch({ type: "panel/ephemeral-choice-set", ephemeral: true });
       connection.resolve(true);
       await expect(pending).resolves.toBe(false);
       expect(startThread).not.toHaveBeenCalled();

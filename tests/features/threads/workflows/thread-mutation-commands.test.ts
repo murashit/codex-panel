@@ -51,8 +51,7 @@ describe("ThreadMutationCommands", () => {
 
     await mutations.setThreadPinned("thread", true);
 
-    expect(client.request).toHaveBeenCalledOnce();
-    expect(client.request).toHaveBeenCalledWith("thread/section/move", {
+    expect(client.request).toHaveBeenCalledExactlyOnceWith("thread/section/move", {
       threadId: "thread",
       sectionId: "01984de2-8f74-7c91-a3b2-5c5e937cf318",
     });
@@ -64,8 +63,7 @@ describe("ThreadMutationCommands", () => {
 
     await mutations.setThreadPinned("thread", false);
 
-    expect(client.request).toHaveBeenCalledOnce();
-    expect(client.request).toHaveBeenCalledWith("thread/section/move", { threadId: "thread", sectionId: null });
+    expect(client.request).toHaveBeenCalledExactlyOnceWith("thread/section/move", { threadId: "thread", sectionId: null });
     expect(catalog.apply).toHaveBeenCalledWith({ type: "thread-pinned", threadId: "thread", isPinned: false });
   });
 

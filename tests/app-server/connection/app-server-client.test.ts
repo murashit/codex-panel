@@ -149,11 +149,13 @@ describe("AppServerClient", () => {
         },
       },
     );
-    const settled = fails ? expect(result).rejects.toThrow("Snapshot rejected") : expect(result).resolves.toEqual({});
+    const settled = Promise.allSettled([result]);
     transport.emitLine({ id: 2, result: {} });
     transport.emitLine({ method: "thread/readState/changed", params: { threadId: "thread", readState: null } });
     expect(order).toEqual(["snapshot", "replay"]);
-    await settled;
+    await expect(settled).resolves.toEqual([
+      fails ? { status: "rejected", reason: new Error("Snapshot rejected") } : { status: "fulfilled", value: {} },
+    ]);
     client.disconnect();
   });
 
@@ -461,7 +463,7 @@ describe("AppServerClient", () => {
       await Promise.all([
         expect(connecting).resolves.toEqual(initialized),
         expect(duplicate).rejects.toThrow("already connecting or connected"),
-        ...(listing ? [expect(listing).resolves.toEqual({ data: [], nextCursor: null })] : []),
+        expect(Promise.resolve(listing)).resolves.toEqual(listing ? { data: [], nextCursor: null } : null),
       ]);
 
       expect(client.isConnected()).toBe(true);
@@ -565,10 +567,9 @@ describe("AppServerClient", () => {
     const initialize = latestSent(firstTransport);
     if (!("id" in initialize) || typeof initialize.id !== "number") throw new Error("Expected initialize request.");
 
-    const rejection = expect(connecting).rejects.toThrow("initialize failed");
     firstTransport.emitLine({ id: initialize.id, error: { code: -32000, message: "initialize failed" } });
 
-    await rejection;
+    await expect(connecting).rejects.toThrow("initialize failed");
     expect(client.isConnected()).toBe(false);
     expect(firstTransport.isRunning()).toBe(false);
 
@@ -606,10 +607,10 @@ describe("AppServerClient", () => {
     });
 
     const connecting = client.connect();
-    const rejection = expect(connecting).rejects.toThrow("Codex app-server request timed out: initialize");
-    await vi.advanceTimersByTimeAsync(500);
-
-    await rejection;
+    await Promise.all([
+      expect(connecting).rejects.toThrow("Codex app-server request timed out: initialize"),
+      vi.advanceTimersByTimeAsync(500),
+    ]);
     expect(client.isConnected()).toBe(false);
     expect(transport.isRunning()).toBe(false);
 
@@ -634,10 +635,9 @@ describe("AppServerClient", () => {
     });
 
     const connecting = client.connect();
-    const rejection = expect(connecting).rejects.toThrow("Codex app-server exited: 1");
     transport.emitExit(1);
 
-    await rejection;
+    await expect(connecting).rejects.toThrow("Codex app-server exited: 1");
     expect(client.isConnected()).toBe(false);
     expect(onExit).not.toHaveBeenCalled();
   });
@@ -717,12 +717,13 @@ describe("AppServerClient", () => {
     await connecting;
 
     const reading = readFile(client, "/tmp/slow.jsonl", { timeoutMs: 10 });
-    const rejection = expect(reading).rejects.toThrow("Codex app-server request timed out: fs/readFile");
     const sent = latestSent(transport);
     if (!("id" in sent) || typeof sent.id !== "number") throw new Error("Expected an app-server request id.");
 
-    await vi.advanceTimersByTimeAsync(10);
-    await rejection;
+    await Promise.all([
+      expect(reading).rejects.toThrow("Codex app-server request timed out: fs/readFile"),
+      vi.advanceTimersByTimeAsync(10),
+    ]);
 
     transport.emitLine({ id: sent.id, result: { dataBase64: btoa("late") } });
     expect(logs).toEqual([]);

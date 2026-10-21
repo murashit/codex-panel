@@ -195,11 +195,10 @@ describe("web context reader", () => {
         "",
         {} as ComposerInputSnapshot,
       );
-      const rejected = expect(reading).rejects.toThrow("Web request timed out for https://example.com/article.");
-
-      await vi.advanceTimersByTimeAsync(10);
-
-      await rejected;
+      await Promise.all([
+        expect(reading).rejects.toThrow("Web request timed out for https://example.com/article."),
+        vi.advanceTimersByTimeAsync(10),
+      ]);
     } finally {
       vi.useRealTimers();
     }

@@ -17,16 +17,18 @@ describe("thread catalog read model", () => {
           const next = { ...thread(String(targetId)), name };
           const result = applyThreadCatalogChange(snapshot, { kind: "upsert", thread: next });
           expect(result).not.toBeNull();
-          if (!result) return;
+          if (!result) throw new Error("Expected an updated thread catalog");
 
           const index = ids.indexOf(targetId);
           expect(result.map((item) => item.id)).toEqual(index < 0 ? [String(targetId), ...ids.map(String)] : ids.map(String));
           expect(result.filter((item) => item.id === String(targetId))).toHaveLength(1);
-          for (const original of snapshot) {
-            if (original.id !== String(targetId)) expect(result.find((item) => item.id === original.id)).toBe(original);
+          for (const original of snapshot.filter((item) => item.id !== String(targetId))) {
+            expect(result.find((item) => item.id === original.id)).toBe(original);
           }
-          if (index >= 0 && name === snapshot[index]?.name) expect(result).toBe(snapshot);
-          else expect(result.find((item) => item.id === String(targetId))).toEqual(next);
+          expect(result.find((item) => item.id === String(targetId))).toEqual(next);
+          expect(result === snapshot, "Only equivalent upserts preserve the catalog snapshot identity").toBe(
+            index >= 0 && name === snapshot[index]?.name,
+          );
         },
       ),
     );
@@ -38,9 +40,9 @@ describe("thread catalog read model", () => {
         const snapshot = ids.map((id) => thread(String(id)));
         const result = applyThreadCatalogChange(snapshot, { kind: "remove", list: "active", threadId: String(targetId) });
         expect(result?.map((item) => item.id)).toEqual(ids.filter((id) => id !== targetId).map(String));
-        if (!ids.includes(targetId)) expect(result).toBe(snapshot);
-        for (const original of snapshot) {
-          if (original.id !== String(targetId)) expect(result?.find((item) => item.id === original.id)).toBe(original);
+        expect(result === snapshot, "Removing an absent thread preserves the catalog snapshot identity").toBe(!ids.includes(targetId));
+        for (const original of snapshot.filter((item) => item.id !== String(targetId))) {
+          expect(result?.find((item) => item.id === original.id)).toBe(original);
         }
       }),
     );

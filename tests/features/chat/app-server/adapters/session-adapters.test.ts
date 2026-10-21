@@ -121,14 +121,17 @@ describe("chat session adapters", () => {
           ? adapters.threadStart.startThread({ ephemeral: stage === "temporary-start" })
           : adapters.threadStart.forkSideChat("parent", {}, () => presented),
       );
-      const result =
-        stage === "injection-failure" ? expect(creating).rejects.toThrow("boundary failed") : expect(creating).resolves.toBeDefined();
+      const result = Promise.allSettled([creating]);
       await reached.promise;
       // Close/replacement invalidates adoption while keeping shared connection bookkeeping alive.
       presented = false;
       if (stage === "injection-failure") pending.reject(new Error("boundary failed"));
       else pending.resolve(heldMethod === "thread/inject_items" ? {} : response);
-      await result;
+      await expect(result).resolves.toMatchObject([
+        stage === "injection-failure"
+          ? { status: "rejected", reason: new Error("boundary failed") }
+          : { status: "fulfilled", value: { kind: stage === "side-fork" ? "not-started" : "completed" } },
+      ]);
       await waitForAsyncWork(() => expect(request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "created" }, expect.anything()));
       expect(request.mock.calls.some(([method]) => method === "turn/interrupt")).toBe(false);
       expect(replacement.request).not.toHaveBeenCalled();
