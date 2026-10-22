@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import ts from "typescript";
-import { normalizeSource } from "./normalize-app-server-types.mjs";
+import { normalizeSource } from "./normalize-types.mjs";
 
 function members(source) {
   const parsed = ts.createSourceFile("fixture.ts", source, ts.ScriptTarget.Latest, true);

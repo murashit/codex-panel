@@ -8,7 +8,7 @@ const outputPath = "styles.css";
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.argv.length > 2) {
-    console.error("Usage: node scripts/build-styles.mjs");
+    console.error("Usage: node scripts/styles/build.mjs");
     process.exit(1);
   }
   await buildStyles();

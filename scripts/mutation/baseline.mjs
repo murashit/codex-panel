@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { globSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, matchesGlob, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import config from "../stryker.config.mjs";
+import config from "../../stryker.config.mjs";
 
 const checkpoint = config.incrementalFile;
 const directory = dirname(checkpoint);

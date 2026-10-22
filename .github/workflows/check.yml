@@ -84,10 +84,7 @@ jobs:
           if changed \
             .github/workflows/check.yml \
             .node-version \
-            scripts/app-server-compatibility.mjs \
-            scripts/generate-app-server-types.mjs \
-            scripts/normalize-app-server-types.mjs \
-            scripts/check-app-server-type-normalization.mjs \
+            scripts/app-server \
             src/app-server/compatibility.json \
             src/generated/app-server; then
             echo "bindings=true" >> "$GITHUB_OUTPUT"
@@ -98,7 +95,6 @@ jobs:
             biome.jsonc \
             package.json \
             package-lock.json \
-            scripts/check-grit-policies.mjs \
             scripts/grit; then
             echo "policies=true" >> "$GITHUB_OUTPUT"
           fi
@@ -142,7 +138,7 @@ jobs:
 
       - name: Install recorded Codex CLI
         if: github.event_name != 'pull_request' || steps.changes.outputs.bindings == 'true'
-        run: npm install --global "@openai/codex@$(node scripts/app-server-compatibility.mjs --tested-cli-version)"
+        run: npm install --global "@openai/codex@$(node scripts/app-server/compatibility.mjs --tested-cli-version)"
 
       - name: Check generated app-server bindings
         if: github.event_name != 'pull_request' || steps.changes.outputs.bindings == 'true'
