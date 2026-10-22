@@ -3,7 +3,7 @@ import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { completeReasoningItems, upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
 import type { ChatState } from "../state/model";
 import type { ChatAction } from "../state/reducer";
-import { threadStreamItems, threadStreamPendingSteers } from "../state/thread-stream";
+import { threadStreamItems } from "../state/thread-stream";
 import { chatThreadStreamViewState } from "../state/turn-scope";
 import type { TurnRuntimeFact } from "./runtime-facts";
 import { activeTurnId } from "./turn-state";
@@ -78,12 +78,7 @@ function runtimeFactProjection(state: ChatState, fact: TurnRuntimeFact): TurnRun
     case "taskProgressUpdated":
       return actionProjection({ type: "thread-stream/item-upserted", item: fact.item });
     case "userMessageObserved":
-      return fact.item.clientId &&
-        threadStreamPendingSteers(chatThreadStreamViewState(state.threadStream, state.activeTurn)).some(
-          (pending) => pending.clientId === fact.item.clientId,
-        )
-        ? actionProjection({ type: "thread-stream/pending-steer-committed", item: fact.item })
-        : EMPTY_PROJECTION;
+      return actionProjection({ type: "thread-stream/user-message-observed", item: fact.item });
     case "itemCompleted":
       return completedItemProjection(fact.item, fact.turnId);
     case "autoReviewUpdated":

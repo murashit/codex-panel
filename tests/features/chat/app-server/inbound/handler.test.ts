@@ -1401,47 +1401,55 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState())[0]).not.toHaveProperty("executionState");
     });
 
-    it("moves a pending steer into canonical order when its user message starts", () => {
-      let state = chatReducer(activeRunningState(), {
-        type: "thread-stream/pending-steer-added",
-        item: {
-          id: "local-steer",
-          clientId: "local-steer",
-          kind: "dialogue",
-          dialogueKind: "user",
-          role: "user",
-          text: "follow up",
-          turnId: "turn-active",
-        },
-      });
-      state = withChatStateStableThreadStreamItems(state, [
-        {
-          id: "assistant",
-          kind: "dialogue",
-          dialogueKind: "assistantResponse",
-          dialogueState: "completed",
-          role: "assistant",
-          text: "working",
-          turnId: "turn-active",
-        },
-      ]);
-      const handler = handlerForState(state);
-
+    it("shows parent input without a client id once per server id through lifecycle and summary completion", () => {
+      const handler = handlerForState(activeRunningState());
       handler.handleNotification({
         method: "item/started",
         params: {
           threadId: "thread-active",
           turnId: "turn-active",
           startedAtMs: 1,
-          item: appServerUserMessageFixture("server-steer", "follow up", { clientId: "local-steer" }),
+          item: appServerUserMessageFixture("external", "Parent instruction", { clientId: null }),
         },
-      } satisfies Extract<ServerNotification, { method: "item/started" }>);
-
-      expect(handler.currentState().activeTurn.pendingSteers).toEqual([]);
-      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["assistant", "server-steer"]);
+      });
+      handler.handleNotification({
+        method: "item/completed",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          completedAtMs: 2,
+          item: appServerUserMessageFixture("external", "Canonical parent instruction", { clientId: null }),
+        },
+      });
+      handler.handleNotification({
+        method: "item/completed",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          completedAtMs: 2,
+          item: appServerUserMessageFixture("external-2", "Canonical parent instruction", { clientId: null }),
+        },
+      });
+      handler.handleNotification({
+        method: "item/agentMessage/delta",
+        params: { threadId: "thread-active", turnId: "turn-active", itemId: "answer", delta: "Done" },
+      });
+      handler.handleNotification({
+        method: "turn/completed",
+        params: {
+          threadId: "thread-active",
+          turn: appServerTurnFixture({ id: "turn-active", status: "completed", itemsView: "summary", items: [] }),
+        },
+      });
+      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
+        { id: "external", text: "Canonical parent instruction" },
+        { id: "external-2", text: "Canonical parent instruction" },
+        { id: "answer", text: "Done" },
+      ]);
+      expect(handler.currentState().activeTurn.lifecycle.kind).toBe("idle");
     });
 
-    it("keeps an observed steer canonical when the normal completion summary arrives", () => {
+    it("places an observed steer in canonical order and preserves it through the normal completion summary", () => {
       let state = chatReducer(activeRunningState(), {
         type: "thread-stream/pending-steer-added",
         item: {
@@ -1478,6 +1486,10 @@ describe("ChatInboundHandler", () => {
           item: appServerUserMessageFixture("server-steer", "steer", { clientId: "local-steer-1" }),
         },
       } satisfies Extract<ServerNotification, { method: "item/started" }>);
+
+      expect(handler.currentState().activeTurn.pendingSteers).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "a1", "server-steer"]);
+
       handler.handleNotification(
         turnNotification("turn/completed", "thread-active", {
           id: "turn-active",
