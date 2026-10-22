@@ -22,7 +22,6 @@ setupThreadStreamRendering();
 
 import {
   actEvent,
-  dispatchComposingInputValue,
   expectPresent,
   pendingApproval,
   pendingFreeformUserInput,
@@ -33,7 +32,6 @@ import {
   renderPendingRequestNode,
   renderThreadStreamBlockElement,
   renderThreadStreamBlocksInAct,
-  setNativeInputValue,
   unmountUiRootInAct,
 } from "./test-helpers";
 
@@ -259,28 +257,53 @@ describe("panel pending request rendering", () => {
     expect(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")?.tabIndex).toBe(0);
   });
 
-  it("does not commit other Plan mode IME preedit text as the answer", () => {
-    const { parent, actions, render } = controlledOtherInput();
+  it.each(["main document", "iframe"])("commits other Plan mode IME answers in the %s", (target) => {
+    const iframe = target === "iframe" ? document.createElement("iframe") : null;
+    if (iframe) document.body.appendChild(iframe);
+    const targetDocument = iframe ? expectPresent(iframe.contentDocument) : document;
+    const targetWindow = expectPresent(targetDocument.defaultView);
+    const parent = targetDocument.createElement("div");
+    targetDocument.body.appendChild(parent);
+    const { drafts, render } = controlledOtherInput(parent);
+    try {
+      render();
+      const otherInput = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text"));
+      expect(otherInput.ownerDocument).toBe(targetDocument);
+      expect(otherInput instanceof HTMLInputElement).toBe(iframe === null);
 
-    render();
-    const otherInput = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text"));
+      actEvent(() => {
+        otherInput.dispatchEvent(new targetWindow.CompositionEvent("compositionstart", { bubbles: true }));
+        otherInput.value = "にほん";
+        otherInput.dispatchEvent(new targetWindow.InputEvent("input", { bubbles: true, isComposing: true }));
+      });
+      render();
+      expect(otherInput.value).toBe("にほん");
+      expect(drafts.get("99:scope:other")).toBeUndefined();
+      expect(drafts.get("99:scope")).toBe("");
+      expect(parent.querySelector<HTMLInputElement>('.codex-panel__user-input-radio[value="__other__"]')?.checked).toBe(true);
 
-    actEvent(() => {
-      otherInput.dispatchEvent(new Event("compositionstart", { bubbles: true }));
-      dispatchComposingInputValue(otherInput, "にほん");
-    });
+      actEvent(() => {
+        otherInput.value = "日本";
+        otherInput.dispatchEvent(new targetWindow.CompositionEvent("compositionend", { bubbles: true, data: "日本" }));
+      });
+      render();
+      expect(otherInput.value).toBe("日本");
+      expect(drafts.get("99:scope:other")).toBe("日本");
+      expect(drafts.get("99:scope")).toBe("日本");
 
-    expect(actions.setUserInputDraft).toHaveBeenCalledWith(99, "99:scope", "");
-    expect(actions.setUserInputDraft).not.toHaveBeenCalledWith(99, "99:scope:other", "にほん");
-    expect(actions.setUserInputDraft).not.toHaveBeenCalledWith(99, "99:scope", "にほん");
-
-    setNativeInputValue(otherInput, "日本");
-    actEvent(() => {
-      otherInput.dispatchEvent(new Event("compositionend", { bubbles: true }));
-    });
-
-    expect(actions.setUserInputDraft).toHaveBeenCalledWith(99, "99:scope:other", "日本");
-    expect(actions.setUserInputDraft).toHaveBeenCalledWith(99, "99:scope", "日本");
+      actEvent(() => {
+        otherInput.value = "日本!";
+        otherInput.dispatchEvent(new targetWindow.InputEvent("input", { bubbles: true, data: "!" }));
+      });
+      render();
+      expect(otherInput.value).toBe("日本!");
+      expect(drafts.get("99:scope:other")).toBe("日本!");
+      expect(drafts.get("99:scope")).toBe("日本!");
+    } finally {
+      unmountUiRootInAct(parent);
+      parent.remove();
+      iframe?.remove();
+    }
   });
 
   it("renders pending approvals and user input questions in the same request block", () => {
@@ -886,14 +909,13 @@ function userInputDraftsFixture(values = new Map<string, string>()) {
   };
 }
 
-function controlledOtherInput() {
-  const parent = document.createElement("div");
+function controlledOtherInput(parent = document.createElement("div")) {
   const input = pendingOtherUserInput();
   const { drafts, draftKey, otherDraftKey, actions } = controlledUserInputDrafts();
   const render = () => {
     renderPendingRequestNode(parent, [], [input], { values: drafts, draftKey, otherDraftKey }, new Set(), actions);
   };
-  return { parent, actions, render };
+  return { parent, actions, drafts, render };
 }
 
 function renderMcpRequest(

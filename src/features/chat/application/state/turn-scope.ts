@@ -161,9 +161,8 @@ function staleThreadStreamAction(activeTurn: ChatActiveTurnState, action: Thread
     case "thread-stream/item-added":
     case "thread-stream/system-item-added":
     case "thread-stream/item-upserted":
+    case "thread-stream/user-message-observed":
       return activeTurn.lifecycle.kind === "running" && Boolean(action.item.turnId) && action.item.turnId !== activeTurnId;
-    case "thread-stream/pending-steer-committed":
-      return activeTurnId !== null && Boolean(action.item.turnId) && action.item.turnId !== activeTurnId;
     default:
       return false;
   }

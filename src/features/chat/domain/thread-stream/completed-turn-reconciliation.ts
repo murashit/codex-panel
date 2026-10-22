@@ -1,5 +1,5 @@
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "./items";
-import { isLocalUserDialogueId } from "./local-dialogue-ids";
+import { isOptimisticUserDialogue, optimisticDialogueClientId } from "./local-dialogue-ids";
 import { isEquivalentTurnErrorNotice, isTerminalTurnErrorItem } from "./turn-error-notices";
 import { upsertThreadStreamItemById } from "./updates";
 
@@ -97,17 +97,6 @@ function isReconciledOptimisticUserDialogue(
     serverUserDialogueClientIds.has(optimisticDialogueClientId(item)) ||
     isFallbackOptimisticUserDialogueForTurn(item, completedTurnId, serverUserDialogueFallbackTexts)
   );
-}
-
-function isOptimisticUserDialogue(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { role: "user" } {
-  return (
-    isUserDialogue(item) &&
-    (isLocalUserDialogueId(item.id) || (item.provenance?.source === "localUser" && item.provenance.channel === "optimistic"))
-  );
-}
-
-function optimisticDialogueClientId(item: ThreadStreamDialogueItem): string {
-  return item.clientId ?? item.id;
 }
 
 function isFallbackOptimisticUserDialogueForTurn(

@@ -7,7 +7,7 @@ import {
   threadStreamStartActiveSegment,
 } from "../../../../../src/features/chat/application/state/thread-stream";
 import { chatThreadStreamViewState, initialChatActiveTurnState } from "../../../../../src/features/chat/application/state/turn-scope";
-import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import type { ThreadStreamItem, UserThreadStreamDialogueItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
 describe("thread stream state", () => {
   it("updates turn diffs and deduplicates reported logs", () => {
@@ -48,6 +48,7 @@ describe("thread stream state", () => {
       text: "follow up",
       turnId: "turn",
       referencedFiles: [{ name: "Note", path: "Note.md" }],
+      contextAttachments: [{ label: "Pending context" }],
     } satisfies Extract<ThreadStreamItem, { dialogueKind: "user" }>;
     state = reduceThreadStreamSlice(state, { type: "thread-stream/pending-steer-added", item: pending });
     state = reduceThreadStreamSlice(state, {
@@ -61,7 +62,7 @@ describe("thread stream state", () => {
     expect(state.pendingSteers).toEqual([pending]);
 
     const committed = reduceThreadStreamSlice(state, {
-      type: "thread-stream/pending-steer-committed",
+      type: "thread-stream/user-message-observed",
       item: {
         id: "server-steer",
         clientId: "local-steer",
@@ -70,6 +71,7 @@ describe("thread stream state", () => {
         role: "user",
         text: "follow up",
         turnId: "turn",
+        contextAttachments: [],
       },
     });
 
@@ -80,9 +82,58 @@ describe("thread stream state", () => {
       expect.objectContaining({
         id: "server-steer",
         clientId: "local-steer",
-        referencedFiles: [{ name: "Note", path: "Note.md" }],
+        referencedFiles: pending.referencedFiles,
+        contextAttachments: [],
       }),
     ]);
+  });
+
+  it.each([false, true])("replaces an optimistic prompt in place (stable: %s) and keeps server fields authoritative", (stable) => {
+    const local = userDialogue("local-user-1", {
+      clientId: "client",
+      text: "local display",
+      copyText: "local raw",
+      referencedFiles: [{ name: "Note", path: "Note.md" }],
+      contextAttachments: [{ label: "Local context" }],
+      provenance: { source: "localUser", channel: "optimistic", interaction: "prompt" },
+    });
+    const tool = { id: "tool", kind: "tool", role: "tool", text: "working", turnId: "turn" } as const;
+    let state = stable
+      ? threadStreamStartActiveSegment(initialView([local]), "turn", [tool])
+      : threadStreamStartActiveSegment(initialView(), null, [local, tool]);
+    const server = userDialogue("server", {
+      sourceItemId: "server",
+      clientId: "client",
+      text: "canonical",
+      turnId: "turn",
+      contextAttachments: [],
+    });
+    state = reduceThreadStreamSlice(state, { type: "thread-stream/user-message-observed", item: server });
+    expect(threadStreamItems(state)).toEqual([{ ...server, referencedFiles: local.referencedFiles }, tool]);
+    state = reduceThreadStreamSlice(state, {
+      type: "thread-stream/user-message-observed",
+      item: { ...server, text: "final" },
+    });
+    expect(threadStreamItems(state)).toEqual([{ ...server, text: "final", referencedFiles: local.referencedFiles }, tool]);
+  });
+
+  it.each([
+    { match: "text alone", text: "same", sourceItemId: "other", localTurnId: "turn", clientId: "" },
+    { match: "source identity alone", text: "different", sourceItemId: "shared", localTurnId: "turn", clientId: "" },
+    { match: "a client id from another turn", text: "different", sourceItemId: "other", localTurnId: "other-turn", clientId: "client" },
+  ])("does not reconcile by $match", ({ text, sourceItemId, localTurnId, clientId }) => {
+    const local = userDialogue("local-user-1", {
+      clientId: "client",
+      sourceItemId: "shared",
+      text: "same",
+      turnId: localTurnId,
+    });
+    const state = threadStreamStartActiveSegment(initialView([local]), "turn", []);
+    const next = reduceThreadStreamSlice(state, {
+      type: "thread-stream/user-message-observed",
+      item: userDialogue("external", { text, sourceItemId, turnId: "turn", clientId }),
+    });
+    expect(threadStreamItems(next).map((item) => item.id)).toEqual(["local-user-1", "external"]);
   });
 
   it("does not carry pending steers into a different active turn", () => {
@@ -123,7 +174,7 @@ describe("thread stream state", () => {
     }
 
     const next = reduceThreadStreamSlice(state, {
-      type: "thread-stream/pending-steer-committed",
+      type: "thread-stream/user-message-observed",
       item: {
         id: "server-second",
         clientId: "second",
@@ -308,6 +359,10 @@ describe("thread stream selectors", () => {
 
 function dialogueItem(id: string): ThreadStreamItem {
   return { id, kind: "dialogue", role: "assistant", text: id, dialogueKind: "assistantResponse", dialogueState: "completed" };
+}
+
+function userDialogue(id: string, fields: Partial<UserThreadStreamDialogueItem> = {}): UserThreadStreamDialogueItem {
+  return { id, kind: "dialogue", dialogueKind: "user", role: "user", text: "same", ...fields };
 }
 
 function initialView(items: readonly ThreadStreamItem[] = []) {

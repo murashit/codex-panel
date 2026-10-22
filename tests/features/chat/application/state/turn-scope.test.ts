@@ -163,7 +163,7 @@ describe("active turn aggregate", () => {
     expect(staleParent.activeTurn.subagents.byThreadId).toEqual(new Map());
 
     const stale = chatReducer(staleParent, {
-      type: "thread-stream/pending-steer-committed",
+      type: "thread-stream/user-message-observed",
       item: {
         id: "server-steer",
         clientId: "local-steer",
