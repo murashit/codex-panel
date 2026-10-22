@@ -52,11 +52,17 @@
   min-width: 0;
 }
 
-.codex-panel-settings__dynamic-row .setting-item-name,
-.codex-panel-settings__dynamic-row .setting-item-description {
+.codex-panel-settings__archived-row .setting-item-name,
+.codex-panel-settings__archived-row .setting-item-description {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.codex-panel-settings__hook-row .setting-item-name,
+.codex-panel-settings__hook-row .setting-item-description {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .codex-panel-settings__hook-warning {

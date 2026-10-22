@@ -53,12 +53,13 @@ function HookRow({ hook, state }: { hook: HookItem; state: CodexHooksViewModel }
   const hookName = firstNonEmptyString(hook.statusMessage, hook.handlerSummary, hook.matcher, hook.eventName);
   const executionStatus =
     hook.trustStatus === "trusted" || hook.trustStatus === "managed" ? (hook.enabled ? "enabled" : "disabled") : "inactive";
+  const description = [
+    `${hook.eventName} · ${hook.matcher ?? "(no matcher)"} · ${hook.trustStatus} · ${executionStatus}`,
+    ...(hook.handlerSummary && hook.handlerSummary !== hookName ? [`Handler: ${hook.handlerSummary}`] : []),
+    `Source: ${hook.sourcePath}`,
+  ].join("\n");
   return (
-    <SettingRow
-      className="codex-panel-settings__dynamic-row codex-panel-settings__hook-row"
-      name={hookName}
-      desc={`${hook.eventName} · ${hook.matcher ?? "(no matcher)"} · ${hook.trustStatus} · ${executionStatus}`}
-    >
+    <SettingRow className="codex-panel-settings__dynamic-row codex-panel-settings__hook-row" name={hookName} desc={description}>
       {canTrust ? (
         <ObsidianButton
           text="Trust"

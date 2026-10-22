@@ -579,9 +579,25 @@ describe("settings tab", () => {
     expect(tab.containerEl.textContent).toContain("Could not load archived threads: archive unavailable");
   });
 
-  it("renders archived threads and hooks as dynamic setting rows", async () => {
+  it("renders full hook details and archived threads as dynamic setting rows", async () => {
     const client = settingsClient({
-      hooks: [hook({ key: "hook-1", command: "node hook.js", currentHash: "abc123", trustStatus: "untrusted" })],
+      hooks: [
+        hook({
+          key: "command",
+          command: "node /vault/scripts/check-very-long-hook-name.js --full-validation",
+          statusMessage: "Check edits",
+          sourcePath: "/vault/project-with-a-very-long-name/.codex/hooks.json",
+          currentHash: "abc123",
+          trustStatus: "untrusted",
+        }),
+        {
+          ...hook({ key: "mcp", statusMessage: "Check via MCP", trustStatus: "untrusted" }),
+          handlerType: "mcpTool",
+          server: "validation-server-with-a-very-long-name",
+          tool: "validate_all_changed_files",
+        },
+        hook({ key: "fallback", trustStatus: "untrusted" }),
+      ],
     });
     useContextClients(client);
     const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
@@ -589,10 +605,19 @@ describe("settings tab", () => {
     tab.display();
     await flushPromises();
 
-    expect(tab.containerEl.querySelectorAll(".codex-panel-settings__hook-list .codex-panel-settings__hook-row")).toHaveLength(1);
-    expect(tab.containerEl.querySelectorAll(".codex-panel-settings__archived-list .codex-panel-settings__archived-row")).toHaveLength(1);
+    const hookRows = [...tab.containerEl.querySelectorAll(".codex-panel-settings__hook-list .codex-panel-settings__hook-row")];
+    expect(hookRows.map((row) => row.querySelector(".setting-item-name")?.textContent)).toEqual([
+      "Check edits",
+      "Check via MCP",
+      "node hook.js",
+    ]);
+    expect(hookRows.map((row) => row.querySelector(".setting-item-description")?.textContent)).toEqual([
+      "postToolUse · apply_patch · untrusted · inactive\nHandler: node /vault/scripts/check-very-long-hook-name.js --full-validation\nSource: /vault/project-with-a-very-long-name/.codex/hooks.json",
+      "postToolUse · apply_patch · untrusted · inactive\nHandler: validation-server-with-a-very-long-name/validate_all_changed_files\nSource: /vault/.codex/hooks.json",
+      "postToolUse · apply_patch · untrusted · inactive\nSource: /vault/.codex/hooks.json",
+    ]);
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-list")?.textContent).not.toContain("abc123");
-    expect(tab.containerEl.querySelector(".codex-panel-settings__hook-list")?.textContent).toContain("untrusted · inactive");
+    expect(tab.containerEl.querySelectorAll(".codex-panel-settings__archived-list .codex-panel-settings__archived-row")).toHaveLength(1);
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-list")?.textContent).toContain("Archived thread");
     expect(buttonTexts(tab)).toContain("Trust");
     expect(buttonLabels(tab)).toContain("Restore thread");
