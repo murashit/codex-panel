@@ -1,4 +1,4 @@
-import type { AccessibleInputHTMLAttributes, ComponentChild as UiNode } from "preact";
+import type { AccessibleInputHTMLAttributes, TargetedCompositionEvent, ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../domain/pending-requests/aggregate";
 import { approvalDetailsDisclosureId } from "../../domain/pending-requests/disclosure-ids";
@@ -613,9 +613,8 @@ function OtherUserInputOption({
       composingRef.current = true;
       selectOther();
     },
-    oncompositionend: (event: Event) => {
+    oncompositionend: (event: TargetedCompositionEvent<HTMLInputElement>) => {
       const target = event.currentTarget;
-      if (!(target instanceof HTMLInputElement)) return;
       composingRef.current = false;
       setInputValue(target.value);
       commitOtherValue(target.value);
