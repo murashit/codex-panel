@@ -149,19 +149,6 @@ export function expectPresent<T>(value: T | null | undefined): T {
   return value;
 }
 
-export function setNativeInputValue(input: HTMLInputElement, value: string): void {
-  const valueDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
-  if (!valueDescriptor?.set) throw new Error("Missing input value setter");
-  valueDescriptor.set.call(input, value);
-}
-
-export function dispatchComposingInputValue(input: HTMLInputElement, value: string): void {
-  setNativeInputValue(input, value);
-  const event = new Event("input", { bubbles: true });
-  Object.defineProperty(event, "isComposing", { value: true });
-  input.dispatchEvent(event);
-}
-
 export function renderThreadStreamBlockElement(block: ThreadStreamViewBlock, context: ThreadStreamContext): HTMLElement {
   const parent = document.createElement("div");
   renderThreadStreamBlocksInAct(parent, { blocks: [block], context });
