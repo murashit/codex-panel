@@ -1,5 +1,6 @@
 import { threadStreamUserRoles } from "../../domain/thread-stream/conversation";
 import type { ThreadStreamDialogueItem, ThreadStreamItem, UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
+import { isOptimisticUserDialogue, optimisticDialogueClientId } from "../../domain/thread-stream/local-dialogue-ids";
 import {
   appendAssistantStreamingDelta,
   appendPlanStreamingDelta,
@@ -52,7 +53,7 @@ export type ThreadStreamAction =
   | { type: "thread-stream/item-upserted"; item: ThreadStreamItem }
   | { type: "thread-stream/pending-steer-added"; item: UserThreadStreamDialogueItem }
   | { type: "thread-stream/pending-steer-removed"; clientId: string }
-  | { type: "thread-stream/pending-steer-committed"; item: UserThreadStreamDialogueItem }
+  | { type: "thread-stream/user-message-observed"; item: UserThreadStreamDialogueItem }
   | { type: "thread-stream/reasoning-completed"; turnId: string }
   | { type: "thread-stream/assistant-delta-appended"; itemId: string; turnId: string; delta: string }
   | { type: "thread-stream/plan-delta-appended"; itemId: string; turnId: string; delta: string }
@@ -193,8 +194,8 @@ export function reduceThreadStreamSlice(state: ChatThreadStreamViewState, action
         : patchObject(state, { pendingSteers: [...state.pendingSteers, action.item] });
     case "thread-stream/pending-steer-removed":
       return removePendingSteer(state, action.clientId);
-    case "thread-stream/pending-steer-committed":
-      return commitPendingSteer(state, action.item);
+    case "thread-stream/user-message-observed":
+      return observeUserMessage(state, action.item);
     case "thread-stream/reasoning-completed":
       return completeReasoningInThreadStream(state, action.turnId);
     case "thread-stream/assistant-delta-appended": {
@@ -256,19 +257,40 @@ function removePendingSteer(state: ChatThreadStreamViewState, clientId: string):
   return pendingSteers.length === state.pendingSteers.length ? state : patchObject(state, { pendingSteers });
 }
 
-function commitPendingSteer(state: ChatThreadStreamViewState, item: UserThreadStreamDialogueItem): ChatThreadStreamViewState {
-  if (!item.clientId) return state;
-  const pending = state.pendingSteers.find(
-    (candidate) => candidate.clientId === item.clientId && (!candidate.turnId || !item.turnId || candidate.turnId === item.turnId),
-  );
-  if (!pending) return state;
-  const committed = {
+function observeUserMessage(state: ChatThreadStreamViewState, item: UserThreadStreamDialogueItem): ChatThreadStreamViewState {
+  const sameTurn = (candidate: ThreadStreamItem) => !candidate.turnId || !item.turnId || candidate.turnId === item.turnId;
+  const pending = item.clientId
+    ? state.pendingSteers.find((candidate) => candidate.clientId === item.clientId && sameTurn(candidate))
+    : undefined;
+  const displayedItems = threadStreamItems(state);
+  const local =
+    displayedItems.find(
+      (candidate): candidate is UserThreadStreamDialogueItem =>
+        candidate.kind === "dialogue" && candidate.dialogueKind === "user" && candidate.id === item.id,
+    ) ??
+    displayedItems.find(
+      (candidate): candidate is UserThreadStreamDialogueItem =>
+        Boolean(item.clientId) &&
+        isOptimisticUserDialogue(candidate) &&
+        optimisticDialogueClientId(candidate) === item.clientId &&
+        sameTurn(candidate),
+    );
+  const contextAttachments = item.contextAttachments ?? local?.contextAttachments ?? pending?.contextAttachments;
+  const referencedFiles = item.referencedFiles ?? local?.referencedFiles ?? pending?.referencedFiles;
+  const canonical = {
     ...item,
-    ...(pending.contextAttachments ? { contextAttachments: pending.contextAttachments } : {}),
-    ...(pending.referencedFiles ? { referencedFiles: pending.referencedFiles } : {}),
+    ...(contextAttachments ? { contextAttachments } : {}),
+    ...(referencedFiles ? { referencedFiles } : {}),
   };
-  const withoutPending = removePendingSteer(state, item.clientId);
-  return patchObject(withoutPending, appendThreadStreamItemPatch(withoutPending, committed));
+  const next = pending ? patchObject(state, { pendingSteers: state.pendingSteers.filter((candidate) => candidate !== pending) }) : state;
+  if (local && next.stableItems.includes(local)) {
+    return patchObject(next, { stableItems: next.stableItems.map((candidate) => (candidate === local ? canonical : candidate)) });
+  }
+  if (local && next.activeSegment) {
+    const index = next.activeSegment.items.indexOf(local);
+    return patchObject(next, { activeSegment: replaceActiveSegmentItem(next.activeSegment, index, () => canonical) });
+  }
+  return patchObject(next, appendThreadStreamItemPatch(next, canonical));
 }
 
 function appendThreadStreamItemPatch(state: ChatThreadStreamViewState, item: ThreadStreamItem): Partial<ChatThreadStreamViewState> {

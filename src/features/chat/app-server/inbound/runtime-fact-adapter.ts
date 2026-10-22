@@ -152,19 +152,21 @@ export function turnRuntimeFactFromNotification(
 }
 
 function startedItemFact(item: AppServerTurnItem, turnId: string): TurnRuntimeFact | null {
-  if (item.type === "userMessage") {
-    const streamItem = threadStreamItemFromTurnItem(item, turnId);
-    return streamItem?.kind === "dialogue" && streamItem.dialogueKind === "user" ? { type: "userMessageObserved", item: streamItem } : null;
-  }
+  if (item.type === "userMessage") return observedUserMessageFact(item, turnId);
   if (shouldSuppressLifecycleItem(item)) return null;
   const streamItem = threadStreamItemFromTurnItem(item, turnId);
   return streamItem ? { type: "itemStarted", item: streamItem } : null;
 }
 
 function completedItemFact(item: AppServerTurnItem, turnId: string): TurnRuntimeFact | null {
-  if (item.type === "userMessage") return null;
+  if (item.type === "userMessage") return observedUserMessageFact(item, turnId);
   const streamItem = threadStreamItemFromTurnItem(item, turnId);
   return streamItem ? { type: "itemCompleted", turnId, item: streamItem } : null;
+}
+
+function observedUserMessageFact(item: AppServerTurnItem, turnId: string): TurnRuntimeFact | null {
+  const streamItem = threadStreamItemFromTurnItem(item, turnId);
+  return streamItem?.kind === "dialogue" && streamItem.dialogueKind === "user" ? { type: "userMessageObserved", item: streamItem } : null;
 }
 
 function fileChangeItem(itemId: string, turnId: string, changes: readonly AppServerFileChange[], status: string): ThreadStreamItem {

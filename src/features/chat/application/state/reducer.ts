@@ -103,7 +103,7 @@ function reduceGuardedSlice(state: ChatState, action: RequestAction | TurnScopeA
     case "thread-stream/item-upserted":
     case "thread-stream/pending-steer-added":
     case "thread-stream/pending-steer-removed":
-    case "thread-stream/pending-steer-committed":
+    case "thread-stream/user-message-observed":
     case "thread-stream/reasoning-completed":
     case "thread-stream/assistant-delta-appended":
     case "thread-stream/plan-delta-appended":

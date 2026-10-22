@@ -292,7 +292,20 @@ describe("HistoryController", () => {
     } as const;
     stateStore.dispatch({ type: "thread-stream/pending-steer-added", item: steer });
 
-    pending.resolve(historyPage([message("older", "Earlier answer", "older-turn")], null));
+    const canonicalUser = {
+      id: "external-user",
+      kind: "dialogue",
+      dialogueKind: "user",
+      role: "user",
+      text: "Live parent input",
+      turnId: "running",
+    } as const;
+    for (const action of projectTurnRuntimeFact(stateStore.getState(), {
+      type: "userMessageObserved",
+      item: canonicalUser,
+    }).actions)
+      stateStore.dispatch(action);
+    pending.resolve(historyPage([message("older", "Earlier answer", "older-turn"), canonicalUser], null));
     await loading;
     expect(stateStore.getState().activeTurn.pendingSteers).toEqual([steer]);
     stateStore.dispatch({ type: "thread-stream/assistant-delta-appended", itemId: "answer", turnId: "running", delta: " world" });
@@ -301,6 +314,7 @@ describe("HistoryController", () => {
 
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
       expect.objectContaining({ id: "older" }),
+      canonicalUser,
       expect.objectContaining({ id: "answer", text: "Hello world" }),
       expect.objectContaining({ id: "server-steer", text: "Clarify" }),
     ]);

@@ -225,24 +225,73 @@ describe("TurnSubmissionCommand", () => {
     expect(stateStore.getState().connection.statusText).toBe("Turn running...");
   });
 
-  it("replaces a pending web submission when starting a turn", async () => {
-    const { host, stateStore } = createHost();
-    const pending = queuePendingWebSubmission(stateStore, null);
-    const commands = claimedCommand(host);
-
-    await commands.sendTurnText({
-      text: "https://example.com/ summarize",
-      codexInputOverride: textInput("https://example.com/ summarize"),
-      pendingSubmissionId: pending.id,
+  it.each([false, true])("canonicalizes optimistic input before a late start ACK (web: %s)", async (web) => {
+    const accepted = deferred<EffectOutcome<{ turnId: string }>>();
+    const { host, startTurn, stateStore } = createHost();
+    startTurn.mockReturnValue(accepted.promise);
+    const pending = web ? queuePendingWebSubmission(stateStore, null) : null;
+    const submitting = claimedCommand(host).sendTurnText(
+      pending
+        ? {
+            ...webSubmissionRequest(pending),
+            codexInputOverride: [
+              ...textInput(pending.text),
+              {
+                type: "additionalContext",
+                key: "codex_panel_web_context",
+                kind: "untrusted",
+                value: "Web page context for the current user input:\nSource: https://example.com/\n\nReadable article",
+              },
+            ],
+          }
+        : { text: "hello" },
+    );
+    await vi.waitFor(() => expect(startTurn).toHaveBeenCalledOnce());
+    const clientId = startTurn.mock.calls[0]?.[0].clientUserMessageId;
+    expect(clientId).toMatch(/^local-user-/);
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
+      expect.objectContaining(pending ? { id: pending.id, clientId, text: pending.text } : { id: clientId, text: "hello" }),
+    ]);
+    if (!web) stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+    const canonicalUser = {
+      id: "server-prompt",
+      clientId,
+      kind: "dialogue",
+      dialogueKind: "user",
+      role: "user",
+      text: "Server prompt",
+      turnId: "turn",
+    } as const;
+    stateStore.dispatch({ type: "thread-stream/user-message-observed", item: canonicalUser });
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
+      {
+        ...canonicalUser,
+        ...(web ? { contextAttachments: [{ label: "Web page", detail: "https://example.com/" }] } : {}),
+      },
+    ]);
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+    stateStore.dispatch({
+      type: "turn/completed",
+      turnId: "turn",
+      outcome: "completed",
+      items: [
+        {
+          ...canonicalUser,
+          ...(web ? { contextAttachments: [{ label: "Web page", detail: "https://example.com/" }] } : {}),
+        },
+      ],
     });
-
-    const dialogues = chatStateThreadStreamItems(stateStore.getState()).filter((item) => item.kind === "dialogue");
-    expect(dialogues).toHaveLength(1);
-    expect(dialogues[0]).toMatchObject({
-      id: pending.id,
-      clientId: expect.stringMatching(/^local-user-/),
-      text: "https://example.com/ summarize",
-    });
+    accepted.resolve(completed({ turnId: "turn" }));
+    await expect(submitting).resolves.toBe(true);
+    expect(stateStore.getState().activeTurn.lifecycle.kind).toBe("idle");
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
+      expect.objectContaining({
+        id: "server-prompt",
+        clientId,
+        text: "Server prompt",
+        ...(web ? { contextAttachments: [{ label: "Web page", detail: "https://example.com/" }] } : {}),
+      }),
+    ]);
   });
 
   it("keeps a pending web submission visible through internal thread creation and settings", async () => {
@@ -546,7 +595,7 @@ describe("TurnSubmissionCommand", () => {
       expect.objectContaining({ id: pending.id, clientId, text: pending.text }),
     ]);
     stateStore.dispatch({
-      type: "thread-stream/pending-steer-committed",
+      type: "thread-stream/user-message-observed",
       item: {
         id: "server-user",
         kind: "dialogue",
@@ -584,7 +633,7 @@ describe("TurnSubmissionCommand", () => {
     expect(host.addSystemMessage).not.toHaveBeenCalled();
 
     stateStore.dispatch({
-      type: "thread-stream/pending-steer-committed",
+      type: "thread-stream/user-message-observed",
       item: {
         id: "server-user",
         clientId,
