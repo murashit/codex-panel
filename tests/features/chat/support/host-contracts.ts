@@ -26,8 +26,16 @@ export function threadGoalQueriesFixture(): CodexChatHost["threadGoalQueries"] {
 
 export function threadReplacementPublicationFixture(): CodexChatHost["threadReplacementPublication"] {
   return {
-    begin: vi.fn(() => ({ attach: vi.fn(), finish: vi.fn() })),
     visibleThreadId: vi.fn((_threads, threadId) => threadId),
+  };
+}
+
+export function forkReplacementFixture(): CodexChatHost["forkReplacement"] {
+  return {
+    beginPublication: vi.fn(() => ({ attach: vi.fn(), finish: vi.fn() })),
+    latestTurnId: vi.fn().mockResolvedValue(null),
+    archiveSource: vi.fn().mockResolvedValue(true),
+    notify: vi.fn(),
   };
 }
 

@@ -1,5 +1,10 @@
 import { chatMetadataCacheFixture, chatVaultFixture, chatWorkspaceFixture } from "../../../../support/chat-obsidian";
-import { disconnectedChatLeaseFixture, threadGoalQueriesFixture, threadReplacementPublicationFixture } from "../../support/host-contracts";
+import {
+  disconnectedChatLeaseFixture,
+  forkReplacementFixture,
+  threadGoalQueriesFixture,
+  threadReplacementPublicationFixture,
+} from "../../support/host-contracts";
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,6 +15,7 @@ import type { ServerInitialization } from "../../../../../src/domain/runtime/met
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { SubmissionInput } from "../../../../../src/features/chat/application/submission/input-claim";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import { selectChatPanelComposer } from "../../../../../src/features/chat/host/composer/view-projection";
 import type { ChatPanelEnvironment, CodexChatHost } from "../../../../../src/features/chat/host/contracts";
@@ -24,6 +30,7 @@ import { panelThreadFixture } from "../../../../support/panel-thread";
 import { createServerDiagnostics } from "../../../../support/runtime-diagnostics";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { threadMutationCommandsMock } from "../../../../support/thread-mutations";
+import { emptyComposerInputSnapshot } from "../../support/composer-input";
 import { chatPanelSettingsAccess } from "../../support/settings";
 import { chatComposerSharedValuesFixture } from "../../support/shared-display-values";
 
@@ -478,6 +485,40 @@ describe("chat panel session runtime", () => {
     expect(disconnectSharedProcess).not.toHaveBeenCalled();
   });
 
+  it("finishes shared replacement work when the accepted turn arrives after session disposal", async () => {
+    const accepted = deferred<{ turn: { id: string } }>();
+    const request = vi.fn((method: string) => (method === "turn/start" ? accepted.promise : Promise.resolve({})));
+    const { connection } = contextConnectionHarness({ currentClient: () => ({ request }) as unknown as AppServerClient });
+    const finish = vi.fn();
+    const effects = {
+      ...forkReplacementFixture(),
+      beginPublication: vi.fn(() => ({ attach: vi.fn(), finish })),
+      latestTurnId: vi.fn().mockResolvedValue("last"),
+      archiveSource: vi.fn().mockResolvedValue(true),
+    };
+    const { runtime, stateStore } = sessionRuntimeFixture({
+      environment: { plugin: { appServerConnection: connection, forkReplacement: effects } },
+    });
+    stateStore.dispatch({
+      type: "panel/restored-thread-applied",
+      threadId: "fork",
+      fallbackTitle: null,
+      forkReplacement: { sourceThreadId: "source", sourceLatestTurnId: "last", saveMarkdown: false },
+    });
+    stateStore.dispatch({ type: "active-thread/resumed", ...threadActivationFixture(threadFixture({ id: "fork" })) });
+    const sending = runtime.turn.submissionCommands.sendTurnText({
+      text: "Continue",
+      submissionClaim: new SubmissionInput("Continue", emptyComposerInputSnapshot(), stateStore.getState, vi.fn()),
+    });
+    await vi.waitFor(() => expect(request).toHaveBeenCalledWith("turn/start", expect.anything()));
+    await runtime.dispose(vi.fn());
+    accepted.resolve({ turn: { id: "accepted" } });
+    await expect(sending).resolves.toBe(true);
+    await vi.waitFor(() => expect(finish).toHaveBeenCalledExactlyOnceWith(true));
+    expect(effects.archiveSource).toHaveBeenCalledExactlyOnceWith("source", false);
+    connection.dispose();
+  });
+
   it("releases the presentation lease even when UI teardown throws", async () => {
     const { runtime } = sessionRuntimeFixture();
     const releasePanelLease = vi.spyOn(runtime.connection.manager, "disconnect");
@@ -528,6 +569,7 @@ describe("chat panel session runtime", () => {
       toolInventoryQueries?: ChatPanelEnvironment["plugin"]["toolInventoryQueries"];
       threadGoalQueries?: ChatPanelEnvironment["plugin"]["threadGoalQueries"];
       threadMutations?: ChatPanelEnvironment["plugin"]["threadMutations"];
+      forkReplacement?: ChatPanelEnvironment["plugin"]["forkReplacement"];
       threadTitlePort?: ChatPanelEnvironment["plugin"]["threadTitlePort"];
       settings?: ChatPanelEnvironment["plugin"]["settings"];
       appServerContext?: ChatPanelEnvironment["plugin"]["appServerContext"];
@@ -587,6 +629,7 @@ describe("chat panel session runtime", () => {
           applyBatch: overrides.plugin?.threadFacts?.applyBatch ?? vi.fn(),
         },
         threadReplacementPublication: threadReplacementPublicationFixture(),
+        forkReplacement: overrides.plugin?.forkReplacement ?? forkReplacementFixture(),
         threadMutations: overrides.plugin?.threadMutations ?? threadMutationCommandsMock(),
         runtimeSettingsCommitQueue: overrides.plugin?.runtimeSettingsCommitQueue ?? createKeyedOperationCoordinator({ whenBusy: "queue" }),
       },

@@ -8,6 +8,8 @@ import { AppServerThreadCatalog } from "./app-server/query/thread-catalog-querie
 import { AppServerThreadGoalQueries } from "./app-server/query/thread-goal-queries";
 import { AppServerToolInventoryQueries } from "./app-server/query/tool-inventory-queries";
 import { type EphemeralStructuredTurnRunner, runEphemeralStructuredTurn } from "./app-server/services/ephemeral-structured-turn";
+import { readLatestThreadTurnId } from "./app-server/services/threads";
+import type { ForkReplacementEffects } from "./features/chat/application/threads/fork-replacement";
 import type { ChatPanelSettingsAccess, ChatRuntimeView, CodexChatHost, WorkspacePanels } from "./features/chat/host/contracts";
 import { createAppServerSelectionRewriteAdapter } from "./features/selection-rewrite/app-server-adapter";
 import type { SelectionRewritePort } from "./features/selection-rewrite/port";
@@ -54,6 +56,7 @@ export class CodexExecutionRuntime {
   private readonly threadCatalog: AppServerThreadCatalog;
   private readonly threadFacts: ThreadFactSink;
   private readonly threadReplacementPublication: ThreadReplacementPublicationOwner;
+  private readonly forkReplacement: ForkReplacementEffects;
   private readonly threadMutations: ThreadMutationCommands;
   private threadAutoTitleWork: ThreadAutoTitleWork | null = null;
   readonly settingsResources: SettingsResources;
@@ -128,18 +131,38 @@ export class CodexExecutionRuntime {
     this.threadMutations = createThreadMutationCommands({
       port: createThreadMutationAdapter(this.appServerConnection),
       archiveExport: {
-        settings: () => this.archiveExportSettings(),
+        settings: () => {
+          this.assertActive();
+          return this.archiveExportSettings();
+        },
         enabled: () => this.options.settings().archiveExportEnabled,
         vaultPath: this.context.vaultPath,
         vaultConfigDir: this.options.app.vault.configDir,
       },
       archiveDestination: () => createObsidianVaultMarkdownDestination(this.options.app.vault),
       facts: this.threadReplacementPublication.facts,
-      threadIsBusy: (threadId) =>
-        this.options.workspace
+      threadIsBusy: (threadId) => {
+        this.assertActive();
+        return this.options.workspace
           .openPanelActivities()
-          .some((activity) => activity.threadId === threadId && (activity.pending || activity.running)),
+          .some((activity) => activity.threadId === threadId && (activity.pending || activity.running));
+      },
     });
+    this.forkReplacement = {
+      beginPublication: (sourceThreadId) => {
+        this.assertActive();
+        return this.threadReplacementPublication.begin(sourceThreadId);
+      },
+      latestTurnId: (threadId) => this.appServerConnection.withClient((client) => readLatestThreadTurnId(client, threadId)),
+      archiveSource: async (threadId, saveMarkdown) => {
+        const result = await this.threadMutations.archiveThread(threadId, { saveMarkdown });
+        if (!this.disposed && result.exportedPath) new Notice(`Saved thread to ${result.exportedPath}.`);
+        return result.kind === "archived";
+      },
+      notify: (message) => {
+        if (!this.disposed) new Notice(message);
+      },
+    };
     this.threadAutoTitleWork = createThreadAutoTitleWork({
       titlePort: this.threadTitlePort(),
       mutations: this.threadMutations,
@@ -164,6 +187,7 @@ export class CodexExecutionRuntime {
       threadCatalog: this.threadCatalog,
       threadFacts: this.threadFacts,
       threadReplacementPublication: this.threadReplacementPublication,
+      forkReplacement: this.forkReplacement,
       threadMutations: this.threadMutations,
       threadTitlePort: this.threadTitlePort(),
       threadAutoTitleWork: this.currentThreadAutoTitleWork(),

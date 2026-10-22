@@ -1,4 +1,3 @@
-import { Notice } from "obsidian";
 import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
 import type { ChatInboundHandler } from "../../app-server/inbound/handler";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
@@ -100,21 +99,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     setStatus: status.set,
   });
   const turnSubmissionCommand = createTurnSubmissionCommand({
-    forkReplacement: {
-      beginPublication: (sourceThreadId) => host.environment.plugin.threadReplacementPublication.begin(sourceThreadId),
-      latestTurnId: async (sourceThreadId) => {
-        const page = await appServer.threadHistory.readHistoryPage(sourceThreadId, null, 1);
-        return page?.items.filter((item) => item.turnId).at(-1)?.turnId ?? null;
-      },
-      archiveSource: async (sourceThreadId, saveMarkdown) => {
-        const result = await host.environment.plugin.threadMutations.archiveThread(sourceThreadId, { saveMarkdown });
-        if (result.exportedPath) new Notice(`Saved thread to ${result.exportedPath}.`);
-        return result.kind === "archived";
-      },
-      notify: (message) => {
-        new Notice(message);
-      },
-    },
+    forkReplacement: host.environment.plugin.forkReplacement,
     stateStore: host.stateStore,
     localItemIds,
     turnPort: appServer.turn,

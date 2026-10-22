@@ -21,6 +21,7 @@ import type { TurnDiffViewState } from "../../turn-diff/model";
 import type { ComposerRuntimeSnapshot } from "../application/composer/runtime-snapshot";
 import type { ForkDisplaySnapshot } from "../application/threads/fork-display-snapshot";
 import type { ForkDraftPreparation, ForkReplacement } from "../application/threads/fork-draft";
+import type { ForkReplacementEffects } from "../application/threads/fork-replacement";
 
 export interface CodexChatHost {
   readonly appServerConnection: { createLease(): AppServerContextConnectionLease };
@@ -32,7 +33,8 @@ export interface CodexChatHost {
   readonly threadGoalQueries: ChatThreadGoalQueries;
   readonly threadCatalog: ChatThreadCatalog;
   readonly threadFacts: ThreadFactSink;
-  readonly threadReplacementPublication: Pick<ThreadReplacementPublicationOwner, "begin" | "visibleThreadId">;
+  readonly threadReplacementPublication: Pick<ThreadReplacementPublicationOwner, "visibleThreadId">;
+  readonly forkReplacement: ForkReplacementEffects;
   readonly threadMutations: ThreadMutationCommands;
   readonly threadTitlePort: ThreadTitlePort;
   readonly threadAutoTitleWork: Pick<ThreadAutoTitleWork, "submit">;

@@ -5,6 +5,7 @@ import type { AppServerRequestClient } from "../../../src/app-server/services/re
 import {
   clearThreadGoal,
   listThreads,
+  readLatestThreadTurnId,
   readThreadForArchiveExport,
   setThreadGoal,
   startThread,
@@ -14,6 +15,26 @@ import { appServerTurnFixture, appServerUserMessageFixture as userMessage } from
 import { deferred } from "../../support/async";
 
 describe("app-server thread response adapters", () => {
+  it.each([true, false])("reads the latest turn identity independently of transcript items (empty page=%s)", async (empty) => {
+    const request = vi.fn().mockResolvedValue({
+      data: empty ? [] : [appServerTurnFixture({ id: "latest", status: "completed", itemsView: "summary", items: [] })],
+      nextCursor: null,
+    });
+    await expect(readLatestThreadTurnId({ request } as unknown as AppServerRequestClient, "source")).resolves.toBe(empty ? null : "latest");
+    expect(request).toHaveBeenCalledExactlyOnceWith("thread/turns/list", {
+      threadId: "source",
+      cursor: null,
+      limit: 1,
+      sortDirection: "desc",
+      itemsView: "summary",
+    });
+  });
+
+  it("propagates failure to read the latest turn", async () => {
+    const request = vi.fn().mockRejectedValue(new Error("read failed"));
+    await expect(readLatestThreadTurnId({ request } as unknown as AppServerRequestClient, "source")).rejects.toThrow("read failed");
+  });
+
   it("marks explicit goal edits, status changes, and clearing as user instructions", async () => {
     const request = vi.fn().mockResolvedValue({});
     const client = { request } as unknown as AppServerRequestClient;

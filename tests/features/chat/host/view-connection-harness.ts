@@ -1,5 +1,6 @@
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import { AppServerContextConnection } from "../../../../src/app-server/connection/context-connection";
+import { readLatestThreadTurnId } from "../../../../src/app-server/services/threads";
 import { chatMetadataCacheFixture, chatVaultFixture, chatWorkspaceFixture } from "../../../support/chat-obsidian";
 import { threadTitlePortFixture, workspacePanelsFixture } from "../support/host-contracts";
 // @vitest-environment jsdom
@@ -67,7 +68,7 @@ export function connectionMockState(): typeof connectionMock.state {
 function contextConnectionMock(
   handleContextNotification?: (notification: ServerNotification) => boolean,
   onContextExit?: () => void,
-): CodexChatHost["appServerConnection"] {
+): AppServerContextConnection {
   let client: AppServerClient | null = null;
   return new AppServerContextConnection(
     "codex",
@@ -431,6 +432,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     () => queryScope.invalidate(),
   );
 
+  const threadMutations = threadMutationCommandsMock(overrides.threadMutations);
   return {
     appServerConnection,
     threadGoalQueries,
@@ -442,7 +444,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
         pageParams: [null],
       });
     },
-    threadMutations: threadMutationCommandsMock(overrides.threadMutations),
+    threadMutations,
     threadTitlePort: threadTitlePortFixture(),
     threadAutoTitleWork: { submit: vi.fn() },
     runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
@@ -479,6 +481,18 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     threadCatalog,
     threadFacts: replacementPublication.facts,
     threadReplacementPublication: replacementPublication,
+    forkReplacement: {
+      beginPublication: (threadId) => replacementPublication.begin(threadId),
+      latestTurnId: (threadId) => appServerConnection.withClient((client) => readLatestThreadTurnId(client, threadId)),
+      archiveSource: async (threadId, saveMarkdown) => {
+        const result = await threadMutations.archiveThread(threadId, { saveMarkdown });
+        if (result.exportedPath) notices.push(`Saved thread to ${result.exportedPath}.`);
+        return result.kind === "archived";
+      },
+      notify: (message) => {
+        notices.push(message);
+      },
+    },
   };
 }
 

@@ -1,5 +1,6 @@
 import {
   disconnectedChatLeaseFixture,
+  forkReplacementFixture,
   threadGoalQueriesFixture,
   threadReplacementPublicationFixture,
   threadTitlePortFixture,
@@ -175,6 +176,7 @@ function chatHostFixture(): CodexChatHost {
       applyBatch: vi.fn(),
     },
     threadReplacementPublication: threadReplacementPublicationFixture(),
+    forkReplacement: forkReplacementFixture(),
   };
 }
 

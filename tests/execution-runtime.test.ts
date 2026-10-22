@@ -9,12 +9,16 @@ import { AppServerClient } from "../src/app-server/connection/client";
 import * as contextConnection from "../src/app-server/connection/context-connection";
 import type { ServerRequest } from "../src/app-server/connection/rpc-messages";
 import { CodexExecutionRuntime } from "../src/execution-runtime";
+import { archiveForkSource } from "../src/features/chat/application/threads/fork-replacement";
 import type { ChatRuntimeView, CodexChatHost } from "../src/features/chat/host/contracts";
 import type { ThreadPickerController } from "../src/features/thread-picker/modal.obsidian";
 import * as threadPicker from "../src/features/thread-picker/modal.obsidian";
 import type { ThreadsViewHost } from "../src/features/threads-view/session";
 import type { ThreadsRuntimeView } from "../src/features/threads-view/view.obsidian";
 import { DEFAULT_SETTINGS } from "../src/settings/preferences";
+import { notices } from "./mocks/obsidian";
+import { deferred } from "./support/async";
+import { panelThreadFixture } from "./support/panel-thread";
 
 interface MockContextHandlers {
   onNotification(notification: unknown): void;
@@ -127,6 +131,85 @@ describe("CodexExecutionRuntime", () => {
     facts.apply({ type: "thread-archived", threadId: "after-dispose" });
 
     expect(onThreadFacts).toHaveBeenCalledExactlyOnceWith([{ type: "thread-archived", threadId: "before-dispose" }]);
+  });
+
+  describe("accepted fork source archiving", () => {
+    function setup(waitAt?: "latest" | "transcript" | "write" | "archive", archiveFails = false) {
+      const pending = deferred<unknown>();
+      const create = vi.fn(() => (waitAt === "write" ? pending.promise : Promise.resolve()));
+      const onThreadFacts = vi.fn();
+      const runtime = executionRuntime(onThreadFacts, {
+        configDir: ".obsidian",
+        getAbstractFileByPath: () => null,
+        createFolder: vi.fn(),
+        create,
+      });
+      const effects = attachChatHost(runtime).forkReplacement;
+      const publication = effects.beginPublication("source");
+      publication.attach(panelThreadFixture({ id: "fork" }));
+      contextConnectionMock.client.request.mockImplementation((method) => {
+        if (method === "thread/turns/list")
+          return waitAt === "latest" ? pending.promise : Promise.resolve({ data: [{ id: "last", items: [] }] });
+        if (method === "thread/read")
+          return waitAt === "transcript" ? pending.promise : Promise.resolve({ thread: { id: "source", turns: [] } });
+        if (method === "thread/archive")
+          return waitAt === "archive" ? pending.promise : archiveFails ? Promise.reject(new Error("archive failed")) : Promise.resolve({});
+        throw new Error(`Unexpected request: ${method}`);
+      });
+      const archive = () =>
+        archiveForkSource(effects, { sourceThreadId: "source", sourceLatestTurnId: "last", saveMarkdown: true }).then((archived) => {
+          publication.finish(archived);
+          return archived;
+        });
+      return { runtime, pending, create, onThreadFacts, archive };
+    }
+
+    it.each([false, true])("publishes completed replacement facts and the exported path (archive fails=%s)", async (fails) => {
+      const { runtime, create, onThreadFacts, archive } = setup(undefined, fails);
+      const noticeCount = notices.length;
+      await expect(archive()).resolves.toBe(!fails);
+      expect(create).toHaveBeenCalledOnce();
+      expect(notices.slice(noticeCount)).toEqual(expect.arrayContaining([expect.stringMatching(/^Saved thread to /)]));
+      expect(onThreadFacts).toHaveBeenCalledExactlyOnceWith([
+        { type: "thread-upserted", thread: expect.objectContaining({ id: "fork" }) },
+        ...(!fails ? [{ type: "thread-archived", threadId: "source" }] : []),
+      ]);
+      expect(notices.slice(noticeCount).some((notice) => notice === "The fork was started, but the source could not be archived.")).toBe(
+        fails,
+      );
+      runtime.dispose();
+    });
+
+    it.each(["latest", "transcript", "write", "archive"] as const)("stops retired-context work after %s completes", async (waitAt) => {
+      const { runtime, pending, create, onThreadFacts, archive } = setup(waitAt);
+      const archiving = archive();
+      await vi.waitFor(() =>
+        expect(
+          waitAt === "write"
+            ? create.mock.calls.length
+            : contextConnectionMock.client.request.mock.calls.filter(
+                ([method]) =>
+                  method === (waitAt === "latest" ? "thread/turns/list" : waitAt === "archive" ? "thread/archive" : "thread/read"),
+              ).length,
+        ).toBeGreaterThan(0),
+      );
+      runtime.dispose();
+      const noticeCount = notices.length;
+      pending.resolve(
+        waitAt === "latest"
+          ? { data: [{ id: "last", items: [] }] }
+          : waitAt === "transcript"
+            ? { thread: { id: "source", turns: [] } }
+            : undefined,
+      );
+      await expect(archiving).resolves.toBe(waitAt === "archive");
+      expect(contextConnectionMock.client.request.mock.calls.filter(([method]) => method === "thread/archive")).toHaveLength(
+        waitAt === "archive" ? 1 : 0,
+      );
+      expect(create).toHaveBeenCalledTimes(waitAt === "write" || waitAt === "archive" ? 1 : 0);
+      expect(notices).toHaveLength(noticeCount);
+      expect(onThreadFacts).not.toHaveBeenCalled();
+    });
   });
 
   it("uses one context connection for shared reads and panel sessions", async () => {
@@ -411,9 +494,9 @@ function pickerFactory(): {
   return { controllers, finish };
 }
 
-function executionRuntime(onThreadFacts = vi.fn()): CodexExecutionRuntime {
+function executionRuntime(onThreadFacts = vi.fn(), vault: Record<string, unknown> = { configDir: ".obsidian" }): CodexExecutionRuntime {
   return new CodexExecutionRuntime({
-    app: { vault: { configDir: ".obsidian" } } as never,
+    app: { vault } as never,
     context: { codexPath: "codex", vaultPath: "/vault" },
     settings: () => ({ ...DEFAULT_SETTINGS }),
     workspace: { openPanelActivities: () => [] } as never,
