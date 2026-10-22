@@ -3,7 +3,7 @@ import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, write
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { stripVTControlCharacters } from "node:util";
-import { compatibility, loadBaseline, saveBaseline } from "./mutation-baseline.mjs";
+import { compatibility, loadBaseline, saveBaseline } from "./baseline.mjs";
 
 const reportDirectory = "reports/mutation";
 const statuses = ["Killed", "Survived", "NoCoverage", "CompileError", "RuntimeError", "Timeout", "Ignored", "Pending"];

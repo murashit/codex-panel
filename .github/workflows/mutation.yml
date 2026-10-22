@@ -51,20 +51,20 @@ jobs:
       - name: Restore compatible mutation baseline
         if: ${{ !inputs.force }}
         continue-on-error: true
-        run: node scripts/mutation-baseline.mjs
+        run: node scripts/mutation/baseline.mjs
         env:
           GITHUB_TOKEN: ${{ github.token }}
         timeout-minutes: 3
 
       - name: Run full mutation suite
-        run: node scripts/run-mutation.mjs $MUTATION_FORCE
+        run: node scripts/mutation/run.mjs $MUTATION_FORCE
         env:
           MUTATION_FORCE: ${{ inputs.force && '--force' || '' }}
         timeout-minutes: 122
 
       - name: Finalize run metadata
         if: always()
-        run: node scripts/run-mutation.mjs --finalize
+        run: node scripts/mutation/run.mjs --finalize
         timeout-minutes: 1
 
       - name: Upload incremental checkpoint

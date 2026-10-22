@@ -2,7 +2,7 @@ export default {
   // This local plugin needs no extra package. Knip ignores its inferred package name.
   // Remove it when Stryker's Vitest 5 fix is released; see the script for links.
   testRunner: "vitest5",
-  appendPlugins: ["./scripts/stryker-vitest5-runner.mjs"],
+  appendPlugins: ["./scripts/mutation/vitest5-runner.mjs"],
   coverageAnalysis: "perTest",
   // Local history and generated reports are not test inputs.
   ignorePatterns: ["/.jj", "/coverage"],

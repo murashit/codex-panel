@@ -1,17 +1,17 @@
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { readAppServerGenerationPolicy } from "./app-server-compatibility.mjs";
-import { normalizeSource } from "./normalize-app-server-types.mjs";
+import { readAppServerGenerationPolicy } from "./compatibility.mjs";
+import { normalizeSource } from "./normalize-types.mjs";
 
 const generatedRelativeDir = "src/generated/app-server";
 const generatedHeader = "// GENERATED CODE! DO NOT MODIFY BY HAND!";
-const normalizationNotice = "// This file was mechanically normalized after generation by scripts/generate-app-server-types.mjs.";
+const normalizationNotice = "// This file was mechanically normalized after generation by scripts/app-server/generate-types.mjs.";
 
 try {
   const args = process.argv.slice(2);
   if (args.some((arg) => arg !== "--check") || args.length > 1) {
-    throw new Error("Usage: node scripts/generate-app-server-types.mjs [--check]");
+    throw new Error("Usage: node scripts/app-server/generate-types.mjs [--check]");
   }
   await generateAppServerTypes(args.includes("--check"));
 } catch (error) {
@@ -35,9 +35,10 @@ async function generateAppServerTypes(check) {
   try {
     const stagedRelativeDir = path.relative(cwd, stagedDir);
     run("codex", [...policy.generationArguments, "--out", stagedRelativeDir], cwd);
-    await normalizeGeneratedTypes(stagedDir);
+    const stagedFiles = await listFiles(stagedDir);
+    await normalizeGeneratedTypes(stagedDir, stagedFiles);
     if (check) {
-      const differences = await compareGeneratedTrees(generatedDir, stagedDir);
+      const differences = await compareGeneratedTrees(generatedDir, stagedDir, stagedFiles);
       if (differences.length > 0) {
         throw new Error(`generated app-server bindings are out of date:\n${differences.map((difference) => `  ${difference}`).join("\n")}`);
       }
@@ -49,8 +50,8 @@ async function generateAppServerTypes(check) {
   }
 }
 
-async function compareGeneratedTrees(trackedDir, stagedDir) {
-  const [trackedFiles, stagedFiles] = await Promise.all([listFiles(trackedDir), listFiles(stagedDir)]);
+async function compareGeneratedTrees(trackedDir, stagedDir, stagedFiles) {
+  const trackedFiles = await listFiles(trackedDir);
   const trackedSet = new Set(trackedFiles);
   const stagedSet = new Set(stagedFiles);
   const differences = [];
@@ -95,22 +96,18 @@ function isMissingPathError(error) {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
-async function normalizeGeneratedTypes(generatedDir) {
-  const files = await listTypeScriptFiles(generatedDir);
-
+async function normalizeGeneratedTypes(generatedDir, files) {
   await Promise.all(
-    files.map(async (file) => {
-      const source = await readFile(file, "utf8");
-      const normalized = normalizeSource(source);
-      const nextSource = normalized === source ? source : addNormalizationNotice(normalized);
-      if (nextSource !== source) await writeFile(file, nextSource);
-    }),
+    files
+      .filter((file) => file.endsWith(".ts"))
+      .map(async (relativeFile) => {
+        const file = path.join(generatedDir, relativeFile);
+        const source = await readFile(file, "utf8");
+        const normalized = normalizeSource(source);
+        const nextSource = normalized === source ? source : addNormalizationNotice(normalized);
+        if (nextSource !== source) await writeFile(file, nextSource);
+      }),
   );
-}
-
-async function listTypeScriptFiles(dir) {
-  const entries = await readdir(dir, { recursive: true, withFileTypes: true });
-  return entries.filter((entry) => entry.isFile() && entry.name.endsWith(".ts")).map((entry) => path.join(entry.parentPath, entry.name));
 }
 
 async function listFiles(dir) {

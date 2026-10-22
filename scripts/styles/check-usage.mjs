@@ -1,18 +1,16 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { readStyleFiles } from "./build-styles.mjs";
+import { readStyleFiles } from "./build.mjs";
 
 const root = process.cwd();
 if (process.argv.length > 2) {
-  console.error("Usage: node scripts/check-css-usage.mjs");
+  console.error("Usage: node scripts/styles/check-usage.mjs");
   process.exit(1);
 }
 
 const cssFiles = await readStyleFiles();
-const sourceFiles = await filesInTree(path.join(root, "src"), new Set([".ts", ".tsx"]), {
-  excludedPrefixes: [path.join(root, "src", "generated")],
-});
-const testFiles = await filesInTree(path.join(root, "tests"), new Set([".ts", ".tsx"]));
+const sourceFiles = await listCodeFiles(path.join(root, "src"));
+const testFiles = await listCodeFiles(path.join(root, "tests"));
 
 const cssTexts = await readTexts(cssFiles);
 for (const source of cssTexts) source.text = stripCssComments(source.text);
@@ -130,25 +128,18 @@ function locationsInTexts(texts, needle) {
   return locations;
 }
 
-async function filesInTree(directory, extensions, options = {}) {
-  const excludedPrefixes = options.excludedPrefixes ?? [];
+async function listCodeFiles(directory) {
   const result = [];
-  await collectFiles(directory, extensions, excludedPrefixes, result);
-  return result.sort((left, right) => relative(left).localeCompare(relative(right)));
-}
-
-async function collectFiles(directory, extensions, excludedPrefixes, result) {
-  if (excludedPrefixes.some((prefix) => directory === prefix || directory.startsWith(`${prefix}${path.sep}`))) return;
-
-  const entries = await readdir(directory, { withFileTypes: true });
-  for (const entry of entries) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
     const file = path.join(directory, entry.name);
+    if (file === path.join(root, "src", "generated")) continue;
     if (entry.isDirectory()) {
-      await collectFiles(file, extensions, excludedPrefixes, result);
-    } else if (entry.isFile() && extensions.has(path.extname(entry.name))) {
+      result.push(...(await listCodeFiles(file)));
+    } else if (entry.isFile() && [".ts", ".tsx"].includes(path.extname(entry.name))) {
       result.push(file);
     }
   }
+  return result.sort((left, right) => relative(left).localeCompare(relative(right)));
 }
 
 function printCandidates({ testOnlyCandidates, candidates, unusedCustomProperties, dynamicPrefixes }) {

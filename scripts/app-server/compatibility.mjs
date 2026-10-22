@@ -8,7 +8,7 @@ const exactSemverPattern = /^\d+\.\d+\.\d+$/;
 if (isMain()) {
   const args = process.argv.slice(2);
   if (args.length !== 1 || args[0] !== "--tested-cli-version") {
-    console.error("Usage: node scripts/app-server-compatibility.mjs --tested-cli-version");
+    console.error("Usage: node scripts/app-server/compatibility.mjs --tested-cli-version");
     process.exit(1);
   }
 

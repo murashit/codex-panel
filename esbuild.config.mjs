@@ -1,6 +1,6 @@
 import esbuild from "esbuild";
 
-import { buildStyles } from "./scripts/build-styles.mjs";
+import { buildStyles } from "./scripts/styles/build.mjs";
 
 await buildStyles();
 

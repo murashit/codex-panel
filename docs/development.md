@@ -115,7 +115,7 @@ These are optional diagnostics, not additional handoff gates:
 
 `Mutation` runs the full configured scope every Monday at 04:00 JST (Sunday 19:00 UTC). It restores the newest compatible incremental checkpoint from this workflow's completed runs on `main`, including timed-out runs. Stryker tracks changes to mutated source and tests; dependencies, configuration, runners, test helpers, fixtures, snapshots, and source outside the mutation scope invalidate reuse. Missing, expired, invalid, or incompatible baselines start a cold run.
 
-Once the workflow is on the default branch, run it manually with `gh workflow run mutation.yml`. Use `-f force=true` only when a full rerun is needed. On Linux with GNU `timeout`, `node scripts/run-mutation.mjs` uses a compatible local checkpoint; add `--force` to rerun every mutant.
+Once the workflow is on the default branch, run it manually with `gh workflow run mutation.yml`. Use `-f force=true` only when a full rerun is needed. On Linux with GNU `timeout`, `node scripts/mutation/run.mjs` uses a compatible local checkpoint; add `--force` to rerun every mutant.
 
 Download a run's artifact:
 
@@ -148,7 +148,7 @@ npm run generate:app-server-types:check
 npm run api:baseline
 ```
 
-The compatibility file also records generation arguments and capabilities. Do not hand-edit `src/generated/app-server/`; put necessary output normalization in `scripts/generate-app-server-types.mjs` and regenerate. The check command compares fresh output without replacing tracked bindings.
+The compatibility file also records generation arguments and capabilities. Do not hand-edit `src/generated/app-server/`; put necessary output normalization in `scripts/app-server/normalize-types.mjs` and regenerate. The check command compares fresh output without replacing tracked bindings.
 
 Review protocol changes in their affected adapters and runtime paths, then complete the standard handoff validation before reporting the new baseline as verified.
 
