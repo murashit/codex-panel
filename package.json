@@ -68,7 +68,7 @@
   },
   "dependencies": {
     "@tanstack/query-core": "^5.104.3",
-    "defuddle": "^0.19.4",
+    "defuddle": "^0.19.5",
     "diff": "^9.0.0",
     "mdast-util-from-markdown": "^2.1.0",
     "mdast-util-to-markdown": "^2.2.0",
