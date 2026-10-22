@@ -8,54 +8,10 @@ import { syncComposerHeight } from "../../../../../src/features/chat/ui/composer
 import { renderUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { waitForAsyncWork } from "../../../../support/async";
 import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomShims } from "../../../../support/dom";
+import { composerCallbacks, composerMetaFixture, composerPropsFixture } from "../../support/composer-shell";
 
 installObsidianDomShims();
 afterEach(() => vi.restoreAllMocks());
-
-const DEFAULT_COMPOSER_META: ComposerMetaViewModel = {
-  fatal: null,
-  context: {
-    cells: [
-      { text: "⣀", placeholder: true },
-      { text: "⣀", placeholder: true },
-      { text: "⣀", placeholder: true },
-      { text: "⣀", placeholder: true },
-    ],
-    percent: "--%",
-  },
-  statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
-  model: "default",
-  effort: null,
-  planActive: false,
-  autoReviewActive: false,
-  fastAvailable: true,
-  fastActive: false,
-  modelChoices: [],
-  effortChoices: [],
-};
-
-function composerPropsFixture(overrides: Partial<ComposerShellProps> = {}): ComposerShellProps {
-  return {
-    viewId: "view",
-    draft: "",
-    busy: false,
-    action: "send",
-    submissionDisabled: false,
-    directInputDisabled: false,
-    runtimeControlsDisabled: false,
-    sendDisabled: false,
-    webSubmissionCancellable: false,
-    normalPlaceholder: "Ask Codex...",
-    suggestions: [],
-    selectedSuggestionIndex: 0,
-    pendingSelection: null,
-    onPendingSelectionApplied: vi.fn(),
-    callbacks: composerCallbacks(),
-    meta: DEFAULT_COMPOSER_META,
-    onComposer: vi.fn(),
-    ...overrides,
-  };
-}
 
 function mountComposerShell(
   parent: HTMLElement,
@@ -76,23 +32,6 @@ function mountComposerShell(
   );
   if (!elements.composer) throw new Error("Expected composer shell elements to mount.");
   return { composer: elements.composer };
-}
-
-function composerCallbacks() {
-  return {
-    onInput: vi.fn(),
-    onUpdateSuggestions: vi.fn(),
-    onKeydown: vi.fn(),
-    onPaste: vi.fn(),
-    onDrop: vi.fn(),
-    onDragOver: vi.fn(),
-    onSendOrInterrupt: vi.fn(),
-    onTogglePlan: vi.fn(),
-    onToggleAutoReview: vi.fn(),
-    onToggleFast: vi.fn(),
-    onSuggestionHover: vi.fn(),
-    onSuggestionInsert: vi.fn(),
-  };
 }
 
 describe("ComposerShell decisions", () => {
@@ -316,7 +255,7 @@ describe("ComposerShell decisions", () => {
 
     mountComposerShell(parent, {
       meta: {
-        ...DEFAULT_COMPOSER_META,
+        ...composerMetaFixture(),
         fatal: "Codex app-server disconnected",
         statusSummary: "Codex app-server disconnected",
         model: "",

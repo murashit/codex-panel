@@ -3,17 +3,16 @@
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import type { ChatPanelGoalDependencies } from "../../../../../src/features/chat/host/goal/view-projection";
 import {
   type ChatPanelShellParts,
   renderChatPanelShell,
   unmountChatPanelShell,
 } from "../../../../../src/features/chat/host/shell/render.dom";
-import type { ChatThreadStreamDependencies } from "../../../../../src/features/chat/host/thread-stream/view-projection";
-import type { ChatPanelToolbarDependencies } from "../../../../../src/features/chat/host/toolbar/view-projection";
 import type { ThreadStreamScrollPortBinding } from "../../../../../src/features/chat/ui/thread-stream/flow-scroll";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { composerPropsFixture } from "../../support/composer-shell";
 import { chatSharedSourcesFixture } from "../../support/shared-sources";
+import { threadStreamDependenciesFixture } from "../../support/thread-stream-dependencies";
 
 installObsidianDomShims();
 
@@ -197,76 +196,41 @@ function shellProps(store: ReturnType<typeof createChatStateStore>) {
   };
 }
 
-function shellParts(
-  options: { toolbarConnected?: () => boolean; goalSendShortcut?: () => "enter" | "mod-enter"; archiveExportEnabled?: () => boolean } = {},
-): ChatPanelShellParts {
-  const surface = surfaceFixture(options);
+function shellParts(options: { archiveExportEnabled?: () => boolean } = {}): ChatPanelShellParts {
   return {
     toolbar: {
-      dependencies: surface.toolbar,
+      dependencies: {
+        connection: {
+          connected: () => false,
+        },
+        visibleThreadId: (_threads, threadId) => threadId,
+        settings: {
+          vaultPath: () => "/vault",
+          configuredCommand: () => "codex",
+          archiveExportEnabled: options.archiveExportEnabled ?? (() => true),
+        },
+      },
       actions: toolbarActionsFixture(),
     },
-    goal: surface.goal,
+    goal: {
+      sendShortcut: () => "enter",
+      actions: {
+        saveObjective: async () => true,
+        setStatus: async () => undefined,
+        clear: async () => undefined,
+        startEditing: () => undefined,
+        updateObjectiveDraft: () => undefined,
+        setObjectiveExpanded: () => undefined,
+        closeEditor: () => undefined,
+      },
+    },
     threadStream: {
-      context: testThreadStreamContext,
+      context: threadStreamDependenciesFixture(),
       scrollPortBinding: noOpThreadStreamScrollPortBinding,
     },
     composer: {
       presenter: {
-        renderState: (model) => {
-          return {
-            viewId: "view",
-            draft: model.draft,
-            busy: false,
-            action: "send",
-            submissionDisabled: false,
-            directInputDisabled: false,
-            runtimeControlsDisabled: false,
-            sendDisabled: false,
-            webSubmissionCancellable: false,
-            normalPlaceholder: "Ask Codex...",
-            suggestions: [],
-            selectedSuggestionIndex: 0,
-            pendingSelection: null,
-            onPendingSelectionApplied: vi.fn(),
-            callbacks: {
-              onInput: vi.fn(),
-              onUpdateSuggestions: vi.fn(),
-              onKeydown: vi.fn(),
-              onPaste: vi.fn(),
-              onDrop: vi.fn(),
-              onDragOver: vi.fn(),
-              onSendOrInterrupt: vi.fn(),
-              onTogglePlan: vi.fn(),
-              onToggleAutoReview: vi.fn(),
-              onToggleFast: vi.fn(),
-              onSuggestionHover: vi.fn(),
-              onSuggestionInsert: vi.fn(),
-            },
-            meta: {
-              fatal: null,
-              context: {
-                cells: [
-                  { text: "⣀", placeholder: true },
-                  { text: "⣀", placeholder: true },
-                  { text: "⣀", placeholder: true },
-                  { text: "⣀", placeholder: true },
-                ],
-                percent: "--%",
-              },
-              statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
-              model: "default",
-              effort: null,
-              planActive: false,
-              autoReviewActive: false,
-              fastAvailable: true,
-              fastActive: false,
-              modelChoices: [],
-              effortChoices: [],
-            },
-            onComposer: () => undefined,
-          };
-        },
+        renderState: (model) => composerPropsFixture({ draft: model.draft }),
       },
       actions: {
         submit: vi.fn(),
@@ -279,71 +243,6 @@ function composer(container: HTMLElement): HTMLTextAreaElement {
   const input = container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea");
   if (!input) throw new Error("Expected composer input.");
   return input;
-}
-
-const testThreadStreamContext: ChatThreadStreamDependencies = {
-  panelId: "test-panel",
-  vaultPath: "/vault",
-  setDisclosureOpen: vi.fn(),
-  setForkMenuItem: vi.fn(),
-  loadOlderTurns: () => undefined,
-  renderObsidianMarkdown: () => undefined,
-  renderStreamMarkdown: () => undefined,
-  copyDialogueText: () => undefined,
-  actions: {
-    rollbackThread: vi.fn(),
-    forkThreadFromTurn: vi.fn(),
-    implementPlan: vi.fn(),
-    openThreadInAvailableView: vi.fn(),
-    openThreadInNewView: vi.fn(),
-    openTurnDiff: vi.fn(),
-  },
-  requests: {
-    actions: {
-      resolveApproval: vi.fn(),
-      resolveUserInput: vi.fn(),
-      skipUserInput: vi.fn(),
-      cancelUserInput: vi.fn(),
-      resolveMcpElicitation: vi.fn(),
-      setApprovalDetailsExpanded: vi.fn(),
-      setUserInputDraft: vi.fn(),
-      setMcpElicitationDraft: vi.fn(),
-    },
-    consumeAutoFocus: () => false,
-  },
-};
-
-function surfaceFixture(
-  options: { toolbarConnected?: () => boolean; goalSendShortcut?: () => "enter" | "mod-enter"; archiveExportEnabled?: () => boolean } = {},
-): {
-  toolbar: ChatPanelToolbarDependencies;
-  goal: ChatPanelGoalDependencies;
-} {
-  return {
-    toolbar: {
-      connection: {
-        connected: options.toolbarConnected ?? (() => false),
-      },
-      visibleThreadId: (_threads, threadId) => threadId,
-      settings: {
-        vaultPath: () => "/vault",
-        configuredCommand: () => "codex",
-        archiveExportEnabled: options.archiveExportEnabled ?? (() => true),
-      },
-    },
-    goal: {
-      sendShortcut: options.goalSendShortcut ?? (() => "enter"),
-      actions: {
-        saveObjective: async () => true,
-        setStatus: async () => undefined,
-        clear: async () => undefined,
-        startEditing: () => undefined,
-        updateObjectiveDraft: () => undefined,
-        setObjectiveExpanded: () => undefined,
-        closeEditor: () => undefined,
-      },
-    },
-  };
 }
 
 const noOpThreadStreamScrollPortBinding: ThreadStreamScrollPortBinding = {
