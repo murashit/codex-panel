@@ -45,6 +45,7 @@ if(args[0]==='api') {
     if(args.includes('--method')) {
       const patch=JSON.parse(fs.readFileSync(0,'utf8'));
       state.writes.push(patch);Object.assign(state.release,patch);
+      state.pending={databaseId:42,isDraft:state.release.draft};
       if(state.release.draft) state.release.tag_name="untagged-placeholder";
     }
     response=state.release;
@@ -70,13 +71,14 @@ for (const scenario of ["normal", "recovery", "published", "missing"]) {
         JSON.stringify({
           sha,
           pullRequest,
-          pending: scenario === "missing" ? null : { databaseId: 42, isDraft: scenario !== "published" },
+          pending: ["missing", "recovery"].includes(scenario) ? null : { databaseId: 42, isDraft: scenario !== "published" },
           writes: [],
           release: {
             id: 42,
             tag_name: "untagged-placeholder",
             draft: scenario !== "published",
-            body: "generated",
+            name: "1.0.1",
+            body: scenario === "recovery" ? body.replace(/\n/g, "\r\n") : "generated",
             upload_url: "https://uploads.github.com/repos/owner/repo/releases/42/assets{?name,label}",
             assets: scenario === "recovery" ? [{ id: 7, name: "main.js", digest: "old" }] : [],
           },
@@ -94,6 +96,7 @@ for (const scenario of ["normal", "recovery", "published", "missing"]) {
           GITHUB_REPOSITORY: repository,
           RELEASE_PR_JSON: JSON.stringify(pullRequest),
           RECOVERY_PR: scenario === "recovery" ? "113" : "",
+          RECOVERY_RELEASE_ID: scenario === "recovery" ? "42" : "",
         },
       });
       const state = JSON.parse(await readFile(stateFile, "utf8"));

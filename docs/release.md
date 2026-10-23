@@ -34,4 +34,6 @@ gh workflow run check.yml --ref main -f tag=X.Y.Z -f release_pr=NUMBER
 
 Recovery uses main's workflow and publisher, rebuilds the specified tag, and replaces partial draft uploads before publishing. The tag must be an ancestor of main and match the checked assets and merged release PR. Merge any workflow or publisher repair through a reviewed PR first; keep the existing tag unchanged.
 
+If a verified draft has lost its pending tag, additionally supply `-f release_id=ID` (or the Run workflow input). First verify that exact release ID is still a draft and its title and notes match the tag and approved merged PR body (ignoring CRLF versus LF line endings). Recovery checks those fields and the existing tag SHA before restoring the association, then requires the pending tag to resolve to the same ID before uploading. It never selects a draft by title or placeholder tag.
+
 If the tag exists but its draft is missing, verify the merged PR's final notes and create only that draft with `gh release create X.Y.Z --draft --verify-tag --notes-file FINAL_NOTES_FILE`, then use recovery above.
