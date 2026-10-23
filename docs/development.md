@@ -98,11 +98,13 @@ Use focused Codex Panel-owned selectors found in the relevant implementation or 
 
 ### Write Tests That Survive Refactoring
 
-Tie each case to a reachable user action, external boundary, or distinct state transition. Review the assurance provided by existing and proposed cases together, including fixtures, mocks, repeated setup, and the owners and caller paths they exercise. For each affected case, identify the regression it protects, its distinct failure signal, and what it adds beyond existing coverage. Extracting or moving a module does not itself justify a new suite; first identify what existing tests fail to protect.
+Prefer tests that exercise real production code and its ordinary dependencies. Avoid test doubles, including internal module replacements and reimplementations of available libraries. Use minimal doubles only where a real external effect or meaningful failure, timing, or ordering cannot be exercised reliably at reasonable cost. Explain the protected regression, why the real alternative is unsuitable, and the remaining verification limits in the change discussion. Self-authored responses do not establish API compatibility.
 
-Compare strengthening an existing case or parameterizing a shared flow with adding another setup. Weigh fixtures, mocks, and implementation coupling against the assurance they provide. Keep representative normal workflows, independently meaningful scenarios, and readable failure diagnosis. Remove cases that only check test doubles, impossible configurations, or internal structure without a durable contract, or repeat a covered outcome without a distinct failure signal. Passing tests or increased coverage alone do not justify their maintenance cost.
+Tie each case to a reachable user action, external boundary, or distinct state transition. Assess its independent failure signal alongside existing coverage and the maintenance cost of fixtures, setup, and implementation coupling. Prefer strengthening an existing case or parameterizing a shared flow to adding another setup. Remove cases that only check test doubles, impossible configurations, or internal structure without a durable contract, or repeat a covered outcome without a distinct failure signal. Extracting code, passing tests, and increased coverage alone do not justify a suite.
 
-Vitest reuses workers with `isolate: false`. Restore boundary spies, timers, globals, and DOM overrides after each test. Avoid per-file `vi.mock` replacements of shared modules; use scoped spies or existing dependency injection. Shared setup modules that register hooks must export an installer called by each test file, because importing a cached module does not register its hooks again.
+Do not add permanent tests for development scripts by default. Validate changes with real tools and representative inputs. Add or retain a suite only when an independent check protects a concrete product or source-policy risk that direct change validation would miss, and its value justifies ongoing maintenance.
+
+Vitest reuses workers with `isolate: false`. Restore boundary spies, timers, globals, and DOM overrides after each test. Shared setup modules that register hooks must export an installer called by each test file, because importing a cached module does not register its hooks again.
 
 ### Investigate Coverage Gaps
 
