@@ -13,6 +13,7 @@ import { installObsidianDomShims } from "../../../../support/dom";
 import { composerPropsFixture } from "../../support/composer-shell";
 import { chatSharedSourcesFixture } from "../../support/shared-sources";
 import { threadStreamDependenciesFixture } from "../../support/thread-stream-dependencies";
+import { toolbarActionsFixture } from "../../support/toolbar-actions";
 
 installObsidianDomShims();
 
@@ -248,44 +249,6 @@ function composer(container: HTMLElement): HTMLTextAreaElement {
 const noOpThreadStreamScrollPortBinding: ThreadStreamScrollPortBinding = {
   mountScrollPort: () => () => undefined,
 };
-
-function toolbarActionsFixture(): ChatPanelShellParts["toolbar"]["actions"] {
-  return {
-    primary: {
-      toggleHistory: vi.fn(),
-      toggleChatActions: vi.fn(),
-      toggleStatusPanel: vi.fn(),
-    },
-    chat: {
-      startNewThread: vi.fn(),
-      startSideChat: vi.fn(),
-      compactContext: vi.fn(),
-      setGoal: vi.fn(),
-    },
-    status: {
-      connect: vi.fn(),
-      refreshStatus: vi.fn(),
-      copyDebugDetails: vi.fn(),
-    },
-    threads: {
-      loadMore: vi.fn(),
-      resume: vi.fn(),
-      setPinned: vi.fn(),
-      archive: {
-        start: vi.fn(),
-        confirm: vi.fn(),
-      },
-      rename: {
-        start: vi.fn(),
-        updateDraft: vi.fn(),
-        save: vi.fn(),
-        cancel: vi.fn(),
-        cancelAutoName: vi.fn(),
-        autoName: vi.fn(),
-      },
-    },
-  };
-}
 
 async function settleShellEffects(): Promise<void> {
   await Promise.resolve();

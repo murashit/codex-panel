@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
 import { h } from "preact";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { ToolbarViewModel } from "../../../../../src/features/chat/ui/toolbar/model";
 import { Toolbar, type ToolbarActions } from "../../../../../src/features/chat/ui/toolbar/toolbar";
 import { renderUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { changeInputValue, installObsidianDomShims } from "../../../../support/dom";
+import { toolbarActionsFixture } from "../../support/toolbar-actions";
 
 installObsidianDomShims();
 
@@ -21,16 +22,9 @@ function mountToolbar(parent: HTMLElement, model: ToolbarViewModel, actions: Too
 describe("Toolbar decisions", () => {
   it("renders chat actions in the new chat toolbar menu", () => {
     const parent = document.createElement("div");
-    const startNewThread = vi.fn();
-    const compactContext = vi.fn();
-    const setGoal = vi.fn();
-    const startSideChat = vi.fn();
+    const actions = toolbarActionsFixture();
 
-    mountToolbar(
-      parent,
-      toolbarModel({ openPanel: "chat-actions" }),
-      toolbarActions({ startNewThread, startSideChat, compactContext, setGoal }),
-    );
+    mountToolbar(parent, toolbarModel({ openPanel: "chat-actions" }), actions);
 
     const items = [...parent.querySelectorAll<HTMLElement>(".codex-panel__chat-actions-panel-item")];
     expect(items).toHaveLength(4);
@@ -38,23 +32,19 @@ describe("Toolbar decisions", () => {
     items[1]?.click();
     items[2]?.click();
     items[3]?.click();
-    expect(startNewThread).toHaveBeenCalledOnce();
-    expect(startSideChat).toHaveBeenCalledOnce();
-    expect(compactContext).toHaveBeenCalledOnce();
-    expect(setGoal).toHaveBeenCalledOnce();
+    expect(actions.chat.startNewThread).toHaveBeenCalledOnce();
+    expect(actions.chat.startSideChat).toHaveBeenCalledOnce();
+    expect(actions.chat.compactContext).toHaveBeenCalledOnce();
+    expect(actions.chat.setGoal).toHaveBeenCalledOnce();
 
-    mountToolbar(
-      parent,
-      toolbarModel({ openPanel: "chat-actions", newChatDisabled: true }),
-      toolbarActions({ startNewThread, startSideChat, compactContext, setGoal }),
-    );
+    mountToolbar(parent, toolbarModel({ openPanel: "chat-actions", newChatDisabled: true }), actions);
     const disabledStart = expectPresent(
       [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__chat-actions-panel-item")].find(
         (item) => item.textContent === "Start new chat",
       ),
     );
     disabledStart.click();
-    expect(startNewThread).toHaveBeenCalledOnce();
+    expect(actions.chat.startNewThread).toHaveBeenCalledOnce();
   });
 
   it("keeps context out of the toolbar and Codex limits inside the status menu", () => {
@@ -85,7 +75,7 @@ describe("Toolbar decisions", () => {
           ],
         },
       }),
-      toolbarActions(),
+      toolbarActionsFixture(),
     );
 
     expect(parent.querySelector(".codex-panel__limit-panel")?.textContent).toContain("5h");
@@ -101,7 +91,7 @@ describe("Toolbar decisions", () => {
 
   it("renders connection diagnostics in the status menu", () => {
     const parent = document.createElement("div");
-    const refreshStatus = vi.fn();
+    const actions = toolbarActionsFixture();
 
     mountToolbar(
       parent,
@@ -112,7 +102,7 @@ describe("Toolbar decisions", () => {
           { title: "Runtime Checks", rows: [{ label: "diagnostics", value: "model/list failed", level: "error" }] },
         ],
       }),
-      toolbarActions({ refreshStatus }),
+      actions,
     );
 
     expect([...parent.querySelectorAll(".codex-panel__status-diagnostics-title")].map((title) => title.textContent)).toEqual([
@@ -130,7 +120,7 @@ describe("Toolbar decisions", () => {
     expect(parent.querySelector(".codex-panel__status-diagnostics-row--error")?.textContent).toContain("model/list failed");
     const statusItems = [...parent.querySelectorAll<HTMLElement>(".codex-panel__status-panel-item")];
     statusItems.find((item) => item.textContent.includes("Refresh"))?.click();
-    expect(refreshStatus).toHaveBeenCalled();
+    expect(actions.status.refreshStatus).toHaveBeenCalled();
   });
 
   it("renders runtime permissions in the status menu without severity styling", () => {
@@ -160,7 +150,7 @@ describe("Toolbar decisions", () => {
         ],
         toolInventory: [{ title: "Tool providers", rows: [{ label: "Tool providers", value: "loaded" }] }],
       }),
-      toolbarActions(),
+      toolbarActionsFixture(),
     );
 
     expect(parent.textContent).toContain("Permissions & Approvals");
@@ -175,22 +165,17 @@ describe("Toolbar decisions", () => {
 
   it("requests debug detail copying from the status menu", () => {
     const parent = document.createElement("div");
-    const copyDebugDetails = vi.fn();
+    const actions = toolbarActionsFixture();
 
-    mountToolbar(parent, toolbarModel({ openPanel: "status" }), toolbarActions({ copyDebugDetails }));
+    mountToolbar(parent, toolbarModel({ openPanel: "status" }), actions);
 
     parent.querySelectorAll<HTMLButtonElement>(".codex-panel__status-panel-item")[2]?.click();
-    expect(copyDebugDetails).toHaveBeenCalledOnce();
+    expect(actions.status.copyDebugDetails).toHaveBeenCalledOnce();
   });
 
   it("adapts thread row controls and the inline editor to toolbar actions", () => {
     const parent = document.createElement("div");
-    const startRenameThread = vi.fn();
-    const updateRenameDraft = vi.fn();
-    const saveRenameThread = vi.fn();
-    const cancelRenameThread = vi.fn();
-    const autoNameThread = vi.fn();
-    const actions = toolbarActions({ startRenameThread, updateRenameDraft, saveRenameThread, cancelRenameThread, autoNameThread });
+    const actions = toolbarActionsFixture();
 
     mountToolbar(
       parent,
@@ -222,7 +207,7 @@ describe("Toolbar decisions", () => {
 
     const renameButton = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]'));
     renameButton.click();
-    expect(startRenameThread).toHaveBeenCalledWith("thread");
+    expect(actions.threads.rename.start).toHaveBeenCalledWith("thread");
     const threadRow = parent.querySelector(".codex-panel__thread-row");
     expect(threadRow?.classList.contains("codex-panel__thread-row--selected")).toBe(true);
 
@@ -230,18 +215,18 @@ describe("Toolbar decisions", () => {
     if (!input) throw new Error("Missing thread rename input");
     expect(input.value).toBe("Draft title");
     changeInputValue(input, "New title");
-    expect(updateRenameDraft).toHaveBeenCalledWith("editing", "New title");
+    expect(actions.threads.rename.updateDraft).toHaveBeenCalledWith("editing", "New title");
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    expect(saveRenameThread).toHaveBeenCalledWith("editing", "New title");
+    expect(actions.threads.rename.save).toHaveBeenCalledWith("editing", "New title");
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    expect(cancelRenameThread).toHaveBeenCalledWith("editing");
+    expect(actions.threads.rename.cancel).toHaveBeenCalledWith("editing");
     parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
-    expect(autoNameThread).toHaveBeenCalledWith("editing");
+    expect(actions.threads.rename.autoName).toHaveBeenCalledWith("editing");
   });
 
   it("groups mixed pinned threads and routes the rightmost star action", () => {
     const parent = document.createElement("div");
-    const setPinnedThread = vi.fn();
+    const actions = toolbarActionsFixture();
 
     mountToolbar(
       parent,
@@ -269,21 +254,21 @@ describe("Toolbar decisions", () => {
           },
         ],
       }),
-      toolbarActions({ setPinnedThread }),
+      actions,
     );
 
     expect(parent.querySelector(".codex-panel__thread-group-divider")).not.toBeNull();
     const firstRow = expectPresent(parent.querySelector(".codex-panel__thread-row"));
-    const actions = [...firstRow.querySelectorAll<HTMLButtonElement>(".codex-panel__thread-action")];
-    expect(actions.at(-1)?.getAttribute("aria-label")).toBe("Unpin thread");
-    expect(actions.at(-1)?.getAttribute("aria-pressed")).toBe("true");
-    actions.at(-1)?.click();
-    expect(setPinnedThread).toHaveBeenCalledWith("pinned", false);
+    const rowActions = [...firstRow.querySelectorAll<HTMLButtonElement>(".codex-panel__thread-action")];
+    expect(rowActions.at(-1)?.getAttribute("aria-label")).toBe("Unpin thread");
+    expect(rowActions.at(-1)?.getAttribute("aria-pressed")).toBe("true");
+    rowActions.at(-1)?.click();
+    expect(actions.threads.setPinned).toHaveBeenCalledWith("pinned", false);
   });
 
   it("adapts auto-name cancellation while loading", () => {
     const parent = document.createElement("div");
-    const cancelAutoName = vi.fn();
+    const actions = toolbarActionsFixture();
 
     mountToolbar(
       parent,
@@ -301,19 +286,18 @@ describe("Toolbar decisions", () => {
           },
         ],
       }),
-      toolbarActions({ cancelAutoName }),
+      actions,
     );
 
     const cancelAutoNameButton = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]'));
     expect(cancelAutoNameButton.closest(".codex-panel__thread-row--auto-name-running")).not.toBeNull();
     cancelAutoNameButton.click();
-    expect(cancelAutoName).toHaveBeenCalledWith("editing");
+    expect(actions.threads.rename.cancelAutoName).toHaveBeenCalledWith("editing");
   });
 
   it("keeps chat navigation active while adapting archive confirmation", () => {
     const parent = document.createElement("div");
-    const archiveThread = vi.fn();
-    const resumeThread = vi.fn();
+    const actions = toolbarActionsFixture();
 
     mountToolbar(
       parent,
@@ -331,7 +315,7 @@ describe("Toolbar decisions", () => {
           },
         ],
       }),
-      toolbarActions({ archiveThread, resumeThread }),
+      actions,
     );
 
     const confirm = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__archive-confirm"));
@@ -339,51 +323,43 @@ describe("Toolbar decisions", () => {
     const defaultArchiveButton = expectPresent(archiveActions.querySelector<HTMLButtonElement>(".codex-panel__archive-default"));
     const alternateArchiveButton = expectPresent(archiveActions.querySelector<HTMLButtonElement>(".codex-panel__archive-alternate"));
     expectPresent(confirm.querySelector<HTMLElement>(".codex-panel__thread")).click();
-    expect(resumeThread).toHaveBeenCalledWith("thread");
+    expect(actions.threads.resume).toHaveBeenCalledWith("thread");
     defaultArchiveButton.click();
-    expect(archiveThread).toHaveBeenCalledWith("thread", true);
+    expect(actions.threads.archive.confirm).toHaveBeenCalledWith("thread", true);
     alternateArchiveButton.click();
-    expect(archiveThread).toHaveBeenCalledWith("thread", false);
+    expect(actions.threads.archive.confirm).toHaveBeenCalledWith("thread", false);
   });
 
   it("renders shared history expansion as a nav-list item", () => {
     const parent = document.createElement("div");
-    const loadMoreThreads = vi.fn();
+    const actions = toolbarActionsFixture();
 
-    mountToolbar(parent, toolbarModel({ openPanel: "history", hasMoreThreads: true }), toolbarActions({ loadMoreThreads }));
+    mountToolbar(parent, toolbarModel({ openPanel: "history", hasMoreThreads: true }), actions);
 
     const loadMore = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread--load-more"));
     expect(loadMore.textContent).toBe("Load more threads");
     loadMore.click();
-    expect(loadMoreThreads).toHaveBeenCalledOnce();
+    expect(actions.threads.loadMore).toHaveBeenCalledOnce();
 
-    mountToolbar(
-      parent,
-      toolbarModel({ openPanel: "history", hasMoreThreads: true, loadingMoreThreads: true }),
-      toolbarActions({ loadMoreThreads }),
-    );
+    mountToolbar(parent, toolbarModel({ openPanel: "history", hasMoreThreads: true, loadingMoreThreads: true }), actions);
     const loading = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread--load-more"));
     expect(loading.textContent).toBe("Loading more threads…");
     expect(loading.classList.contains("is-disabled")).toBe(true);
     loading.click();
-    expect(loadMoreThreads).toHaveBeenCalledOnce();
+    expect(actions.threads.loadMore).toHaveBeenCalledOnce();
 
-    mountToolbar(
-      parent,
-      toolbarModel({ openPanel: "history", hasMoreThreads: true, threadListFetching: true }),
-      toolbarActions({ loadMoreThreads }),
-    );
+    mountToolbar(parent, toolbarModel({ openPanel: "history", hasMoreThreads: true, threadListFetching: true }), actions);
     const refreshing = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread--load-more"));
     expect(refreshing.textContent).toBe("Load more threads");
     expect(refreshing.classList.contains("is-disabled")).toBe(true);
     refreshing.click();
-    expect(loadMoreThreads).toHaveBeenCalledOnce();
+    expect(actions.threads.loadMore).toHaveBeenCalledOnce();
   });
 
   it("does not report an empty history while its first page is loading", () => {
     const parent = document.createElement("div");
 
-    mountToolbar(parent, toolbarModel({ openPanel: "history", threads: [], threadListLoading: true }), toolbarActions());
+    mountToolbar(parent, toolbarModel({ openPanel: "history", threads: [], threadListLoading: true }), toolbarActionsFixture());
 
     expect(parent.textContent).toContain("Loading threads…");
     expect(parent.textContent).not.toContain("No threads");
@@ -392,7 +368,11 @@ describe("Toolbar decisions", () => {
   it("renders thread list failures as non-navigation status", () => {
     const parent = document.createElement("div");
 
-    mountToolbar(parent, toolbarModel({ openPanel: "history", threads: [], threadListError: "Could not load threads." }), toolbarActions());
+    mountToolbar(
+      parent,
+      toolbarModel({ openPanel: "history", threads: [], threadListError: "Could not load threads." }),
+      toolbarActionsFixture(),
+    );
 
     const status = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread-list-status"));
     expect(status.textContent).toBe("Could not load threads.");
@@ -430,67 +410,5 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     diagnostics: [{ title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/test" }] }],
     toolInventory: [{ title: "Tool providers", rows: [{ label: "Tool providers", value: "not loaded", level: "warning" }] }],
     ...overrides,
-  };
-}
-
-interface ToolbarActionOverrides {
-  toggleHistory?: () => void;
-  startNewThread?: () => void;
-  startSideChat?: () => void;
-  toggleChatActions?: () => void;
-  compactContext?: () => void;
-  setGoal?: () => void;
-  toggleStatusPanel?: () => void;
-  connect?: () => void;
-  refreshStatus?: () => void;
-  copyDebugDetails?: () => void;
-  resumeThread?: (threadId: string) => void;
-  loadMoreThreads?: () => void;
-  startArchiveThread?: (threadId: string) => void;
-  archiveThread?: (threadId: string, saveMarkdown: boolean) => void;
-  startRenameThread?: (threadId: string) => void;
-  updateRenameDraft?: (threadId: string, value: string) => void;
-  saveRenameThread?: (threadId: string, value: string) => void;
-  cancelRenameThread?: (threadId: string) => void;
-  cancelAutoName?: (threadId: string) => void;
-  autoNameThread?: (threadId: string) => void;
-  setPinnedThread?: (threadId: string, isPinned: boolean) => void;
-}
-
-function toolbarActions(overrides: ToolbarActionOverrides = {}): ToolbarActions {
-  return {
-    primary: {
-      toggleHistory: overrides.toggleHistory ?? vi.fn(),
-      toggleChatActions: overrides.toggleChatActions ?? vi.fn(),
-      toggleStatusPanel: overrides.toggleStatusPanel ?? vi.fn(),
-    },
-    chat: {
-      startNewThread: overrides.startNewThread ?? vi.fn(),
-      startSideChat: overrides.startSideChat ?? vi.fn(),
-      compactContext: overrides.compactContext ?? vi.fn(),
-      setGoal: overrides.setGoal ?? vi.fn(),
-    },
-    status: {
-      connect: overrides.connect ?? vi.fn(),
-      refreshStatus: overrides.refreshStatus ?? vi.fn(),
-      copyDebugDetails: overrides.copyDebugDetails ?? vi.fn(),
-    },
-    threads: {
-      loadMore: overrides.loadMoreThreads ?? vi.fn(),
-      resume: overrides.resumeThread ?? vi.fn(),
-      setPinned: overrides.setPinnedThread ?? vi.fn(),
-      archive: {
-        start: overrides.startArchiveThread ?? vi.fn(),
-        confirm: overrides.archiveThread ?? vi.fn(),
-      },
-      rename: {
-        start: overrides.startRenameThread ?? vi.fn(),
-        updateDraft: overrides.updateRenameDraft ?? vi.fn(),
-        save: overrides.saveRenameThread ?? vi.fn(),
-        cancel: overrides.cancelRenameThread ?? vi.fn(),
-        cancelAutoName: overrides.cancelAutoName ?? vi.fn(),
-        autoName: overrides.autoNameThread ?? vi.fn(),
-      },
-    },
   };
 }
