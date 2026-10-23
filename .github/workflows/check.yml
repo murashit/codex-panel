@@ -12,14 +12,6 @@ on:
         description: Existing release tag to recover (never runs tagpr)
         required: true
         type: string
-      release_pr:
-        description: Merged release PR whose final body was approved
-        required: true
-        type: string
-      release_id:
-        description: Optional verified draft ID when its pending tag is missing
-        required: false
-        type: string
 
 concurrency:
   group: check-${{ github.event_name == 'pull_request' && github.ref || 'main-release' }}
@@ -207,22 +199,11 @@ jobs:
       - name: Locate staged assets
         run: echo "ASSET_DIR=$RUNNER_TEMP/release-assets" >> "$GITHUB_ENV"
 
-      - name: Download this run's checked assets
-        uses: actions/download-artifact@v8.0.2
-        with:
-          name: checked-release-assets
-          path: ${{ env.ASSET_DIR }}
-
-      - name: Preserve publisher and pin tagpr branch
-        env:
-          EVENT_SHA: ${{ github.sha }}
+      - name: Pin tagpr branch
+        if: github.event_name == 'push'
         run: |
-          cp scripts/release/publish.mjs "$RUNNER_TEMP/publish-release.mjs"
-          test "$(cat "$ASSET_DIR/checked-sha")" = "$CHECKED_SHA"
-          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
-            test "$CHECKED_SHA" = "$EVENT_SHA"
-            git switch -C main "$EVENT_SHA"
-          fi
+          test "$CHECKED_SHA" = "$GITHUB_SHA"
+          git switch -C main "$GITHUB_SHA"
 
       - name: Maintain release PR or tag approved merge
         if: github.event_name == 'push'
@@ -231,13 +212,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-      - name: Verify release tag matches checked assets
+      - name: Download this run's checked assets
+        if: steps.tagpr.outputs.tag != '' || github.event_name == 'workflow_dispatch'
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: checked-release-assets
+          path: ${{ env.ASSET_DIR }}
+
+      - name: Verify checked release source
         if: steps.tagpr.outputs.tag != '' || github.event_name == 'workflow_dispatch'
         env:
           TAG: ${{ steps.tagpr.outputs.tag || inputs.tag }}
         run: |
           [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          git checkout --detach "$GITHUB_SHA"
           test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$CHECKED_SHA"
+          test "$(cat "$ASSET_DIR/checked-sha")" = "$CHECKED_SHA"
 
       - name: Record recovery build source
         if: github.event_name == 'workflow_dispatch'
@@ -261,7 +251,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.tagpr.outputs.tag || inputs.tag }}
-          RELEASE_PR_JSON: ${{ steps.tagpr.outputs.pull_request }}
-          RECOVERY_PR: ${{ inputs.release_pr }}
-          RECOVERY_RELEASE_ID: ${{ inputs.release_id }}
-        run: node "$RUNNER_TEMP/publish-release.mjs"
+        run: node scripts/release/publish.mjs

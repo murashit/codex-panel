@@ -2,7 +2,7 @@
     releaseBranch = main
     versionFile = package.json,manifest.json
     vPrefix = false
-    release = draft
+    release = false
     changelog = false
     commitPrefix = chore(release):
     postVersionCommand = node scripts/release/sync-lock.mjs
