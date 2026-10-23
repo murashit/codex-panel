@@ -128,10 +128,12 @@ describe("StdioAppServerTransport", () => {
 
     const error = new Error("spawn failed");
     child.emit("error", error);
+    child.stdout.write("after error\n");
 
     expect(handlers.onLog).toHaveBeenCalledWith("partial log");
     expect(handlers.onError).toHaveBeenCalledWith(error);
     expect(instance.isRunning()).toBe(false);
+    expect(handlers.onLine).not.toHaveBeenCalled();
   });
 
   it("cleans up and reports process exits after flushing stderr", () => {
@@ -142,10 +144,12 @@ describe("StdioAppServerTransport", () => {
     child.stderr.write("partial log");
 
     child.emit("exit", 7, "SIGTERM");
+    child.stdout.write("after exit\n");
 
     expect(handlers.onLog).toHaveBeenCalledWith("partial log");
     expect(handlers.onExit).toHaveBeenCalledWith(7, "SIGTERM");
     expect(instance.isRunning()).toBe(false);
+    expect(handlers.onLine).not.toHaveBeenCalled();
   });
 
   it("reports stdin stream errors", () => {
@@ -163,14 +167,16 @@ describe("StdioAppServerTransport", () => {
   it("stops a running process once and becomes safe to stop again", () => {
     const child = fakeChildProcess();
     spawnMock.mockReturnValue(child);
-    const { instance } = transportInstance();
+    const { handlers, instance } = transportInstance();
     instance.start();
 
     instance.stop();
     instance.stop();
+    child.stdout.write("after stop\n");
 
     expect(child.kill).toHaveBeenCalledOnce();
     expect(instance.isRunning()).toBe(false);
+    expect(handlers.onLine).not.toHaveBeenCalled();
   });
 
   it("does not kill a process already marked as killed", () => {

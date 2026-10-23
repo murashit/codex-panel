@@ -60,10 +60,12 @@ function createAppServerEnvironment(codexPath: string): NodeJS.ProcessEnv | unde
 }
 
 export class StdioAppServerTransport implements AppServerTransport {
-  private process: ChildProcessWithoutNullStreams | null = null;
-  private reader: readline.Interface | null = null;
+  private running: {
+    process: ChildProcessWithoutNullStreams;
+    reader: readline.Interface;
+    killProcessTreeOnStop: boolean;
+  } | null = null;
   private stderrBuffer = "";
-  private killProcessTreeOnStop = false;
 
   constructor(
     private readonly codexPath: string,
@@ -73,78 +75,75 @@ export class StdioAppServerTransport implements AppServerTransport {
   ) {}
 
   start(): void {
-    if (this.process) {
+    if (this.running) {
       throw new Error("Codex app-server is already running.");
     }
 
     const launch = createAppServerSpawnSpec(this.codexPath);
-    this.killProcessTreeOnStop = launch.killProcessTreeOnStop;
     const environment = createAppServerEnvironment(this.codexPath);
-    this.process = this.spawnProcess(launch.command, launch.args, {
+    const child = this.spawnProcess(launch.command, launch.args, {
       cwd: this.cwd,
       stdio: ["pipe", "pipe", "pipe"],
       windowsVerbatimArguments: launch.windowsVerbatimArguments,
       ...(environment ? { env: environment } : {}),
     });
 
-    this.process.once("error", (error) => {
-      this.flushStderr();
-      this.reader?.close();
-      this.reader = null;
-      this.process = null;
-      this.killProcessTreeOnStop = false;
+    child.once("error", (error) => {
+      this.releaseProcess();
       this.handlers.onError(error instanceof Error ? error : new Error(String(error)));
     });
 
-    this.process.once("exit", (code, signal) => {
-      this.flushStderr();
-      this.reader?.close();
-      this.reader = null;
-      this.process = null;
-      this.killProcessTreeOnStop = false;
+    child.once("exit", (code, signal) => {
+      this.releaseProcess();
       this.handlers.onExit(code, signal);
     });
 
-    this.process.stderr.on("data", (chunk: Buffer) => {
+    child.stderr.on("data", (chunk: Buffer) => {
       this.handleStderr(chunk.toString("utf8"));
     });
-    this.process.stdin.on("error", (error) => {
+    child.stdin.on("error", (error) => {
       this.handlers.onError(error instanceof Error ? error : new Error(String(error)));
     });
 
-    this.reader = readline.createInterface({ input: this.process.stdout });
-    this.reader.on("line", (line) => {
+    const reader = readline.createInterface({ input: child.stdout });
+    this.running = { process: child, reader, killProcessTreeOnStop: launch.killProcessTreeOnStop };
+    reader.on("line", (line) => {
       this.handlers.onLine(line);
     });
   }
 
   send(message: RpcOutboundMessage): void {
-    if (!this.process || this.process.killed || this.process.stdin.destroyed || !this.process.stdin.writable) {
+    const child = this.running?.process;
+    if (!child || child.killed || child.stdin.destroyed || !child.stdin.writable) {
       throw new Error("Codex app-server is not running.");
     }
-    this.process.stdin.write(`${JSON.stringify(message)}\n`, (error) => {
+    child.stdin.write(`${JSON.stringify(message)}\n`, (error) => {
       if (error) this.handlers.onError(error instanceof Error ? error : new Error(String(error)));
     });
   }
 
   stop(): void {
-    this.flushStderr();
-    this.reader?.close();
-    this.reader = null;
-    const child = this.process;
+    const running = this.releaseProcess();
+    const child = running?.process;
     if (child && !child.killed) {
-      if (this.killProcessTreeOnStop && typeof child.pid === "number") {
+      if (running.killProcessTreeOnStop && typeof child.pid === "number") {
         killWindowsProcessTree(child.pid, this.spawnProcess);
       } else {
         child.kill();
       }
     }
-    this.process = null;
-    this.killProcessTreeOnStop = false;
   }
 
   isRunning(): boolean {
-    return this.process !== null && !this.process.killed;
+    return this.running !== null && !this.running.process.killed;
+  }
+
+  private releaseProcess(): typeof this.running {
+    this.flushStderr();
+    const running = this.running;
+    running?.reader.close();
+    this.running = null;
+    return running;
   }
 
   private handleStderr(text: string): void {
