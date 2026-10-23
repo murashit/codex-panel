@@ -14,6 +14,10 @@ const tag = process.env.TAG;
 const sha = process.env.CHECKED_SHA;
 const assetDir = process.env.ASSET_DIR;
 const repository = process.env.GITHUB_REPOSITORY;
+const recoveryReleaseId = process.env.RECOVERY_RELEASE_ID;
+if (recoveryReleaseId && (!process.env.RECOVERY_PR || !/^[1-9]\d*$/.test(recoveryReleaseId))) {
+  throw new Error("An explicit draft ID requires recovery with a merged release PR");
+}
 let pullRequest;
 if (process.env.RECOVERY_PR) {
   if (!/^\d+$/.test(process.env.RECOVERY_PR)) throw new Error("Recovery requires an explicit PR number");
@@ -70,7 +74,7 @@ const verifyTag = () => {
 };
 // Draft pending tags are resolved by GraphQL; REST may expose an untagged placeholder.
 const [owner, name] = repository.split("/");
-const pendingRelease = () => {
+const pendingRelease = (allowMissing = false) => {
   const result = JSON.parse(
     run("gh", [
       "api",
@@ -86,6 +90,7 @@ const pendingRelease = () => {
     ]),
   );
   const release = result.data?.repository?.release;
+  if (allowMissing && release === null && !result.errors?.length) return null;
   if (result.errors?.length || !Number.isSafeInteger(release?.databaseId) || release.databaseId <= 0 || !release.isDraft) {
     throw new Error(
       `Expected a draft release for pending tag ${tag}: ${JSON.stringify({ release: release ?? null, errors: result.errors ?? [] })}`,
@@ -93,15 +98,20 @@ const pendingRelease = () => {
   }
   return release;
 };
-const releaseId = pendingRelease().databaseId;
-const draft = () => {
-  if (pendingRelease().databaseId !== releaseId) throw new Error("Pending tag changed release during publication");
+const releaseId = recoveryReleaseId ? Number(recoveryReleaseId) : pendingRelease().databaseId;
+if (!Number.isSafeInteger(releaseId) || releaseId <= 0) throw new Error("Invalid release ID");
+const draft = (allowMissing = false) => {
+  const pending = pendingRelease(allowMissing);
+  if (pending && pending.databaseId !== releaseId) throw new Error("Pending tag changed release during publication");
   const release = api(`releases/${releaseId}`);
   if (!release.draft || release.id !== releaseId) throw new Error("Refusing to modify a published or different release");
   return release;
 };
 verifyTag();
-const release = draft();
+const release = draft(Boolean(recoveryReleaseId));
+if (recoveryReleaseId && (release.name !== tag || release.body?.replace(/\r\n/g, "\n") !== body.replace(/\r\n/g, "\n"))) {
+  throw new Error("Explicit recovery draft must already match the approved title and notes");
+}
 api(`releases/${release.id}`, { tag_name: tag, name: tag, body });
 for (const asset of assets) {
   // Resolve uploads by the pinned draft ID, including partial-upload recovery.

@@ -16,6 +16,10 @@ on:
         description: Merged release PR whose final body was approved
         required: true
         type: string
+      release_id:
+        description: Optional verified draft ID when its pending tag is missing
+        required: false
+        type: string
 
 concurrency:
   group: check-${{ github.event_name == 'pull_request' && github.ref || 'main-release' }}
@@ -259,4 +263,5 @@ jobs:
           TAG: ${{ steps.tagpr.outputs.tag || inputs.tag }}
           RELEASE_PR_JSON: ${{ steps.tagpr.outputs.pull_request }}
           RECOVERY_PR: ${{ inputs.release_pr }}
+          RECOVERY_RELEASE_ID: ${{ inputs.release_id }}
         run: node "$RUNNER_TEMP/publish-release.mjs"
