@@ -10,7 +10,7 @@ Audit the complete range from the previous release tag to the proposed head befo
 
 Review tagpr's proposed version. The `tagpr:minor` and `tagpr:major` labels take effect on the next refresh; wait for it and verify the version. Adding a label immediately before merge does not change the version. Alternatively, edit `package.json` and `manifest.json` on the PR branch, then run `node scripts/release/sync-lock.mjs` there. For runtime-floor changes, follow [Obsidian compatibility](development.md#obsidian).
 
-Read the previous three published releases or historical `.github/release-notes/` files for style. Summarize user-visible outcomes in the same language, grouping related changes and omitting internal work unless it changes a visible contract or support baseline. Thank relevant Issue authors by GitHub handle for reports or proposals that contributed to the release; verify authors from the Issues.
+Read the previous three published [GitHub Releases](https://github.com/murashit/codex-panel/releases) for style. Summarize user-visible outcomes in the same language, grouping related changes and omitting internal work unless it changes a visible contract or support baseline. Thank relevant Issue authors by GitHub handle for reports or proposals that contributed to the release; verify authors from the Issues.
 
 Replace the entire PR body with the final public notes: one `## Changes` section, a blank line, and concrete bullets. The merged PR body becomes the release notes; no new per-version note file is needed.
 
