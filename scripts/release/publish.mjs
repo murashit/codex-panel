@@ -88,7 +88,7 @@ const draft = () => {
 };
 verifyTag();
 const release = draft();
-api(`releases/${release.id}`, { name: tag, body });
+api(`releases/${release.id}`, { tag_name: tag, name: tag, body });
 for (const asset of assets) {
   // Resolve uploads by the pinned draft ID, including partial-upload recovery.
   const current = draft();
@@ -118,5 +118,5 @@ if (
   throw new Error("Draft assets do not match the three checked install assets");
 }
 verifyTag();
-const published = api(`releases/${release.id}`, { draft: false });
-if (published.draft !== false) throw new Error("Release publication was not confirmed");
+const published = api(`releases/${release.id}`, { tag_name: tag, draft: false });
+if (published.draft !== false || published.tag_name !== tag) throw new Error("Release publication for the intended tag was not confirmed");
