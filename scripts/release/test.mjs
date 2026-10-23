@@ -22,19 +22,25 @@ const pullRequest = {
 // Emulate the API boundary: drafts exist in listings/by ID, never by tag.
 const ghFixture = `#!/usr/bin/env node
 import fs from 'node:fs';
-import path from 'node:path';
 import {createHash} from 'node:crypto';
 const file=process.env.RELEASE_TEST_STATE;
 const state=JSON.parse(fs.readFileSync(file));
 const args=process.argv.slice(2);
 let response;
 if(args[0]==='api') {
-  const endpoint=args.find(arg=>arg.startsWith('repos/'));
+  const endpoint=args.find(arg=>arg.startsWith('repos/')||arg.startsWith('https://uploads.github.com/'));
   if(endpoint.endsWith('/pulls/113')) response=state.pullRequest;
   else if(endpoint.endsWith('/commits/1.0.1')) response={sha:state.sha};
   else if(endpoint.endsWith('/releases?per_page=100')) {
     if(!args.includes('--paginate')) throw new Error('Listing must paginate');
     response=state.ids.join('\\n');
+  } else if(endpoint.includes('/releases/42/assets?')) {
+    const name=new URL(endpoint).searchParams.get('name');
+    const bytes=fs.readFileSync(args[args.indexOf('--input')+1]);
+    if(!args.includes('Content-Type: application/octet-stream')||!args.includes('Content-Length: '+bytes.length)) throw new Error('Raw upload headers required');
+    state.release.assets.push({name,digest:'sha256:'+createHash('sha256').update(bytes).digest('hex')});
+  } else if(endpoint.endsWith('/releases/assets/7')&&args.includes('DELETE')) {
+    state.release.assets=state.release.assets.filter(asset=>asset.id!==7);
   } else if(endpoint.endsWith('/releases/42')) {
     if(args.includes('--method')) {
       const patch=JSON.parse(fs.readFileSync(0,'utf8'));
@@ -42,8 +48,6 @@ if(args[0]==='api') {
     }
     response=state.release;
   } else throw new Error('Unexpected endpoint (draft tag lookup returns 404): '+endpoint);
-} else if(args[0]==='release'&&args[1]==='upload') {
-  state.release.assets=args.slice(3,args.indexOf('--clobber')).map(file=>({name:path.basename(file),digest:'sha256:'+createHash('sha256').update(fs.readFileSync(file)).digest('hex')}));
 } else throw new Error('Unexpected command');
 fs.writeFileSync(file,JSON.stringify(state));
 if(response!==undefined) console.log(typeof response==='string'?response:JSON.stringify(response));
@@ -67,7 +71,14 @@ for (const scenario of ["normal", "recovery", "published", "ambiguous"]) {
           pullRequest,
           ids: scenario === "ambiguous" ? [42, 43] : [42],
           writes: [],
-          release: { id: 42, tag_name: "1.0.1", draft: scenario !== "published", body: "generated", assets: [] },
+          release: {
+            id: 42,
+            tag_name: "1.0.1",
+            draft: scenario !== "published",
+            body: "generated",
+            upload_url: "https://uploads.github.com/repos/owner/repo/releases/42/assets{?name,label}",
+            assets: scenario === "recovery" ? [{ id: 7, name: "main.js", digest: "old" }] : [],
+          },
         }),
       );
       const result = spawnSync(process.execPath, ["scripts/release/publish.mjs"], {
