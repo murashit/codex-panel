@@ -16,6 +16,8 @@ on:
 concurrency:
   group: check-${{ github.event_name == 'pull_request' && github.ref || 'main-release' }}
   cancel-in-progress: false
+  # Keep release/recovery events queued; retain the latest pending PR check.
+  queue: ${{ github.event_name == 'pull_request' && 'single' || 'max' }}
 
 permissions:
   contents: read
@@ -30,7 +32,6 @@ jobs:
     env:
       BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
       HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-      FORCED_PUSH: ${{ github.event_name == 'push' && github.event.forced || false }}
 
     steps:
       - name: Checkout
@@ -74,12 +75,13 @@ jobs:
         id: changes
         run: |
           changed() {
-            [[ "$FORCED_PUSH" == "true" || "$BASE_SHA" == "0000000000000000000000000000000000000000" ]] ||
-              ! git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- "$@"
+            ! git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- "$@"
           }
           if changed \
             .github/workflows/check.yml \
             .node-version \
+            package.json \
+            package-lock.json \
             scripts/app-server \
             src/app-server/compatibility.json \
             src/generated/app-server; then
