@@ -54,7 +54,7 @@ const assets = await Promise.all(
     const bytes = await readFile(file);
     if (bytes.length === 0) throw new Error(`Empty release asset: ${name}`);
     if (name === "manifest.json" && JSON.parse(bytes).version !== tag) throw new Error("Tag and staged manifest version differ");
-    return { name, file, digest: `sha256:${createHash("sha256").update(bytes).digest("hex")}` };
+    return { name, file, size: bytes.length, digest: `sha256:${createHash("sha256").update(bytes).digest("hex")}` };
   }),
 );
 const api = (endpoint, data) =>
@@ -89,8 +89,26 @@ const draft = () => {
 verifyTag();
 const release = draft();
 api(`releases/${release.id}`, { name: tag, body });
-// --clobber is restricted to this explicit draft, allowing partial uploads to resume.
-run("gh", ["release", "upload", tag, ...assets.map((asset) => asset.file), "--clobber", "--repo", repository]);
+for (const asset of assets) {
+  // Resolve uploads by the pinned draft ID, including partial-upload recovery.
+  const current = draft();
+  const existing = current.assets.find((uploaded) => uploaded.name === asset.name);
+  if (existing) run("gh", ["api", `repos/${repository}/releases/assets/${existing.id}`, "--method", "DELETE"]);
+  const uploadUrl = new URL(current.upload_url.split("{")[0]);
+  uploadUrl.searchParams.set("name", asset.name);
+  run("gh", [
+    "api",
+    uploadUrl.href,
+    "--method",
+    "POST",
+    "--header",
+    "Content-Type: application/octet-stream",
+    "--header",
+    `Content-Length: ${asset.size}`,
+    "--input",
+    asset.file,
+  ]);
+}
 const ready = draft();
 if (ready.body !== body) throw new Error("Draft release notes changed during upload");
 if (
