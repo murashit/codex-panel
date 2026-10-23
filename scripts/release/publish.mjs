@@ -68,22 +68,34 @@ const api = (endpoint, data) =>
 const verifyTag = () => {
   if (api(`commits/${tag}`).sha !== sha) throw new Error("Remote tag does not resolve to the checked SHA");
 };
-// The tag endpoint only returns published releases. Locate the draft across all
-// pages, then keep every subsequent check tied to that same release ID.
-const releaseIds = run("gh", [
-  "api",
-  "--paginate",
-  `repos/${repository}/releases?per_page=100`,
-  "--jq",
-  `.[] | select(.tag_name == ${JSON.stringify(tag)}) | .id`,
-])
-  .trim()
-  .split("\n")
-  .filter(Boolean);
-if (releaseIds.length !== 1 || !/^\d+$/.test(releaseIds[0])) throw new Error("Expected exactly one release for the tag");
+// Draft pending tags are resolved by GraphQL; REST may expose an untagged placeholder.
+const [owner, name] = repository.split("/");
+const pendingRelease = () => {
+  const result = JSON.parse(
+    run("gh", [
+      "api",
+      "graphql",
+      "-f",
+      "query=query($owner:String!,$name:String!,$tagName:String!){repository(owner:$owner,name:$name){release(tagName:$tagName){databaseId isDraft}}}",
+      "-f",
+      `owner=${owner}`,
+      "-f",
+      `name=${name}`,
+      "-f",
+      `tagName=${tag}`,
+    ]),
+  );
+  const release = result.data?.repository?.release;
+  if (result.errors?.length || !Number.isSafeInteger(release?.databaseId) || release.databaseId <= 0 || !release.isDraft) {
+    throw new Error("Expected a draft release for the pending tag");
+  }
+  return release;
+};
+const releaseId = pendingRelease().databaseId;
 const draft = () => {
-  const release = api(`releases/${releaseIds[0]}`);
-  if (!release.draft || release.tag_name !== tag) throw new Error("Refusing to modify a published release or a different tag");
+  if (pendingRelease().databaseId !== releaseId) throw new Error("Pending tag changed release during publication");
+  const release = api(`releases/${releaseId}`);
+  if (!release.draft || release.id !== releaseId) throw new Error("Refusing to modify a published or different release");
   return release;
 };
 verifyTag();
@@ -120,3 +132,4 @@ if (
 verifyTag();
 const published = api(`releases/${release.id}`, { tag_name: tag, draft: false });
 if (published.draft !== false || published.tag_name !== tag) throw new Error("Release publication for the intended tag was not confirmed");
+verifyTag();

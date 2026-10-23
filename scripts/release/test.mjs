@@ -19,7 +19,7 @@ const pullRequest = {
   body,
 };
 
-// Emulate the API boundary: drafts exist in listings/by ID, never by tag.
+// Resolve pending tags through GraphQL; REST drafts retain a placeholder tag.
 const ghFixture = `#!/usr/bin/env node
 import fs from 'node:fs';
 import {createHash} from 'node:crypto';
@@ -28,13 +28,13 @@ const state=JSON.parse(fs.readFileSync(file));
 const args=process.argv.slice(2);
 let response;
 if(args[0]==='api') {
-  const endpoint=args.find(arg=>arg.startsWith('repos/')||arg.startsWith('https://uploads.github.com/'));
-  if(endpoint.endsWith('/pulls/113')) response=state.pullRequest;
+  const endpoint=args.find(arg=>arg==='graphql'||arg.startsWith('repos/')||arg.startsWith('https://uploads.github.com/'));
+  if(endpoint==='graphql') {
+    if(!args.includes('owner=owner')||!args.includes('name=repo')||!args.includes('tagName=1.0.1')) throw new Error('Expected explicit pending tag query');
+    response={data:{repository:{release:state.pending}}};
+  } else if(endpoint.endsWith('/pulls/113')) response=state.pullRequest;
   else if(endpoint.endsWith('/commits/1.0.1')) response={sha:state.sha};
-  else if(endpoint.endsWith('/releases?per_page=100')) {
-    if(!args.includes('--paginate')) throw new Error('Listing must paginate');
-    response=state.ids.join('\\n');
-  } else if(endpoint.includes('/releases/42/assets?')) {
+  else if(endpoint.includes('/releases/42/assets?')) {
     const name=new URL(endpoint).searchParams.get('name');
     const bytes=fs.readFileSync(args[args.indexOf('--input')+1]);
     if(!args.includes('Content-Type: application/octet-stream')||!args.includes('Content-Length: '+bytes.length)) throw new Error('Raw upload headers required');
@@ -45,6 +45,7 @@ if(args[0]==='api') {
     if(args.includes('--method')) {
       const patch=JSON.parse(fs.readFileSync(0,'utf8'));
       state.writes.push(patch);Object.assign(state.release,patch);
+      if(state.release.draft) state.release.tag_name="untagged-placeholder";
     }
     response=state.release;
   } else throw new Error('Unexpected endpoint (draft tag lookup returns 404): '+endpoint);
@@ -53,7 +54,7 @@ fs.writeFileSync(file,JSON.stringify(state));
 if(response!==undefined) console.log(typeof response==='string'?response:JSON.stringify(response));
 `;
 
-for (const scenario of ["normal", "recovery", "published", "ambiguous"]) {
+for (const scenario of ["normal", "recovery", "published", "missing"]) {
   test(`publisher handles ${scenario} release through draft-aware lookup`, posixOnly, async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), "release-test-"));
     try {
@@ -69,11 +70,11 @@ for (const scenario of ["normal", "recovery", "published", "ambiguous"]) {
         JSON.stringify({
           sha,
           pullRequest,
-          ids: scenario === "ambiguous" ? [42, 43] : [42],
+          pending: scenario === "missing" ? null : { databaseId: 42, isDraft: scenario !== "published" },
           writes: [],
           release: {
             id: 42,
-            tag_name: "1.0.1",
+            tag_name: "untagged-placeholder",
             draft: scenario !== "published",
             body: "generated",
             upload_url: "https://uploads.github.com/repos/owner/repo/releases/42/assets{?name,label}",
