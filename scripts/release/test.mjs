@@ -166,11 +166,21 @@ test("recovery provenance distinguishes the tagged source from the repaired work
         RECOVERY_PR: "113",
         GITHUB_RUN_ID: "123",
         GITHUB_RUN_ATTEMPT: "2",
+        GITHUB_EVENT_NAME: "workflow_dispatch",
+        GITHUB_REPOSITORY_ID: "1234",
+        GITHUB_REPOSITORY_OWNER_ID: "5678",
+        RUNNER_ENVIRONMENT: "github-hosted",
       },
     });
     assert.equal(result.status, 0, result.stderr);
     const predicate = JSON.parse(await readFile(path.join(dir, "recovery-provenance.json"), "utf8"));
     assert.deepEqual(predicate.buildDefinition.externalParameters.inputs, { tag: "1.0.1", release_pr: "113" });
+    assert.deepEqual(predicate.buildDefinition.internalParameters.github, {
+      event_name: "workflow_dispatch",
+      repository_id: "1234",
+      repository_owner_id: "5678",
+      runner_environment: "github-hosted",
+    });
     assert.deepEqual(predicate.buildDefinition.resolvedDependencies, [
       { uri: "git+https://github.com/owner/repo@refs/tags/1.0.1", digest: { gitCommit: sha } },
       { uri: "git+https://github.com/owner/repo@refs/heads/main", digest: { gitCommit: workflowSha } },

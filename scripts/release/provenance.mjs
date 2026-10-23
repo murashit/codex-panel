@@ -11,7 +11,14 @@ const predicate = {
       workflow: { ref: "refs/heads/main", repository: repositoryUrl, path: ".github/workflows/check.yml" },
       inputs: { tag, release_pr: process.env.RECOVERY_PR },
     },
-    internalParameters: {},
+    internalParameters: {
+      github: {
+        event_name: process.env.GITHUB_EVENT_NAME,
+        repository_id: process.env.GITHUB_REPOSITORY_ID,
+        repository_owner_id: process.env.GITHUB_REPOSITORY_OWNER_ID,
+        runner_environment: process.env.RUNNER_ENVIRONMENT,
+      },
+    },
     resolvedDependencies: [
       { uri: `git+${repositoryUrl}@refs/tags/${tag}`, digest: { gitCommit: sourceSha } },
       { uri: `git+${repositoryUrl}@refs/heads/main`, digest: { gitCommit: workflowSha } },
