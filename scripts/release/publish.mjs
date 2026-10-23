@@ -14,7 +14,7 @@ const tag = process.env.TAG;
 const sha = process.env.CHECKED_SHA;
 const assetDir = process.env.ASSET_DIR;
 const repository = process.env.GITHUB_REPOSITORY;
-const recoveryReleaseId = process.env.RECOVERY_RELEASE_ID;
+const recoveryReleaseId = process.env.RECOVERY_RELEASE_ID?.trim();
 if (recoveryReleaseId && (!process.env.RECOVERY_PR || !/^[1-9]\d*$/.test(recoveryReleaseId))) {
   throw new Error("An explicit draft ID requires recovery with a merged release PR");
 }
