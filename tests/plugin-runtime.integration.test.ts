@@ -45,7 +45,7 @@ function currentChatHost(plugin: CodexPanelPlugin): CodexChatHost {
   if (!capture) {
     const createdCapture = { current: null as CodexChatHost | null };
     const view = Object.assign(Object.create(CodexChatView.prototype), {
-      session: null,
+      isRuntimeAttached: () => false,
       attachRuntime: (host: CodexChatHost) => {
         createdCapture.current = host;
       },

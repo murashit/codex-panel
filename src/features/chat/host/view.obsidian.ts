@@ -7,8 +7,7 @@ import type { ChatPanelHandle, ChatPanelRuntimeSnapshot, ChatViewRuntimeOwner, C
 import { ChatPanelSession } from "./session/session";
 
 export class CodexChatView extends ItemView {
-  private session: ChatPanelSession | null = null;
-  private sessionOwner: Component | null = null;
+  private attachment: { session: ChatPanelSession; owner: Component } | null = null;
   private runtimeSnapshot: ChatPanelRuntimeSnapshot | null = null;
   private opened = false;
   private readonly viewId = createLocalIdSource().next("codex-panel");
@@ -22,16 +21,16 @@ export class CodexChatView extends ItemView {
   }
 
   get surface(): ChatPanelHandle {
-    if (!this.session) throw new Error("Codex chat view is not attached to an execution runtime.");
-    return this.session;
+    if (!this.attachment) throw new Error("Codex chat view is not attached to an execution runtime.");
+    return this.attachment.session;
   }
 
   isRuntimeAttached(): boolean {
-    return this.session !== null;
+    return this.attachment !== null;
   }
 
   attachRuntime(plugin: CodexChatHost): void {
-    if (this.session) throw new Error("Codex chat view is already attached to an execution runtime.");
+    if (this.attachment) throw new Error("Codex chat view is already attached to an execution runtime.");
     const owner = new Component();
     let session: ChatPanelSession | null = null;
     try {
@@ -64,13 +63,11 @@ export class CodexChatView extends ItemView {
         },
         this.runtimeSnapshot,
       );
-      this.sessionOwner = owner;
-      this.session = session;
+      this.attachment = { session, owner };
       if (this.opened) session.open();
       this.runtimeSnapshot = null;
     } catch {
-      this.session = null;
-      this.sessionOwner = null;
+      this.attachment = null;
       if (session) void session.close().catch(() => undefined);
       try {
         this.removeChild(owner);
@@ -81,19 +78,18 @@ export class CodexChatView extends ItemView {
   }
 
   detachRuntime(): Promise<void> {
-    const session = this.session;
-    if (!session) return Promise.resolve();
+    const attachment = this.attachment;
+    if (!attachment) return Promise.resolve();
+    const { session, owner } = attachment;
     try {
       this.runtimeSnapshot = session.runtimeSnapshot();
     } catch {
       // Preserve the previous snapshot if collecting the latest one fails.
     }
-    this.session = null;
+    this.attachment = null;
     const cleanup = session.close().catch(() => undefined);
-    const owner = this.sessionOwner;
-    this.sessionOwner = null;
     try {
-      if (owner) this.removeChild(owner);
+      this.removeChild(owner);
     } catch {
       // The session is already detached; leave DOM cleanup to the owner lifecycle.
     }
@@ -105,7 +101,7 @@ export class CodexChatView extends ItemView {
   }
 
   override getDisplayText(): string {
-    if (this.session) return this.session.displayTitle();
+    if (this.attachment) return this.attachment.session.displayTitle();
     if (this.runtimeSnapshot?.forkDraft) return "Fork draft";
     const title = this.detachedViewState()["threadTitle"];
     return typeof title === "string" ? title : "Codex";
@@ -116,13 +112,13 @@ export class CodexChatView extends ItemView {
   }
 
   override getState(): Record<string, unknown> {
-    return this.session?.persistedState() ?? this.detachedViewState();
+    return this.attachment?.session.persistedState() ?? this.detachedViewState();
   }
 
   override async setState(state: unknown, result: ViewStateResult): Promise<void> {
     await super.setState(state, result);
-    if (this.session) {
-      this.session.applyViewState(state);
+    if (this.attachment) {
+      this.attachment.session.applyViewState(state);
       return;
     }
     this.runtimeSnapshot = {
@@ -134,7 +130,7 @@ export class CodexChatView extends ItemView {
 
   override async onOpen(): Promise<void> {
     this.opened = true;
-    this.session?.open();
+    this.attachment?.session.open();
   }
 
   override async onClose(): Promise<void> {
