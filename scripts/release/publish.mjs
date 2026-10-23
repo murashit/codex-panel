@@ -10,36 +10,36 @@ function run(command, args, input) {
   return result.stdout;
 }
 
-const tag = process.env.TAG;
+const tag = process.env.TAG?.trim();
 const sha = process.env.CHECKED_SHA;
 const assetDir = process.env.ASSET_DIR;
 const repository = process.env.GITHUB_REPOSITORY;
-const recoveryReleaseId = process.env.RECOVERY_RELEASE_ID?.trim();
-if (recoveryReleaseId && (!process.env.RECOVERY_PR || !/^[1-9]\d*$/.test(recoveryReleaseId))) {
-  throw new Error("An explicit draft ID requires recovery with a merged release PR");
-}
-let pullRequest;
-if (process.env.RECOVERY_PR) {
-  if (!/^\d+$/.test(process.env.RECOVERY_PR)) throw new Error("Recovery requires an explicit PR number");
-  pullRequest = JSON.parse(run("gh", ["api", `repos/${repository}/pulls/${process.env.RECOVERY_PR}`]));
-} else {
-  pullRequest = JSON.parse(process.env.RELEASE_PR_JSON || "null");
-}
-
 if (!/^\d+\.\d+\.\d+$/.test(tag)) throw new Error("Expected an explicit X.Y.Z tag");
 if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error("Missing checked commit SHA");
-if (
-  !pullRequest?.merged_at ||
-  pullRequest.merge_commit_sha !== sha ||
-  pullRequest.base?.ref !== "main" ||
-  pullRequest.base?.repo?.full_name !== repository ||
-  pullRequest.head?.repo?.full_name !== repository ||
-  !pullRequest.head?.ref?.startsWith("tagpr-from-") ||
-  !pullRequest.labels?.some((label) => label.name === "tagpr")
-) {
-  throw new Error("Release notes must come from the tagpr PR merged at the checked SHA");
-}
-const body = pullRequest.body;
+const api = (endpoint) => JSON.parse(run("gh", ["api", `repos/${repository}/${endpoint}`]));
+const verifyTag = () => {
+  if (api(`commits/${tag}`).sha !== sha) throw new Error("Remote tag does not resolve to the checked SHA");
+};
+verifyTag();
+
+// Normal publication and recovery obtain notes from the same merged source PR.
+const pullRequests = run("gh", ["api", `repos/${repository}/commits/${sha}/pulls`, "--paginate", "--jq", ".[].number"])
+  .trim()
+  .split("\n")
+  .filter(Boolean)
+  .map((number) => api(`pulls/${number}`))
+  .filter(
+    (pr) =>
+      pr.merged_at &&
+      pr.merge_commit_sha === sha &&
+      pr.base?.ref === "main" &&
+      pr.base?.repo?.full_name === repository &&
+      pr.head?.repo?.full_name === repository &&
+      pr.head?.ref?.startsWith("tagpr-from-") &&
+      pr.labels?.some((label) => label.name === "tagpr"),
+  );
+if (pullRequests.length !== 1) throw new Error("Expected one tagpr PR merged at the checked SHA");
+const body = pullRequests[0].body;
 if (
   typeof body !== "string" ||
   !/^## Changes\r?\n\r?\n/.test(body) ||
@@ -51,30 +51,19 @@ if (
 
 const recordedSha = (await readFile(path.join(assetDir, "checked-sha"), "utf8")).trim();
 if (recordedSha !== sha) throw new Error("Staged assets belong to a different commit");
-const names = ["main.js", "manifest.json", "styles.css"];
 const assets = await Promise.all(
-  names.map(async (name) => {
+  ["main.js", "manifest.json", "styles.css"].map(async (name) => {
     const file = path.join(assetDir, name);
     const bytes = await readFile(file);
     if (bytes.length === 0) throw new Error(`Empty release asset: ${name}`);
     if (name === "manifest.json" && JSON.parse(bytes).version !== tag) throw new Error("Tag and staged manifest version differ");
-    return { name, file, size: bytes.length, digest: `sha256:${createHash("sha256").update(bytes).digest("hex")}` };
+    return { name, file, digest: `sha256:${createHash("sha256").update(bytes).digest("hex")}` };
   }),
 );
-const api = (endpoint, data) =>
-  JSON.parse(
-    run(
-      "gh",
-      ["api", `repos/${repository}/${endpoint}`, ...(data ? ["--method", "PATCH", "--input", "-"] : [])],
-      data ? JSON.stringify(data) : undefined,
-    ),
-  );
-const verifyTag = () => {
-  if (api(`commits/${tag}`).sha !== sha) throw new Error("Remote tag does not resolve to the checked SHA");
-};
-// Draft pending tags are resolved by GraphQL; REST may expose an untagged placeholder.
+
+// Match gh's pending-tag lookup: REST may expose an untagged placeholder for drafts.
 const [owner, name] = repository.split("/");
-const pendingRelease = (allowMissing = false) => {
+const findRelease = () => {
   const result = JSON.parse(
     run("gh", [
       "api",
@@ -89,59 +78,56 @@ const pendingRelease = (allowMissing = false) => {
       `tagName=${tag}`,
     ]),
   );
-  const release = result.data?.repository?.release;
-  if (allowMissing && release === null && !result.errors?.length) return null;
-  if (result.errors?.length || !Number.isSafeInteger(release?.databaseId) || release.databaseId <= 0 || !release.isDraft) {
-    throw new Error(
-      `Expected a draft release for pending tag ${tag}: ${JSON.stringify({ release: release ?? null, errors: result.errors ?? [] })}`,
-    );
+  const pending = result.data?.repository?.release;
+  if (result.errors?.length || pending === undefined) throw new Error(`Release lookup failed: ${JSON.stringify(result)}`);
+  if (pending === null) return null;
+  if (!Number.isSafeInteger(pending.databaseId) || pending.databaseId <= 0) throw new Error("Invalid release ID");
+  const release = api(`releases/${pending.databaseId}`);
+  if (release.id !== pending.databaseId || release.draft !== pending.isDraft) throw new Error("Release changed during lookup");
+  return release;
+};
+const verifyContents = (release) => {
+  if (release.name !== tag || release.body !== body) throw new Error("Release title or notes differ from the approved PR");
+  if (
+    release.assets.length !== assets.length ||
+    !assets.every((asset) => release.assets.some((uploaded) => uploaded.name === asset.name && uploaded.digest === asset.digest))
+  ) {
+    throw new Error("Release assets do not match the three checked install assets");
   }
-  return release;
 };
-const releaseId = recoveryReleaseId ? Number(recoveryReleaseId) : pendingRelease().databaseId;
-if (!Number.isSafeInteger(releaseId) || releaseId <= 0) throw new Error("Invalid release ID");
-const draft = (allowMissing = false) => {
-  const pending = pendingRelease(allowMissing);
-  if (pending && pending.databaseId !== releaseId) throw new Error("Pending tag changed release during publication");
-  const release = api(`releases/${releaseId}`);
-  if (!release.draft || release.id !== releaseId) throw new Error("Refusing to modify a published or different release");
-  return release;
+
+let release = findRelease();
+if (!release) {
+  run("gh", ["release", "create", tag, "--draft", "--verify-tag", "--title", tag, "--notes-file", "-", "--repo", repository], body);
+  release = findRelease();
+  if (!release) throw new Error("Draft creation was not confirmed");
+}
+if (!release.draft) {
+  verifyContents(release);
+  if (release.tag_name !== tag) throw new Error("Published release has a different tag");
+  verifyTag();
+  console.log(`Published release ${tag} already matches the checked source, notes and assets`);
+  process.exit(0);
+}
+if (release.name !== tag || release.body !== body) throw new Error("Draft title or notes differ from the approved PR");
+const releaseId = release.id;
+const pinnedRelease = () => {
+  const current = findRelease();
+  if (current?.id !== releaseId) throw new Error("Pending tag changed release during publication");
+  return current;
 };
+const draft = () => {
+  const current = pinnedRelease();
+  if (!current.draft) throw new Error("Refusing to modify a published release");
+  return current;
+};
+draft();
+run("gh", ["release", "upload", tag, ...assets.map((asset) => asset.file), "--clobber", "--repo", repository]);
+verifyContents(draft());
 verifyTag();
-const release = draft(Boolean(recoveryReleaseId));
-if (recoveryReleaseId && (release.name !== tag || release.body?.replace(/\r\n/g, "\n") !== body.replace(/\r\n/g, "\n"))) {
-  throw new Error("Explicit recovery draft must already match the approved title and notes");
-}
-api(`releases/${release.id}`, { tag_name: tag, name: tag, body });
-for (const asset of assets) {
-  // Resolve uploads by the pinned draft ID, including partial-upload recovery.
-  const current = draft();
-  const existing = current.assets.find((uploaded) => uploaded.name === asset.name);
-  if (existing) run("gh", ["api", `repos/${repository}/releases/assets/${existing.id}`, "--method", "DELETE"]);
-  const uploadUrl = new URL(current.upload_url.split("{")[0]);
-  uploadUrl.searchParams.set("name", asset.name);
-  run("gh", [
-    "api",
-    uploadUrl.href,
-    "--method",
-    "POST",
-    "--header",
-    "Content-Type: application/octet-stream",
-    "--header",
-    `Content-Length: ${asset.size}`,
-    "--input",
-    asset.file,
-  ]);
-}
-const ready = draft();
-if (ready.body !== body) throw new Error("Draft release notes changed during upload");
-if (
-  ready.assets.length !== assets.length ||
-  !assets.every((asset) => ready.assets.some((uploaded) => uploaded.name === asset.name && uploaded.digest === asset.digest))
-) {
-  throw new Error("Draft assets do not match the three checked install assets");
-}
-verifyTag();
-const published = api(`releases/${release.id}`, { tag_name: tag, draft: false });
-if (published.draft !== false || published.tag_name !== tag) throw new Error("Release publication for the intended tag was not confirmed");
+// Explicit --tag preserves the pending tag when GitHub publishes the draft.
+run("gh", ["release", "edit", tag, "--tag", tag, "--draft=false", "--repo", repository]);
+const published = pinnedRelease();
+if (published.draft || published.tag_name !== tag) throw new Error("Release publication for the intended tag was not confirmed");
+verifyContents(published);
 verifyTag();

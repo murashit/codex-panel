@@ -1,6 +1,6 @@
 # Release
 
-The [release workflow](../.github/workflows/check.yml) maintains a tagpr release PR as main advances. GitHub Releases attach `main.js`, `manifest.json`, and `styles.css`; Community publication remains a separate operation.
+The [release workflow](../.github/workflows/check.yml) uses tagpr to maintain the release PR and tag the approved merge. The [publisher](../scripts/release/publish.mjs) alone creates the draft with the merged PR body, attaches the checked `main.js`, `manifest.json`, and `styles.css`, verifies their digests, and publishes it. This follows [tagpr’s downstream release ownership](https://github.com/Songmu/tagpr/blob/v1.21.3/docs/guides/immutable-releases.md#let-another-workflow-create-the-release); tagpr does not generate a separate release draft.
 
 The repository must enable **Allow GitHub Actions to create and approve pull requests** under Settings → Actions → General → Workflow permissions. Approve release-PR check runs if GitHub requires it.
 
@@ -26,14 +26,18 @@ Monitor the run, verify the merged PR body still matches the final notes, and co
 
 If interrupted, inspect the run, exact tag, merged PR, and current release/assets before retrying, especially if publication may have succeeded. Do not rerun tagpr to recreate an existing tag, move a tag, or overwrite a published release as a routine retry.
 
-For an existing tag and draft, dispatch Check on main with the tag and merged release PR number:
+For an existing tag, dispatch Check on main with only the tag:
 
 ```sh
-gh workflow run check.yml --ref main -f tag=X.Y.Z -f release_pr=NUMBER
+gh workflow run check.yml --ref main -f tag=X.Y.Z
 ```
 
-Recovery uses main's workflow and publisher, rebuilds the specified tag, and replaces partial draft uploads before publishing. The tag must be an ancestor of main and match the checked assets and merged release PR. Merge any workflow or publisher repair through a reviewed PR first; keep the existing tag unchanged.
+Normal publication and recovery both obtain the notes from the unique tagpr PR merged at that tag's commit. Recovery uses main's workflow and publisher to rebuild and check the immutable tag; it must be an ancestor of main. The attestation records both the repaired workflow and the actual tagged build source. Standard attestation defaults alone would identify main, not the separately checked-out tag.
 
-If a verified draft has lost its pending tag, additionally supply `-f release_id=ID` (or the Run workflow input). First verify that exact release ID is still a draft and its title and notes match the tag and approved merged PR body (ignoring CRLF versus LF line endings). Recovery checks those fields and the existing tag SHA before restoring the association, then requires the pending tag to resolve to the same ID before uploading. It never selects a draft by title or placeholder tag.
+The publisher creates a missing draft, resumes partial uploads only while the same release is a draft, and requires its notes to remain identical to the merged PR body. An already published release is verified without modification; any notes, asset, or source mismatch fails instead of overwriting it. Do not manually replace draft metadata to bypass a mismatch.
 
-If the tag exists but its draft is missing, verify the merged PR's final notes and create only that draft with `gh release create X.Y.Z --draft --verify-tag --notes-file FINAL_NOTES_FILE`, then use recovery above.
+Rerunning a failed job uses that run's original workflow code. After a workflow or publisher repair, merge the reviewed fix first and start a new dispatch on main. Keep the existing tag unchanged; no PR number or release ID is needed.
+
+## Verify Community publication
+
+GitHub publication and the Community directory are separate states. In the [Codex Panel management dashboard](https://community.obsidian.md/account/plugins/codex-panel), check for an existing submission before submitting or publishing the version. If the directory has not detected the GitHub release, use **Check for new releases** as described in the [Community FAQ](https://docs.obsidian.md/community-directory/faq). After publication, verify **Current release**, review **Completed**, and build match **Pass**; report any pending review or verification separately. This requires the owner's signed-in Obsidian account; GitHub credentials do not grant access to the dashboard.
