@@ -4,30 +4,36 @@ import { threadGoalFixture } from "./support/thread-goal";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import manifest from "../manifest.json";
 import compatibility from "../src/app-server/compatibility.json";
-import type { AppServerServerRequestResponder } from "../src/app-server/connection/client";
 import { AppServerClient } from "../src/app-server/connection/client";
+import type { ConnectionManagerHandlers } from "../src/app-server/connection/connection-manager";
 import * as contextConnection from "../src/app-server/connection/context-connection";
-import type { ServerRequest } from "../src/app-server/connection/rpc-messages";
 import { CodexExecutionRuntime } from "../src/execution-runtime";
 import type { ChatRuntimeView, CodexChatHost } from "../src/features/chat/host/contracts";
 import type { ThreadPickerController } from "../src/features/thread-picker/modal.obsidian";
 import * as threadPicker from "../src/features/thread-picker/modal.obsidian";
 import type { ThreadsViewHost } from "../src/features/threads-view/session";
 import type { ThreadsRuntimeView } from "../src/features/threads-view/view.obsidian";
+import type { RateLimitSnapshot } from "../src/generated/app-server/v2/RateLimitSnapshot";
 import { DEFAULT_SETTINGS } from "../src/settings/preferences";
 
-interface MockContextHandlers {
-  onNotification(notification: unknown): void;
-  onServerRequest(request: ServerRequest, responder: AppServerServerRequestResponder): boolean;
-  onExit(): void;
-}
-
+const ActualContextConnection = contextConnection.AppServerContextConnection;
+const rateLimitSnapshot = {
+  limitId: "codex",
+  limitName: "Codex",
+  normalModelSlug: null,
+  primary: null,
+  secondary: null,
+  credits: null,
+  individualLimit: null,
+  spendControlReached: null,
+  planType: null,
+  rateLimitReachedType: null,
+} satisfies RateLimitSnapshot;
 const contextConnectionMock = {
   client: { disconnect: vi.fn(), request: vi.fn() },
   instances: [] as Array<{
-    dispose: ReturnType<typeof vi.fn>;
     initializeParams: unknown;
-    handlers: MockContextHandlers;
+    handlers: ConnectionManagerHandlers | null;
   }>,
 };
 const openThreadPickerMock = vi.fn();
@@ -36,41 +42,20 @@ describe("CodexExecutionRuntime", () => {
   beforeEach(() => {
     vi.spyOn(threadPicker, "openThreadPicker").mockImplementation(openThreadPickerMock);
     vi.spyOn(contextConnection, "AppServerContextConnection").mockImplementation(
-      class {
-        readonly dispose = vi.fn(() => {
-          contextConnectionMock.client.disconnect();
-        });
-
-        constructor(
-          _codexPath: string,
-          _cwd: string,
-          readonly initializeParams: unknown,
-          readonly handlers: MockContextHandlers,
-        ) {
-          contextConnectionMock.instances.push(this);
+      class extends ActualContextConnection {
+        constructor(...args: ConstructorParameters<typeof ActualContextConnection>) {
+          const record = { initializeParams: args[2], handlers: null as ConnectionManagerHandlers | null };
+          super(args[0], args[1], args[2], args[3], {
+            connect: async (handlers) => {
+              record.handlers = handlers;
+              return { codexHome: "/tmp/codex", platformFamily: "unix", platformOs: "macos", userAgent: "test" };
+            },
+            currentClient: () => contextConnectionMock.client as unknown as AppServerClient,
+            disconnect: contextConnectionMock.client.disconnect,
+          });
+          contextConnectionMock.instances.push(record);
         }
-
-        createLease() {
-          return {
-            connect: vi.fn(),
-            currentClient: () => contextConnectionMock.client,
-            isConnected: () => true,
-            disconnect: vi.fn(),
-          };
-        }
-
-        withClient<T>(operation: (client: typeof contextConnectionMock.client) => Promise<T>): Promise<T> {
-          return operation(contextConnectionMock.client);
-        }
-
-        currentClient() {
-          return contextConnectionMock.client;
-        }
-
-        isConnected() {
-          return true;
-        }
-      } as never,
+      },
     );
     openThreadPickerMock.mockReset();
     contextConnectionMock.client.disconnect.mockReset();
@@ -161,11 +146,11 @@ describe("CodexExecutionRuntime", () => {
     expect(contextConnectionMock.instances).toHaveLength(1);
   });
 
-  it("publishes descendant lifecycle notifications once from the context owner", () => {
+  it("publishes descendant lifecycle notifications once from the context owner", async () => {
     const onThreadFacts = vi.fn();
-    executionRuntime(onThreadFacts);
+    await executionRuntime(onThreadFacts).appServerConnection.withClient(async () => undefined);
 
-    contextConnectionMock.instances[0]?.handlers.onNotification({
+    contextHandlers().onNotification({
       method: "thread/archived",
       params: { threadId: "descendant" },
     });
@@ -200,7 +185,7 @@ describe("CodexExecutionRuntime", () => {
     expect(contextConnectionMock.client.request).toHaveBeenCalledTimes(2);
     contextConnectionMock.client.request.mockClear();
 
-    contextConnectionMock.instances[0]?.handlers.onNotification({
+    contextHandlers().onNotification({
       method: "mcpServer/oauthLogin/completed",
       params: { name: "github", threadId: "thread", success: true },
     });
@@ -210,7 +195,7 @@ describe("CodexExecutionRuntime", () => {
       "mcpServerStatus/list",
       expect.objectContaining({ threadId: "thread" }),
     );
-    contextConnectionMock.instances[0]?.handlers.onNotification({
+    contextHandlers().onNotification({
       method: "mcpServer/startupStatus/updated",
       params: {
         threadId: "thread",
@@ -229,7 +214,7 @@ describe("CodexExecutionRuntime", () => {
       ]);
     });
     contextConnectionMock.client.request.mockClear();
-    contextConnectionMock.instances[0]?.handlers.onNotification({ method: "app/list/updated", params: { data: [] } });
+    contextHandlers().onNotification({ method: "app/list/updated", params: { data: [] } });
     await vi.waitFor(() => expect(contextConnectionMock.client.request).toHaveBeenCalledOnce());
     expect(contextConnectionMock.client.request).toHaveBeenCalledWith(
       "mcpServerStatus/list",
@@ -239,17 +224,18 @@ describe("CodexExecutionRuntime", () => {
     unsubscribeSecond();
   });
 
-  it("updates thread goal cache even when no panel lease receives the notification", () => {
+  it("updates thread goal cache even when no panel lease receives the notification", async () => {
     const runtime = executionRuntime();
     const chat = attachChatHost(runtime);
+    await runtime.appServerConnection.withClient(async () => undefined);
     const previous = threadGoalFixture({ objective: "Old" });
     const next = threadGoalFixture({ objective: "Latest" });
-    contextConnectionMock.instances[0]?.handlers.onNotification({
+    contextHandlers().onNotification({
       method: "thread/goal/updated",
       params: { threadId: "thread", turnId: null, goal: { ...previous, createdAt: 1, updatedAt: 1 } },
     });
 
-    contextConnectionMock.instances[0]?.handlers.onNotification({
+    contextHandlers().onNotification({
       method: "thread/goal/updated",
       params: { threadId: "thread", turnId: null, goal: { ...next, createdAt: 1, updatedAt: 1 } },
     });
@@ -258,9 +244,12 @@ describe("CodexExecutionRuntime", () => {
   });
 
   it.each([
-    ["skills/changed", "skills/list"],
-    ["account/rateLimits/updated", "account/rateLimits/read"],
-  ] as const)("revalidates used shared metadata once for %s", async (notificationMethod, requestMethod) => {
+    { notification: { method: "skills/changed", params: {} }, requestMethod: "skills/list" },
+    {
+      notification: { method: "account/rateLimits/updated", params: { rateLimits: rateLimitSnapshot } },
+      requestMethod: "account/rateLimits/read",
+    },
+  ] as const)("revalidates used shared metadata once for $notification.method", async ({ notification, requestMethod }) => {
     mockMetadataRequests();
     const runtime = executionRuntime();
     const queries = attachChatHost(runtime).appServerQueries;
@@ -268,7 +257,7 @@ describe("CodexExecutionRuntime", () => {
     await queries.ensureAppServerMetadata();
     contextConnectionMock.client.request.mockClear();
 
-    contextConnectionMock.instances[0]?.handlers.onNotification({ method: notificationMethod, params: {} });
+    contextHandlers().onNotification(notification);
 
     await vi.waitFor(() => expect(contextConnectionMock.client.request).toHaveBeenCalledOnce());
     expect(contextConnectionMock.client.request).toHaveBeenCalledWith(
@@ -279,9 +268,9 @@ describe("CodexExecutionRuntime", () => {
 
   it("does not fetch metadata solely because an unused resource notification arrived", async () => {
     mockMetadataRequests();
-    executionRuntime();
+    await executionRuntime().appServerConnection.withClient(async () => undefined);
 
-    contextConnectionMock.instances[0]?.handlers.onNotification({ method: "skills/changed", params: {} });
+    contextHandlers().onNotification({ method: "skills/changed", params: {} });
     await Promise.resolve();
 
     expect(contextConnectionMock.client.request).not.toHaveBeenCalled();
@@ -293,7 +282,7 @@ describe("CodexExecutionRuntime", () => {
     await queries.ensureAppServerMetadata();
     const hydratedRequestCount = contextConnectionMock.client.request.mock.calls.length;
 
-    contextConnectionMock.instances[0]?.handlers.onExit();
+    contextHandlers().onExit();
     await queries.ensureAppServerMetadata();
 
     expect(contextConnectionMock.client.request.mock.calls.length).toBeGreaterThan(hydratedRequestCount);
@@ -305,8 +294,8 @@ describe("CodexExecutionRuntime", () => {
     const runtime = executionRuntime();
 
     runtime.dispose();
+    runtime.dispose();
 
-    expect(contextConnectionMock.instances[0]?.dispose).toHaveBeenCalledOnce();
     expect(contextConnectionMock.client.disconnect).toHaveBeenCalledOnce();
   });
 
@@ -433,14 +422,7 @@ function mockMetadataRequests(): void {
     .thenResolve({ data: [], nextCursor: null })
     .calledWith("account/rateLimits/read", undefined)
     .thenResolve({
-      rateLimits: {
-        limitId: "codex",
-        limitName: "Codex",
-        primary: null,
-        secondary: null,
-        individualLimit: null,
-        rateLimitReachedType: null,
-      },
+      rateLimits: rateLimitSnapshot,
       rateLimitsByLimitId: null,
     });
 }
@@ -451,4 +433,10 @@ function mockToolInventoryRequests(): void {
     .thenResolve({ marketplaces: [], marketplaceLoadErrors: [] })
     .calledWith("mcpServerStatus/list", expect.anything())
     .thenResolve({ data: [], nextCursor: null });
+}
+
+function contextHandlers(): ConnectionManagerHandlers {
+  const handlers = contextConnectionMock.instances[0]?.handlers;
+  if (!handlers) throw new Error("Expected a connected context manager.");
+  return handlers;
 }

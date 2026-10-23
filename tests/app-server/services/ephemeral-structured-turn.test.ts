@@ -6,7 +6,6 @@ import type { AppServerClientHandlers, ClientResponseByMethod, TypedClientReques
 import type { ClientRequestParams } from "../../../src/app-server/connection/rpc-messages";
 import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";
 import { type EphemeralStructuredTurnClient, runEphemeralStructuredTurn } from "../../../src/app-server/services/ephemeral-structured-turn";
-import type { AppServerStartStructuredTurnOptions } from "../../../src/app-server/services/turns";
 import type { InitializeResponse } from "../../../src/generated/app-server/InitializeResponse";
 import type { RequestId } from "../../../src/generated/app-server/RequestId";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
@@ -168,12 +167,13 @@ describe("runEphemeralStructuredTurn", () => {
 
     expect(callOrder).toEqual(["model-list", "start-thread"]);
     expect(expectPresent(client.current).modelListRequests).toEqual([{ includeHidden: false, cursor: null, limit: 100 }]);
-    expect(expectPresent(client.current).startStructuredTurnOptions).toEqual({
+    expect(expectPresent(client.current).startStructuredTurnParams).toEqual({
       threadId: "thread",
       cwd: "/vault",
-      text: "Run.",
+      input: [{ type: "text", text: "Run.", text_elements: [] }],
       outputSchema: { type: "object" },
-      runtime: { model: "gpt-5.1", effort: "low" },
+      model: "gpt-5.1",
+      effort: "low",
     });
   });
 
@@ -261,7 +261,7 @@ describe("runEphemeralStructuredTurn", () => {
       { clientFactory },
     );
 
-    expect(expectPresent(client.current).startStructuredTurnOptions?.runtime).toEqual({
+    expect(expectPresent(client.current).startStructuredTurnParams).toMatchObject({
       model: "custom-model",
       effort: "custom-effort",
     });
@@ -405,7 +405,7 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
   startStructuredTurnImpl: (() => Promise<TurnStartResponse>) | null = null;
   effectiveConfig: Record<string, unknown> = {};
   startEphemeralThreadParams: ClientRequestParams<"thread/start"> | null = null;
-  startStructuredTurnOptions: AppServerStartStructuredTurnOptions | null = null;
+  startStructuredTurnParams: ClientRequestParams<"turn/start"> | null = null;
   readonly configReadRequests: ClientRequestParams<"config/read">[] = [];
   readonly modelListRequests: ClientRequestParams<"model/list">[] = [];
   readonly rejectServerRequest = vi.fn();
@@ -439,7 +439,7 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
           ? await this.startEphemeralThreadImpl()
           : threadStartResponse("thread")) as unknown as ClientResponseByMethod[M];
       case "turn/start":
-        this.startStructuredTurnOptions = structuredTurnOptionsFromParams(params as ClientRequestParams<"turn/start">);
+        this.startStructuredTurnParams = params as ClientRequestParams<"turn/start">;
         this.resolveStructuredTurnStarted();
         return (this.startStructuredTurnImpl
           ? await this.startStructuredTurnImpl()
@@ -465,26 +465,6 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
       },
     });
   }
-}
-
-function structuredTurnOptionsFromParams(params: ClientRequestParams<"turn/start">): AppServerStartStructuredTurnOptions {
-  const textItem = params.input[0];
-  if (!params.cwd || !textItem || textItem.type !== "text" || !params.outputSchema) throw new Error("Expected structured turn params.");
-  const runtime = structuredTurnRuntimeFromParams(params);
-  return {
-    threadId: params.threadId,
-    cwd: params.cwd,
-    text: textItem.text,
-    outputSchema: params.outputSchema,
-    runtime,
-  };
-}
-
-function structuredTurnRuntimeFromParams(params: ClientRequestParams<"turn/start">): AppServerStartStructuredTurnOptions["runtime"] {
-  return {
-    ...(params.model != null ? { model: params.model } : {}),
-    ...(params.effort != null ? { effort: params.effort } : {}),
-  };
 }
 
 function timerHarness(): {
