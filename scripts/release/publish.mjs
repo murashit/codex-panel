@@ -87,7 +87,9 @@ const pendingRelease = () => {
   );
   const release = result.data?.repository?.release;
   if (result.errors?.length || !Number.isSafeInteger(release?.databaseId) || release.databaseId <= 0 || !release.isDraft) {
-    throw new Error("Expected a draft release for the pending tag");
+    throw new Error(
+      `Expected a draft release for pending tag ${tag}: ${JSON.stringify({ release: release ?? null, errors: result.errors ?? [] })}`,
+    );
   }
   return release;
 };
