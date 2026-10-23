@@ -50,9 +50,9 @@ jobs:
           TAG: ${{ inputs.tag }}
         run: |
           [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          test "$GITHUB_REF" = "refs/tags/$TAG"
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$TAG^{commit}")"
+          git merge-base --is-ancestor HEAD origin/main
 
       - name: Verify workflow dependencies
         env:
@@ -181,7 +181,7 @@ jobs:
     needs: check
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' && github.ref == format('refs/tags/{0}', inputs.tag))
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -235,10 +235,19 @@ jobs:
           [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$CHECKED_SHA"
 
+      - name: Record recovery build source
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ inputs.tag }}
+          RECOVERY_PR: ${{ inputs.release_pr }}
+        run: node scripts/release/provenance.mjs
+
       - name: Attest checked install assets
         if: steps.tagpr.outputs.tag != '' || github.event_name == 'workflow_dispatch'
         uses: actions/attest@v4.2.2
         with:
+          predicate-type: ${{ github.event_name == 'workflow_dispatch' && 'https://slsa.dev/provenance/v1' || '' }}
+          predicate-path: ${{ github.event_name == 'workflow_dispatch' && format('{0}/recovery-provenance.json', runner.temp) || '' }}
           subject-path: |
             ${{ env.ASSET_DIR }}/main.js
             ${{ env.ASSET_DIR }}/manifest.json

@@ -26,12 +26,12 @@ Monitor the run, verify the merged PR body still matches the final notes, and co
 
 If interrupted, inspect the run, exact tag, merged PR, and current release/assets before retrying, especially if publication may have succeeded. Do not rerun tagpr to recreate an existing tag, move a tag, or overwrite a published release as a routine retry.
 
-For an existing tag and draft, dispatch Check on that tag with the merged release PR number:
+For an existing tag and draft, dispatch Check on main with the tag and merged release PR number:
 
 ```sh
-gh workflow run check.yml --ref X.Y.Z -f tag=X.Y.Z -f release_pr=NUMBER
+gh workflow run check.yml --ref main -f tag=X.Y.Z -f release_pr=NUMBER
 ```
 
-Recovery rebuilds the specified tag and replaces partial draft uploads before publishing. The dispatched ref must match the tag, and its commit must be an ancestor of main. Recovery uses the workflow recorded in that tag, so it cannot pick up later workflow/publisher fixes from main; a broken tagged workflow needs a separate repair.
+Recovery uses main's workflow and publisher, rebuilds the specified tag, and replaces partial draft uploads before publishing. The tag must be an ancestor of main and match the checked assets and merged release PR. Merge any workflow or publisher repair through a reviewed PR first; keep the existing tag unchanged.
 
 If the tag exists but its draft is missing, verify the merged PR's final notes and create only that draft with `gh release create X.Y.Z --draft --verify-tag --notes-file FINAL_NOTES_FILE`, then use recovery above.

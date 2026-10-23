@@ -68,8 +68,21 @@ const api = (endpoint, data) =>
 const verifyTag = () => {
   if (api(`commits/${tag}`).sha !== sha) throw new Error("Remote tag does not resolve to the checked SHA");
 };
+// The tag endpoint only returns published releases. Locate the draft across all
+// pages, then keep every subsequent check tied to that same release ID.
+const releaseIds = run("gh", [
+  "api",
+  "--paginate",
+  `repos/${repository}/releases?per_page=100`,
+  "--jq",
+  `.[] | select(.tag_name == ${JSON.stringify(tag)}) | .id`,
+])
+  .trim()
+  .split("\n")
+  .filter(Boolean);
+if (releaseIds.length !== 1 || !/^\d+$/.test(releaseIds[0])) throw new Error("Expected exactly one release for the tag");
 const draft = () => {
-  const release = api(`releases/tags/${tag}`);
+  const release = api(`releases/${releaseIds[0]}`);
   if (!release.draft || release.tag_name !== tag) throw new Error("Refusing to modify a published release or a different tag");
   return release;
 };
