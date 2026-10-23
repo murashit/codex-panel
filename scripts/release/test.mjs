@@ -100,6 +100,11 @@ for (const scenario of ["normal", "recovery", "published", "ambiguous"]) {
         assert.equal(result.status, 0, result.stderr);
         assert.equal(state.release.body, body);
         assert.equal(state.release.draft, false);
+        assert.equal(state.release.tag_name, "1.0.1");
+        assert.deepEqual(state.writes, [
+          { tag_name: "1.0.1", name: "1.0.1", body },
+          { tag_name: "1.0.1", draft: false },
+        ]);
         assert.deepEqual(
           state.release.assets,
           Object.entries(assets).map(([name, content]) => ({
