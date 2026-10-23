@@ -96,7 +96,7 @@ for (const scenario of ["normal", "recovery", "published", "missing"]) {
           GITHUB_REPOSITORY: repository,
           RELEASE_PR_JSON: JSON.stringify(pullRequest),
           RECOVERY_PR: scenario === "recovery" ? "113" : "",
-          RECOVERY_RELEASE_ID: scenario === "recovery" ? "42" : "",
+          RECOVERY_RELEASE_ID: scenario === "recovery" ? " 42 " : "",
         },
       });
       const state = JSON.parse(await readFile(stateFile, "utf8"));
