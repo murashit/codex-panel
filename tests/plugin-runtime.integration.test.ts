@@ -70,19 +70,21 @@ describe("CodexPanelPlugin runtime integration", () => {
     vi.useRealTimers();
     contextConnectionClientMock.mockReset();
     vi.spyOn(contextConnection, "AppServerContextConnection").mockImplementation(
-      class {
-        constructor(
-          private readonly codexPath: string,
-          private readonly cwd: string,
-        ) {}
-        withClient(operation: unknown) {
-          return contextConnectionClientMock(this.codexPath, this.cwd, operation);
+      class extends ActualContextConnection {
+        constructor(...args: ConstructorParameters<typeof ActualContextConnection>) {
+          let client: AppServerClient | null = null;
+          super(args[0], args[1], args[2], args[3], {
+            connect: async () => {
+              client ??= contextConnectionClientMock(args[0], args[1]);
+              return { codexHome: "/tmp/codex", platformFamily: "unix", platformOs: "macos", userAgent: "test" };
+            },
+            currentClient: () => client,
+            disconnect: () => {
+              client = null;
+            },
+          });
         }
-        createLease() {
-          throw new Error("Unexpected panel connection lease.");
-        }
-        dispose() {}
-      } as never,
+      },
     );
   });
 
@@ -157,10 +159,7 @@ describe("CodexPanelPlugin runtime integration", () => {
 
   it("applies archive mutations to open chat surfaces and restored identities", async () => {
     const fetchArchivedThreads = vi.fn().mockResolvedValue([]);
-    contextConnectionClientMock.mockImplementation(
-      (_codexPath: string, _vaultPath: string, operation: (client: ReturnType<typeof threadListClient>) => Promise<unknown>) =>
-        operation(threadListClient(fetchArchivedThreads)),
-    );
+    contextConnectionClientMock.mockImplementation(() => threadListClient(fetchArchivedThreads));
     const restoredMatchingLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored" } });
     const firstLeaf = leaf();
     firstLeaf.view = chatView(CodexChatView, firstLeaf);
@@ -216,17 +215,14 @@ describe("CodexPanelPlugin runtime integration", () => {
     let resolveFirst!: (threads: Thread[]) => void;
     const plugin = await pluginWithLeaves([]);
     await publishCodexPath(plugin, "codex-a");
-    contextConnectionClientMock.mockImplementation(
-      (_codexPath: string, _vaultPath: string, operation: (client: ReturnType<typeof threadListClient>) => Promise<unknown>) =>
-        operation(
-          threadListClient(() =>
-            plugin.settings.codexPath === "codex-a"
-              ? new Promise<Thread[]>((resolve) => {
-                  resolveFirst = resolve;
-                })
-              : Promise.resolve([thread("second")]),
-          ),
-        ),
+    contextConnectionClientMock.mockImplementation(() =>
+      threadListClient(() =>
+        plugin.settings.codexPath === "codex-a"
+          ? new Promise<Thread[]>((resolve) => {
+              resolveFirst = resolve;
+            })
+          : Promise.resolve([thread("second")]),
+      ),
     );
 
     const first = threadCatalog(plugin).refreshActiveThreads();
@@ -248,16 +244,13 @@ describe("CodexPanelPlugin runtime integration", () => {
   });
 
   it("runs shared queries through the runtime-owned context connection", async () => {
-    contextConnectionClientMock.mockImplementation(
-      (_codexPath: string, _vaultPath: string, operation: (client: ReturnType<typeof threadListClient>) => Promise<unknown>) =>
-        operation(threadListClient(() => Promise.resolve([thread("matching-context")]))),
-    );
+    contextConnectionClientMock.mockImplementation(() => threadListClient(() => Promise.resolve([thread("matching-context")])));
     const plugin = await pluginWithLeaves([]);
     await publishCodexPath(plugin, "codex-b");
 
     await threadCatalog(plugin).refreshActiveThreads();
 
-    expect(contextConnectionClientMock).toHaveBeenCalledWith("codex-b", "/vault", expect.any(Function));
+    expect(contextConnectionClientMock).toHaveBeenCalledWith("codex-b", "/vault");
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("matching-context")]);
   });
 

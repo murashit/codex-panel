@@ -29,7 +29,6 @@ import { ThreadStreamViewport } from "../../../../../src/features/chat/ui/thread
 import { renderUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
-import { reducerStoreFixture } from "../../support/reducer-store";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 import { pendingApproval } from "../../ui/thread-stream/rendering/test-helpers";
@@ -449,7 +448,7 @@ function threadStreamSurface(
 ): TestThreadStreamSurface {
   const files = new Map(vaultFiles.map((path) => [path, tFile(path)]));
   const scrollPortBinding = createChatThreadStreamScrollBinding();
-  const stateStore = reducerStoreFixture(state);
+  const stateStore = createChatStateStore(state);
   const openThreadInAvailableView = vi.fn<(threadId: string) => void>();
   const context = createChatThreadStreamDependencies({
     panelId: "test-panel",

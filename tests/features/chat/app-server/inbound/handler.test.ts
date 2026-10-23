@@ -13,6 +13,7 @@ import {
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { activeThreadState, type ChatState } from "../../../../../src/features/chat/application/state/model";
 import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
+import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { panelThreadSubscriptions } from "../../../../../src/features/chat/application/threads/thread-subscriptions";
 import {
   appServerAgentMessageFixture,
@@ -25,7 +26,6 @@ import {
   permissionsApprovalRequestFixture,
   userInputRequestFixture,
 } from "../../../../support/server-requests";
-import { reducerStoreFixture } from "../../support/reducer-store";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 
@@ -37,7 +37,7 @@ type TestChatInboundHandler = Omit<ChatInboundHandler, "handleNotification"> & {
 };
 
 function handlerForState(state = chatStateFixture(), actions: Partial<ChatInboundHandlerEffects> = {}): TestChatInboundHandler {
-  const store = reducerStoreFixture(state);
+  const store = createChatStateStore(state);
   const handler = createChatInboundHandler(
     store,
     {
