@@ -1,6 +1,7 @@
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";
 import { threadStreamDependenciesFixture } from "../../support/thread-stream-dependencies";
+import { toolbarActionsFixture } from "../../support/toolbar-actions";
 // @vitest-environment jsdom
 
 import { h } from "preact";
@@ -69,9 +70,7 @@ describe("chat panel projection integration", () => {
   it("disables compact context without an active thread", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { ui: { toolbarPanel: "chat-actions" } });
-    const compactContext = vi.fn();
     const actions = toolbarActionsFixture();
-    actions.chat.compactContext = compactContext;
     const parent = renderToolbar(state, emptyToolbarShared, toolbarSurfaceFixture(), actions);
 
     const compact = [...parent.querySelectorAll<HTMLElement>(".codex-panel__chat-actions-panel-item")].find(
@@ -79,7 +78,7 @@ describe("chat panel projection integration", () => {
     );
     expect(compact?.classList.contains("is-disabled")).toBe(true);
     compact?.click();
-    expect(compactContext).not.toHaveBeenCalled();
+    expect(actions.chat.compactContext).not.toHaveBeenCalled();
     unmountUiRoot(parent);
   });
 
@@ -671,48 +670,6 @@ function toolbarSurfaceFixture(
       vaultPath: () => "/vault",
       configuredCommand: () => "codex",
       archiveExportEnabled: () => overrides.archiveExportEnabled ?? false,
-    },
-  };
-}
-
-interface ToolbarActionOverrides {
-  copyDebugDetails?: () => void;
-}
-
-function toolbarActionsFixture(overrides: ToolbarActionOverrides = {}): ToolbarActions {
-  return {
-    primary: {
-      toggleHistory: () => undefined,
-      toggleChatActions: () => undefined,
-      toggleStatusPanel: () => undefined,
-    },
-    chat: {
-      startNewThread: () => undefined,
-      startSideChat: () => undefined,
-      compactContext: () => undefined,
-      setGoal: () => undefined,
-    },
-    status: {
-      connect: () => undefined,
-      refreshStatus: () => undefined,
-      copyDebugDetails: overrides.copyDebugDetails ?? (() => undefined),
-    },
-    threads: {
-      loadMore: () => undefined,
-      resume: () => undefined,
-      setPinned: () => undefined,
-      archive: {
-        start: () => undefined,
-        confirm: () => undefined,
-      },
-      rename: {
-        start: () => undefined,
-        updateDraft: () => undefined,
-        save: () => undefined,
-        cancel: () => undefined,
-        cancelAutoName: () => undefined,
-        autoName: () => undefined,
-      },
     },
   };
 }
