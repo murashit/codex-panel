@@ -13,8 +13,7 @@ export interface ThreadsViewRuntimeOwner {
 }
 
 export class CodexThreadsView extends ItemView {
-  private session: ThreadsViewSession | null = null;
-  private sessionOwner: Component | null = null;
+  private attachment: { session: ThreadsViewSession; owner: Component } | null = null;
   private opened = false;
 
   constructor(
@@ -26,7 +25,7 @@ export class CodexThreadsView extends ItemView {
   }
 
   attachRuntime(plugin: ThreadsViewHost): void {
-    if (this.session) throw new Error("Codex threads view is already attached to an execution runtime.");
+    if (this.attachment) throw new Error("Codex threads view is already attached to an execution runtime.");
     const owner = new Component();
     let session: ThreadsViewSession | null = null;
     try {
@@ -39,12 +38,10 @@ export class CodexThreadsView extends ItemView {
         },
         viewWindow: () => this.containerEl.doc.defaultView,
       });
-      this.sessionOwner = owner;
-      this.session = session;
+      this.attachment = { session, owner };
       if (this.opened) session.open();
     } catch {
-      this.session = null;
-      this.sessionOwner = null;
+      this.attachment = null;
       try {
         session?.close();
       } catch {
@@ -59,18 +56,17 @@ export class CodexThreadsView extends ItemView {
   }
 
   detachRuntime(): void {
-    const session = this.session;
-    if (!session) return;
+    const attachment = this.attachment;
+    if (!attachment) return;
+    const { session, owner } = attachment;
     try {
       session.close();
     } catch {
       // The session is detached even when its cleanup reports an error.
     }
-    this.session = null;
-    const owner = this.sessionOwner;
-    this.sessionOwner = null;
+    this.attachment = null;
     try {
-      if (owner) this.removeChild(owner);
+      this.removeChild(owner);
     } catch {
       // The session is already detached; leave DOM cleanup to the owner lifecycle.
     }
@@ -90,7 +86,7 @@ export class CodexThreadsView extends ItemView {
 
   override async onOpen(): Promise<void> {
     this.opened = true;
-    this.session?.open();
+    this.attachment?.session.open();
   }
 
   override async onClose(): Promise<void> {
@@ -99,14 +95,14 @@ export class CodexThreadsView extends ItemView {
   }
 
   refresh(): Promise<void> {
-    return this.session?.refresh() ?? Promise.resolve();
+    return this.attachment?.session.refresh() ?? Promise.resolve();
   }
 
   refreshLiveState(): void {
-    this.session?.refreshLiveState();
+    this.attachment?.session.refreshLiveState();
   }
 
   refreshSettings(): void {
-    this.session?.refreshSettings();
+    this.attachment?.session.refreshSettings();
   }
 }
