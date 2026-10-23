@@ -9,7 +9,6 @@ const predicate = {
     buildType: "https://actions.github.io/buildtypes/workflow/v1",
     externalParameters: {
       workflow: { ref: "refs/heads/main", repository: repositoryUrl, path: ".github/workflows/check.yml" },
-      inputs: { tag, release_pr: process.env.RECOVERY_PR },
     },
     internalParameters: {
       github: {
@@ -19,9 +18,11 @@ const predicate = {
         runner_environment: process.env.RUNNER_ENVIRONMENT,
       },
     },
+    // GitHub validates the first dependency against the signing workflow context.
+    // Keep the separately checked build source as an additional dependency.
     resolvedDependencies: [
-      { uri: `git+${repositoryUrl}@refs/tags/${tag}`, digest: { gitCommit: sourceSha } },
       { uri: `git+${repositoryUrl}@refs/heads/main`, digest: { gitCommit: workflowSha } },
+      { uri: `git+${repositoryUrl}@refs/tags/${tag}`, digest: { gitCommit: sourceSha } },
     ],
   },
   runDetails: {

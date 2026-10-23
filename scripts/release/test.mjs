@@ -163,7 +163,6 @@ test("recovery provenance distinguishes the tagged source from the repaired work
         GITHUB_SHA: workflowSha,
         CHECKED_SHA: sha,
         TAG: "1.0.1",
-        RECOVERY_PR: "113",
         GITHUB_RUN_ID: "123",
         GITHUB_RUN_ATTEMPT: "2",
         GITHUB_EVENT_NAME: "workflow_dispatch",
@@ -174,7 +173,9 @@ test("recovery provenance distinguishes the tagged source from the repaired work
     });
     assert.equal(result.status, 0, result.stderr);
     const predicate = JSON.parse(await readFile(path.join(dir, "recovery-provenance.json"), "utf8"));
-    assert.deepEqual(predicate.buildDefinition.externalParameters.inputs, { tag: "1.0.1", release_pr: "113" });
+    assert.deepEqual(predicate.buildDefinition.externalParameters, {
+      workflow: { ref: "refs/heads/main", repository: "https://github.com/owner/repo", path: ".github/workflows/check.yml" },
+    });
     assert.deepEqual(predicate.buildDefinition.internalParameters.github, {
       event_name: "workflow_dispatch",
       repository_id: "1234",
@@ -182,8 +183,8 @@ test("recovery provenance distinguishes the tagged source from the repaired work
       runner_environment: "github-hosted",
     });
     assert.deepEqual(predicate.buildDefinition.resolvedDependencies, [
-      { uri: "git+https://github.com/owner/repo@refs/tags/1.0.1", digest: { gitCommit: sha } },
       { uri: "git+https://github.com/owner/repo@refs/heads/main", digest: { gitCommit: workflowSha } },
+      { uri: "git+https://github.com/owner/repo@refs/tags/1.0.1", digest: { gitCommit: sha } },
     ]);
     assert.equal(predicate.runDetails.builder.id, "https://github.com/owner/repo/.github/workflows/check.yml@refs/heads/main");
     assert.equal(predicate.runDetails.metadata.invocationId, "https://github.com/owner/repo/actions/runs/123/attempts/2");

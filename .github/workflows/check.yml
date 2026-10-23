@@ -239,7 +239,6 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         env:
           TAG: ${{ inputs.tag }}
-          RECOVERY_PR: ${{ inputs.release_pr }}
         run: node scripts/release/provenance.mjs
 
       - name: Attest checked install assets
