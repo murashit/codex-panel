@@ -312,7 +312,8 @@ function sleepThreadStreamItem(item: SleepItem, turnId?: string): ThreadStreamIt
 }
 
 function imageGenerationThreadStreamItem(item: ImageGenerationItem, turnId?: string): ThreadStreamItem {
-  const target = item.savedPath ?? item.result;
+  const result = "result" in item ? item.result : "";
+  const target = item.savedPath ?? result;
   return {
     ...turnItemSourceFields(item, turnId),
     kind: "tool",
@@ -326,7 +327,7 @@ function imageGenerationThreadStreamItem(item: ImageGenerationItem, turnId?: str
     imageGeneration: {
       ...definedProp("savedPath", item.savedPath),
       revisedPrompt: item.revisedPrompt,
-      result: item.result,
+      result,
     },
     output: "",
     executionState: imageGenerationExecutionState(item.status),

@@ -690,13 +690,16 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
-  it("preserves image generation status, details, and state", () => {
+  it.each([
+    { image: { result: "image result" }, expectedResult: "image result" },
+    { image: { fileId: "file_123" }, expectedResult: "" },
+  ])("preserves image generation status, details, and state for $image", ({ image, expectedResult }) => {
     const item: TurnItem = {
       type: "imageGeneration",
       id: "image-gen-1",
       status: "completed",
       revisedPrompt: "A precise UI mockup.",
-      result: "image result",
+      ...image,
       savedPath: "/vault/project/assets/generated.png",
       failure: null,
     };
@@ -709,31 +712,35 @@ describe("turn item conversion preserves app-server semantics", () => {
       imageGeneration: {
         savedPath: "/vault/project/assets/generated.png",
         revisedPrompt: "A precise UI mockup.",
-        result: "image result",
+        result: expectedResult,
       },
       executionState: "completed",
     });
   });
 
-  it("uses image generation result as the summary when no saved path is present", () => {
+  it.each([
+    { image: { result: "image result" }, expectedResult: "image result", expectedTarget: { kind: "value", value: "image result" } },
+    { image: { fileId: "file_123" }, expectedResult: "", expectedTarget: undefined },
+  ])("maps image generation without a saved path for $image", ({ image, expectedResult, expectedTarget }) => {
     const item: TurnItem = {
       type: "imageGeneration",
       id: "image-gen-1",
       status: "completed",
       revisedPrompt: "A precise UI mockup.",
-      result: "image result",
+      ...image,
       failure: null,
     };
 
-    expect(threadStreamItemFromTurnItem(item, "t1")).toMatchObject({
+    const mapped = threadStreamItemFromTurnItem(item, "t1");
+    expect(mapped).toMatchObject({
       kind: "tool",
       toolName: "imageGeneration",
-      primaryTarget: { kind: "value", value: "image result" },
       imageGeneration: {
         revisedPrompt: "A precise UI mockup.",
-        result: "image result",
+        result: expectedResult,
       },
     });
+    expect(mapped?.kind === "tool" ? mapped.primaryTarget : undefined).toEqual(expectedTarget);
   });
 
   it("summarizes web search actions by action type and target", () => {
