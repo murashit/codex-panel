@@ -8,6 +8,7 @@ import { AppServerContextConnection } from "../../../../src/app-server/connectio
 import type { ServerNotification, ServerRequest } from "../../../../src/app-server/connection/rpc-messages";
 import { createChatState } from "../../../../src/features/chat/application/state/model";
 import { notices } from "../../../mocks/obsidian";
+import { appServerTurnFixture } from "../../../support/app-server-records";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import {
   chatHost,
@@ -273,6 +274,71 @@ describe("CodexChatView thread state", () => {
     expect(requestMethods(client)).not.toContain("turn/start");
     shared.connection.dispose();
   });
+
+  it.each(["accepted", "source-changed", "source-missing", "rejected", "retired"] as const)(
+    "settles fork source archiving after panel close (%s)",
+    async (outcome) => {
+      const accepted = deferred<unknown>();
+      const archiveThread = vi.fn().mockResolvedValue({ kind: "archived", exportedPath: null });
+      const client = connectedClient({
+        "turn/start": vi.fn(() => accepted.promise),
+        "thread/turns/list": vi.fn().mockResolvedValue({
+          data:
+            outcome === "source-missing"
+              ? []
+              : [
+                  appServerTurnFixture({
+                    id: outcome === "source-changed" ? "newer-turn" : "source-last",
+                    status: "completed",
+                    itemsView: "summary",
+                    items: [],
+                  }),
+                ],
+          nextCursor: null,
+        }),
+      });
+      const shared = sharedConnectionFixture(client);
+      const beginPublication = vi.spyOn(shared.host.threadReplacementPublication, "begin");
+      const view = await chatView({
+        host: { ...shared.host, threadMutations: { ...shared.host.threadMutations, archiveThread } },
+      });
+      try {
+        const sending = view.surface.applyForkDraft(
+          {
+            draft: {
+              kind: "persistent",
+              sourceThreadId: "source",
+              boundary: { kind: "through-turn", turnId: "source-last" },
+              replacement: { sourceThreadId: "source", sourceLatestTurnId: "source-last", saveMarkdown: false },
+            },
+            runtime: createChatState().runtime,
+            display: { items: [], turnDiffs: new Map() },
+          },
+          "Continue this fork",
+        );
+        await waitForAsyncWork(() => expectRequestTimes(client, "turn/start", 1));
+        const publication = beginPublication.mock.results[0]?.value;
+        if (!publication) throw new Error("Missing fork replacement publication.");
+        const finishPublication = vi.spyOn(publication, "finish");
+        await view.onClose();
+        client.request.mockClear();
+        if (outcome === "rejected") accepted.reject(new Error("turn rejected"));
+        else accepted.resolve({ turn: { id: "first" } });
+        if (outcome === "retired") shared.connection.dispose();
+        expect(await sending).toBe(outcome !== "rejected");
+        await waitForAsyncWork(() => expect(finishPublication).toHaveBeenCalledExactlyOnceWith(outcome === "accepted"));
+        expect(client.request.mock.calls.filter(([method]) => method === "thread/turns/list")).toEqual(
+          outcome === "rejected" || outcome === "retired"
+            ? []
+            : [["thread/turns/list", { threadId: "source", cursor: null, limit: 1, sortDirection: "desc", itemsView: "summary" }]],
+        );
+        expect(archiveThread.mock.calls).toEqual(outcome === "accepted" ? [["source", { saveMarkdown: false }]] : []);
+      } finally {
+        await view.onClose();
+        shared.connection.dispose();
+      }
+    },
+  );
 
   it.each([false, true])("waits for the same thread's unsubscribe and abandons a reopen if the panel closes (%s)", async (closes) => {
     const released = deferred<unknown>();

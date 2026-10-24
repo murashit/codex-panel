@@ -124,7 +124,10 @@ export function chatView(
 function chatHostFixture(): CodexChatHost {
   const settings: CodexPanelSettings = { ...DEFAULT_SETTINGS, codexPath: "codex", sendShortcut: "enter" };
   return {
-    appServerConnection: { createLease: disconnectedChatLeaseFixture },
+    appServerConnection: {
+      createLease: disconnectedChatLeaseFixture,
+      withClient: vi.fn().mockRejectedValue(new Error("No app-server client connected.")),
+    },
     appServerContext: { codexPath: settings.codexPath, vaultPath: "/vault" },
     threadMutations: threadMutationCommandsMock(),
     threadTitlePort: threadTitlePortFixture(),
