@@ -1,6 +1,3 @@
-import type { ChatState } from "../state/model";
-import { canSwitchToThread } from "./thread-switching";
-
 export interface ActiveChatResume {
   readonly threadId: string | null;
 }
@@ -12,10 +9,6 @@ export class ChatResumeWorkTracker {
     const resume = { threadId };
     this.current = resume;
     return resume;
-  }
-
-  canCommit(resume: ActiveChatResume, state: ChatState): boolean {
-    return this.isCurrent(resume) && canSwitchToThread(state, resume.threadId);
   }
 
   invalidate(): void {

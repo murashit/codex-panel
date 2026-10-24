@@ -75,7 +75,7 @@ async function resumeThread(
       await host.effects.resumeThread(threadId, (snapshot) => {
         host.recordResumedThread(snapshot.activation.thread);
         if (isStaleResume(host, resume, initialPanelTarget)) return;
-        if (!host.resumeWork.canCommit(resume, host.stateStore.getState())) return;
+        if (!canSwitchToThread(host.stateStore.getState(), resume.threadId)) return;
         const panelTarget = applyResumedThread(host, snapshot, initialPanelTarget.revision, displaySnapshot);
         if (panelTarget) adopted.value = { snapshot, panelTarget };
       });
@@ -174,10 +174,6 @@ function recoverResumedThreadTokenUsage(
     .catch(() => undefined);
 }
 
-function isStaleResume(host: ResumeCommandHost, resume: ActiveChatResume, panelTarget?: PanelTargetLease): boolean {
-  return (
-    !host.resumeWork.isCurrent(resume) ||
-    host.closing() ||
-    Boolean(panelTarget && !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget))
-  );
+function isStaleResume(host: ResumeCommandHost, resume: ActiveChatResume, panelTarget: PanelTargetLease): boolean {
+  return !host.resumeWork.isCurrent(resume) || host.closing() || !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget);
 }

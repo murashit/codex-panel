@@ -28,7 +28,7 @@ export function createReconnectPanelCommand(host: ChatReconnectCommandHost): (op
     try {
       return await operation;
     } finally {
-      if (activeReconnect === operation) activeReconnect = null;
+      activeReconnect = null;
     }
   };
 }
