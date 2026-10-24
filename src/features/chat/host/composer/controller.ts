@@ -42,10 +42,8 @@ import { type ComposerSubmissionClaim, SubmissionInput } from "../../application
 import { ordinaryComposerAction } from "../../domain/composer/action";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { ComposerCallbacks, ComposerPendingSelection, ComposerShellProps } from "../../ui/composer/composer";
-import { syncComposerHeight } from "../../ui/composer/height";
 import { type ComposerBoundaryScrollAction, composerBoundaryScrollActionFromElement } from "../thread-stream/composer-scroll";
 import { ComposerAttachmentTransfers, composerFilesFromTransfer, composerTransferHasFiles } from "./attachment-transfers";
-import { applyComposerInsertionToElement } from "./selection";
 import type { ChatPanelComposerActions, ChatPanelComposerModel } from "./view-projection";
 import { type ChatPanelComposerRuntimeActions, projectChatPanelComposer } from "./view-projection";
 
@@ -180,12 +178,7 @@ export class ChatComposerController {
   }
 
   private readonly setComposerElement = (composer: HTMLTextAreaElement | null): void => {
-    if (!composer) {
-      this.composer = null;
-      return;
-    }
     this.composer = composer;
-    syncComposerHeight(composer);
   };
 
   setDraft(
@@ -537,7 +530,7 @@ export class ChatComposerController {
 
     this.pendingSelection = collapsedComposerSelection(insertion.value, insertion.cursor);
     this.dispatch({ type: "composer/draft-set", draft: insertion.value, clearSuggestions: true });
-    applyComposerInsertionToElement(this.composer, insertion.cursor);
+    this.composer?.focus();
   }
 
   private readonly clearPendingSelection = (): void => {

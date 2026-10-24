@@ -116,7 +116,6 @@ export function ComposerShell({
     const composer = composerRef.current;
     if (!composer) return;
     onComposer(composer);
-    syncComposerHeight(composer);
     return () => {
       onComposer(null);
     };

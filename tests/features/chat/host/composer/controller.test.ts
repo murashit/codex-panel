@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { h } from "preact";
+import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import type { SkillMetadata } from "../../../../../src/domain/runtime/catalog";
@@ -26,6 +27,7 @@ import { createThreadStartCommand } from "../../../../../src/features/chat/appli
 import { ChatComposerController } from "../../../../../src/features/chat/host/composer/controller";
 import { selectChatPanelComposer } from "../../../../../src/features/chat/host/composer/view-projection";
 import { createVaultComposerAttachmentHandler } from "../../../../../src/features/chat/host/obsidian/composer-attachments.obsidian";
+import { useChatSelector } from "../../../../../src/features/chat/host/shell/state-selector";
 import { ComposerShell } from "../../../../../src/features/chat/ui/composer/composer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { deferred } from "../../../../support/async";
@@ -740,7 +742,10 @@ describe("ChatComposerController", () => {
     expect(dailyNoteReferences).toHaveBeenCalledWith("Inbox.md");
   });
 
-  it("keeps Tab wikilink insertion before closing brackets while Enter lands after them", () => {
+  it.each([
+    { key: "Tab", cursor: "[[Beta Note".length },
+    { key: "Enter", cursor: "[[Beta Note]]".length },
+  ])("focuses the composer and restores the $key wikilink cursor after rendering", async ({ key, cursor }) => {
     const stateStore = createChatStateStore();
     const notes = [
       {
@@ -753,31 +758,37 @@ describe("ChatComposerController", () => {
         recentIndex: null,
       },
     ];
-    const { parent, renderShell } = composerControllerFixture({
-      stateStore,
-      controller: {
-        noteCandidateProvider: noteProvider({ candidates: () => notes }),
-      },
+    const parent = document.createElement("div");
+    const controller = new ChatComposerController(
+      composerControllerOptions(stateStore, { noteCandidateProvider: noteProvider({ candidates: () => notes }) }),
+    );
+    const selector = (state: ReturnType<ChatStateStore["getState"]>) => selectChatPanelComposer(state, emptySharedResources);
+    const actions = { submit: vi.fn() };
+    function ObservedComposer() {
+      const model = useChatSelector(stateStore, selector);
+      return h(ComposerShell, controller.renderState(model, actions));
+    }
+    document.body.append(parent);
+    renderedComposerParents.add(parent);
+    trackComposerControllerTestCleanup(() => parent.remove());
+
+    await act(() => renderUiRoot(parent, h(ObservedComposer, {})));
+    await act(() => {
+      setTextAreaValue(composer(parent), "[[bet");
+      composer(parent).setSelectionRange(5, 5);
+      composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(() => {
+      composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key }));
+      expect(document.activeElement).toBe(composer(parent));
+    });
+    await act(() => {
+      composer(parent).dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key }));
     });
 
-    renderShell();
-    setTextAreaValue(composer(parent), "[[bet");
-    composer(parent).setSelectionRange(5, 5);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Tab" }));
-    composer(parent).dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Tab" }));
-
     expect(composer(parent).value).toBe("[[Beta Note]]");
-    expect(composer(parent).selectionStart).toBe("[[Beta Note".length);
-
-    setTextAreaValue(composer(parent), "[[bet");
-    composer(parent).setSelectionRange(5, 5);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
-    composer(parent).dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Enter" }));
-
-    expect(composer(parent).value).toBe("[[Beta Note]]");
-    expect(composer(parent).selectionStart).toBe("[[Beta Note]]".length);
+    expect(composer(parent).selectionStart).toBe(cursor);
+    expect(composer(parent).selectionEnd).toBe(cursor);
   });
 
   it("does not insert a saved attachment into a later thread or draft", async () => {
@@ -1294,7 +1305,7 @@ describe("ChatComposerController", () => {
     expect(controller.captureInputSnapshot().attachments).toEqual([]);
   });
 
-  it("saves dropped non-image files, inserts a wikilink, and sends a file reference", async () => {
+  it("saves dropped files, restores focus immediately, and preserves later focus on completion", async () => {
     const stateStore = createChatStateStore();
     const attachmentHandler: ComposerAttachmentHandler = {
       saveFiles: vi.fn().mockResolvedValue(
@@ -1315,10 +1326,19 @@ describe("ChatComposerController", () => {
       },
     });
 
+    const otherControl = document.createElement("button");
+    document.body.append(parent, otherControl);
+    trackComposerControllerTestCleanup(() => {
+      parent.remove();
+      otherControl.remove();
+    });
     renderShell();
     composer(parent).dispatchEvent(transferEvent("drop", "dataTransfer", [new File(["pdf"], "paper.pdf", { type: "application/pdf" })]));
+    expect(document.activeElement).toBe(composer(parent));
+    otherControl.focus();
     await flushComposerAttachment();
 
+    expect(document.activeElement).toBe(otherControl);
     expect(attachmentHandler.saveFiles).toHaveBeenCalledOnce();
     expect(composer(parent).value).toBe("[[Codex Attachments/paper.pdf]]");
     expect(controller.preparedInput(composer(parent).value).input).toEqual([

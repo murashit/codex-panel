@@ -4,12 +4,7 @@ import type { ChatState } from "../../application/state/model";
 import type { ChatAction } from "../../application/state/reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import type { ComposerPendingSelection } from "../../ui/composer/composer";
-import {
-  applyComposerInsertionToElement,
-  type ComposerElementSelection,
-  composerRangeInsertionSource,
-  composerSelectionSource,
-} from "./selection";
+import { type ComposerElementSelection, composerRangeInsertionSource, composerSelectionSource } from "./selection";
 
 interface ComposerAttachmentTransfersOptions {
   attachmentHandler: ComposerAttachmentHandler;
@@ -97,7 +92,7 @@ export class ComposerAttachmentTransfers {
     };
     this.options.setPendingSelection(collapsedComposerSelection(insertion.value, insertion.cursor));
     this.dispatch({ type: "composer/attachment-save-started", saveId: id, draft: insertion.value });
-    applyComposerInsertionToElement(composer, insertion.cursor);
+    composer?.focus();
     return pending;
   }
 
