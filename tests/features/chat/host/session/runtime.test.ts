@@ -600,7 +600,10 @@ describe("chat panel session runtime", () => {
   }
 
   function contextConnectionFixture(): CodexChatHost["appServerConnection"] {
-    return { createLease: disconnectedChatLeaseFixture };
+    return {
+      createLease: disconnectedChatLeaseFixture,
+      withClient: vi.fn().mockRejectedValue(new Error("No app-server client connected.")),
+    };
   }
 
   function contextConnectionHarness(options: {

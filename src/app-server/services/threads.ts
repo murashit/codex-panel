@@ -434,6 +434,17 @@ export async function updateThreadSettings(
   await client.request("thread/settings/update", { threadId, ...appServerRuntimeSettingsPatch(settings) });
 }
 
+export async function readLatestThreadTurnId(client: AppServerRequestClient, threadId: string): Promise<string | null> {
+  const page = await client.request("thread/turns/list", {
+    threadId,
+    cursor: null,
+    limit: 1,
+    sortDirection: "desc",
+    itemsView: "summary",
+  });
+  return page.data[0]?.id ?? null;
+}
+
 export function listThreadTurns(
   client: AppServerRequestClient,
   threadId: string,
