@@ -1,3 +1,5 @@
+import type { ComposerInputSnapshot } from "../../../../../src/features/chat/application/composer/input-snapshot";
+import { prepareComposerInput } from "../../../../../src/features/chat/application/composer/prepared-input";
 // @vitest-environment jsdom
 
 import { h } from "preact";
@@ -132,13 +134,24 @@ function composerControllerFixture(
   parent: HTMLElement;
   renderShell: () => void;
   stateStore: ChatStateStore;
+  prepareInput: (text: string, snapshot?: ComposerInputSnapshot) => ReturnType<typeof prepareComposerInput>;
 } {
   const stateStore = options.stateStore ?? createChatStateStore();
   const parent = document.createElement("div");
-  const controller = new ChatComposerController(composerControllerOptions(stateStore, options.controller));
+  const controllerOptions = composerControllerOptions(stateStore, options.controller);
+  const controller = new ChatComposerController(controllerOptions);
   const renderShell = vi.fn(() => renderComposerController(parent, controller, stateStore, options.renderActions));
   trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
-  return { controller, parent, renderShell, stateStore };
+  return {
+    controller,
+    parent,
+    renderShell,
+    stateStore,
+    prepareInput: (text, snapshot = controller.captureInputSnapshot()) =>
+      prepareComposerInput(text, snapshot, (target, sourcePath) =>
+        controllerOptions.noteCandidateProvider.resolveFileReference(target, sourcePath),
+      ),
+  };
 }
 
 describe("ChatComposerController", () => {
@@ -275,6 +288,7 @@ describe("ChatComposerController", () => {
     const pending = submitComposer({
       stateStore,
       localItemIds: createLocalIdSource(),
+      resolveFileReference: () => null,
       composer: controller,
       slashCommandExecutor: {
         execute: (_command, args, inputSnapshot, submission) =>
@@ -330,13 +344,14 @@ describe("ChatComposerController", () => {
       const addSystemMessage = vi.fn();
       const referThread = createThreadReferenceResolver({
         currentClient: () => ({ request }) as unknown as AppServerClient,
-        prepareInput: (text, snapshot) => controller.preparedInput(text, snapshot),
+        resolveFileReference: () => null,
         setStatus: vi.fn(),
       });
       const sendTurnText = vi.fn().mockResolvedValue(true);
       const submission = submitComposer({
         stateStore,
         localItemIds: createLocalIdSource(),
+        resolveFileReference: () => null,
         composer: controller,
         slashCommandExecutor: {
           execute: (_command, args, inputSnapshot, adoption) =>
@@ -376,26 +391,12 @@ describe("ChatComposerController", () => {
     },
   );
 
-  it("keeps edits typed after a claimed submission and restores both drafts on failure", () => {
-    const stateStore = createChatStateStore();
-    resumeComposerThread(stateStore, "thread");
-    const { controller } = composerControllerFixture({ stateStore });
-    controller.setDraft("first message");
-
-    const claim = controller.claimSubmission();
-    expect(claim?.text).toBe("first message");
-    expect(stateStore.getState().composer.draft).toBe("");
-
-    controller.setDraft("next message");
-    claim?.settle("failed");
-
-    expect(stateStore.getState().composer.draft).toBe("first message\n\nnext message");
-  });
-
-  it("leaves the editable next draft untouched when a claimed submission is accepted", () => {
+  it("settles accepted and failed claims without losing newer drafts", () => {
     const { controller, stateStore } = composerControllerFixture();
     controller.setDraft("first message");
     const claim = controller.claimSubmission();
+    expect(claim?.text).toBe("first message");
+    expect(stateStore.getState().composer.draft).toBe("");
 
     controller.setDraft("next message");
     claim?.settle("accepted");
@@ -406,8 +407,9 @@ describe("ChatComposerController", () => {
     claim?.adoptPanelTarget("obsolete");
     expect(controller.isSubmissionPreparing()).toBe(true);
     expect(nextClaim?.isCurrent()).toBe(true);
+    controller.setDraft("later message");
     nextClaim?.settle("failed");
-    expect(stateStore.getState().composer.draft).toBe("next message");
+    expect(stateStore.getState().composer.draft).toBe("next message\n\nlater message");
   });
 
   it("places a slash command replacement before a draft typed while the command was running", () => {
@@ -453,6 +455,7 @@ describe("ChatComposerController", () => {
     await submitComposer({
       stateStore,
       localItemIds: createLocalIdSource(),
+      resolveFileReference: () => null,
       composer: controller,
       slashCommandExecutor: { execute },
       turnSubmissionCommand: { sendTurnText: vi.fn().mockResolvedValue(true) },
@@ -971,7 +974,7 @@ describe("ChatComposerController", () => {
         ]),
       ),
     };
-    const { controller, parent, renderShell } = composerControllerFixture({
+    const { prepareInput, controller, parent, renderShell } = composerControllerFixture({
       stateStore,
       controller: {
         attachmentHandler,
@@ -984,7 +987,7 @@ describe("ChatComposerController", () => {
     const marker = composer(parent).value;
     expect(attachmentHandler.saveFiles).toHaveBeenCalledOnce();
     expect(marker).toBe("![[Codex Attachments/diagram.png]]");
-    expect(controller.preparedInput(marker).input).toEqual([
+    expect(prepareInput(marker).input).toEqual([
       { type: "text", text: marker },
       { type: "fileReference", name: "diagram", path: "Codex Attachments/diagram.png" },
       { type: "localImage", path: "Codex Attachments/diagram.png" },
@@ -999,6 +1002,7 @@ describe("ChatComposerController", () => {
     const submitting = submitComposer({
       stateStore,
       localItemIds: createLocalIdSource(),
+      resolveFileReference: () => null,
       composer: controller,
       slashCommandExecutor: { execute },
       turnSubmissionCommand: { sendTurnText },
@@ -1018,12 +1022,12 @@ describe("ChatComposerController", () => {
     const restoredSnapshot = controller.captureInputSnapshot();
 
     expect(controller.draft).toBe(originalDraft);
-    expect(controller.preparedInput(`Inspect ${marker}`, snapshot).input).toEqual([
+    expect(prepareInput(`Inspect ${marker}`, snapshot).input).toEqual([
       { type: "text", text: `Inspect ${marker}` },
       { type: "fileReference", name: "diagram", path: "Codex Attachments/diagram.png" },
       { type: "localImage", path: "Codex Attachments/diagram.png" },
     ]);
-    expect(controller.preparedInput(`Inspect ${marker}`, restoredSnapshot).input).toEqual([
+    expect(prepareInput(`Inspect ${marker}`, restoredSnapshot).input).toEqual([
       { type: "text", text: `Inspect ${marker}` },
       { type: "fileReference", name: "diagram", path: "Codex Attachments/diagram.png" },
       { type: "localImage", path: "Codex Attachments/diagram.png" },
@@ -1319,7 +1323,7 @@ describe("ChatComposerController", () => {
         ]),
       ),
     };
-    const { controller, parent, renderShell } = composerControllerFixture({
+    const { prepareInput, parent, renderShell } = composerControllerFixture({
       stateStore,
       controller: {
         attachmentHandler,
@@ -1341,7 +1345,7 @@ describe("ChatComposerController", () => {
     expect(document.activeElement).toBe(otherControl);
     expect(attachmentHandler.saveFiles).toHaveBeenCalledOnce();
     expect(composer(parent).value).toBe("[[Codex Attachments/paper.pdf]]");
-    expect(controller.preparedInput(composer(parent).value).input).toEqual([
+    expect(prepareInput(composer(parent).value).input).toEqual([
       { type: "text", text: "[[Codex Attachments/paper.pdf]]" },
       { type: "fileReference", name: "paper", path: "Codex Attachments/paper.pdf" },
     ]);
@@ -1353,7 +1357,7 @@ describe("ChatComposerController", () => {
       activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
       selection: null,
     };
-    const { controller, parent, renderShell } = composerControllerFixture({
+    const { prepareInput, controller, parent, renderShell } = composerControllerFixture({
       stateStore,
       controller: {
         noteCandidateProvider: noteProvider({ resolveFileReference: () => null }),
@@ -1372,51 +1376,18 @@ describe("ChatComposerController", () => {
     references = { activeNote: null, selection: null };
 
     expect(completedActiveNoteReference).toBe("[[Alpha]]");
-    expect(controller.preparedInput(completedActiveNoteReference).input).toContainEqual({
+    expect(prepareInput(completedActiveNoteReference).input).toContainEqual({
       type: "fileReference",
       name: "Alpha",
       path: "notes/Alpha.md",
     });
 
     controller.setDraft("", { clearSuggestions: true });
-    expect(controller.preparedInput(completedActiveNoteReference, snapshot).input).toContainEqual({
+    expect(prepareInput(completedActiveNoteReference, snapshot).input).toContainEqual({
       type: "fileReference",
       name: "Alpha",
       path: "notes/Alpha.md",
     });
-  });
-
-  it("uses the captured active file when slash commands prepare input asynchronously", () => {
-    const stateStore = createChatStateStore();
-    let references: ComposerContextReferences = {
-      activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
-      selection: null,
-    };
-    const controller = new ChatComposerController(
-      composerControllerOptions(stateStore, {
-        noteCandidateProvider: noteProvider({ resolveFileReference: () => null }),
-        contextReferenceProvider: contextProvider(() => references),
-        sourcePath: () => "Inbox.md",
-        referenceActiveNoteOnSend: () => true,
-      }),
-    );
-
-    const snapshot = controller.captureInputSnapshot();
-    references = {
-      activeNote: { name: "Beta", path: "notes/Beta.md", linktext: "Beta" },
-      selection: null,
-    };
-
-    expect(controller.preparedInput("Rewrite intro", snapshot).input).toEqual([
-      { type: "text", text: "Rewrite intro" },
-      { type: "fileReference", name: "<active>", path: "notes/Alpha.md" },
-      {
-        type: "additionalContext",
-        key: "codex_panel_obsidian_context",
-        kind: "untrusted",
-        value: "Obsidian references for the current user input:\n- <active> -> notes/Alpha.md",
-      },
-    ]);
   });
 
   it("freezes selection context when inserting the selection suggestion", async () => {
@@ -1443,7 +1414,7 @@ describe("ChatComposerController", () => {
       .mockReturnValueOnce(secondBetaSelectionEmphasis)
       .mockReturnValueOnce(nextDraftBetaSelectionEmphasis)
       .mockReturnValueOnce(submittedBetaSelectionEmphasis);
-    const { controller, parent, renderShell } = composerControllerFixture({
+    const { prepareInput, controller, parent, renderShell } = composerControllerFixture({
       stateStore,
       controller: {
         noteCandidateProvider: noteProvider({
@@ -1471,7 +1442,7 @@ describe("ChatComposerController", () => {
       },
     };
 
-    const prepared = controller.preparedInput(completedSelectionReference, snapshot);
+    const prepared = prepareInput(completedSelectionReference, snapshot);
 
     expect(composer(parent).value).toBe("[[notes/Alpha]] (L42:C5-L47:C1)");
     expect(retainSelectionEmphasis).toHaveBeenCalledWith(expect.objectContaining({ text: "initial selection" }));
@@ -1535,14 +1506,14 @@ describe("ChatComposerController", () => {
     expect(submittedBetaSelectionEmphasis.release).toHaveBeenCalledOnce();
 
     controller.setDraft("", { clearSuggestions: true });
-    expect(controller.preparedInput(completedSelectionReference, snapshot).input).toContainEqual({
+    expect(prepareInput(completedSelectionReference, snapshot).input).toContainEqual({
       type: "additionalContext",
       key: "codex_panel_obsidian_context",
       kind: "untrusted",
       value:
         "Obsidian references for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] (L42:C5-L47:C1):\ninitial selection",
     });
-    expect(controller.preparedInput(completedSelectionReference).input).toContainEqual({
+    expect(prepareInput(completedSelectionReference).input).toContainEqual({
       type: "additionalContext",
       key: "codex_panel_obsidian_context",
       kind: "untrusted",

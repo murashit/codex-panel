@@ -6,12 +6,13 @@ import type { Thread } from "../../../../domain/threads/model";
 import { shortThreadId } from "../../../../domain/threads/model";
 import { REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/transcript";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
-import type { PreparedInput } from "../../application/composer/prepared-input";
+import type { NoteCandidateProvider } from "../../application/composer/note-context";
+import { type PreparedInput, prepareComposerInput } from "../../application/composer/prepared-input";
 import { referencedThreadContext } from "../../domain/threads/reference-context";
 
 interface ThreadReferenceResolverHost {
   currentClient(): AppServerRequestClient | null;
-  prepareInput(text: string, snapshot: ComposerInputSnapshot): PreparedInput;
+  resolveFileReference: NoteCandidateProvider["resolveFileReference"];
   setStatus(status: string): void;
 }
 
@@ -33,7 +34,7 @@ async function referencedThreadInput(
   if (transcript.turns.length === 0) {
     throw new Error("Referenced thread has no readable turns.");
   }
-  const messageInput = host.prepareInput(message, snapshot);
+  const messageInput = prepareComposerInput(message, snapshot, host.resolveFileReference);
   const reference = referencedThreadContext(thread, transcript);
   const visibleText = `${threadReferenceMarkdown(thread)}\n\n${messageInput.text}`;
   host.setStatus(

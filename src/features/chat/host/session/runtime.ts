@@ -161,9 +161,10 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     notifyActiveThreadIdentityChanged,
     withThreadActivation: connection.withThreadActivation,
   });
+  const noteCandidateProvider = new VaultNoteCandidateProvider(environment.obsidian.app);
   const composerController = new ChatComposerController({
     fuzzyMatcher: obsidianFuzzyMatcher,
-    noteCandidateProvider: new VaultNoteCandidateProvider(environment.obsidian.app),
+    noteCandidateProvider,
     contextReferenceProvider: new VaultComposerContextReferenceProvider(environment.obsidian.app, environment.obsidian.isForeground),
     attachmentHandler: createVaultComposerAttachmentHandler({
       app: environment.obsidian.app,
@@ -232,6 +233,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     threadCommands: threadCommands.commands,
     navigation: threadCommands.navigation,
     composerController,
+    resolveFileReference: (target, sourcePath) => noteCandidateProvider.resolveFileReference(target, sourcePath),
     runtimeSettings,
     threadStart,
     goals: threadFeatures.goals,

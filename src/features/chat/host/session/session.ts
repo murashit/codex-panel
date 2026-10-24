@@ -1,4 +1,5 @@
 import { Notice } from "obsidian";
+import { codexTextInput } from "../../../../domain/input/input";
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../../domain/threads/title";
 import { DeferredTask } from "../../../../shared/async/deferred-task";
 import { disposeDomListeners, listenDomEvent } from "../../../../shared/ui/events.dom";
@@ -161,7 +162,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     if (!text) return true;
     const submissionClaim = this.runtime.composer.controller.claimTextSubmission(text);
     if (!submissionClaim) return false;
-    return this.runtime.turn.submissionCommands.sendTurnText({ text, submissionClaim });
+    return this.runtime.turn.submissionCommands.sendTurnText({ preparedInput: { text, input: codexTextInput(text) }, submissionClaim });
   }
 
   private async cancelForkDraft(): Promise<void> {

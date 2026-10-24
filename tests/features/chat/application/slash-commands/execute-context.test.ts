@@ -85,7 +85,7 @@ describe("context slash commands", () => {
 
     expect(ctx.referThread).toHaveBeenCalledWith(target, "質問です", inputSnapshot);
     expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("Use the current thread directly instead of referencing it.");
-    expect(result).toEqual({ sendText: "質問です", sendInput: input });
+    expect(result).toEqual({ sendInput: { text: "質問です", input: input } });
   });
 
   it("returns fetched web context input for /web", async () => {
@@ -103,7 +103,7 @@ describe("context slash commands", () => {
 
     expect(ctx.submission.markAdopted).not.toHaveBeenCalled();
     expect(ctx.readWebUrl).toHaveBeenCalledWith("https://example.com/article", "要約して", inputSnapshot, ctx.submission.isCurrent);
-    expect(result).toEqual({ sendText: "https://example.com/article 要約して", sendInput: input });
+    expect(result).toEqual({ sendInput: { text: "https://example.com/article 要約して", input: input } });
   });
 
   it("returns fetched web context input for /web without a message", async () => {
@@ -120,7 +120,7 @@ describe("context slash commands", () => {
     const result = await executeContextSlashCommand("web", "https://example.com/article", ctx);
 
     expect(ctx.readWebUrl).toHaveBeenCalledWith("https://example.com/article", "", inputSnapshot, ctx.submission.isCurrent);
-    expect(result).toEqual({ sendText: "https://example.com/article", sendInput: input });
+    expect(result).toEqual({ sendInput: { text: "https://example.com/article", input: input } });
   });
 
   it("rejects /web when no composer input snapshot is available", async () => {

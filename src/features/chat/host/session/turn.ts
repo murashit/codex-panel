@@ -1,8 +1,10 @@
 import { Notice } from "obsidian";
 import { readLatestThreadTurnId } from "../../../../app-server/services/threads";
+import { codexTextInput } from "../../../../domain/input/input";
 import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
 import type { ChatInboundHandler } from "../../app-server/inbound/handler";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
+import type { NoteCandidateProvider } from "../../application/composer/note-context";
 import type { ReconnectPanelOptions } from "../../application/connection/reconnect-command";
 import type { LocalIdSource } from "../../application/local-id-source";
 import type { ChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
@@ -59,6 +61,7 @@ interface SessionTurnInput {
   threadCommands: ThreadCommands;
   navigation: ThreadNavigationCommands;
   composerController: ChatComposerController;
+  resolveFileReference: NoteCandidateProvider["resolveFileReference"];
   runtimeSettings: ChatRuntimeSettingsCommands;
   threadStart: ThreadStartCommand;
   goals: GoalCommands;
@@ -81,6 +84,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     threadCommands,
     navigation,
     composerController,
+    resolveFileReference,
     runtimeSettings,
     threadStart,
     goals,
@@ -97,7 +101,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     },
   });
   const referThread = appServer.threadReferences({
-    prepareInput: (text, snapshot) => composerController.preparedInput(text, snapshot),
+    resolveFileReference,
     setStatus: status.set,
   });
   const turnSubmissionCommand = createTurnSubmissionCommand({
@@ -121,7 +125,6 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     ensureRestoredThreadLoaded: threadLifecycle.ensureRestoredThreadLoaded,
     startThread: threadStart.startThread,
     applyPendingThreadSettings: () => runtimeSettings.applyPendingThreadSettings(),
-    prepareInput: (text, snapshot) => composerController.preparedInput(text, snapshot),
     setStatus: status.set,
     addSystemMessage: status.addSystemMessage,
   });
@@ -133,7 +136,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     readWebUrl: (url, message, snapshot, isCurrent) =>
       readWebUrl(
         {
-          prepareInput: (text, inputSnapshot) => composerController.preparedInput(text, inputSnapshot),
+          resolveFileReference,
           viewWindow: host.environment.view.viewWindow,
           ...(isCurrent ? { isCurrent } : {}),
         },
@@ -172,7 +175,10 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     ensureConnected,
     claimSubmission: (text) => composerController.claimTextSubmission(text, { restoreOnFailure: false }),
     sendTurnText: async (claim) => {
-      await turnSubmissionCommand.sendTurnText({ text: claim.text, submissionClaim: claim });
+      await turnSubmissionCommand.sendTurnText({
+        preparedInput: { text: claim.text, input: codexTextInput(claim.text) },
+        submissionClaim: claim,
+      });
     },
     requestDefaultCollaborationModeForNextTurn: () => {
       runtimeSettings.requestDefaultCollaborationModeForNextTurn();
@@ -183,6 +189,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     localItemIds,
     ensureRestoredThreadLoaded: threadLifecycle.ensureRestoredThreadLoaded,
     composer: composerController,
+    resolveFileReference,
     slashCommandExecutor: {
       execute: (command, args, inputSnapshot, submission) =>
         executePanelSlashCommand(slashCommandHost, command, args, inputSnapshot, submission),

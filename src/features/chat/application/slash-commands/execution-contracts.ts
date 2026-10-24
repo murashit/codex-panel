@@ -1,4 +1,3 @@
-import type { CodexInput } from "../../../../domain/input/input";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
@@ -60,8 +59,4 @@ export interface SlashCommandExecutionContext extends SlashCommandExecutionPorts
   submission: ComposerSubmissionAdoption;
 }
 
-export interface SlashCommandExecutionResult {
-  sendText?: string;
-  sendInput?: CodexInput;
-  composerDraft?: string;
-}
+export type SlashCommandExecutionResult = { sendText: string } | { sendInput: PreparedInput } | { composerDraft: string };

@@ -1,11 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
-import type { CodexInput } from "../../../../../src/domain/input/input";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { createThreadReferenceResolver } from "../../../../../src/features/chat/app-server/adapters/thread-reference-resolver";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 
-const textInput = (text: string): CodexInput => [{ type: "text", text }];
+import { emptyComposerInputSnapshot } from "../../support/composer-input";
 
 describe("thread reference resolver", () => {
   it("reads referenced history and prepares one bundled input", async () => {
@@ -32,15 +31,15 @@ describe("thread reference resolver", () => {
     });
     const client = { request } as unknown as AppServerClient;
     const setStatus = vi.fn();
-    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
-    const prepareInput = vi.fn((text: string) => ({ text, input: textInput(text) }));
+    const inputSnapshot = { ...emptyComposerInputSnapshot(), sourcePath: "snapshot.md" };
+    const resolveFileReference = vi.fn((target: string) => (target === "Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null));
     const resolver = createThreadReferenceResolver({
       currentClient: () => client,
-      prepareInput,
+      resolveFileReference,
       setStatus,
     });
 
-    const result = await resolver(threadFixture(), "summarize", inputSnapshot);
+    const result = await resolver(threadFixture(), "summarize [[Alpha]]", inputSnapshot);
 
     expect(request).toHaveBeenCalledWith("thread/turns/list", {
       threadId: "019abcde-0000-7000-8000-000000000001",
@@ -51,7 +50,7 @@ describe("thread reference resolver", () => {
     });
     expect(result?.input[0]).toEqual({
       type: "text",
-      text: "[Other](codex://threads/019abcde-0000-7000-8000-000000000001)\n\nsummarize",
+      text: "[Other](codex://threads/019abcde-0000-7000-8000-000000000001)\n\nsummarize [[Alpha]]",
     });
     expect(result?.input[1]).toMatchObject({
       type: "additionalContext",
@@ -65,15 +64,24 @@ describe("thread reference resolver", () => {
     expect(result?.input[1]).toMatchObject({
       value: expect.stringContaining("Earlier turns not fetched: yes"),
     });
-    expect(result?.text).toBe("[Other](codex://threads/019abcde-0000-7000-8000-000000000001)\n\nsummarize");
-    expect(prepareInput).toHaveBeenCalledWith("summarize", inputSnapshot);
+    expect(resolveFileReference).toHaveBeenCalledWith("Alpha", "snapshot.md");
+    expect(result?.input.slice(2)).toEqual([
+      { type: "fileReference", name: "Alpha", path: "notes/Alpha.md" },
+      {
+        type: "additionalContext",
+        key: "codex_panel_obsidian_context",
+        kind: "untrusted",
+        value: "Obsidian references for the current user input:\n- [[Alpha]] -> notes/Alpha.md",
+      },
+    ]);
+    expect(result?.text).toBe("[Other](codex://threads/019abcde-0000-7000-8000-000000000001)\n\nsummarize [[Alpha]]");
     expect(setStatus).toHaveBeenCalledWith("Referencing 019abcde (1/20 turns).");
   });
 
   it("does not request history when the app-server client is unavailable", async () => {
     const resolver = createThreadReferenceResolver({
       currentClient: () => null,
-      prepareInput: vi.fn(),
+      resolveFileReference: () => null,
       setStatus: vi.fn(),
     });
 
@@ -107,5 +115,5 @@ function threadFixture(): Thread {
 
 function resolverWithRequest(request: AppServerClient["request"]) {
   const client = { request } as unknown as AppServerClient;
-  return createThreadReferenceResolver({ currentClient: () => client, prepareInput: vi.fn(), setStatus: vi.fn() });
+  return createThreadReferenceResolver({ currentClient: () => client, resolveFileReference: () => null, setStatus: vi.fn() });
 }

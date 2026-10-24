@@ -3,11 +3,7 @@ import type { SkillMetadata } from "../../../../domain/runtime/catalog";
 import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime/permissions";
 import { runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
 import type { Thread } from "../../../../domain/threads/model";
-import {
-  type ComposerAttachment,
-  type ComposerAttachmentHandler,
-  codexInputWithComposerAttachments,
-} from "../../application/composer/attachments";
+import type { ComposerAttachment, ComposerAttachmentHandler } from "../../application/composer/attachments";
 import {
   type ActiveNoteContextReference,
   activeNoteContextReferenceMarker,
@@ -19,7 +15,7 @@ import {
 import type { FuzzyMatcher } from "../../application/composer/fuzzy-search";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
 import type { NoteCandidateProvider } from "../../application/composer/note-context";
-import type { PreparedInput } from "../../application/composer/prepared-input";
+import { composerContextReferences } from "../../application/composer/prepared-input";
 import type { ComposerRuntimeSnapshot } from "../../application/composer/runtime-snapshot";
 import type { ComposerSuggestion } from "../../application/composer/suggestion";
 import {
@@ -29,7 +25,6 @@ import {
   nextComposerSuggestionIndex,
 } from "../../application/composer/suggestion";
 import { activeComposerSuggestions } from "../../application/composer/suggestions";
-import { preparedUserInputWithWikiLinkReferencesSkillsAndContext } from "../../application/composer/wikilink-context";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { type ChatRuntimeSharedResources, runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
 import { activePanelOperationForSlashCommandSuggestion } from "../../application/slash-commands/catalog";
@@ -349,20 +344,6 @@ export class ChatComposerController {
     });
   }
 
-  preparedInput(text: string, snapshot: ComposerInputSnapshot = this.captureInputSnapshot()): PreparedInput {
-    const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
-      text,
-      (target) => this.options.noteCandidateProvider.resolveFileReference(target, snapshot.sourcePath),
-      snapshot.availableSkills,
-      this.contextReferencesFromSnapshot(snapshot, text),
-      { referenceActiveNoteOnSend: snapshot.referenceActiveNoteOnSend },
-    );
-    return {
-      text: prepared.text,
-      input: codexInputWithComposerAttachments(prepared.text, prepared.input, snapshot.attachments),
-    };
-  }
-
   private handleSuggestionKeydown(event: KeyboardEvent): boolean {
     if (event.isComposing) return false;
     const state = this.state;
@@ -556,22 +537,8 @@ export class ChatComposerController {
     return resolveRuntimeControls(runtimeSnapshotForChatState(state, this.options.sharedResources), config).model.effective;
   }
 
-  private contextReferences(text: string | null = null) {
-    return this.contextReferencesFromSnapshot(this.captureInputSnapshot(), text);
-  }
-
-  private contextReferencesFromSnapshot(snapshot: ComposerInputSnapshot, text: string | null = null) {
-    const availableActiveNoteSnapshots = snapshot.activeNoteSnapshots;
-    const availableSelectionSnapshots = snapshot.selectionSnapshots;
-    const activeNoteSnapshots =
-      text === null
-        ? availableActiveNoteSnapshots
-        : availableActiveNoteSnapshots.filter((activeNote) => text.includes(activeNoteContextReferenceMarker(activeNote)));
-    const selectionSnapshots =
-      text === null
-        ? availableSelectionSnapshots
-        : availableSelectionSnapshots.filter((selection) => text.includes(selectionContextReferenceMarker(selection)));
-    return { ...snapshot.contextReferences, activeNoteSnapshots, selectionSnapshots };
+  private contextReferences() {
+    return composerContextReferences(this.captureInputSnapshot());
   }
 
   private rememberActiveNoteContextSnapshot(activeNote: ActiveNoteContextReference): void {

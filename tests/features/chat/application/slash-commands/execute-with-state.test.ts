@@ -80,6 +80,7 @@ describe("executePanelSlashCommand", () => {
       await submitComposer({
         stateStore,
         localItemIds: createLocalIdSource(),
+        resolveFileReference: () => null,
         ensureRestoredThreadLoaded: () => restoration.ensureLoaded(loadSavedThread),
         composer: {
           draft,
@@ -259,7 +260,6 @@ describe("executePanelSlashCommand", () => {
       "summarize",
       inputSnapshot,
     );
-    expect(result?.sendText).toBe("prepared summarize");
-    expect(result?.sendInput).toEqual(textInput("referenced summarize"));
+    expect(result).toEqual({ sendInput: { text: "prepared summarize", input: textInput("referenced summarize") } });
   });
 });

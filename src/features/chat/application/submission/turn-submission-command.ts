@@ -1,5 +1,3 @@
-import { type CodexInput, codexTextInput } from "../../../../domain/input/input";
-import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { PreparedInput } from "../composer/prepared-input";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
@@ -24,7 +22,6 @@ export interface TurnSubmissionCommandHost {
   ensureRestoredThreadLoaded: () => Promise<boolean>;
   startThread: ThreadStartCommand["startThread"];
   applyPendingThreadSettings: () => Promise<boolean>;
-  prepareInput: (text: string, snapshot: ComposerInputSnapshot) => PreparedInput;
   setStatus: (status: string) => void;
   addSystemMessage: (text: string) => void;
 }
@@ -40,9 +37,7 @@ type TurnSubmissionPlan =
   | { kind: "start-turn"; threadId: string };
 
 export interface TurnSubmissionRequest {
-  text: string;
-  inputSnapshot?: ComposerInputSnapshot;
-  codexInputOverride?: CodexInput;
+  preparedInput: PreparedInput;
   pendingSubmissionId?: string;
   submissionClaim: ComposerSubmissionClaim;
 }
@@ -66,12 +61,7 @@ async function sendTurnText(
   localItemIds: LocalIdSource,
   request: TurnSubmissionRequest,
 ): Promise<boolean> {
-  const { text, inputSnapshot, codexInputOverride } = request;
-  const prepared = codexInputOverride
-    ? { text, input: codexInputOverride }
-    : inputSnapshot
-      ? host.prepareInput(text, inputSnapshot)
-      : { text, input: codexTextInput(text) };
+  const prepared = request.preparedInput;
   if (!submissionIsCurrent(host, request)) return false;
   if (!(await host.ensureConnected())) return false;
   if (!submissionIsCurrent(host, request)) return false;
