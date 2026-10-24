@@ -17,11 +17,11 @@ Trace behavioral claims to real producers, user actions, or lifecycle paths, and
 
 ## Decide findings
 
-For each candidate, first decide whether it is worth addressing before developing a detailed replacement:
+For each candidate, establish its value with a concrete comparison before developing a detailed replacement:
 
 - Establish the supported expected behavior and reachable path for a behavioral concern, or the concrete maintenance activity and cost for a structural concern. A reproduction establishes what happens under its assumptions, not whether that behavior is wrong or worth changing.
 - Identify the material consequence, constraint, or risk and its likelihood or recurrence from available evidence; state what remains unknown. Structural improvements need a demonstrated maintenance burden, not a user-visible defect.
-- Compare the strongest keep-current case with a plausible improvement and its likely costs. Use enough comparison to judge whether work is worthwhile; do not require a completed design at this point.
+- Compare the strongest keep-current case with plausible improvements under [Choose the Owner of a Change](../../../docs/development.md#choose-the-owner-of-a-change). Before rejecting the candidate for cost, check existing owners and boundaries for guarantees or alternatives that could avoid costs specific to the first proposal. Use enough comparison to assess value without requiring detailed designs for every candidate.
 
 Use a fresh read-only subagent at this point to challenge material candidates' evidence, expected behavior, and value, including the keep-current case. Supply raw paths, product constraints, and these criteria without seeding the conclusion. Resolve disagreements against evidence. If independent review is unavailable or disproportionate, record why and perform a separate second pass.
 
