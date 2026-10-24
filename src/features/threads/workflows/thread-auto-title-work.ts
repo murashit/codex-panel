@@ -20,11 +20,7 @@ export function createThreadAutoTitleWork(host: ThreadAutoTitleWorkHost): Thread
   const unavailableThreadIds = new Set<string>();
   const generationControllers = new Map<string, AbortController>();
 
-  const operationIsCurrent = (threadId: string, controller: AbortController): boolean =>
-    !disposed &&
-    generationControllers.get(threadId) === controller &&
-    !titledThreadIds.has(threadId) &&
-    !unavailableThreadIds.has(threadId);
+  const operationIsCurrent = (threadId: string, controller: AbortController): boolean => generationControllers.get(threadId) === controller;
   const cancelThreadWork = (threadId: string): void => {
     generationControllers.get(threadId)?.abort();
     generationControllers.delete(threadId);

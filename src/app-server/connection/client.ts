@@ -168,7 +168,6 @@ export class AppServerClient {
       onError: (error) => {
         const transport = transportRef.current;
         if (!transport) return;
-        if (!this.isActiveTransport(transport)) return;
         this.failActiveTransport(transport, error);
       },
       onExit: (code, signal) => {
