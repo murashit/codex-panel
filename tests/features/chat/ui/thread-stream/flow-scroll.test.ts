@@ -450,60 +450,30 @@ function installThreadStreamViewportPrototypeMetrics(metrics: {
   scrollHeight: number;
   viewport: { width: number; height: number };
 }): () => void {
-  const scrollHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollHeight");
-  const clientHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientHeight");
-  const clientWidthDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth");
-  const offsetHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
-  const offsetWidthDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth");
-
-  Object.defineProperties(HTMLElement.prototype, {
-    scrollHeight: {
+  const getters = {
+    scrollHeight: () => metrics.scrollHeight,
+    clientHeight: () => metrics.viewport.height,
+    clientWidth: () => metrics.viewport.width,
+    offsetHeight: () => metrics.viewport.height,
+    offsetWidth: () => metrics.viewport.width,
+  };
+  const restorations = Object.entries(getters).map(([property, value]) => {
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, property);
+    Object.defineProperty(HTMLElement.prototype, property, {
       get() {
-        return this instanceof HTMLElement && this.classList.contains("codex-panel__thread-stream") ? metrics.scrollHeight : 0;
+        return this instanceof HTMLElement && this.classList.contains("codex-panel__thread-stream") ? value() : 0;
       },
       configurable: true,
-    },
-    clientHeight: {
-      get() {
-        return this instanceof HTMLElement && this.classList.contains("codex-panel__thread-stream") ? metrics.viewport.height : 0;
-      },
-      configurable: true,
-    },
-    clientWidth: {
-      get() {
-        return this instanceof HTMLElement && this.classList.contains("codex-panel__thread-stream") ? metrics.viewport.width : 0;
-      },
-      configurable: true,
-    },
-    offsetHeight: {
-      get() {
-        return this instanceof HTMLElement && this.classList.contains("codex-panel__thread-stream") ? metrics.viewport.height : 0;
-      },
-      configurable: true,
-    },
-    offsetWidth: {
-      get() {
-        return this instanceof HTMLElement && this.classList.contains("codex-panel__thread-stream") ? metrics.viewport.width : 0;
-      },
-      configurable: true,
-    },
+    });
+    return () => {
+      if (descriptor) Object.defineProperty(HTMLElement.prototype, property, descriptor);
+      else Reflect.deleteProperty(HTMLElement.prototype, property);
+    };
   });
 
   return () => {
-    restorePrototypeProperty(HTMLElement.prototype, "scrollHeight", scrollHeightDescriptor);
-    restorePrototypeProperty(HTMLElement.prototype, "clientHeight", clientHeightDescriptor);
-    restorePrototypeProperty(HTMLElement.prototype, "clientWidth", clientWidthDescriptor);
-    restorePrototypeProperty(HTMLElement.prototype, "offsetHeight", offsetHeightDescriptor);
-    restorePrototypeProperty(HTMLElement.prototype, "offsetWidth", offsetWidthDescriptor);
+    for (const restore of restorations) restore();
   };
-}
-
-function restorePrototypeProperty(object: object, key: PropertyKey, descriptor: PropertyDescriptor | undefined): void {
-  if (descriptor) {
-    Object.defineProperty(object, key, descriptor);
-  } else {
-    Reflect.deleteProperty(object, key);
-  }
 }
 
 function installBlockRect(element: HTMLElement, scrollViewport: HTMLElement, heights: () => Record<string, number>): void {
