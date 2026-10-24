@@ -3,12 +3,13 @@ import { htmlToMarkdown, type RequestUrlResponse, requestUrl } from "obsidian";
 
 import { codexTextInputWithAttachments } from "../../../../domain/input/input";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
-import type { PreparedInput } from "../../application/composer/prepared-input";
+import type { NoteCandidateProvider } from "../../application/composer/note-context";
+import { type PreparedInput, prepareComposerInput } from "../../application/composer/prepared-input";
 import { normalizedHttpUrl } from "../../application/submission/web-submission";
 import { WEB_CONTEXT_KEY } from "../../domain/thread-stream/format/context-attachments";
 
 interface WebContextReaderOptions {
-  prepareInput: (text: string, snapshot: ComposerInputSnapshot) => PreparedInput;
+  resolveFileReference: NoteCandidateProvider["resolveFileReference"];
   viewWindow: () => Window | null;
   requestTimeoutMs?: number;
   isCurrent?: () => boolean;
@@ -30,7 +31,7 @@ export async function readWebUrl(
   const content = htmlToMarkdown(page.content).trim();
   if (!content) throw new Error(`No readable web content found for ${parsedUrl}`);
 
-  const messageInput = options.prepareInput(message.trim(), inputSnapshot);
+  const messageInput = prepareComposerInput(message.trim(), inputSnapshot, options.resolveFileReference);
   const text = [parsedUrl, messageInput.text].filter(Boolean).join(" ");
   const context = webContextValue(parsedUrl, page.title, content);
   return {

@@ -75,6 +75,7 @@ function createHost(
   const host = {
     stateStore,
     localItemIds: createLocalIdSource(),
+    resolveFileReference: () => null,
     composer: {
       get draft() {
         return draft;
@@ -127,8 +128,7 @@ describe("submitComposer", () => {
     await submitting;
 
     expect(sendTurnText).toHaveBeenCalledWith({
-      text: "first message",
-      inputSnapshot,
+      preparedInput: { text: "first message", input: [{ type: "text", text: "first message" }] },
       submissionClaim: claim,
     });
   });
@@ -211,14 +211,17 @@ describe("submitComposer", () => {
   });
 
   it("sends plain drafts as turn text", async () => {
-    const { host, ensureConnected, inputSnapshot, sendTurnText, showLatest } = createHost("hello");
+    const { host, ensureConnected, sendTurnText, showLatest } = createHost("hello");
 
     await submitComposer(host);
 
     expect(showLatest).toHaveBeenCalledOnce();
     expect(ensureConnected).not.toHaveBeenCalled();
     expect(sendTurnText).toHaveBeenCalledWith(
-      expect.objectContaining({ text: "hello", inputSnapshot, submissionClaim: expect.any(Object) }),
+      expect.objectContaining({
+        preparedInput: { text: "hello", input: [{ type: "text", text: "hello" }] },
+        submissionClaim: expect.any(Object),
+      }),
     );
     const [showLatestOrder] = showLatest.mock.invocationCallOrder;
     const [sendTurnTextOrder] = sendTurnText.mock.invocationCallOrder;
@@ -234,7 +237,9 @@ describe("submitComposer", () => {
     await submitComposer(host);
 
     expect(execute).not.toHaveBeenCalled();
-    expect(sendTurnText).toHaveBeenCalledWith(expect.objectContaining({ text: draft }));
+    expect(sendTurnText).toHaveBeenCalledWith(
+      expect.objectContaining({ preparedInput: { text: draft, input: [{ type: "text", text: draft }] } }),
+    );
   });
 
   it("accepts a slash command with surrounding composer whitespace", async () => {
@@ -260,7 +265,10 @@ describe("submitComposer", () => {
     });
     expect(showLatest).toHaveBeenCalledOnce();
     expect(sendTurnText).toHaveBeenCalledWith(
-      expect.objectContaining({ text: "hello", inputSnapshot, submissionClaim: expect.any(Object) }),
+      expect.objectContaining({
+        preparedInput: { text: "hello", input: [{ type: "text", text: "hello" }] },
+        submissionClaim: expect.any(Object),
+      }),
     );
   });
 
@@ -268,33 +276,33 @@ describe("submitComposer", () => {
     const { host, execute, inputSnapshot, sendTurnText } = createHost("/refer Other [[Note]] (L1:C1-L1:C2)");
     execute.mockImplementation(async (_command, _args, snapshot) => {
       expect(snapshot).toBe(inputSnapshot);
-      return { sendText: "[[Note]] (L1:C1-L1:C2)", sendInput: [{ type: "text", text: "referenced input" }] };
+      return { sendInput: { text: "[[Note]] (L1:C1-L1:C2)", input: [{ type: "text", text: "referenced input" }] } };
     });
     sendTurnText.mockImplementation(async (request) => {
-      expect(request.inputSnapshot).toBe(inputSnapshot);
+      expect(request.submissionClaim.inputSnapshot).toBe(inputSnapshot);
     });
 
     await submitComposer(host);
 
     expect(sendTurnText).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: "[[Note]] (L1:C1-L1:C2)",
-        inputSnapshot,
-        codexInputOverride: [{ type: "text", text: "referenced input" }],
+        preparedInput: { text: "[[Note]] (L1:C1-L1:C2)", input: [{ type: "text", text: "referenced input" }] },
         submissionClaim: expect.any(Object),
       }),
     );
   });
 
   it("restores slash command text when command send results are not submitted", async () => {
-    const { host, execute, inputSnapshot, sendTurnText } = createHost("/web https://example.com [[Note]]");
+    const { host, execute, sendTurnText } = createHost("/web https://example.com [[Note]]");
     execute.mockResolvedValue({
-      sendText: "https://example.com/ [[Note]]",
-      sendInput: [
-        { type: "text", text: "https://example.com/ [[Note]]" },
-        { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "Readable article" },
-        { type: "fileReference", name: "Note", path: "Note.md" },
-      ],
+      sendInput: {
+        text: "https://example.com/ [[Note]]",
+        input: [
+          { type: "text", text: "https://example.com/ [[Note]]" },
+          { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "Readable article" },
+          { type: "fileReference", name: "Note", path: "Note.md" },
+        ],
+      },
     });
     sendTurnText.mockResolvedValue(false);
 
@@ -302,13 +310,14 @@ describe("submitComposer", () => {
 
     expect(sendTurnText).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: "https://example.com/ [[Note]]",
-        inputSnapshot,
-        codexInputOverride: [
-          { type: "text", text: "https://example.com/ [[Note]]" },
-          { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "Readable article" },
-          { type: "fileReference", name: "Note", path: "Note.md" },
-        ],
+        preparedInput: {
+          text: "https://example.com/ [[Note]]",
+          input: [
+            { type: "text", text: "https://example.com/ [[Note]]" },
+            { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "Readable article" },
+            { type: "fileReference", name: "Note", path: "Note.md" },
+          ],
+        },
         pendingSubmissionId: expect.stringMatching(/^local-web-/),
         submissionClaim: expect.any(Object),
       }),
@@ -317,8 +326,8 @@ describe("submitComposer", () => {
   });
 
   it("shows a pending web message while context is fetched and hands it to turn submission", async () => {
-    const { host, execute, inputSnapshot, sendTurnText, showLatest, stateStore } = createHost("/web https://example.com summarize");
-    const fetch = deferred<{ sendText: string; sendInput: [{ type: "text"; text: string }] }>();
+    const { host, execute, sendTurnText, showLatest, stateStore } = createHost("/web https://example.com summarize");
+    const fetch = deferred<{ sendInput: { text: string; input: [{ type: "text"; text: string }] } }>();
     execute.mockImplementation(() => fetch.promise);
 
     const submitting = submitComposer(host);
@@ -337,14 +346,12 @@ describe("submitComposer", () => {
     expect(sendTurnText).not.toHaveBeenCalled();
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
 
-    fetch.resolve({ sendText: "https://example.com/ summarize", sendInput: [{ type: "text", text: "prepared" }] });
+    fetch.resolve({ sendInput: { text: "https://example.com/ summarize", input: [{ type: "text", text: "prepared" }] } });
     await submitting;
 
     expect(sendTurnText).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: "https://example.com/ summarize",
-        inputSnapshot,
-        codexInputOverride: [{ type: "text", text: "prepared" }],
+        preparedInput: { text: "https://example.com/ summarize", input: [{ type: "text", text: "prepared" }] },
         pendingSubmissionId: pending?.id,
         submissionClaim: expect.any(Object),
       }),

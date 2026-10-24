@@ -1,5 +1,7 @@
 import { ordinaryComposerAction } from "../../domain/composer/action";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
+import type { NoteCandidateProvider } from "../composer/note-context";
+import { prepareComposerInput } from "../composer/prepared-input";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { type SlashCommandName, slashCommandRequiresConnection, slashCommandRequiresRestoredThread } from "../slash-commands/catalog";
@@ -20,6 +22,7 @@ const STATUS_INTERRUPT_REQUESTED = "Interrupt requested.";
 export interface ComposerSubmitCommandHost {
   stateStore: ChatStateStore;
   localItemIds: LocalIdSource;
+  resolveFileReference: NoteCandidateProvider["resolveFileReference"];
   ensureRestoredThreadLoaded?: () => Promise<boolean>;
   composer: {
     readonly draft: string;
@@ -129,36 +132,30 @@ async function sendMessage(
     if (execution.failed) return;
     if (!submissionClaim.isCurrent()) return;
     const result = execution.result;
-    if (result?.composerDraft !== undefined && result.sendText === undefined) {
+    if (!result) {
+      if (pendingWeb) rollbackPendingWebSubmission(host, pendingWeb.id);
+      else submissionClaim.settle("accepted");
+      return;
+    }
+    if ("composerDraft" in result) {
       submissionClaim.settle("accepted", result.composerDraft);
       return;
     }
-    if (result?.sendText) {
-      if (pendingWeb && !pendingWebSubmissionIsCurrent(host, pendingWeb.id)) return;
-      if (!pendingWeb) host.scroll.showLatest();
-      const submitted = await host.turnSubmissionCommand.sendTurnText({
-        text: result.sendText,
-        inputSnapshot,
-        ...(result.sendInput !== undefined ? { codexInputOverride: result.sendInput } : {}),
-        ...(pendingWeb ? { pendingSubmissionId: pendingWeb.id } : {}),
-        submissionClaim,
-      });
-      if (!submitted && pendingWeb) rollbackPendingWebSubmission(host, pendingWeb.id);
-    }
-    if (result === undefined || (result.sendText === undefined && result.composerDraft === undefined)) {
-      if (pendingWeb) {
-        rollbackPendingWebSubmission(host, pendingWeb.id);
-      } else {
-        submissionClaim.settle("accepted");
-      }
-    }
+    if (pendingWeb && !pendingWebSubmissionIsCurrent(host, pendingWeb.id)) return;
+    if (!pendingWeb) host.scroll.showLatest();
+    const submitted = await host.turnSubmissionCommand.sendTurnText({
+      preparedInput:
+        "sendInput" in result ? result.sendInput : prepareComposerInput(result.sendText, inputSnapshot, host.resolveFileReference),
+      ...(pendingWeb ? { pendingSubmissionId: pendingWeb.id } : {}),
+      submissionClaim,
+    });
+    if (!submitted && pendingWeb) rollbackPendingWebSubmission(host, pendingWeb.id);
     return;
   }
 
   host.scroll.showLatest();
   await host.turnSubmissionCommand.sendTurnText({
-    text,
-    inputSnapshot,
+    preparedInput: prepareComposerInput(text, inputSnapshot, host.resolveFileReference),
     submissionClaim,
   });
 }

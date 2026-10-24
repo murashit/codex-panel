@@ -1,12 +1,11 @@
-import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
-import type { PreparedInput } from "../application/composer/prepared-input";
+import type { NoteCandidateProvider } from "../application/composer/note-context";
 import { type ChatSessionAdapters, createChatSessionAdapters } from "./adapters/session-adapters";
 import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./adapters/thread-reference-resolver";
 
 export type ChatAppServerGatewayHost = Parameters<typeof createChatSessionAdapters>[0];
 
 interface ChatThreadReferenceResolverOptions {
-  prepareInput(text: string, snapshot: ComposerInputSnapshot): PreparedInput;
+  resolveFileReference: NoteCandidateProvider["resolveFileReference"];
   setStatus(status: string): void;
 }
 

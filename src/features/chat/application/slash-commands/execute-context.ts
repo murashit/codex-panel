@@ -50,7 +50,7 @@ export async function executeContextSlashCommand(
         return;
       }
       const reference = await context.referThread(thread.thread, parsed.text, context.inputSnapshot);
-      return { sendText: reference.text, sendInput: reference.input };
+      return { sendInput: reference };
     }
     case "web": {
       const parsed = parseWebCommandArgs(args);
@@ -63,7 +63,7 @@ export async function executeContextSlashCommand(
         return;
       }
       const web = await context.readWebUrl(parsed.url, parsed.message, context.inputSnapshot, context.submission.isCurrent);
-      return { sendText: web.text, sendInput: web.input };
+      return { sendInput: web };
     }
     case "goal":
       return executeGoalCommand(args, context);

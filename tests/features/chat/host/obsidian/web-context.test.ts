@@ -2,10 +2,9 @@
 
 import * as obsidian from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
-import type { CodexInput } from "../../../../../src/domain/input/input";
-import type { ComposerInputSnapshot } from "../../../../../src/features/chat/application/composer/input-snapshot";
 import { readWebUrl } from "../../../../../src/features/chat/host/obsidian/web-context.obsidian";
 import { deferred } from "../../../../support/async";
+import { emptyComposerInputSnapshot } from "../../support/composer-input";
 
 let requestUrl: MockInstance<typeof obsidian.requestUrl>;
 let htmlToMarkdown: MockInstance<typeof obsidian.htmlToMarkdown>;
@@ -29,22 +28,16 @@ describe("web context reader", () => {
   });
 
   it("attaches fetched Markdown as untrusted context while preserving prepared message input", async () => {
-    const inputSnapshot = { sourcePath: "source.md" } as ComposerInputSnapshot;
-    const messageInput = [
-      { type: "text" as const, text: "Summarize [[Notes/Alpha.md]] [[Files/Sketch.png]]" },
-      { type: "fileReference" as const, name: "Alpha", path: "Notes/Alpha.md" },
-      { type: "additionalContext" as const, key: "codex_panel_obsidian_context", kind: "untrusted" as const, value: "selection" },
-      { type: "fileReference" as const, name: "Sketch.png", path: "Files/Sketch.png" },
-      { type: "localImage" as const, path: "Files/Sketch.png" },
-    ] satisfies CodexInput;
-    const prepareInput = vi.fn(() => ({
-      text: "Summarize [[Notes/Alpha.md]] [[Files/Sketch.png]]",
-      input: messageInput,
-    }));
+    const inputSnapshot = {
+      ...emptyComposerInputSnapshot(),
+      sourcePath: "source.md",
+      attachments: [{ kind: "image" as const, name: "Sketch.png", path: "Files/Sketch.png", marker: "[[Files/Sketch.png]]" }],
+    };
+    const resolveFileReference = vi.fn((target: string) => (target === "Alpha" ? { name: "Alpha", path: "Notes/Alpha.md" } : null));
 
     const result = await readWebUrl(
       {
-        prepareInput,
+        resolveFileReference,
         viewWindow: () => window,
       },
       "https://example.com/article",
@@ -54,11 +47,11 @@ describe("web context reader", () => {
 
     expect(requestUrl).toHaveBeenCalledWith({ url: "https://example.com/article", method: "GET", throw: false });
     expect(htmlToMarkdown).toHaveBeenCalledWith(expect.stringContaining("Readable article"));
-    expect(prepareInput).toHaveBeenCalledWith("Summarize [[Alpha]] [[Files/Sketch.png]]", inputSnapshot);
+    expect(resolveFileReference).toHaveBeenCalledWith("Alpha", "source.md");
     expect(result).toEqual({
-      text: "https://example.com/article Summarize [[Notes/Alpha.md]] [[Files/Sketch.png]]",
+      text: "https://example.com/article Summarize [[Alpha]] [[Files/Sketch.png]]",
       input: [
-        { type: "text", text: "https://example.com/article Summarize [[Notes/Alpha.md]] [[Files/Sketch.png]]" },
+        { type: "text", text: "https://example.com/article Summarize [[Alpha]] [[Files/Sketch.png]]" },
         {
           type: "additionalContext",
           key: "codex_panel_web_context",
@@ -66,7 +59,12 @@ describe("web context reader", () => {
           value: "Web page context for the current user input:\nSource: https://example.com/article\nTitle: Example\n\nReadable article",
         },
         { type: "fileReference", name: "Alpha", path: "Notes/Alpha.md" },
-        { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "selection" },
+        {
+          type: "additionalContext",
+          key: "codex_panel_obsidian_context",
+          kind: "untrusted",
+          value: "Obsidian references for the current user input:\n- [[Alpha]] -> Notes/Alpha.md",
+        },
         { type: "fileReference", name: "Sketch.png", path: "Files/Sketch.png" },
         { type: "localImage", path: "Files/Sketch.png" },
       ],
@@ -91,12 +89,12 @@ describe("web context reader", () => {
     await expect(
       readWebUrl(
         {
-          prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
+          resolveFileReference: () => null,
           viewWindow: () => window,
         },
         "file:///tmp/article.html",
         "",
-        {} as ComposerInputSnapshot,
+        emptyComposerInputSnapshot(),
       ),
     ).rejects.toThrow("Unsupported web URL: file:///tmp/article.html");
 
@@ -107,12 +105,12 @@ describe("web context reader", () => {
     await expect(
       readWebUrl(
         {
-          prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
+          resolveFileReference: () => null,
           viewWindow: () => window,
         },
         "https://user:secret@example.com/article",
         "",
-        {} as ComposerInputSnapshot,
+        emptyComposerInputSnapshot(),
       ),
     ).rejects.toThrow("Unsupported web URL: https://user:secret@example.com/article");
 
@@ -125,13 +123,13 @@ describe("web context reader", () => {
     await expect(
       readWebUrl(
         {
-          prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
+          resolveFileReference: () => null,
           viewWindow: () => window,
           isCurrent,
         },
         "https://example.com/article",
         "",
-        {} as ComposerInputSnapshot,
+        emptyComposerInputSnapshot(),
       ),
     ).rejects.toThrow("Web import cancelled.");
 
@@ -147,13 +145,13 @@ describe("web context reader", () => {
       );
       const reading = readWebUrl(
         {
-          prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
+          resolveFileReference: () => null,
           viewWindow: () => window,
           requestTimeoutMs: 10,
         },
         "https://example.com/article",
         "",
-        {} as ComposerInputSnapshot,
+        emptyComposerInputSnapshot(),
       );
       await Promise.all([
         expect(reading).rejects.toThrow("Web request timed out for https://example.com/article."),
@@ -167,9 +165,9 @@ describe("web context reader", () => {
 
 function readArticle() {
   return readWebUrl(
-    { prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }), viewWindow: () => window },
+    { resolveFileReference: () => null, viewWindow: () => window },
     "https://example.com/article",
     "",
-    {} as ComposerInputSnapshot,
+    emptyComposerInputSnapshot(),
   );
 }

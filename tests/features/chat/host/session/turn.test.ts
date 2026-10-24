@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ToolInventorySnapshot } from "../../../../../src/domain/runtime/tool-inventory";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import type { ComposerInputSnapshot } from "../../../../../src/features/chat/application/composer/input-snapshot";
+import type { ComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
+import type { NoteCandidateProvider } from "../../../../../src/features/chat/application/composer/note-context";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { ChatComposerController } from "../../../../../src/features/chat/host/composer/controller";
@@ -22,23 +23,63 @@ describe("createSessionTurn", () => {
     resumeThread(stateStore, [
       { id: "plan", kind: "dialogue", role: "assistant", text: "Plan", dialogueKind: "proposedPlan", dialogueState: "completed" },
     ]);
-    const prepareInput = vi.fn(
-      (text: string, _snapshot: ComposerInputSnapshot): ReturnType<ChatComposerController["preparedInput"]> => ({
-        text,
-        input: [
-          { type: "text", text },
-          { type: "fileReference", name: "unexpected", path: "notes/Alpha.md" },
-        ],
-      }),
-    );
-    const fixture = sessionTurnFixture({ stateStore, prepareInput });
+    const fixture = sessionTurnFixture({ stateStore });
     await fixture.turn.submissionCommands.planImplementation.implement("plan");
-    expect(prepareInput).not.toHaveBeenCalled();
     expect(fixture.startTurn).toHaveBeenCalledWith({
       threadId: "thread",
       input: [{ type: "text", text: "Please implement this plan." }],
       clientUserMessageId: expect.any(String),
     });
+  });
+
+  it.each(["[[Alpha]]", "/plan [[Alpha]]"])("releases the claim and restores %s when input preparation fails", async (draft) => {
+    const fixture = sessionTurnFixture({
+      draft,
+      resolveFileReference: () => {
+        throw new Error("note resolution failed");
+      },
+    });
+    await expect(fixture.submit()).rejects.toThrow("note resolution failed");
+    expect(fixture.composer.draft).toBe(draft);
+    expect(fixture.composer.isSubmissionPreparing()).toBe(false);
+    expect(fixture.startTurn).not.toHaveBeenCalled();
+  });
+
+  it("uses claim-time context after /plan waits for connection and restores the draft on turn failure", async () => {
+    const draft = "/plan Summarize";
+    const stateStore = createChatStateStore();
+    resumeThread(stateStore, []);
+    let references: ComposerContextReferences = {
+      activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
+      selection: null,
+    };
+    const connection = deferred<boolean>();
+    const ensureConnected = vi.fn(() => connection.promise);
+    const fixture = sessionTurnFixture({ stateStore, draft, ensureConnected, contextReferences: () => references });
+    fixture.startTurn.mockRejectedValueOnce(new Error("turn failed"));
+    const sending = fixture.submit();
+    await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalled());
+    references = { activeNote: { name: "Beta", path: "notes/Beta.md", linktext: "Beta" }, selection: null };
+    fixture.composer.setDraft("Next message");
+    connection.resolve(true);
+    await sending;
+    expect(fixture.startTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: [
+          { type: "text", text: "Summarize" },
+          { type: "fileReference", name: "<active>", path: "notes/Alpha.md" },
+          {
+            type: "additionalContext",
+            key: "codex_panel_obsidian_context",
+            kind: "untrusted",
+            value: "Obsidian references for the current user input:\n- <active> -> notes/Alpha.md",
+          },
+        ],
+      }),
+    );
+    expect(fixture.composer.draft).toBe(`${draft}\n\nNext message`);
+    expect(fixture.composer.isSubmissionPreparing()).toBe(false);
+    expect(fixture.status.addSystemMessage).toHaveBeenCalledExactlyOnceWith("turn failed");
   });
 
   it("prevents a direct send from overtaking a plan submission waiting for connection", async () => {
@@ -149,7 +190,8 @@ function sessionTurnFixture(
   options: {
     stateStore?: ReturnType<typeof createChatStateStore>;
     draft?: string;
-    prepareInput?: (text: string, snapshot: ComposerInputSnapshot) => ReturnType<ChatComposerController["preparedInput"]>;
+    contextReferences?: () => ComposerContextReferences;
+    resolveFileReference?: NoteCandidateProvider["resolveFileReference"];
     ensureConnected?: ReturnType<typeof vi.fn>;
     referThread?: ReturnType<typeof vi.fn>;
     threads?: readonly import("../../../../../src/domain/threads/model").Thread[];
@@ -186,7 +228,9 @@ function sessionTurnFixture(
       dispose: () => {},
     },
     contextReferenceProvider: {
-      contextReferences: () => ({ activeNote: null, selection: null }),
+      contextReferences:
+        options.contextReferences ??
+        (() => ({ activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" }, selection: null })),
       retainSelectionEmphasis: () => null,
       dispose: () => {},
     },
@@ -196,11 +240,6 @@ function sessionTurnFixture(
   } as never);
   composers.push(composer);
   composer.setDraft(draft);
-  vi.spyOn(composer, "preparedInput").mockImplementation((text, snapshot) =>
-    options.prepareInput
-      ? options.prepareInput(text, snapshot ?? composer.captureInputSnapshot())
-      : { text, input: [{ type: "text", text }] },
-  );
   const turn = createSessionTurn(
     {
       environment: {
@@ -240,8 +279,10 @@ function sessionTurnFixture(
         selectThread: vi.fn(),
       },
       composerController: composer,
+      resolveFileReference: options.resolveFileReference ?? (() => ({ name: "unexpected", path: "notes/Alpha.md" })),
       runtimeSettings: {
         applyPendingThreadSettings: vi.fn().mockResolvedValue(true),
+        toggleCollaborationMode: vi.fn().mockResolvedValue(undefined),
         requestDefaultCollaborationModeForNextTurn: () =>
           stateStore.dispatch({
             type: "runtime/pending-intent-patched",
