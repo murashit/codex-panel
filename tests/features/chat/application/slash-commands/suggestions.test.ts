@@ -85,19 +85,19 @@ describe("activeSlashCommandSuggestions", () => {
 
   it("suggests matching threads and preserves the completed target identity", () => {
     const threads = [
-      thread({ id: "019abcde-0000-7000-8000-000000000001", name: "Codex Panel実装" }),
-      thread({ id: "019abcde-0000-7000-8000-000000000002", name: "別件" }),
+      thread({ id: "019abcde-0000-7000-8000-000000000001", name: "Codex Panel implementation" }),
+      thread({ id: "019abcde-0000-7000-8000-000000000002", name: "Another task" }),
     ];
 
     expect(suggestions("/resume codex", { threads })[0]).toMatchObject({
-      display: "Codex Panel実装",
+      display: "Codex Panel implementation",
       detail: "019abcde",
-      replacement: '"Codex Panel実装"',
+      replacement: '"Codex Panel implementation"',
       appendSpaceOnInsert: true,
       threadCommandTarget: {
         command: "resume",
         threadId: "019abcde-0000-7000-8000-000000000001",
-        title: "Codex Panel実装",
+        title: "Codex Panel implementation",
       },
     });
     expect(suggestions("/resume ", { threads })).toHaveLength(2);

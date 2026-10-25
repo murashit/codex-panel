@@ -9,7 +9,7 @@ import { generateThreadTitleWithCodex } from "../../../../src/features/threads/a
 import { appServerTurnFixture } from "../../../support/app-server-records";
 
 describe("thread title", () => {
-  it("runs a structured title request and parses its agent response", async () => {
+  it("runs a structured title request and preserves its Japanese agent response", async () => {
     const runner = vi.fn<EphemeralStructuredTurnRunner>(async () =>
       turn([
         {
@@ -47,14 +47,14 @@ describe("thread title", () => {
   });
 
   it.each([
-    ["normalizes whitespace", JSON.stringify({ title: "  Codex\n Panel\t命名  " }), "Codex Panel 命名"],
+    ["normalizes whitespace", JSON.stringify({ title: "  Codex\n Panel\tnaming  " }), "Codex Panel naming"],
     ["bounds long titles", JSON.stringify({ title: "x".repeat(80) }), "x".repeat(40)],
     ["rejects empty titles", JSON.stringify({ title: "   " }), null],
     ["rejects non-string titles", JSON.stringify({ title: 42 }), null],
     ["rejects missing titles", "{}", null],
-    ["rejects raw text", "Codex Panelの自動命名", null],
-    ["rejects fenced JSON", '```json\n{"title":"命名"}\n```', null],
-    ["rejects embedded JSON", 'Title: {"title":"命名"}', null],
+    ["rejects raw text", "Automatic Codex Panel naming", null],
+    ["rejects fenced JSON", '```json\n{"title":"Naming"}\n```', null],
+    ["rejects embedded JSON", 'Title: {"title":"Naming"}', null],
   ])("%s", async (_label, text, expected) => {
     const runner: EphemeralStructuredTurnRunner = async () => turn([agentMessage(text)]);
     await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), { runner })).resolves.toBe(
@@ -64,12 +64,14 @@ describe("thread title", () => {
 
   it("reads an agent response with unknown phase and ignores plan items", async () => {
     const runner: EphemeralStructuredTurnRunner = async () =>
-      turn([agentMessage('{"title":"命名"}'), { type: "plan", id: "plan", text: "A plan is not the structured response." }]);
-    await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), { runner })).resolves.toBe("命名");
+      turn([agentMessage('{"title":"Naming"}'), { type: "plan", id: "plan", text: "A plan is not the structured response." }]);
+    await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), { runner })).resolves.toBe(
+      "Naming",
+    );
   });
 
   it("returns no title without an agent response", async () => {
-    const runner: EphemeralStructuredTurnRunner = async () => turn([{ type: "plan", id: "plan", text: '{"title":"計画"}' }]);
+    const runner: EphemeralStructuredTurnRunner = async () => turn([{ type: "plan", id: "plan", text: '{"title":"Plan"}' }]);
     await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), { runner })).resolves.toBeNull();
   });
 

@@ -14,9 +14,9 @@ function context(overrides: Partial<ContextCommandContext> = {}): ContextCommand
     submission: slashSubmissionFixture(),
     referThread: vi.fn().mockResolvedValue({ text: "referenced", input: [{ type: "text", text: "referenced" }] }),
     readWebUrl: vi.fn().mockResolvedValue({
-      text: "https://example.com/article 要約して",
+      text: "https://example.com/article Summarize this",
       input: [
-        { type: "text", text: "https://example.com/article 要約して" },
+        { type: "text", text: "https://example.com/article Summarize this" },
         { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "Readable article" },
       ],
     }),
@@ -52,7 +52,7 @@ describe("context slash commands", () => {
       listedThreads: [thread({ id: "thread-current", name: "Current" }), target],
     });
 
-    await executeContextSlashCommand("refer", '"Alpha" 質問です', ctx);
+    await executeContextSlashCommand("refer", '"Alpha" A question', ctx);
 
     expect(ctx.referThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Cannot reference a thread without composer input context.");
@@ -64,7 +64,7 @@ describe("context slash commands", () => {
       listedThreads: [thread({ id: "thread-1", name: "Current" })],
     });
 
-    await executeContextSlashCommand("refer", '"Current" 続きです', ctx);
+    await executeContextSlashCommand("refer", '"Current" Continue this', ctx);
 
     expect(ctx.referThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Use the current thread directly instead of referencing it.");
@@ -72,38 +72,38 @@ describe("context slash commands", () => {
 
   it("does not let the active thread shadow a non-active /refer match", async () => {
     const target = thread({ id: "alpha-thread", name: "Alpha other thread" });
-    const input = [{ type: "text" as const, text: "質問です" }];
+    const input = [{ type: "text" as const, text: "A question" }];
     const inputSnapshot = { sourcePath: "snapshot.md" } as never;
     const ctx = context({
       activeThreadId: "thread-current",
       inputSnapshot,
       listedThreads: [thread({ id: "thread-current", name: "Alpha plan" }), target],
-      referThread: vi.fn().mockResolvedValue({ text: "質問です", input }),
+      referThread: vi.fn().mockResolvedValue({ text: "A question", input }),
     });
 
-    const result = await executeContextSlashCommand("refer", "alpha 質問です", ctx);
+    const result = await executeContextSlashCommand("refer", "alpha A question", ctx);
 
-    expect(ctx.referThread).toHaveBeenCalledWith(target, "質問です", inputSnapshot);
+    expect(ctx.referThread).toHaveBeenCalledWith(target, "A question", inputSnapshot);
     expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("Use the current thread directly instead of referencing it.");
-    expect(result).toEqual({ sendInput: { text: "質問です", input: input } });
+    expect(result).toEqual({ sendInput: { text: "A question", input: input } });
   });
 
   it("returns fetched web context input for /web", async () => {
     const inputSnapshot = { sourcePath: "snapshot.md" } as never;
     const input = [
-      { type: "text" as const, text: "https://example.com/article 要約して" },
+      { type: "text" as const, text: "https://example.com/article Summarize this" },
       { type: "additionalContext" as const, key: "codex_panel_web_context", kind: "untrusted" as const, value: "Readable article" },
     ];
     const ctx = context({
       inputSnapshot,
-      readWebUrl: vi.fn().mockResolvedValue({ text: "https://example.com/article 要約して", input }),
+      readWebUrl: vi.fn().mockResolvedValue({ text: "https://example.com/article Summarize this", input }),
     });
 
-    const result = await executeContextSlashCommand("web", "https://example.com/article 要約して", ctx);
+    const result = await executeContextSlashCommand("web", "https://example.com/article Summarize this", ctx);
 
     expect(ctx.submission.markAdopted).not.toHaveBeenCalled();
-    expect(ctx.readWebUrl).toHaveBeenCalledWith("https://example.com/article", "要約して", inputSnapshot, ctx.submission.isCurrent);
-    expect(result).toEqual({ sendInput: { text: "https://example.com/article 要約して", input: input } });
+    expect(ctx.readWebUrl).toHaveBeenCalledWith("https://example.com/article", "Summarize this", inputSnapshot, ctx.submission.isCurrent);
+    expect(result).toEqual({ sendInput: { text: "https://example.com/article Summarize this", input: input } });
   });
 
   it("returns fetched web context input for /web without a message", async () => {
@@ -126,7 +126,7 @@ describe("context slash commands", () => {
   it("rejects /web when no composer input snapshot is available", async () => {
     const ctx = context();
 
-    await executeContextSlashCommand("web", "https://example.com/article 要約して", ctx);
+    await executeContextSlashCommand("web", "https://example.com/article Summarize this", ctx);
 
     expect(ctx.readWebUrl).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Cannot read a web URL without composer input context.");

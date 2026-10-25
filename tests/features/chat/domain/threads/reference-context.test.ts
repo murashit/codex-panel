@@ -8,7 +8,7 @@ function thread(overrides: Partial<Thread> = {}): Thread {
   return panelThreadFixture({
     id: "019abcde-0000-7000-8000-000000000001",
     preview: "Preview",
-    name: "参照元",
+    name: "Referenced thread",
     ...overrides,
   });
 }

@@ -514,7 +514,7 @@ describe("submitComposer", () => {
 
   it("restores slash command text and reports executor errors", async () => {
     const { host, execute, sendTurnText, settleSubmission, showLatest } = createHost(
-      "/web https://obsidian.md/help/plugins/web-viewer 読める？",
+      "/web https://obsidian.md/help/plugins/web-viewer Can you read this?",
     );
     execute.mockRejectedValue(new Error("No readable content found for https://obsidian.md/help/plugins/web-viewer"));
 

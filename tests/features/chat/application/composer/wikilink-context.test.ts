@@ -252,7 +252,7 @@ describe("wikilink context", () => {
   });
 
   it("leaves bare context references as raw text", () => {
-    const text = "整理して @active and @selection";
+    const text = "Organize this @active and @selection";
     const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
       text,
       (target) => (target === "notes/Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
@@ -276,7 +276,7 @@ describe("wikilink context", () => {
 
   it("resolves completed active snapshots without depending on the current link context", () => {
     const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
-      "整理して [[Alpha]]",
+      "Organize this [[Alpha]]",
       () => null,
       [],
       {
@@ -386,7 +386,7 @@ describe("wikilink context", () => {
 
   it("attaches completed selection snapshots without depending on the current editor selection", () => {
     const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
-      "整理して [[notes/Alpha]] (L42:C5-L47:C1)",
+      "Organize this [[notes/Alpha]] (L42:C5-L47:C1)",
       (target) => (target === "notes/Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
       [],
       {

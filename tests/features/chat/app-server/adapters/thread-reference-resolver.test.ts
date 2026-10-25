@@ -20,10 +20,15 @@ describe("thread reference resolver", () => {
           completedAt: null,
           durationMs: null,
           items: [
-            { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "元の依頼", text_elements: [] }] },
-            { type: "agentMessage", id: "a1", text: "途中回答", phase: "commentary", memoryCitation: null },
-            { type: "userMessage", id: "u2", clientId: null, content: [{ type: "text", text: "追加条件", text_elements: [] }] },
-            { type: "agentMessage", id: "a2", text: "回答", phase: "final_answer", memoryCitation: null },
+            { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "Original request", text_elements: [] }] },
+            { type: "agentMessage", id: "a1", text: "Intermediate response", phase: "commentary", memoryCitation: null },
+            {
+              type: "userMessage",
+              id: "u2",
+              clientId: null,
+              content: [{ type: "text", text: "Additional requirement", text_elements: [] }],
+            },
+            { type: "agentMessage", id: "a2", text: "Response", phase: "final_answer", memoryCitation: null },
           ],
         },
       ],
@@ -59,7 +64,7 @@ describe("thread reference resolver", () => {
       value: expect.stringContaining("Referenced thread context for the current user input:"),
     });
     expect(result?.input[1]).toMatchObject({
-      value: expect.stringContaining("User follow-up:\n追加条件"),
+      value: expect.stringContaining("User follow-up:\nAdditional requirement"),
     });
     expect(result?.input[1]).toMatchObject({
       value: expect.stringContaining("Earlier turns not fetched: yes"),

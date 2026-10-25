@@ -226,11 +226,11 @@ describe("CodexChatView workspace restoration", () => {
 
     await view.setState({ threadId: "thread-named" }, {} as never);
     await view.onOpen();
-    host.receiveActiveThreads([panelThread({ id: "thread-named", name: "作業メモ" })]);
-    expect(view.getDisplayText()).toBe("Codex: 作業メモ");
+    host.receiveActiveThreads([panelThread({ id: "thread-named", name: "Work notes" })]);
+    expect(view.getDisplayText()).toBe("Codex: Work notes");
 
-    host.receiveActiveThreads([panelThread({ id: "thread-named", name: null, preview: "初回依頼" })]);
-    expect(view.getDisplayText()).toBe("Codex: 初回依頼");
+    host.receiveActiveThreads([panelThread({ id: "thread-named", name: null, preview: "Initial request" })]);
+    expect(view.getDisplayText()).toBe("Codex: Initial request");
 
     await view.setState({ threadId: "019e061e-0000-7000-8000-000000000001" }, {} as never);
     host.receiveActiveThreads([]);
