@@ -326,7 +326,7 @@ describe("ChatComposerController", () => {
     "preserves unsent reference input after %s without publishing into another thread",
     async (failure) => {
       const { controller, stateStore } = composerControllerFixture();
-      const original = "/refer Other この背景と制約を踏まえて詳しく検討してください [[attachment.md]]";
+      const original = "/refer Other Consider this background and these constraints in detail [[attachment.md]]";
       const attachments: ComposerAttachment[] = [{ kind: "file", name: "attachment", path: "attachment.md", marker: "[[attachment.md]]" }];
       controller.restoreRuntimeSnapshot({
         draft: original,

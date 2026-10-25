@@ -40,31 +40,31 @@ describe("chat thread title context", () => {
   it("uses the first usable displayed turn as a resumed-history fallback", () => {
     expect(
       firstThreadTitleContextFromThreadStreamItems([
-        { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "本文だけのturn", turnId: "turn-1" },
-        { id: "u2", kind: "dialogue", dialogueKind: "user", role: "user", text: "履歴から命名したい", turnId: "turn-2" },
+        { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "Request-only turn", turnId: "turn-1" },
+        { id: "u2", kind: "dialogue", dialogueKind: "user", role: "user", text: "Name this thread from its history", turnId: "turn-2" },
         {
           id: "a2",
           kind: "dialogue",
           role: "assistant",
-          text: "表示済み履歴から候補を作ります。",
+          text: "Generate a title from the displayed history.",
           turnId: "turn-2",
           dialogueKind: "assistantResponse",
           dialogueState: "completed",
         },
-        { id: "u3", kind: "dialogue", dialogueKind: "user", role: "user", text: "後続turn", turnId: "turn-3" },
+        { id: "u3", kind: "dialogue", dialogueKind: "user", role: "user", text: "Later turn", turnId: "turn-3" },
         {
           id: "a3",
           kind: "dialogue",
           role: "assistant",
-          text: "後続応答",
+          text: "Later response",
           turnId: "turn-3",
           dialogueKind: "assistantResponse",
           dialogueState: "completed",
         },
       ]),
     ).toEqual({
-      userRequest: "履歴から命名したい",
-      assistantResponse: "表示済み履歴から候補を作ります。",
+      userRequest: "Name this thread from its history",
+      assistantResponse: "Generate a title from the displayed history.",
     });
   });
 
@@ -77,21 +77,21 @@ describe("chat thread title context", () => {
           role: "tool",
           text: "Goal set.",
           action: "set",
-          objective: "ゴールから始めたスレッドを命名したい",
+          objective: "Name this goal-started thread",
         },
         {
           id: "a1",
           kind: "dialogue",
           role: "assistant",
-          text: "ゴール内容に基づいて実装しました。",
+          text: "Implemented the goal.",
           turnId: "turn",
           dialogueKind: "assistantResponse",
           dialogueState: "completed",
         },
       ]),
     ).toEqual({
-      userRequest: "ゴールから始めたスレッドを命名したい",
-      assistantResponse: "ゴール内容に基づいて実装しました。",
+      userRequest: "Name this goal-started thread",
+      assistantResponse: "Implemented the goal.",
     });
   });
 });

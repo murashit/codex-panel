@@ -16,15 +16,15 @@ describe("app-server turn records", () => {
   it("projects readable transcript entries without command log items", () => {
     expect(
       transcriptEntriesFromTurnRecords([
-        turn([userMessage("u1", "  依頼です  "), commandItem("cmd"), agentMessage("a1", "回答です"), planItem("p1", "計画です")], {
+        turn([userMessage("u1", "  Request  "), commandItem("cmd"), agentMessage("a1", "Response"), planItem("p1", "Plan")], {
           startedAt: 10,
           completedAt: 12,
         }),
       ]),
     ).toEqual([
-      { kind: "user", text: "依頼です", timestamp: 10 },
-      { kind: "assistant", text: "回答です", timestamp: 12 },
-      { kind: "plan", text: "計画です", timestamp: 12 },
+      { kind: "user", text: "Request", timestamp: 10 },
+      { kind: "assistant", text: "Response", timestamp: 12 },
+      { kind: "plan", text: "Plan", timestamp: 12 },
     ]);
   });
 
@@ -32,36 +32,38 @@ describe("app-server turn records", () => {
     expect(
       completedTurnTranscriptSummaryFromTurnRecord(
         turn([
-          agentMessage("draft", "途中経過"),
-          userMessage("u1", "最初の依頼"),
-          userMessage("u2", "補足"),
-          agentMessage("a1", "最終回答"),
-          planItem("p1", "最終計画"),
+          agentMessage("draft", "Progress update"),
+          userMessage("u1", "Initial request"),
+          userMessage("u2", "Follow-up"),
+          agentMessage("a1", "Final response"),
+          planItem("p1", "Final plan"),
         ]),
       ),
-    ).toEqual({ userText: "最初の依頼", assistantText: "最終計画" });
+    ).toEqual({ userText: "Initial request", assistantText: "Final plan" });
   });
 
   it("does not build completed turn transcript summaries for failed turns", () => {
     expect(
-      completedTurnTranscriptSummaryFromTurnRecord(turn([userMessage("u1", "依頼"), agentMessage("a1", "回答")], { status: "failed" })),
+      completedTurnTranscriptSummaryFromTurnRecord(
+        turn([userMessage("u1", "Request"), agentMessage("a1", "Response")], { status: "failed" }),
+      ),
     ).toBeNull();
   });
 
   it("requires both user and assistant text for a completed turn summary", () => {
-    expect(completedTurnTranscriptSummaryFromTurnRecord(turn([userMessage("u1", "依頼")]))).toBeNull();
-    expect(completedTurnTranscriptSummaryFromTurnRecord(turn([agentMessage("a1", "回答")]))).toBeNull();
+    expect(completedTurnTranscriptSummaryFromTurnRecord(turn([userMessage("u1", "Request")]))).toBeNull();
+    expect(completedTurnTranscriptSummaryFromTurnRecord(turn([agentMessage("a1", "Response")]))).toBeNull();
   });
 
   it("projects transcript entries from turn lists", () => {
     expect(
       transcriptEntriesFromTurnRecords([
-        turn([userMessage("u1", "先の依頼")], { id: "turn-1", startedAt: 10 }),
-        turn([agentMessage("a1", "後の回答")], { id: "turn-2", startedAt: 20, completedAt: 25 }),
+        turn([userMessage("u1", "Earlier request")], { id: "turn-1", startedAt: 10 }),
+        turn([agentMessage("a1", "Later response")], { id: "turn-2", startedAt: 20, completedAt: 25 }),
       ]),
     ).toEqual([
-      { kind: "user", text: "先の依頼", timestamp: 10 },
-      { kind: "assistant", text: "後の回答", timestamp: 25 },
+      { kind: "user", text: "Earlier request", timestamp: 10 },
+      { kind: "assistant", text: "Later response", timestamp: 25 },
     ]);
   });
 
@@ -106,7 +108,7 @@ describe("app-server turn records", () => {
             id: "u1",
             clientId: null,
             content: [
-              { type: "text", text: "この画像を見てください", text_elements: [] },
+              { type: "text", text: "Look at this image", text_elements: [] },
               { type: "localImage", path: "Codex Attachments/diagram.png" },
               { type: "image", url: "https://example.com/diagram.png" },
             ],
@@ -116,7 +118,7 @@ describe("app-server turn records", () => {
     ).toEqual([
       {
         kind: "user",
-        text: "この画像を見てください\n[local image] Codex Attachments/diagram.png\n[image] https://example.com/diagram.png",
+        text: "Look at this image\n[local image] Codex Attachments/diagram.png\n[image] https://example.com/diagram.png",
         timestamp: null,
       },
     ]);

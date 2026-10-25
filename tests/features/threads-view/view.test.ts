@@ -420,7 +420,7 @@ describe("CodexThreadsView", () => {
   });
 
   it("auto-names a thread rename draft from completed history", async () => {
-    const context = { userRequest: "threads viewのrenameを直したい", assistantResponse: "rename UIを調整しました。" };
+    const context = { userRequest: "Fix thread renaming in the threads view", assistantResponse: "Updated the rename UI." };
     const titlePort = titlePortFixture();
     titlePort.persistedContext.mockResolvedValue(context);
     titlePort.generateTitle.mockResolvedValue("Threads rename UI");

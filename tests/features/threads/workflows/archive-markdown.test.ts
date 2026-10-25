@@ -13,9 +13,9 @@ describe("thread archive export", () => {
         name: "Exported thread",
         archived: false,
         transcriptEntries: [
-          transcriptEntry("user", "依頼です", timestamp(2026, 5, 18, 9, 8)),
-          transcriptEntry("assistant", "回答です", timestamp(2026, 5, 18, 9, 11)),
-          transcriptEntry("plan", "<proposed_plan>\n計画\n</proposed_plan>", timestamp(2026, 5, 18, 9, 11)),
+          transcriptEntry("user", "Request", timestamp(2026, 5, 18, 9, 8)),
+          transcriptEntry("assistant", "Response", timestamp(2026, 5, 18, 9, 11)),
+          transcriptEntry("plan", "<proposed_plan>\nPlan\n</proposed_plan>", timestamp(2026, 5, 18, 9, 11)),
         ],
       }),
       new Date(2026, 4, 18, 9, 8, 7),
@@ -33,16 +33,16 @@ describe("thread archive export", () => {
         "",
         "## User - 2026-05-18 09:08",
         "",
-        "依頼です",
+        "Request",
         "",
         "## Codex - 2026-05-18 09:11",
         "",
-        "回答です",
+        "Response",
         "",
         "## Proposed plan - 2026-05-18 09:11",
         "",
         "<proposed_plan>",
-        "計画",
+        "Plan",
         "</proposed_plan>",
         "",
       ].join("\n"),
@@ -60,13 +60,13 @@ describe("thread archive export", () => {
   it("omits timestamp suffixes when transcript timestamps are missing", () => {
     const output = archivedThreadMarkdown(
       thread({
-        transcriptEntries: [transcriptEntry("user", "古い依頼", null), transcriptEntry("assistant", "古い回答", null)],
+        transcriptEntries: [transcriptEntry("user", "Older request", null), transcriptEntry("assistant", "Older response", null)],
       }),
       new Date(2026, 4, 18),
     );
 
-    expect(output).toContain("## User\n\n古い依頼");
-    expect(output).toContain("## Codex\n\n古い回答");
+    expect(output).toContain("## User\n\nOlder request");
+    expect(output).toContain("## Codex\n\nOlder response");
   });
 
   it("preserves mid-turn guidance after the response it follows despite shared turn timestamps", () => {

@@ -24,10 +24,10 @@ describe("runtime slash commands", () => {
   it("returns message text after toggling Plan mode for /plan arguments", async () => {
     const ctx = context();
 
-    const result = await executeRuntimeSlashCommand("plan", "OK、実装してください", ctx);
+    const result = await executeRuntimeSlashCommand("plan", "OK, implement it", ctx);
 
     expect(ctx.runtimeSettings.toggleCollaborationMode).toHaveBeenCalledOnce();
-    expect(result).toEqual({ sendText: "OK、実装してください" });
+    expect(result).toEqual({ sendText: "OK, implement it" });
   });
 
   it("toggles auto-review without sending text for bare /auto-review", async () => {
