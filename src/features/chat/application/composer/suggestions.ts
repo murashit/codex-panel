@@ -4,15 +4,10 @@ import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime
 import type { Thread } from "../../../../domain/threads/model";
 import type { SlashCommandName } from "../slash-commands/catalog";
 import { activeSlashCommandSuggestions } from "../slash-commands/suggestions";
-import {
-  activeNoteContextReferenceMarker,
-  type ComposerContextReferences,
-  formatComposerContextRange,
-  type SelectionContextReference,
-  selectionContextReferenceMarker,
-} from "./context-references";
+import { activeNoteContextReferenceMarker, type ComposerContextReferences, type SelectionContextReference } from "./context-references";
 import type { FuzzyMatch, FuzzyMatcher } from "./fuzzy-search";
 import type { DailyNoteReferenceCandidate, NoteCandidate, NoteHeadingCandidate } from "./note-context";
+import { selectionContextPreview } from "./selection-context";
 import type { ComposerSuggestion } from "./suggestion";
 
 export interface ComposerSuggestionOptions {
@@ -88,9 +83,9 @@ function activeContextReferenceSuggestions(
   }
   if (references?.selection && "selection".startsWith(query) && query !== "selection") {
     suggestions.push({
-      display: `Selection · ${references.selection.name} · ${formatComposerContextRange(references.selection.range)}`,
+      display: `Selection · ${references.selection.name}`,
       detail: selectionSuggestionPreview(references.selection),
-      replacement: selectionContextReferenceMarker(references.selection),
+      replacement: selectionContextPreview(references.selection),
       start,
       selectionContext: references.selection,
     });

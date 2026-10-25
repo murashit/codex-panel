@@ -7,13 +7,15 @@ import {
 } from "../../../../domain/input/input";
 import type { SkillMetadata } from "../../../../domain/runtime/catalog";
 import { type MarkdownCodeRange, markdownCodeRangeContainsOffset, markdownCodeRanges } from "../../domain/markdown/code-ranges";
+import { markdownCodeSpan } from "../../domain/markdown/code-span";
 import {
   type ActiveNoteContextReference,
   type ComposerContextReferences,
-  type SelectionContextReference,
-  selectionContextReferenceMarker,
+  formatComposerContextRange,
+  type SelectionContextSnapshot,
 } from "./context-references";
 import type { PreparedInput } from "./prepared-input";
+import { selectionContextMatches } from "./selection-context";
 
 interface ParsedWikiLink {
   raw: string;
@@ -26,6 +28,8 @@ interface ObsidianReference {
   marker: string;
   path: string;
   excerpt?: string;
+  readingSelection?: boolean;
+  sourceRange?: string;
 }
 
 export type WikiLinkFileReferenceResolver = (target: string) => VaultFileReference | null;
@@ -63,14 +67,18 @@ export function preparedUserInputWithWikiLinkReferencesSkillsAndContext(
   contextReferences: ComposerContextReferences,
   options: PreparedComposerInputOptions,
 ): PreparedInput {
-  const codeRanges = markdownReferenceCodeRanges(text);
-  const selections = selectionsReferencedByText(text, contextReferences.selectionSnapshots ?? [], codeRanges);
+  const snapshots = contextReferences.selectionSnapshots ?? [];
+  const { masked, matches } = selectionContextMatches(text, snapshots);
+  const codeRanges = markdownCodeRanges(masked);
+  const activeMatches = matches.filter((match) => !markdownCodeRangeContainsOffset(codeRanges, match.start));
+  const referenced = new Set(activeMatches.map((match) => match.snapshot.marker));
+  const selections = snapshots.filter((snapshot) => referenced.has(snapshot.marker));
   const fileReferences: VaultFileReference[] = [];
   const wikilinkReferences: ObsidianReference[] = [];
   const seenPaths = new Set<string>();
   const activeNoteSnapshots = contextReferences.activeNoteSnapshots ?? [];
 
-  for (const link of parsedWikiLinks(text, codeRanges)) {
+  for (const link of parsedWikiLinks(masked, codeRanges)) {
     const fileReference = activeNoteFileReferenceForLink(link, activeNoteSnapshots) ?? resolveFileReference(link.target);
     if (!fileReference || seenPaths.has(fileReference.path)) continue;
     seenPaths.add(fileReference.path);
@@ -79,9 +87,9 @@ export function preparedUserInputWithWikiLinkReferencesSkillsAndContext(
   }
 
   for (const selection of selections) {
-    if (seenPaths.has(selection.path)) continue;
-    seenPaths.add(selection.path);
-    fileReferences.push({ name: selection.name, path: selection.path });
+    if (seenPaths.has(selection.reference.path)) continue;
+    seenPaths.add(selection.reference.path);
+    fileReferences.push({ name: selection.reference.name, path: selection.reference.path });
   }
 
   const attachedActiveNote = options.referenceActiveNoteOnSend ? contextReferences.activeNote : null;
@@ -90,17 +98,29 @@ export function preparedUserInputWithWikiLinkReferencesSkillsAndContext(
   const skillByName = firstEnabledSkillByName(skills);
   const resolvedSkills: SkillReference[] = [];
   const seenSkillPaths = new Set<string>();
-  for (const reference of parsedSkillReferences(text, codeRanges)) {
+  for (const reference of parsedSkillReferences(masked, codeRanges)) {
     const skill = skillByName.get(reference.toLowerCase());
     if (!skill || seenSkillPaths.has(skill.path)) continue;
     seenSkillPaths.add(skill.path);
     resolvedSkills.push({ name: skill.name, path: skill.path });
   }
 
+  let sentText = "";
+  let cursor = 0;
+  for (const match of activeMatches) {
+    const marker = match.snapshot.marker;
+    const noteEnd = marker.indexOf("]]") + 2;
+    sentText +=
+      literalTextAroundQuotes(text, cursor, match.start, codeRanges) +
+      marker.slice(0, noteEnd + 1) +
+      markdownCodeSpan(marker.slice(noteEnd + 1));
+    cursor = match.end;
+  }
+  sentText += activeMatches.length > 0 ? literalTextAroundQuotes(text, cursor, text.length, codeRanges) : text;
   return {
-    text,
+    text: sentText,
     input: codexTextInputWithReferences(
-      text,
+      sentText,
       fileReferences,
       resolvedSkills,
       additionalContext(wikilinkReferences, selections, attachedActiveNote),
@@ -108,30 +128,29 @@ export function preparedUserInputWithWikiLinkReferencesSkillsAndContext(
   };
 }
 
+function literalTextAroundQuotes(text: string, start: number, end: number, codeRanges: readonly MarkdownCodeRange[]): string {
+  let result = "";
+  for (let index = start; index < end; index += 1) {
+    if (text.charAt(index) === "`" && !markdownCodeRangeContainsOffset(codeRanges, index)) {
+      let before = index;
+      while (text.charAt(before - 1) === "\\") before -= 1;
+      // Preserve literal unmatched ticks instead of pairing them with the newly
+      // introduced quote delimiters. Already escaped ticks and valid code stay intact.
+      if ((index - before) % 2 === 0) result += "\\";
+    }
+    result += text.charAt(index);
+  }
+  return result;
+}
+
 function activeNoteFileReferenceForLink(link: ParsedWikiLink, snapshots: readonly ActiveNoteContextReference[]): VaultFileReference | null {
   const snapshot = snapshots.find((item) => link.raw.trim() === item.linktext && link.target === item.linktext);
   return snapshot ? { name: snapshot.name, path: snapshot.path } : null;
 }
 
-function selectionsReferencedByText(
-  text: string,
-  snapshots: readonly SelectionContextReference[],
-  codeRanges: readonly MarkdownCodeRange[],
-): SelectionContextReference[] {
-  const selections: SelectionContextReference[] = [];
-  const seen = new Set<string>();
-  for (const snapshot of snapshots) {
-    const marker = selectionContextReferenceMarker(snapshot);
-    if (!includesOutsideMarkdownCode(text, marker, codeRanges) || seen.has(marker)) continue;
-    seen.add(marker);
-    selections.push(snapshot);
-  }
-  return selections;
-}
-
 function additionalContext(
   wikilinkReferences: readonly ObsidianReference[],
-  selections: readonly SelectionContextReference[],
+  selections: readonly SelectionContextSnapshot[],
   activeNote: ActiveNoteContextReference | null,
 ): RequestAdditionalContext[] {
   return obsidianContextAdditionalContext(obsidianReferences(wikilinkReferences, selections, activeNote));
@@ -139,15 +158,16 @@ function additionalContext(
 
 function obsidianReferences(
   wikilinkReferences: readonly ObsidianReference[],
-  selections: readonly SelectionContextReference[],
+  selections: readonly SelectionContextSnapshot[],
   activeNote: ActiveNoteContextReference | null,
 ): ObsidianReference[] {
-  const selectionReferences = selections.map((selection) => ({
-    marker: selectionContextReferenceMarker(selection),
+  const selectionReferences = selections.map(({ reference: selection, marker }) => ({
+    marker,
     path: selection.path,
     excerpt: selection.text,
+    ...(selection.range === null ? { readingSelection: true } : { sourceRange: formatComposerContextRange(selection.range) }),
   }));
-  const selectedWikilinks = new Set(selections.map((selection) => referenceKey(`[[${selection.linktext}]]`, selection.path)));
+  const selectedWikilinks = new Set(selections.map(({ reference }) => referenceKey(`[[${reference.linktext}]]`, reference.path)));
   return [
     ...wikilinkReferences.filter((reference) => !selectedWikilinks.has(referenceKey(reference.marker, reference.path))),
     ...selectionReferences,
@@ -180,7 +200,10 @@ function obsidianContextValue(references: readonly ObsidianReference[]): string 
 }
 
 function referenceLine(reference: ObsidianReference): string {
-  return `- ${reference.marker} -> ${reference.path}${reference.excerpt === undefined ? "" : " (inline excerpt below)"}`;
+  if (reference.readingSelection) {
+    return `- ${reference.marker} -> ${reference.path} (viewed note context, not verified excerpt provenance or an edit location; inline excerpt below)`;
+  }
+  return `- ${reference.marker} -> ${reference.path}${reference.sourceRange ? ` (source range ${reference.sourceRange})` : ""}${reference.excerpt === undefined ? "" : " (inline excerpt below)"}`;
 }
 
 function excerptLines(references: readonly (ObsidianReference & { excerpt: string })[]): string[] {
@@ -204,19 +227,6 @@ function parsedSkillReferences(text: string, codeRanges: readonly MarkdownCodeRa
     references.push(name);
   }
   return references;
-}
-
-function markdownReferenceCodeRanges(text: string): MarkdownCodeRange[] {
-  return text.includes("[[") || text.includes("$") ? markdownCodeRanges(text) : [];
-}
-
-function includesOutsideMarkdownCode(text: string, value: string, codeRanges: readonly MarkdownCodeRange[]): boolean {
-  let index = text.indexOf(value);
-  while (index >= 0) {
-    if (!markdownCodeRangeContainsOffset(codeRanges, index)) return true;
-    index = text.indexOf(value, index + value.length);
-  }
-  return false;
 }
 
 function parseWikiLink(raw: string): ParsedWikiLink | null {

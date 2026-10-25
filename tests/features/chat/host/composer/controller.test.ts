@@ -16,6 +16,7 @@ import type {
 import type {
   ComposerContextReferenceProvider,
   ComposerContextReferences,
+  SelectionContextReference,
 } from "../../../../../src/features/chat/application/composer/context-references";
 import type { NoteCandidateProvider } from "../../../../../src/features/chat/application/composer/note-context";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
@@ -523,7 +524,7 @@ describe("ChatComposerController", () => {
       draft: `/web https://example.com ${attachment.marker} [[Note]]`,
       attachments: [attachment],
       activeNoteSnapshots: [activeNote],
-      selectionSnapshots: [selection],
+      selectionSnapshots: [{ reference: selection, marker: '[[Selection]] "text"' }],
       threadCommandTarget: null,
     });
     first.controller.claimSubmission();
@@ -537,7 +538,7 @@ describe("ChatComposerController", () => {
     expect(snapshot.draft).toBe(`/web https://example.com ${attachment.marker} [[Note]]\n\nnext draft`);
     expect(restoredInput.attachments).toEqual([attachment]);
     expect(restoredInput.activeNoteSnapshots).toEqual([activeNote]);
-    expect(restoredInput.selectionSnapshots).toEqual([selection]);
+    expect(restoredInput.selectionSnapshots).toEqual([{ reference: selection, marker: '[[Selection]] "text"' }]);
   });
 
   it("does not hand an adopted submission back as a resendable draft", () => {
@@ -913,7 +914,7 @@ describe("ChatComposerController", () => {
     renderShell();
     insertSelectionSuggestion(parent);
     const draft = composer(parent).value;
-    expect(controller.captureInputSnapshot().selectionSnapshots).toEqual([selection]);
+    expect(controller.captureInputSnapshot().selectionSnapshots).toEqual([{ reference: selection, marker: '[[Alpha]] "text"' }]);
 
     composer(parent).setSelectionRange(0, draft.length);
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
@@ -925,7 +926,7 @@ describe("ChatComposerController", () => {
     await flushComposerAttachment();
 
     const snapshot = controller.captureInputSnapshot();
-    expect(snapshot.selectionSnapshots).toEqual(outcome === "saved" ? [] : [selection]);
+    expect(snapshot.selectionSnapshots).toEqual(outcome === "saved" ? [] : [{ reference: selection, marker: '[[Alpha]] "text"' }]);
     expect(snapshot.attachments).toEqual(outcome === "saved" ? [attachmentFixture("first")] : []);
     expect(emphasis.release).toHaveBeenCalledTimes(outcome === "saved" ? 1 : 0);
     expect(composer(parent).value).toBe(outcome === "saved" ? attachmentFixture("first").marker : draft);
@@ -1444,30 +1445,24 @@ describe("ChatComposerController", () => {
 
     const prepared = prepareInput(completedSelectionReference, snapshot);
 
-    expect(composer(parent).value).toBe("[[notes/Alpha]] (L42:C5-L47:C1)");
+    expect(composer(parent).value).toBe('[[notes/Alpha]] "initial selection"');
     expect(retainSelectionEmphasis).toHaveBeenCalledWith(expect.objectContaining({ text: "initial selection" }));
     expect(prepared.input).toContainEqual({
       type: "additionalContext",
       key: "codex_panel_obsidian_context",
       kind: "untrusted",
       value:
-        "Obsidian references for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] (L42:C5-L47:C1):\ninitial selection",
+        'Obsidian references for the current user input:\n- [[notes/Alpha]] "initial selection" -> notes/Alpha.md (source range 42:5-47:1) (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] "initial selection":\ninitial selection',
     });
 
-    setTextAreaValue(composer(parent), `${completedSelectionReference}\n@sel`);
-    composer(parent).setSelectionRange(composer(parent).value.length, composer(parent).value.length);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
-    const betaSelectionReference = "[[notes/Beta]] (L1:C1-L1:C5)";
+    insertSelectionSuggestion(parent, `${completedSelectionReference}\n`);
+    const betaSelectionReference = '[[notes/Beta]] "changed selection"';
     expect(composer(parent).value).toBe(`${completedSelectionReference}\n${betaSelectionReference}`);
     expect(retainSelectionEmphasis).toHaveBeenCalledTimes(2);
     expect(alphaSelectionEmphasis.release).not.toHaveBeenCalled();
     expect(firstBetaSelectionEmphasis.release).not.toHaveBeenCalled();
 
-    setTextAreaValue(composer(parent), `${composer(parent).value}\n@sel`);
-    composer(parent).setSelectionRange(composer(parent).value.length, composer(parent).value.length);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    insertSelectionSuggestion(parent, `${composer(parent).value}\n`);
     expect(retainSelectionEmphasis).toHaveBeenCalledTimes(3);
     expect(firstBetaSelectionEmphasis.release).toHaveBeenCalledOnce();
     expect(secondBetaSelectionEmphasis.release).not.toHaveBeenCalled();
@@ -1485,7 +1480,7 @@ describe("ChatComposerController", () => {
     expect(alphaSelectionEmphasis.setEnabled).toHaveBeenLastCalledWith(true);
     expect(secondBetaSelectionEmphasis.release).toHaveBeenCalledOnce();
     expect(nextDraftBetaSelectionEmphasis.release).not.toHaveBeenCalled();
-    expect(controller.captureInputSnapshot().selectionSnapshots.map((selection) => selection.text)).toEqual([
+    expect(controller.captureInputSnapshot().selectionSnapshots.map((selection) => selection.reference.text)).toEqual([
       "initial selection",
       "changed selection",
     ]);
@@ -1511,7 +1506,7 @@ describe("ChatComposerController", () => {
       key: "codex_panel_obsidian_context",
       kind: "untrusted",
       value:
-        "Obsidian references for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] (L42:C5-L47:C1):\ninitial selection",
+        'Obsidian references for the current user input:\n- [[notes/Alpha]] "initial selection" -> notes/Alpha.md (source range 42:5-47:1) (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] "initial selection":\ninitial selection',
     });
     expect(prepareInput(completedSelectionReference).input).toContainEqual({
       type: "additionalContext",
@@ -1519,6 +1514,143 @@ describe("ChatComposerController", () => {
       kind: "untrusted",
       value: "Obsidian references for the current user input:\n- [[notes/Alpha]] -> notes/Alpha.md",
     });
+  });
+
+  it("keeps Reading excerpts distinct through claims, failed restoration and runtime restoration", () => {
+    const prefix = "x".repeat(60);
+    let selection = readingReference("capture-a", `${prefix} first excerpt`);
+    const { controller, parent, prepareInput, renderShell } = composerControllerFixture({
+      controller: { contextReferenceProvider: contextProvider(() => ({ activeNote: null, selection })) },
+    });
+    renderShell();
+    insertSelectionSuggestion(parent);
+    const firstDraft = composer(parent).value;
+    expect(firstDraft).toBe(`[[Alpha]] "${"x".repeat(48)}…"`);
+    const claim = controller.claimSubmission();
+    selection = readingReference("capture-b", `${prefix} second excerpt`);
+    insertSelectionSuggestion(parent);
+    const secondDraft = composer(parent).value;
+    expect(secondDraft).toBe(`[[Alpha]] "${"x".repeat(49)}…"`);
+    claim?.settle("failed");
+    expect(controller.captureInputSnapshot().selectionSnapshots.map((snapshot) => snapshot.reference.text)).toEqual([
+      `${prefix} first excerpt`,
+      `${prefix} second excerpt`,
+    ]);
+
+    const snapshot = controller.runtimeSnapshot();
+    controller.setDraft("");
+    controller.restoreRuntimeSnapshot(snapshot);
+    expect(controller.captureInputSnapshot().selectionSnapshots).toMatchObject([
+      { marker: firstDraft, reference: { range: null, selectionId: "capture-a", text: `${prefix} first excerpt` } },
+      { marker: secondDraft, reference: { range: null, selectionId: "capture-b", text: `${prefix} second excerpt` } },
+    ]);
+    const context = expectPresent(prepareInput(composer(parent).value).input.find((item) => item.type === "additionalContext"));
+    expect(context.kind).toBe("untrusted");
+    expect(context.value).toContain("not verified excerpt provenance or an edit location");
+    expect(context.value).toContain(`${firstDraft}:\n${prefix} first excerpt`);
+    expect(context.value).toContain(`${secondDraft}:\n${prefix} second excerpt`);
+  });
+
+  it("keeps later exact source locations separate when the quoted text is identical", () => {
+    const first = editorReference("same text", 0);
+    let selection = first;
+    const { controller, parent, renderShell, prepareInput } = composerControllerFixture({
+      controller: { contextReferenceProvider: contextProvider(() => ({ activeNote: null, selection })) },
+    });
+    renderShell();
+    insertSelectionSuggestion(parent);
+    const plain = '[[Alpha]] "same text"';
+    expect(composer(parent).value).toBe(plain);
+    const claim = controller.claimSubmission();
+    selection = { ...first, range: { from: { line: 19, ch: 0 }, to: { line: 19, ch: 9 } } };
+    insertSelectionSuggestion(parent);
+    const located = '[[Alpha]] (20:1-20:10) "same text"';
+    expect(composer(parent).value).toBe(located);
+    claim?.settle("failed");
+    expect(composer(parent).value).toBe(`${plain}\n\n${located}`);
+    expect(controller.captureInputSnapshot().selectionSnapshots).toHaveLength(2);
+
+    // Removing one citation keeps only the other exact source location.
+    setTextAreaValue(composer(parent), located);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    expect(controller.captureInputSnapshot().selectionSnapshots).toEqual([{ reference: selection, marker: located }]);
+    const context = prepareInput(located).input.find((item) => item.type === "additionalContext");
+    expect(context).toMatchObject({ value: expect.stringContaining("source range 20:1-20:10") });
+    expect(context).toMatchObject({ value: expect.not.stringContaining("source range 1:1-1:10") });
+
+    setTextAreaValue(composer(parent), located.replace("same text", "same tex"));
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    expect(controller.captureInputSnapshot().selectionSnapshots).toEqual([]);
+  });
+
+  it("does not rebind a damaged coordinate citation to the first source location", () => {
+    const first = editorReference("same text", 0);
+    let selection = first;
+    const { controller, parent, renderShell, prepareInput } = composerControllerFixture({
+      controller: { contextReferenceProvider: contextProvider(() => ({ activeNote: null, selection })) },
+    });
+    renderShell();
+    insertSelectionSuggestion(parent);
+    const firstMarker = composer(parent).value;
+    selection = editorReference("same text", 19);
+    insertSelectionSuggestion(parent, `${firstMarker}\n`);
+    expect(controller.captureInputSnapshot().selectionSnapshots).toHaveLength(2);
+    const damaged = '[[Alpha]] (20:1-20:10 "same text"';
+    setTextAreaValue(composer(parent), `${firstMarker}\n${damaged}`);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    expect(controller.captureInputSnapshot().selectionSnapshots).toEqual([{ marker: firstMarker, reference: first }]);
+    setTextAreaValue(composer(parent), damaged);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    expect(controller.captureInputSnapshot().selectionSnapshots).toEqual([]);
+    expect(prepareInput(damaged).input).not.toContainEqual(
+      expect.objectContaining({ type: "additionalContext", value: expect.stringContaining("source range") }),
+    );
+  });
+
+  it("reuses a Reading citation while refreshing emphasis from the current original candidate", () => {
+    let selection = readingReference("first", "same text");
+    const previousEmphasis = { release: vi.fn(), setEnabled: vi.fn() };
+    const freshEmphasis = { release: vi.fn(), setEnabled: vi.fn() };
+    const retainSelectionEmphasis = vi.fn().mockReturnValueOnce(previousEmphasis).mockReturnValueOnce(freshEmphasis);
+    const { controller, parent, renderShell } = composerControllerFixture({
+      controller: {
+        contextReferenceProvider: {
+          ...contextProvider(() => ({ activeNote: null, selection })),
+          retainSelectionEmphasis,
+        },
+      },
+    });
+    renderShell();
+    insertSelectionSuggestion(parent);
+    selection = readingReference("fresh", "same text");
+    insertSelectionSuggestion(parent, `${composer(parent).value}\n`);
+    expect(composer(parent).value).toBe('[[Alpha]] "same text"\n[[Alpha]] "same text"');
+    expect(controller.captureInputSnapshot().selectionSnapshots).toHaveLength(1);
+    expect(retainSelectionEmphasis).toHaveBeenLastCalledWith(selection);
+    expect(previousEmphasis.release).toHaveBeenCalledOnce();
+    expect(freshEmphasis.release).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["Enter", "expired"],
+    ["click", "expired"],
+    ["Enter", "replaced"],
+    ["click", "replaced"],
+  ])("rejects a stale Reading suggestion on %s when %s", (activation, change) => {
+    let selection: SelectionContextReference | null = readingReference("old", "old excerpt");
+    const { controller, parent, renderShell } = composerControllerFixture({
+      controller: { contextReferenceProvider: contextProvider(() => ({ activeNote: null, selection })) },
+    });
+    renderShell();
+    setTextAreaValue(composer(parent), "@sel");
+    composer(parent).setSelectionRange(4, 4);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    const staleOption = selectedSuggestion(parent);
+    selection = change === "expired" ? null : readingReference("new", "new excerpt");
+    if (activation === "click") staleOption.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    else composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    expect(composer(parent).value).toBe("@sel");
+    expect(controller.captureInputSnapshot().selectionSnapshots).toEqual([]);
   });
 
   it("navigates suggestions and keeps them dismissed until the input changes", () => {
@@ -1619,6 +1751,14 @@ describe("ChatComposerController", () => {
   });
 });
 
+function readingReference(selectionId: string, text: string): SelectionContextReference {
+  return { name: "Alpha", path: "Alpha.md", linktext: "Alpha", range: null, selectionId, text };
+}
+
+function editorReference(text: string, line: number): SelectionContextReference {
+  return { name: "Alpha", path: "Alpha.md", linktext: "Alpha", text, range: { from: { line, ch: 0 }, to: { line, ch: text.length } } };
+}
+
 function noteProvider(overrides: Partial<NoteCandidateProvider> = {}): NoteCandidateProvider {
   return {
     candidates: () => [],
@@ -1709,9 +1849,9 @@ function pendingAttachmentFixture(stateStore = createChatStateStore()) {
   return { ...fixture, saved };
 }
 
-function insertSelectionSuggestion(parent: HTMLElement): void {
+function insertSelectionSuggestion(parent: HTMLElement, prefix = ""): void {
   const input = composer(parent);
-  setTextAreaValue(input, "@sel");
+  setTextAreaValue(input, `${prefix}@sel`);
   input.setSelectionRange(input.value.length, input.value.length);
   input.dispatchEvent(new Event("input", { bubbles: true }));
   input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));

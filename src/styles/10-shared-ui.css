@@ -10,6 +10,10 @@
   background-color: var(--text-selection);
 }
 
+::highlight(codex-panel-reading-selection) {
+  background-color: var(--text-selection);
+}
+
 .codex-panel-textarea-height-mirror {
   position: fixed;
   top: 0;

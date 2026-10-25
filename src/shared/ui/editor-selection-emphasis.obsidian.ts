@@ -6,6 +6,7 @@ interface RetainedSelectionEmphasis {
   from: number;
   to: number;
   visible: boolean;
+  untilSelectionChanges: boolean;
 }
 
 interface SelectionEmphasisVisibility {
@@ -13,7 +14,7 @@ interface SelectionEmphasisVisibility {
   visible: boolean;
 }
 
-export interface EditorSelectionEmphasis {
+export interface SelectionEmphasis {
   setVisible(visible: boolean): void;
   release(): void;
 }
@@ -25,7 +26,9 @@ const selectionEmphasisField = StateField.define<ReadonlyMap<number, RetainedSel
   create: () => new Map(),
   update: (emphases, transaction) => {
     if (transaction.docChanged) return new Map();
-    let next = emphases;
+    let next = transaction.startState.selection.eq(transaction.newSelection)
+      ? emphases
+      : new Map([...emphases].filter(([, emphasis]) => !emphasis.untilSelectionChanges));
     for (const effect of transaction.effects) {
       if (effect.is(retainSelectionEmphasis)) {
         next = new Map(next).set(effect.value.id, effect.value);
@@ -50,7 +53,8 @@ export const editorSelectionEmphasisExtension: Extension = selectionEmphasisFiel
 export function retainEditorSelectionEmphasis(
   editor: Editor,
   range: { from: EditorPosition; to: EditorPosition },
-): EditorSelectionEmphasis | null {
+  options: { untilSelectionChanges?: boolean } = {},
+): SelectionEmphasis | null {
   const view = editorViewFromEditor(editor);
   if (!view || view.state.field(selectionEmphasisField, false) === undefined) return null;
 
@@ -60,7 +64,9 @@ export function retainEditorSelectionEmphasis(
 
   const id = nextSelectionEmphasisId;
   nextSelectionEmphasisId += 1;
-  view.dispatch({ effects: retainSelectionEmphasis.of({ id, from, to, visible: true }) });
+  view.dispatch({
+    effects: retainSelectionEmphasis.of({ id, from, to, visible: true, untilSelectionChanges: options.untilSelectionChanges ?? false }),
+  });
 
   let retained = true;
   return {
@@ -77,10 +83,14 @@ export function retainEditorSelectionEmphasis(
 }
 
 function selectionEmphasisDecorations(emphases: ReadonlyMap<number, RetainedSelectionEmphasis>): DecorationSet {
+  const visibleRanges = new Map<string, RetainedSelectionEmphasis>();
+  for (const emphasis of emphases.values()) {
+    if (emphasis.visible) visibleRanges.set(`${String(emphasis.from)}:${String(emphasis.to)}`, emphasis);
+  }
   return Decoration.set(
-    [...emphases.values()]
-      .filter((emphasis) => emphasis.visible)
-      .map((emphasis) => Decoration.mark({ class: "codex-panel-selection-emphasis" }).range(emphasis.from, emphasis.to)),
+    [...visibleRanges.values()].map((emphasis) =>
+      Decoration.mark({ class: "codex-panel-selection-emphasis" }).range(emphasis.from, emphasis.to),
+    ),
     true,
   );
 }

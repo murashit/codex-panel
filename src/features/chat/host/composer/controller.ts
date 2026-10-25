@@ -10,13 +10,14 @@ import {
   type ComposerContextReferenceProvider,
   type ComposerSelectionEmphasis,
   type SelectionContextReference,
-  selectionContextReferenceMarker,
+  type SelectionContextSnapshot,
 } from "../../application/composer/context-references";
 import type { FuzzyMatcher } from "../../application/composer/fuzzy-search";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
 import type { NoteCandidateProvider } from "../../application/composer/note-context";
 import { composerContextReferences } from "../../application/composer/prepared-input";
 import type { ComposerRuntimeSnapshot } from "../../application/composer/runtime-snapshot";
+import { captureSelectionContext, selectionContextMatches } from "../../application/composer/selection-context";
 import type { ComposerSuggestion } from "../../application/composer/suggestion";
 import {
   applyComposerSuggestionInsertion,
@@ -68,8 +69,7 @@ interface ChatComposerControllerOptions {
   };
 }
 
-interface RetainedComposerSelection {
-  readonly reference: SelectionContextReference;
+interface RetainedComposerSelection extends SelectionContextSnapshot {
   readonly emphasis: ComposerSelectionEmphasis | null;
 }
 
@@ -334,9 +334,7 @@ export class ChatComposerController {
     this.attachments = [...snapshot.attachments];
     this.activeNoteContextSnapshots = [...snapshot.activeNoteSnapshots];
     this.clearSelectionContexts();
-    this.selectionContexts = new Map(
-      snapshot.selectionSnapshots.map((reference) => [selectionContextReferenceMarker(reference), { reference, emphasis: null }]),
-    );
+    this.selectionContexts = new Map(snapshot.selectionSnapshots.map((snapshot) => [snapshot.marker, { ...snapshot, emphasis: null }]));
     this.threadCommandTarget = snapshot.threadCommandTarget;
     this.setDraft(snapshot.draft, {
       preserveContext: true,
@@ -502,10 +500,30 @@ export class ChatComposerController {
     const source = composerInsertionSource(this.composer);
     if (!source) return;
 
-    const insertion = applyComposerSuggestionInsertion(source.value, source.cursor, suggestion, { activation });
+    const selection = suggestion.selectionContext;
+    if (selection?.range === null) {
+      const current = this.options.contextReferenceProvider.contextReferences(this.options.sourcePath()).selection;
+      if (current?.range !== null || current.selectionId !== selection.selectionId || current.path !== selection.path) {
+        this.updateSuggestions();
+        return;
+      }
+    }
+
+    const snapshot = selection
+      ? captureSelectionContext(selection, [
+          ...this.selectionSnapshots(),
+          ...(this.submissionInput?.inputSnapshot.selectionSnapshots ?? []),
+        ])
+      : null;
+    const insertion = applyComposerSuggestionInsertion(
+      source.value,
+      source.cursor,
+      snapshot ? { ...suggestion, replacement: snapshot.marker } : suggestion,
+      { activation },
+    );
     this.threadCommandTarget = suggestion.threadCommandTarget ?? threadCommandTargetForDraft(insertion.value, this.threadCommandTarget);
     if (suggestion.activeNoteContext) this.rememberActiveNoteContextSnapshot(suggestion.activeNoteContext);
-    if (suggestion.selectionContext) this.rememberSelectionContextSnapshot(suggestion.selectionContext);
+    if (snapshot && selection) this.rememberSelectionContextSnapshot(snapshot, selection);
     this.pruneActiveNoteContextSnapshots(insertion.value);
     this.pruneSelectionContextSnapshots(insertion.value);
 
@@ -549,24 +567,25 @@ export class ChatComposerController {
     ];
   }
 
-  private rememberSelectionContextSnapshot(selection: SelectionContextReference): void {
-    const marker = selectionContextReferenceMarker(selection);
+  private rememberSelectionContextSnapshot(snapshot: SelectionContextSnapshot, selection: SelectionContextReference): void {
+    const { marker } = snapshot;
     this.selectionContexts.get(marker)?.emphasis?.release();
     this.selectionContexts.delete(marker);
     const emphasis = this.options.contextReferenceProvider.retainSelectionEmphasis(selection);
-    this.selectionContexts.set(marker, { reference: selection, emphasis });
+    this.selectionContexts.set(marker, { ...snapshot, emphasis });
   }
 
   private pruneSelectionContextSnapshots(text: string): void {
+    const retained = new Set(selectionContextMatches(text, this.selectionSnapshots()).matches.map((match) => match.snapshot.marker));
     for (const [marker, selection] of this.selectionContexts) {
-      if (text.includes(marker)) continue;
+      if (retained.has(marker)) continue;
       selection.emphasis?.release();
       this.selectionContexts.delete(marker);
     }
   }
 
-  private selectionSnapshots(): SelectionContextReference[] {
-    return [...this.selectionContexts.values()].map((selection) => selection.reference);
+  private selectionSnapshots(): SelectionContextSnapshot[] {
+    return [...this.selectionContexts.values()].map(({ reference, marker }) => ({ reference, marker }));
   }
 
   private clearSelectionContexts(): void {

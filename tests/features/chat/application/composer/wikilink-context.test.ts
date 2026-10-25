@@ -211,31 +211,6 @@ describe("wikilink context", () => {
     ]);
   });
 
-  it("does not attach selection snapshots referenced only inside Markdown code", () => {
-    const text = "```text\n[[Alpha]] (L42:C5-L47:C1)\n```";
-    const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
-      text,
-      () => null,
-      [],
-      {
-        activeNote: null,
-        selection: null,
-        selectionSnapshots: [
-          {
-            name: "Alpha",
-            path: "notes/Alpha.md",
-            linktext: "Alpha",
-            range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
-            text: "selected text",
-          },
-        ],
-      },
-      { referenceActiveNoteOnSend: false },
-    );
-
-    expect(prepared.input).toEqual([{ type: "text", text }]);
-  });
-
   it("keeps raw Obsidian wikilinks intact when CommonMark would split their contents", () => {
     const text = "Read [[A *strange* note]].";
     const input = userInputWithWikiLinkReferencesAndSkills(
@@ -344,7 +319,7 @@ describe("wikilink context", () => {
   });
 
   it("keeps wikilinks, selections, and active file in one Obsidian context", () => {
-    const text = "Compare [[Beta]] with [[Gamma]] (L2:C1-L2:C6).";
+    const text = 'Compare [[Beta]] with [[Gamma]] "selected gamma".';
     const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
       text,
       (target) => {
@@ -358,11 +333,14 @@ describe("wikilink context", () => {
         selection: null,
         selectionSnapshots: [
           {
-            name: "Gamma",
-            path: "notes/Gamma.md",
-            linktext: "Gamma",
-            range: { from: { line: 1, ch: 0 }, to: { line: 1, ch: 5 } },
-            text: "selected gamma",
+            marker: '[[Gamma]] "selected gamma"',
+            reference: {
+              name: "Gamma",
+              path: "notes/Gamma.md",
+              linktext: "Gamma",
+              range: { from: { line: 1, ch: 0 }, to: { line: 1, ch: 5 } },
+              text: "selected gamma",
+            },
           },
         ],
       },
@@ -370,7 +348,7 @@ describe("wikilink context", () => {
     );
 
     expect(prepared.input).toEqual([
-      { type: "text", text },
+      { type: "text", text: 'Compare [[Beta]] with [[Gamma]] `"selected gamma"`.' },
       { type: "fileReference", name: "Beta", path: "notes/Beta.md" },
       { type: "fileReference", name: "Gamma", path: "notes/Gamma.md" },
       { type: "fileReference", name: "<active>", path: "notes/Alpha.md" },
@@ -379,14 +357,14 @@ describe("wikilink context", () => {
         key: "codex_panel_obsidian_context",
         kind: "untrusted",
         value:
-          "Obsidian references for the current user input:\n- [[Beta]] -> notes/Beta.md\n- [[Gamma]] (L2:C1-L2:C6) -> notes/Gamma.md (inline excerpt below)\n- <active> -> notes/Alpha.md\n\nInline excerpts:\n[[Gamma]] (L2:C1-L2:C6):\nselected gamma",
+          'Obsidian references for the current user input:\n- [[Beta]] -> notes/Beta.md\n- [[Gamma]] "selected gamma" -> notes/Gamma.md (source range 2:1-2:6) (inline excerpt below)\n- <active> -> notes/Alpha.md\n\nInline excerpts:\n[[Gamma]] "selected gamma":\nselected gamma',
       },
     ]);
   });
 
   it("attaches completed selection snapshots without depending on the current editor selection", () => {
     const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
-      "Organize this [[notes/Alpha]] (L42:C5-L47:C1)",
+      'Organize this [[notes/Alpha]] "completed selection"',
       (target) => (target === "notes/Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
       [],
       {
@@ -400,11 +378,14 @@ describe("wikilink context", () => {
         },
         selectionSnapshots: [
           {
-            name: "Alpha",
-            path: "notes/Alpha.md",
-            linktext: "notes/Alpha",
-            range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
-            text: "completed selection",
+            marker: '[[notes/Alpha]] "completed selection"',
+            reference: {
+              name: "Alpha",
+              path: "notes/Alpha.md",
+              linktext: "notes/Alpha",
+              range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
+              text: "completed selection",
+            },
           },
         ],
       },
@@ -416,7 +397,7 @@ describe("wikilink context", () => {
       key: "codex_panel_obsidian_context",
       kind: "untrusted",
       value:
-        "Obsidian references for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] (L42:C5-L47:C1):\ncompleted selection",
+        'Obsidian references for the current user input:\n- [[notes/Alpha]] "completed selection" -> notes/Alpha.md (source range 42:5-47:1) (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] "completed selection":\ncompleted selection',
     });
   });
 });

@@ -1,11 +1,11 @@
 import type { ThreadCommandTarget } from "../slash-commands/thread-arguments";
 import type { ComposerAttachment } from "./attachments";
-import type { ActiveNoteContextReference, SelectionContextReference } from "./context-references";
+import type { ActiveNoteContextReference, SelectionContextSnapshot } from "./context-references";
 
 export interface ComposerRuntimeSnapshot {
   readonly draft: string;
   readonly attachments: readonly ComposerAttachment[];
   readonly activeNoteSnapshots: readonly ActiveNoteContextReference[];
-  readonly selectionSnapshots: readonly SelectionContextReference[];
+  readonly selectionSnapshots: readonly SelectionContextSnapshot[];
   readonly threadCommandTarget: ThreadCommandTarget | null;
 }

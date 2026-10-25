@@ -199,7 +199,7 @@ describe("CodexChatView workspace restoration", () => {
 
       await view.detachRuntime();
 
-      expect(removeListener).toHaveBeenCalledWith("pointerdown", pointerListener);
+      expect(removeListener).toHaveBeenCalledWith("pointerdown", pointerListener, undefined);
     } finally {
       view.unload();
       addListener.mockRestore();

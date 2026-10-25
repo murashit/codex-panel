@@ -1,6 +1,6 @@
 import type { CodexInput } from "../../../../domain/input/input";
 import { codexInputWithComposerAttachments } from "./attachments";
-import { activeNoteContextReferenceMarker, selectionContextReferenceMarker } from "./context-references";
+import { activeNoteContextReferenceMarker } from "./context-references";
 import type { ComposerInputSnapshot } from "./input-snapshot";
 import type { NoteCandidateProvider } from "./note-context";
 import { preparedUserInputWithWikiLinkReferencesSkillsAndContext } from "./wikilink-context";
@@ -33,9 +33,5 @@ export function composerContextReferences(snapshot: ComposerInputSnapshot, text:
     text === null
       ? snapshot.activeNoteSnapshots
       : snapshot.activeNoteSnapshots.filter((activeNote) => text.includes(activeNoteContextReferenceMarker(activeNote)));
-  const selectionSnapshots =
-    text === null
-      ? snapshot.selectionSnapshots
-      : snapshot.selectionSnapshots.filter((selection) => text.includes(selectionContextReferenceMarker(selection)));
-  return { ...snapshot.contextReferences, activeNoteSnapshots, selectionSnapshots };
+  return { ...snapshot.contextReferences, activeNoteSnapshots, selectionSnapshots: snapshot.selectionSnapshots };
 }
