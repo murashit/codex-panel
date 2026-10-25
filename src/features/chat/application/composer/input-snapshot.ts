@@ -1,7 +1,7 @@
 import type { SkillMetadata } from "../../../../domain/runtime/catalog";
 import type { ThreadCommandTarget } from "../slash-commands/thread-arguments";
 import type { ComposerAttachment } from "./attachments";
-import type { ActiveNoteContextReference, ComposerContextReferences, SelectionContextReference } from "./context-references";
+import type { ActiveNoteContextReference, ComposerContextReferences, SelectionContextSnapshot } from "./context-references";
 
 export interface ComposerInputSnapshot {
   readonly sourcePath: string;
@@ -9,7 +9,7 @@ export interface ComposerInputSnapshot {
   readonly referenceActiveNoteOnSend: boolean;
   readonly contextReferences: ComposerContextReferences;
   readonly activeNoteSnapshots: readonly ActiveNoteContextReference[];
-  readonly selectionSnapshots: readonly SelectionContextReference[];
+  readonly selectionSnapshots: readonly SelectionContextSnapshot[];
   readonly attachments: readonly ComposerAttachment[];
   readonly threadCommandTarget?: ThreadCommandTarget;
 }

@@ -191,9 +191,14 @@ export class Component {
     this.cleanups.push(callback);
   }
 
-  registerDomEvent<K extends keyof DocumentEventMap>(element: Document, type: K, callback: (event: DocumentEventMap[K]) => void): void {
-    element.addEventListener(type, callback);
-    this.cleanups.push(() => element.removeEventListener(type, callback));
+  registerDomEvent<K extends keyof DocumentEventMap>(
+    element: Document | HTMLElement,
+    type: K,
+    callback: (event: DocumentEventMap[K]) => void,
+    options?: boolean | AddEventListenerOptions,
+  ): void {
+    element.addEventListener(type, callback as EventListener, options);
+    this.cleanups.push(() => element.removeEventListener(type, callback as EventListener, options));
   }
 
   registerEvent(eventRef: unknown): void {

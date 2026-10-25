@@ -6,7 +6,7 @@ Codex Panel is a dedicated Codex frontend for Obsidian. Work with Codex beside y
 
 ## Connect your notes and Codex
 
-Reference notes and headings with keyboard-friendly wikilink completion, use `@active` for the open note or `@selection` for selected Markdown, or enable automatic active-note references. Your selection stays highlighted when you move to the composer. With Daily Notes or Periodic Notes configured, `@today`, `@tomorrow`, and `@yesterday` point to daily notes.
+Reference notes and headings with keyboard-friendly wikilink completion, use `@active` for the open note or `@selection` for selected text, or enable automatic active-note references. With Daily Notes or Periodic Notes configured, `@today`, `@tomorrow`, and `@yesterday` point to daily notes.
 
 Paste or drop files and images, or use `/web <url> [message]` to include readable web content. A bundled wikilink resolver helps Codex follow Obsidian links, while links and tags in replies open notes and vault searches.
 

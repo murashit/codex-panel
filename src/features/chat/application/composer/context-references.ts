@@ -14,19 +14,20 @@ export interface ActiveNoteContextReference {
   linktext: string;
 }
 
-export interface SelectionContextReference {
-  name: string;
-  path: string;
-  linktext: string;
-  range: ComposerContextRange;
+export type SelectionContextReference = ActiveNoteContextReference & {
   text: string;
+} & ({ range: ComposerContextRange } | { range: null; selectionId: string });
+
+export interface SelectionContextSnapshot {
+  readonly reference: SelectionContextReference;
+  readonly marker: string;
 }
 
 export interface ComposerContextReferences {
   activeNote: ActiveNoteContextReference | null;
   selection: SelectionContextReference | null;
   activeNoteSnapshots?: readonly ActiveNoteContextReference[];
-  selectionSnapshots?: readonly SelectionContextReference[];
+  selectionSnapshots?: readonly SelectionContextSnapshot[];
 }
 
 export interface ComposerSelectionEmphasis {
@@ -44,14 +45,10 @@ export function formatComposerContextRange(range: ComposerContextRange): string 
   return `${formatComposerContextPosition(range.from)}-${formatComposerContextPosition(range.to)}`;
 }
 
-export function selectionContextReferenceMarker(selection: SelectionContextReference): string {
-  return `[[${selection.linktext}]] (${formatComposerContextRange(selection.range)})`;
-}
-
 export function activeNoteContextReferenceMarker(activeNote: ActiveNoteContextReference): string {
   return `[[${activeNote.linktext}]]`;
 }
 
 function formatComposerContextPosition(position: ComposerContextPosition): string {
-  return `L${String(position.line + 1)}:C${String(position.ch + 1)}`;
+  return `${String(position.line + 1)}:${String(position.ch + 1)}`;
 }

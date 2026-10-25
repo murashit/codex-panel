@@ -294,9 +294,9 @@ describe("composer suggestions", () => {
         },
       })[0],
     ).toMatchObject({
-      display: "Selection · Beta Note · L42:C5-L47:C1",
+      display: "Selection · Beta Note",
       detail: "selected text",
-      replacement: "[[Beta Note]] (L42:C5-L47:C1)",
+      replacement: '[[Beta Note]] "  selected  text  "',
       selectionContext: {
         name: "Beta Note",
         path: "topics/Beta Note.md",

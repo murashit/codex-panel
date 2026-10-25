@@ -1,4 +1,5 @@
 import { markdownCodeRangeContainsOffset, markdownCodeRanges } from "../../markdown/code-ranges";
+import { markdownCodeSpan } from "../../markdown/code-span";
 
 interface UserMessageDisplayInputItem {
   type: string;
@@ -28,13 +29,6 @@ function resolvedSkillNames(input: readonly UserMessageDisplayInputItem[]): stri
     names.push(item.name);
   }
   return names.sort((a, b) => b.length - a.length);
-}
-
-function markdownCodeSpan(text: string): string {
-  if (!text.includes("`")) return `\`${text}\``;
-  const longestRun = Math.max(...Array.from(text.matchAll(/`+/g), (match) => match[0].length));
-  const delimiter = "`".repeat(longestRun + 1);
-  return `${delimiter} ${text} ${delimiter}`;
 }
 
 function escapeRegExp(value: string): string {

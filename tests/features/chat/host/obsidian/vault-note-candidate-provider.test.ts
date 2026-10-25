@@ -507,6 +507,7 @@ function appFixture(
       getActiveFile: () => options.activeFile ?? null,
       getActiveViewOfType: () => activeView,
       getLastOpenFiles: () => options.lastOpenFiles ?? [],
+      getLeavesOfType: () => (activeView ? [{ view: activeView }] : []),
     },
     metadataCache: {
       on: on("metadata"),
@@ -537,6 +538,8 @@ function markdownView(
 ): {
   file: TFile;
   containerEl: HTMLElement;
+  getMode(): "source";
+  previewMode: { containerEl: HTMLElement };
   editor: {
     getSelection(): string;
     getCursor(kind: "from" | "to"): { line: number; ch: number };
@@ -546,6 +549,8 @@ function markdownView(
   return {
     file,
     containerEl: document.createElement("div"),
+    getMode: () => "source",
+    previewMode: { containerEl: document.createElement("div") },
     editor: {
       getSelection: () => selection.selection,
       getCursor: (kind: "from" | "to") => (kind === "from" ? selection.from : selection.to),

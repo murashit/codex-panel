@@ -13,6 +13,7 @@ describe("editor selection emphasis", () => {
     const releaseFirst = retainEditorSelectionEmphasis(editor as never, range);
     const releaseSecond = retainEditorSelectionEmphasis(editor as never, range);
 
+    expect(parent.querySelectorAll(".codex-panel-selection-emphasis")).toHaveLength(1);
     expect(parent.querySelector(".codex-panel-selection-emphasis")?.textContent).toBe("alpha");
 
     releaseFirst?.setVisible(false);
@@ -34,6 +35,35 @@ describe("editor selection emphasis", () => {
     expect(parent.querySelector(".codex-panel-selection-emphasis")).toBeNull();
 
     view.destroy();
+  });
+
+  it("expires only candidates on actual selection changes and cannot revive them", () => {
+    const { editor, parent, view } = emphasizedEditor();
+    const candidate = retainEditorSelectionEmphasis(
+      editor as never,
+      {
+        from: { line: 0, ch: 6 },
+        to: { line: 0, ch: 10 },
+      },
+      { untilSelectionChanges: true },
+    );
+    const confirmed = retainEditorSelectionEmphasis(editor as never, {
+      from: { line: 0, ch: 0 },
+      to: { line: 0, ch: 5 },
+    });
+    view.dispatch({ selection: view.state.selection });
+    expect([...parent.querySelectorAll(".codex-panel-selection-emphasis")].map((element) => element.textContent)).toEqual([
+      "alpha",
+      "beta",
+    ]);
+    view.dispatch({ selection: { anchor: 2 } });
+    candidate?.setVisible(false);
+    candidate?.setVisible(true);
+    expect(parent.querySelector(".codex-panel-selection-emphasis")?.textContent).toBe("alpha");
+    candidate?.release();
+    confirmed?.release();
+    view.destroy();
+    parent.remove();
   });
 
   it("does not retain stale ranges after the document changes", () => {
