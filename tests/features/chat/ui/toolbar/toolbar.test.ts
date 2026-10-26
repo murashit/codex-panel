@@ -2,7 +2,7 @@
 
 import { h } from "preact";
 import { describe, expect, it } from "vitest";
-import type { ToolbarViewModel } from "../../../../../src/features/chat/ui/toolbar/model";
+import type { ToolbarThreadRow, ToolbarViewModel } from "../../../../../src/features/chat/ui/toolbar/model";
 import { Toolbar, type ToolbarActions } from "../../../../../src/features/chat/ui/toolbar/toolbar";
 import { renderUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { changeInputValue, installObsidianDomShims } from "../../../../support/dom";
@@ -182,24 +182,17 @@ describe("Toolbar decisions", () => {
       toolbarModel({
         openPanel: "history",
         threads: [
-          {
+          toolbarThreadRowFixture({
             title: "Thread",
             threadId: "thread",
             selected: true,
-            renameDisabled: false,
-            archiveDisabled: false,
-            archiveConfirm: { active: false, defaultSaveMarkdown: false },
-            rename: null,
-          },
-          {
+          }),
+          toolbarThreadRowFixture({
             title: "Editing",
             threadId: "editing",
             selected: false,
-            renameDisabled: false,
-            archiveDisabled: false,
-            archiveConfirm: { active: false, defaultSaveMarkdown: false },
             rename: { draft: "Draft title", generating: false, saving: false, autoNameDisabled: false },
-          },
+          }),
         ],
       }),
       actions,
@@ -233,25 +226,17 @@ describe("Toolbar decisions", () => {
       toolbarModel({
         openPanel: "history",
         threads: [
-          {
+          toolbarThreadRowFixture({
             title: "Pinned",
             threadId: "pinned",
             selected: false,
             isPinned: true,
-            renameDisabled: false,
-            archiveDisabled: false,
-            archiveConfirm: { active: false, defaultSaveMarkdown: false },
-            rename: null,
-          },
-          {
+          }),
+          toolbarThreadRowFixture({
             title: "Recent",
             threadId: "recent",
             selected: false,
-            renameDisabled: false,
-            archiveDisabled: false,
-            archiveConfirm: { active: false, defaultSaveMarkdown: false },
-            rename: null,
-          },
+          }),
         ],
       }),
       actions,
@@ -275,15 +260,12 @@ describe("Toolbar decisions", () => {
       toolbarModel({
         openPanel: "history",
         threads: [
-          {
+          toolbarThreadRowFixture({
             title: "Editing",
             threadId: "editing",
             selected: false,
-            renameDisabled: false,
-            archiveDisabled: false,
-            archiveConfirm: { active: false, defaultSaveMarkdown: false },
             rename: { draft: "Draft title", generating: true, saving: false, autoNameDisabled: false },
-          },
+          }),
         ],
       }),
       actions,
@@ -304,15 +286,12 @@ describe("Toolbar decisions", () => {
       toolbarModel({
         openPanel: "history",
         threads: [
-          {
+          toolbarThreadRowFixture({
             title: "Thread",
             threadId: "thread",
             selected: true,
-            renameDisabled: false,
-            archiveDisabled: false,
             archiveConfirm: { active: true, defaultSaveMarkdown: true },
-            rename: null,
-          },
+          }),
         ],
       }),
       actions,
@@ -389,17 +368,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     goalMutationDisabled: false,
     rateLimit: null,
     openPanel: null,
-    threads: [
-      {
-        title: "Thread",
-        threadId: "thread",
-        selected: true,
-        renameDisabled: false,
-        archiveDisabled: false,
-        archiveConfirm: { active: false, defaultSaveMarkdown: false },
-        rename: null,
-      },
-    ],
+    threads: [toolbarThreadRowFixture()],
     hasMoreThreads: false,
     threadListLoading: false,
     threadListFetching: false,
@@ -409,6 +378,19 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     permissionsAndApprovals: [{ title: "Permissions", rows: [{ label: "Thread", value: "(none)" }] }],
     diagnostics: [{ title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/test" }] }],
     toolInventory: [{ title: "Tool providers", rows: [{ label: "Tool providers", value: "not loaded", level: "warning" }] }],
+    ...overrides,
+  };
+}
+
+function toolbarThreadRowFixture(overrides: Partial<ToolbarThreadRow> = {}): ToolbarThreadRow {
+  return {
+    title: "Thread",
+    threadId: "thread",
+    selected: true,
+    renameDisabled: false,
+    archiveDisabled: false,
+    archiveConfirm: { active: false, defaultSaveMarkdown: false },
+    rename: null,
     ...overrides,
   };
 }
