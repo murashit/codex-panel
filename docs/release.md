@@ -8,17 +8,23 @@ The repository must enable **Allow GitHub Actions to create and approve pull req
 
 Audit the complete range from the previous release tag to the proposed head before choosing the version and notes. Plugin versions describe Obsidian distribution, not a library API contract: use patch releases for workflow-preserving changes, minor releases for visible capabilities or raised runtime baselines, and major releases for disruptive workflow, settings, storage, or support-policy changes.
 
-Review tagpr's proposed version. The `tagpr:minor` and `tagpr:major` labels take effect on the next refresh; wait for it and verify the version. Adding a label immediately before merge does not change the version. Alternatively, edit `package.json` and `manifest.json` on the PR branch, then run `node scripts/release/sync-lock.mjs` there. For runtime-floor changes, follow [Obsidian compatibility](development.md#obsidian).
+Review tagpr's proposed version. The `tagpr:minor` and `tagpr:major` labels take effect when tagpr next runs on a main push; adding a label does not trigger a refresh. Wait for that run and verify the version, or edit `package.json` and `manifest.json` on the PR branch, then run `node scripts/release/sync-lock.mjs` there. For runtime-floor changes, follow [Obsidian compatibility](development.md#obsidian). Leave tagpr's generated commits and subjects unchanged during preparation: tagpr recognizes its own commits by their exact subjects when regenerating.
 
 Read the previous three published [GitHub Releases](https://github.com/murashit/codex-panel/releases) for style. Summarize user-visible outcomes in the same language, grouping related changes and omitting internal work unless it changes a visible contract or support baseline. Thank relevant Issue authors by GitHub handle for reports or proposals that contributed to the release; verify authors from the Issues.
 
-Replace the entire PR body with the final public notes: one `## Changes` section, a blank line, and concrete bullets. The merged PR body becomes the release notes; no new per-version note file is needed.
+Finalize the notes and release-branch history together immediately before merging, after tagpr generation has settled. Avoid concurrent main pushes and release-PR edits during finalization:
+
+1. Fetch the current main and PR head and inspect the full PR diff and commits. For patch, minor, and major releases alike, consolidate all release-PR commits into one commit on current main, preserving the intended final tree. The version diff must go directly from the previous released version to the final target, with no intermediate bump. Use `chore(release): X.Y.Z` as the final subject, matching the version files; reword even a single generated commit.
+2. Replace the entire PR body with the final public notes: one `## Changes` section, a blank line, and concrete bullets. The merged PR body becomes the release notes; no new per-version note file is needed.
+3. Run the [handoff validation](development.md#validate-a-change) and commitlint on the final commit. Push only the unmerged release branch using a lease tied to the inspected remote head; stop and re-fetch if it changed. Never rewrite main, tags, or published history. Verify successful required CI for that exact remote head. Present the exact notes, version, previous tag, and included changes to the user and obtain explicit approval before publication.
+
+If main moves or tagpr regenerates, re-fetch and repeat finalization as needed: regeneration can overwrite the notes and preserve a manual version override or reworded commit alongside a new generated bump. Reverify the final tree, single-commit history, subject, notes, and CI for the resulting head. Existing approval remains valid when the exact notes, version, and included changes are unchanged; present changed release contents for renewed approval.
 
 ## Make the publication decision
 
 Merge only when the final notes, version, included range, and checks are ready: merging initiates tagging and publication automatically through the [workflow](../.github/workflows/check.yml) and [draft publisher](../scripts/release/publish.mjs).
 
-Finalize immediately before merging because tagpr refreshes overwrite edited PR bodies. Avoid concurrent main pushes and PR-body edits during finalization. Re-fetch the body, head, version files, main/base SHA, and check results before merging; reconsider the decision if the contents or range changed. An expected-head merge guard (`gh pr merge --match-head-commit HEAD_SHA`) protects the head SHA, not body edits.
+Immediately before merging, re-fetch the body, head, version files, main/base SHA, commit history, and check results. Verify the body byte-for-byte against the approved notes, the approved version and included changes, and the finalized single commit with successful required CI for that exact head. If main or the PR changed, repeat the affected finalization and verification above. An expected-head merge guard (`gh pr merge --match-head-commit HEAD_SHA`) protects the head SHA, not body edits.
 
 ## Verify the result or recover
 
