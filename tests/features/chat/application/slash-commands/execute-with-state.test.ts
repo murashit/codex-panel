@@ -170,8 +170,9 @@ describe("executePanelSlashCommand", () => {
     );
   });
 
-  it("rejects a directly typed goal command in a side chat before it reaches the goal port", async () => {
-    const { host, stateStore } = createHost();
+  it("rejects directly typed goal and side-chat commands in a side chat", async () => {
+    const openSideChat = vi.fn();
+    const { host, stateStore } = createHost({ openSideChat });
     stateStore.dispatch({
       ...threadActivationFixture(thread("side", "Side chat")),
       type: "active-thread/resumed",
@@ -180,8 +181,10 @@ describe("executePanelSlashCommand", () => {
 
     await expect(executePanelSlashCommand(host, "goal", "")).rejects.toThrow("Goals are unavailable in side chats.");
     await expect(executePanelSlashCommand(host, "goal", "set Ship this")).rejects.toThrow("Goals are unavailable in side chats.");
+    await expect(executePanelSlashCommand(host, "btw", "")).rejects.toThrow("Side chats cannot be started from another side chat.");
 
     expect(host.goals.setObjective).not.toHaveBeenCalled();
+    expect(openSideChat).not.toHaveBeenCalled();
   });
 
   it("allows directly typed goal display in a persistent subagent panel", async () => {

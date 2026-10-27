@@ -260,6 +260,7 @@ describe("composer suggestions", () => {
 
   it("uses one active suggestion family at a time", () => {
     expect(activeComposerSuggestions("[[bet", notes, [])[0]?.replacement).toBe("[[Beta Note]]");
+    expect(activeComposerSuggestions("@sel", notes, [], [], [], null, { contextReferences: emptyComposerContextReferences() })).toEqual([]);
     expect(
       activeComposerSuggestions("@active", notes, [], [], [], null, {
         contextReferences: {

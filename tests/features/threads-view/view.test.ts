@@ -365,7 +365,10 @@ describe("CodexThreadsView", () => {
 
   it("restores the same editor when a locked rename save fails", async () => {
     const saved = deferred<boolean>();
-    const renameThreadRequest = vi.fn<ThreadsViewHost["threadMutations"]["renameThread"]>(() => saved.promise);
+    const renameThreadRequest = vi
+      .fn<ThreadsViewHost["threadMutations"]["renameThread"]>()
+      .mockReturnValueOnce(saved.promise)
+      .mockResolvedValueOnce(true);
     const view = await threadsView(threadsHost({ threadMutations: threadMutationCommandsMock({ renameThread: renameThreadRequest }) }));
 
     await openRenameEditor(view);
@@ -385,6 +388,11 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.disabled).toBe(false);
     expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
     expect(notices).toContain("Rename failed.");
+
+    renameInput(view).dispatchEvent(new FocusEvent("blur"));
+    await waitForAsyncWork(() => expect(renameThreadRequest).toHaveBeenCalledTimes(2));
+    expect(renameThreadRequest).toHaveBeenLastCalledWith("thread", "Saved title", { shouldStart: expect.any(Function) });
+    await waitForAsyncWork(() => expect(view.containerEl.querySelector(".codex-panel-threads__rename-input")).toBeNull());
   });
 
   it("notifies an archive failure without adding list status", async () => {

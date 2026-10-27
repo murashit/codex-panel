@@ -22,6 +22,19 @@ describe("slash command thread arguments", () => {
     );
   });
 
+  it("keeps escaped titles intact while completing a quoted thread argument", () => {
+    const text = fc.string({ unit: fc.constantFrom("a", " ", "\\", '"', "あ", "😀"), maxLength: 25 });
+    fc.assert(
+      fc.property(text, fc.constantFrom("\\", '"'), text, (before, escaped, after) => {
+        const title = before + escaped + after;
+        const incompleteArgument = JSON.stringify(title).slice(0, -1);
+
+        expect(partialThreadTitleQuery(incompleteArgument)).toBe(title);
+      }),
+      { seed: 221614, numRuns: 100 },
+    );
+  });
+
   it("rejects incomplete or attached quoted arguments", () => {
     expect(parseThreadTitleArgument('"unfinished')).toBeNull();
     expect(parseThreadTitleArgument('"title"attached')).toBeNull();
