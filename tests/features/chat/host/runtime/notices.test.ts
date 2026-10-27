@@ -82,7 +82,7 @@ describe("createChatPanelRuntimeNotices", () => {
         auditFacts: [
           { key: "Profile", value: "workspace-write" },
           { key: "Sandbox", value: "workspace-write" },
-          { key: "Codex network", value: "blocked" },
+          { key: "Sandbox network", value: "blocked" },
           { key: "Extra writable roots", value: "Vault/Notes" },
         ],
       },
@@ -120,7 +120,7 @@ describe("createChatPanelRuntimeNotices", () => {
         auditFacts: [
           { key: "Profile", value: "(not reported)" },
           { key: "Sandbox", value: "(not reported)" },
-          { key: "Codex network", value: "(not reported)" },
+          { key: "Sandbox network", value: "(not reported)" },
           { key: "Extra writable roots", value: "(not reported)" },
         ],
       },
@@ -147,7 +147,7 @@ describe("createChatPanelRuntimeNotices", () => {
     expect(projection.permissionDetails()[0]?.auditFacts).toEqual([
       { key: "Profile", value: ":workspace" },
       { key: "Sandbox", value: "(not reported)" },
-      { key: "Codex network", value: "(not reported)" },
+      { key: "Sandbox network", value: "(not reported)" },
       { key: "Extra writable roots", value: "(not reported)" },
     ]);
   });

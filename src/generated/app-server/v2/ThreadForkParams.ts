@@ -69,6 +69,12 @@ approvalsReviewer?: ApprovalsReviewer | null, sandbox?: SandboxMode | null,
  */
 permissions?: string | null, config?: { [key in string]?: JsonValue } | null, baseInstructions?: string | null, developerInstructions?: string | null, ephemeral?: boolean,
 /**
+ * Persist the fork as an attached thread of its resolved source, hidden from ordinary
+ * lists. The source cannot be deleted while attached threads exist. Requires local storage;
+ * incompatible with ephemeral and deferGoalContinuation. Omitted or false creates an ordinary fork.
+ */
+attachToSource?: boolean,
+/**
  * Optional client-supplied analytics source classification for this forked thread.
  */
 threadSource?: ThreadSource | null,

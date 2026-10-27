@@ -617,6 +617,8 @@ export type { ThreadLoadedListParams } from "./ThreadLoadedListParams";
 export type { ThreadLoadedListResponse } from "./ThreadLoadedListResponse";
 export type { ThreadMemoryModeSetParams } from "./ThreadMemoryModeSetParams";
 export type { ThreadMemoryModeSetResponse } from "./ThreadMemoryModeSetResponse";
+export type { ThreadMemoryReadParams } from "./ThreadMemoryReadParams";
+export type { ThreadMemoryReadResponse } from "./ThreadMemoryReadResponse";
 export type { ThreadMetadataGitInfoUpdateParams } from "./ThreadMetadataGitInfoUpdateParams";
 export type { ThreadMetadataUpdateParams } from "./ThreadMetadataUpdateParams";
 export type { ThreadMetadataUpdateResponse } from "./ThreadMetadataUpdateResponse";
