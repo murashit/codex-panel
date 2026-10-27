@@ -378,50 +378,52 @@ describe("AppServerClient", () => {
     });
   });
 
-  it("rejects known server requests with malformed required params", async () => {
-    const { transport } = await connectedClient();
-
-    transport.emitLine({ id: 12, method: "currentTime/read", params: { threadId: 42 } });
-
-    expect(latestSent(transport)).toEqual({ id: 12, error: { code: -32602, message: "Invalid params." } });
-  });
-
-  it("rejects malformed MCP elicitation correlation and mode payloads", async () => {
+  it.each([
+    ["current time", "currentTime/read", { threadId: 42 }],
+    ["approval thread", "item/commandExecution/requestApproval", { threadId: 42, turnId: "turn", itemId: "item" }],
+    ["approval turn", "item/commandExecution/requestApproval", { threadId: "thread", turnId: 42, itemId: "item" }],
+    ["approval item", "item/commandExecution/requestApproval", { threadId: "thread", turnId: "turn", itemId: 42 }],
+  ])("rejects malformed %s request params without dispatching", async (_case, method, params) => {
     const serverRequests = vi.fn();
     const { transport } = await connectedClient({ onServerRequest: serverRequests });
 
-    transport.emitLine({
-      id: 12,
-      method: "mcpServer/elicitation/request",
-      params: {
-        threadId: "thread",
-        turnId: 42,
-        serverName: "github",
-        mode: "form",
-        _meta: null,
-        message: "Provide issue details",
-        requestedSchema: { type: "object", properties: {} },
-      },
-    });
+    transport.emitLine({ id: 12, method, params });
+
+    expect(latestSent(transport)).toEqual({ id: 12, error: { code: -32602, message: "Invalid params." } });
+    expect(serverRequests).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["thread ID", { threadId: 42 }],
+    ["turn ID", { turnId: 42 }],
+    ["server name", { serverName: 42 }],
+    ["message", { message: 42 }],
+    ["form schema", { requestedSchema: null }],
+    ["form schema type", { requestedSchema: { type: "string", properties: {} } }],
+    ["form properties", { requestedSchema: { type: "object", properties: [] } }],
+    ["unknown mode", { mode: "other" }],
+    ["URL without elicitation ID", { mode: "url", url: "https://example.com/confirm" }],
+  ])("rejects MCP elicitation with invalid %s without dispatching", async (_case, overrides) => {
+    const serverRequests = vi.fn();
+    const { transport } = await connectedClient({ onServerRequest: serverRequests });
+
     transport.emitLine({
       id: 13,
       method: "mcpServer/elicitation/request",
       params: {
         threadId: "thread",
-        turnId: "turn",
+        turnId: null,
         serverName: "github",
-        mode: "url",
+        mode: "form",
         _meta: null,
-        message: "Confirm in browser",
-        url: "https://example.com/confirm",
+        message: "Provide issue details",
+        requestedSchema: { type: "object", properties: {} },
+        ...overrides,
       },
     });
 
+    expect(latestSent(transport)).toEqual({ id: 13, error: { code: -32602, message: "Invalid params." } });
     expect(serverRequests).not.toHaveBeenCalled();
-    expect(transport.sent.slice(-2)).toEqual([
-      { id: 12, error: { code: -32602, message: "Invalid params." } },
-      { id: 13, error: { code: -32602, message: "Invalid params." } },
-    ]);
   });
 
   it("correlates concurrent request results even when replies arrive out of order", async () => {
@@ -690,7 +692,7 @@ describe("AppServerClient", () => {
     expect(onLog).toHaveBeenCalledWith(expect.stringContaining("Orphan app-server response:"));
   });
 
-  it("does not leave a delayed timeout after a synchronous transport send failure", async () => {
+  it("clears the request timeout after a synchronous transport send failure", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("window", {
       clearTimeout,
@@ -701,7 +703,7 @@ describe("AppServerClient", () => {
 
     expect(() => listModels(client)).toThrow("write failed");
 
-    await vi.advanceTimersByTimeAsync(500);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("preserves app-server RPC error codes", async () => {

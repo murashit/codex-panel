@@ -53,6 +53,21 @@ describe("thread rename editor", () => {
     expect([...states.keys()]).toEqual(["first"]);
   });
 
+  it("does not restore an editor whose externally owned state disappears during preparation", async () => {
+    const context = deferred<{ userRequest: string; assistantResponse: string }>();
+    const resolveTitleContext = vi.fn(() => context.promise);
+    const { editor, states } = fixture({ resolveTitleContext });
+
+    editor.start("thread");
+    await flushPromises();
+    expect(resolveTitleContext).toHaveBeenCalledExactlyOnceWith("thread");
+    states.delete("thread");
+    context.resolve({ userRequest: "Request", assistantResponse: "Response" });
+    await flushPromises();
+
+    expect(states.has("thread")).toBe(false);
+  });
+
   it("keeps independent thread-list editors concurrent", async () => {
     const readyContext = { userRequest: "First request", assistantResponse: "First response" };
     const firstContext = deferred<typeof readyContext>();
@@ -155,6 +170,26 @@ describe("thread rename editor", () => {
     expect(states.has("second")).toBe(false);
     saved.resolve();
     await save;
+  });
+
+  it("reports an unusable generated title and keeps the editable draft", async () => {
+    const context = { userRequest: "Request", assistantResponse: "Response" };
+    const reportError = vi.fn();
+    const { editor, states } = fixture({
+      resolveTitleContext: async () => context,
+      generateTitle: async () => null,
+      reportError,
+    });
+
+    editor.start("thread");
+    await flushPromises();
+    editor.updateDraft("thread", "My title");
+    await editor.autoNameDraft("thread");
+
+    expect(reportError).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ message: "Codex did not return a usable thread title." }),
+    );
+    expect(states.get("thread")).toEqual({ kind: "editing", draft: "My title", autoName: { kind: "ready", context } });
   });
 
   it("releases an exclusive save after its externally owned state is replaced", async () => {
