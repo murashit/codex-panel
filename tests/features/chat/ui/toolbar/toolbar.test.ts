@@ -136,7 +136,7 @@ describe("Toolbar decisions", () => {
             rows: [
               { label: "Profile", value: ":workspace" },
               { label: "Sandbox", value: "workspace-write" },
-              { label: "Codex network", value: "blocked" },
+              { label: "Sandbox network", value: "blocked" },
               { label: "Extra writable roots", value: "Vault" },
             ],
           },
