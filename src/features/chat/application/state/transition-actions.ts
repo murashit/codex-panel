@@ -11,7 +11,7 @@ import type { CollaborationModeSelection } from "../../domain/runtime/intent";
 import type { ActiveThreadRuntimeState } from "../../domain/runtime/state";
 import type { TurnOutcome } from "../../domain/runtime/turn-outcome";
 import type { ThreadStreamItem, UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
-import type { ForkDraftPreparation, ForkReplacement } from "../threads/fork-draft";
+import type { ForkDraftPreparation } from "../threads/fork-draft";
 import type { ActiveThreadLifetime } from "./model";
 import type { ChatPendingSubmissionState } from "./pending-submission";
 
@@ -124,7 +124,7 @@ export type ChatTransitionAction =
   | ActiveThreadResumedAction
   | ActiveThreadCreatedAction
   | ActiveThreadSettingsAppliedAction
-  | { type: "panel/restored-thread-applied"; threadId: string; fallbackTitle: string | null; forkReplacement?: ForkReplacement }
+  | { type: "panel/restored-thread-applied"; threadId: string; fallbackTitle: string | null }
   | { type: "panel/restored-thread-renamed"; threadId: string; name: string | null }
   | { type: "panel/view-state-cleared" }
   | { type: "panel/disposed" }

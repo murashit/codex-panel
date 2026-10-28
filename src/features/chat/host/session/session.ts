@@ -10,20 +10,17 @@ import {
   isSideChatLifetime,
   panelThreadId,
   panelThreadProvenance,
-  pendingForkReplacement,
 } from "../../application/state/model";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../application/state/panel-target";
 import { type ChatStateStore, createChatStateStore } from "../../application/state/store";
-import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
-import { captureForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
-import { type ForkDraftPreparation, sideChatDraft } from "../../application/threads/fork-draft";
+import type { ForkDraftPreparation } from "../../application/threads/fork-draft";
 import { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { canSwitchToThread } from "../../application/threads/thread-switching";
 import { chatTurnBusy } from "../../application/turns/turn-state";
 import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../domain/pending-requests/aggregate";
 import { confirmForkDiscard } from "../composer/confirm-fork-discard.obsidian";
-import type { ChatPanelEnvironment, ChatPanelHandle, ChatPanelRuntimeSnapshot, ChatWorkspacePanelSnapshot } from "../contracts";
+import type { ChatPanelEnvironment, ChatPanelHandle, ChatWorkspacePanelSnapshot } from "../contracts";
 import { renderChatPanelShell, unmountChatPanelShell } from "../shell/render.dom";
 import { type ChatThreadStreamScrollBinding, createChatThreadStreamScrollBinding } from "../thread-stream/scroll-binding";
 import { parseChatPanelViewState } from "../view-state";
@@ -40,27 +37,24 @@ export class ChatPanelSession implements ChatPanelHandle {
   private closing = false;
   private observedPanelActivity: PanelActivity | null = null;
   private unsubscribePanelActivity: (() => void) | null = null;
-  private pendingRuntimeRestore: ChatPanelRuntimeSnapshot | null;
   private foregroundWindow: Window | null = null;
   private stopObservingForeground: (() => void) | null = null;
   private pendingPersistentActivation: { threadId: string; promise: Promise<boolean> } | null = null;
 
   constructor(
     private readonly environment: ChatPanelEnvironment,
-    snapshot: ChatPanelRuntimeSnapshot | null = null,
+    viewState: Record<string, unknown> | null = null,
   ) {
-    this.pendingRuntimeRestore = snapshot;
     this.appServerWarmup = new DeferredTask(() => this.viewWindow(), 0);
     this.stateStore.dispatch({ type: "panel/ephemeral-default-set", ephemeral: environment.plugin.settings.newConversationsEphemeral() });
     this.runtime = this.createSessionRuntime();
-    if (snapshot) {
-      this.applyViewState(snapshot.viewState);
+    if (viewState) {
+      this.applyViewState(viewState);
     }
   }
 
   displayTitle(): string {
-    const draft =
-      this.state.panelThread.kind === "fork-draft" ? this.state.panelThread.draft : this.pendingRuntimeRestore?.forkDraft?.draft;
+    const draft = this.state.panelThread.kind === "fork-draft" ? this.state.panelThread.draft : null;
     if (draft) return draft.kind === "side-chat" ? "Side chat" : "Fork draft";
     if (isSideChatLifetime(activeThreadState(this.state)?.lifetime)) return "Side chat";
     return threadWindowTitle(panelThreadId(this.state), this.sharedThreads(), this.activeThreadTitle() ?? this.restoredThreadTitle());
@@ -82,7 +76,6 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   applyViewState(state: unknown): void {
     const restoredState = parseChatPanelViewState(state);
-    this.reconcilePendingPersistentRuntimeTarget(restoredState.kind === "thread" ? restoredState.threadId : null);
     this.runtime.commands.invalidateThreadWork();
     this.pendingPersistentActivation = null;
     if (restoredState.kind === "thread") {
@@ -90,7 +83,6 @@ export class ChatPanelSession implements ChatPanelHandle {
         type: "panel/restored-thread-applied",
         threadId: restoredState.threadId,
         fallbackTitle: restoredState.fallbackTitle,
-        ...(this.pendingRuntimeRestore?.forkReplacement ? { forkReplacement: this.pendingRuntimeRestore.forkReplacement } : {}),
       });
       this.environment.view.refreshTabHeader();
       return;
@@ -109,31 +101,6 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.mountOrRepairShell();
   }
 
-  runtimeSnapshot(): ChatPanelRuntimeSnapshot {
-    const lifetime = activeThreadState(this.state)?.lifetime;
-    const composer = this.pendingRuntimeRestore?.composer ?? this.runtime.composer.controller.runtimeSnapshot();
-    const forkReplacement =
-      this.pendingRuntimeRestore?.forkReplacement ?? (panelThreadId(this.state) ? pendingForkReplacement(this.state) : undefined);
-    return {
-      ...(forkReplacement ? { forkReplacement } : {}),
-      viewState: this.persistedState(),
-      composer,
-      forkDraft:
-        this.pendingRuntimeRestore?.forkDraft ??
-        (this.state.panelThread.kind === "fork-draft"
-          ? {
-              draft: this.state.panelThread.draft,
-              runtime: this.state.runtime,
-              display: captureForkDisplaySnapshot(chatThreadStreamViewState(this.state.threadStream, this.state.activeTurn), {
-                kind: "latest",
-              }),
-            }
-          : isSideChatLifetime(lifetime)
-            ? sideChatDraft(lifetime.sourceThreadId, lifetime.sourceThreadTitle ?? null, this.state.runtime)
-            : null),
-    };
-  }
-
   refreshSharedThreads(): Promise<void> {
     return this.runtime.commands.refreshSharedThreads();
   }
@@ -145,7 +112,7 @@ export class ChatPanelSession implements ChatPanelHandle {
       ...activity,
       threadId: this.closing ? null : activity.threadId,
       hasComposerDraft: this.state.composer.draft.trim().length > 0,
-      hasForkDraft: this.state.panelThread.kind === "fork-draft" || this.pendingRuntimeRestore?.forkDraft != null,
+      hasForkDraft: this.state.panelThread.kind === "fork-draft",
       connected: this.runtime.connection.manager.isConnected(),
     };
   }
@@ -154,7 +121,6 @@ export class ChatPanelSession implements ChatPanelHandle {
     if (this.closing || !canSwitchToThread(this.state, null)) return false;
     this.runtime.commands.invalidateThreadWork();
     this.pendingPersistentActivation = null;
-    this.pendingRuntimeRestore = null;
     this.stateStore.dispatch({ type: "panel/fork-draft-applied", preparation });
     this.environment.view.refreshTabHeader();
     this.environment.obsidian.requestWorkspaceLayoutSave();
@@ -248,7 +214,6 @@ export class ChatPanelSession implements ChatPanelHandle {
     const intent = this.resumeWork.begin(threadId);
     const activation = await this.runtime.thread.resume.resumeThread(threadId, intent, displaySnapshot);
     if (!activation) return false;
-    this.reconcilePendingPersistentRuntimeTarget(threadId);
     if (!(await activation.hydrate()) || !this.resumeWork.isCurrent(intent)) return false;
     return true;
   }
@@ -287,7 +252,6 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.runtime.observers.threadCatalog.subscribe();
     this.mountOrRepairShell();
     this.scheduleWarmup();
-    this.restoreRuntimeSnapshot();
   }
 
   async close(): Promise<void> {
@@ -325,7 +289,6 @@ export class ChatPanelSession implements ChatPanelHandle {
     await this.runtime.commands.startNewThread(options);
     if (panelThreadId(this.state) === null) {
       this.pendingPersistentActivation = null;
-      this.reconcilePendingPersistentRuntimeTarget(null);
     }
   }
 
@@ -355,16 +318,6 @@ export class ChatPanelSession implements ChatPanelHandle {
       if (!shouldWarmup() || this.closing) return;
       void this.runtime.connection.coordinator.ensureHydrated();
     });
-  }
-
-  private restoreRuntimeSnapshot(): void {
-    const snapshot = this.pendingRuntimeRestore;
-    if (!snapshot) return;
-    this.pendingRuntimeRestore = null;
-    if (snapshot.forkDraft) {
-      void this.applyForkDraft(snapshot.forkDraft);
-    }
-    this.runtime.composer.controller.restoreRuntimeSnapshot(snapshot.composer);
   }
 
   private observeForegroundWindow(): boolean {
@@ -424,14 +377,6 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   private sharedThreads() {
     return this.environment.plugin.threadCatalog.activeThreadsSnapshot() ?? [];
-  }
-
-  private reconcilePendingPersistentRuntimeTarget(threadId: string | null): void {
-    const snapshot = this.pendingRuntimeRestore;
-    if (!snapshot || snapshot.forkDraft?.draft.kind === "side-chat") return;
-    const restoredViewState = parseChatPanelViewState(snapshot.viewState);
-    const restoredThreadId = restoredViewState.kind === "thread" ? restoredViewState.threadId : null;
-    if (restoredThreadId !== threadId) this.pendingRuntimeRestore = null;
   }
 
   private createSessionRuntime(): ReturnType<typeof createChatPanelSessionRuntime> {

@@ -326,16 +326,18 @@ describe("ChatComposerController", () => {
   it.each(["rpc-error", "empty-history", "stale-target"] as const)(
     "preserves unsent reference input after %s without publishing into another thread",
     async (failure) => {
-      const { controller, stateStore } = composerControllerFixture();
-      const original = "/refer Other Consider this background and these constraints in detail [[attachment.md]]";
       const attachments: ComposerAttachment[] = [{ kind: "file", name: "attachment", path: "attachment.md", marker: "[[attachment.md]]" }];
-      controller.restoreRuntimeSnapshot({
-        draft: original,
-        attachments,
-        activeNoteSnapshots: [],
-        selectionSnapshots: [],
-        threadCommandTarget: null,
+      const { controller, stateStore, parent, renderShell } = composerControllerFixture({
+        controller: { attachmentHandler: { saveFiles: async () => attachmentSaveResult(attachments) } },
       });
+      const prefix = "/refer Other Consider this background and these constraints in detail";
+      controller.setDraft(prefix);
+      renderShell();
+      composer(parent).setSelectionRange(prefix.length, prefix.length);
+      composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["data"], "attachment.md")]));
+      await flushComposerAttachment();
+      const original = `${prefix}\n[[attachment.md]]`;
+      expect(controller.draft).toBe(original);
       const response = deferred<{ data: []; nextCursor: null }>();
       const requested = deferred<void>();
       const request = vi.fn(() => {
@@ -502,57 +504,6 @@ describe("ChatComposerController", () => {
     expect(stateStore.getState().composer.draft).toBe("rolled back prompt\n\nnext message");
     claim?.settle("accepted");
     expect(stateStore.getState().composer.draft).toBe("rolled back prompt\n\nnext message");
-  });
-
-  it("hands claimed draft and context to a replacement runtime", () => {
-    const first = composerControllerFixture();
-    const attachment = {
-      kind: "image" as const,
-      name: "diagram",
-      path: "Codex Attachments/diagram.png",
-      marker: "![[Codex Attachments/diagram.png]]",
-    };
-    const activeNote = { name: "Note", path: "Note.md", linktext: "Note" };
-    const selection = {
-      name: "Selection",
-      path: "Selection.md",
-      linktext: "Selection",
-      range: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 4 } },
-      text: "text",
-    };
-    first.controller.restoreRuntimeSnapshot({
-      draft: `/web https://example.com ${attachment.marker} [[Note]]`,
-      attachments: [attachment],
-      activeNoteSnapshots: [activeNote],
-      selectionSnapshots: [{ reference: selection, marker: '[[Selection]] "text"' }],
-      threadCommandTarget: null,
-    });
-    first.controller.claimSubmission();
-    first.controller.setDraft("next draft");
-
-    const snapshot = first.controller.runtimeSnapshot();
-    const replacement = composerControllerFixture();
-    replacement.controller.restoreRuntimeSnapshot(snapshot);
-    const restoredInput = replacement.controller.captureInputSnapshot();
-
-    expect(snapshot.draft).toBe(`/web https://example.com ${attachment.marker} [[Note]]\n\nnext draft`);
-    expect(restoredInput.attachments).toEqual([attachment]);
-    expect(restoredInput.activeNoteSnapshots).toEqual([activeNote]);
-    expect(restoredInput.selectionSnapshots).toEqual([{ reference: selection, marker: '[[Selection]] "text"' }]);
-  });
-
-  it("does not hand an adopted submission back as a resendable draft", () => {
-    const { controller } = composerControllerFixture();
-    controller.setDraft("submitted message");
-    const claim = controller.claimSubmission();
-    controller.setDraft("later draft");
-    claim?.markAdopted();
-
-    const snapshot = controller.runtimeSnapshot();
-    claim?.settle("failed");
-
-    expect(snapshot.draft).toBe("later draft");
-    expect(controller.isSubmissionPreparing()).toBe(false);
   });
 
   it("focuses only while its panel is foreground unless workspace publication forces it", () => {
@@ -873,19 +824,20 @@ describe("ChatComposerController", () => {
     const { controller, parent, renderShell } = composerControllerFixture({
       controller: {
         attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
+        contextReferenceProvider: contextProvider(() => ({ activeNote, selection: null })),
       },
     });
-    controller.restoreRuntimeSnapshot({
-      draft: "[[Alpha]] after",
-      attachments: [],
-      activeNoteSnapshots: [activeNote],
-      selectionSnapshots: [],
-      threadCommandTarget: null,
-    });
     renderShell();
+    setTextAreaValue(composer(parent), "@active");
+    composer(parent).setSelectionRange(7, 7);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    controller.setDraft("[[Alpha]] after");
+    expect(controller.captureInputSnapshot().activeNoteSnapshots).toEqual([activeNote]);
     composer(parent).setSelectionRange(0, "[[Alpha]]".length);
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
 
+    expect(controller.captureInputSnapshot().activeNoteSnapshots).toEqual([activeNote]);
     saved.resolve([attachmentFixture("first")]);
     await flushComposerAttachment();
 
@@ -1516,7 +1468,7 @@ describe("ChatComposerController", () => {
     });
   });
 
-  it("keeps Reading excerpts distinct through claims, failed restoration and runtime restoration", () => {
+  it("keeps Reading excerpts distinct through claims and failed restoration", () => {
     const prefix = "x".repeat(60);
     let selection = readingReference("capture-a", `${prefix} first excerpt`);
     const { controller, parent, prepareInput, renderShell } = composerControllerFixture({
@@ -1537,13 +1489,6 @@ describe("ChatComposerController", () => {
       `${prefix} second excerpt`,
     ]);
 
-    const snapshot = controller.runtimeSnapshot();
-    controller.setDraft("");
-    controller.restoreRuntimeSnapshot(snapshot);
-    expect(controller.captureInputSnapshot().selectionSnapshots).toMatchObject([
-      { marker: firstDraft, reference: { range: null, selectionId: "capture-a", text: `${prefix} first excerpt` } },
-      { marker: secondDraft, reference: { range: null, selectionId: "capture-b", text: `${prefix} second excerpt` } },
-    ]);
     const context = expectPresent(prepareInput(composer(parent).value).input.find((item) => item.type === "additionalContext"));
     expect(context.kind).toBe("untrusted");
     expect(context.value).toContain("not verified excerpt provenance or an edit location");

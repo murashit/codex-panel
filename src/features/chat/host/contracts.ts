@@ -18,9 +18,8 @@ import type { ThreadFactSink } from "../../threads/workflows/thread-facts";
 import type { ThreadMutationCommands } from "../../threads/workflows/thread-mutation-commands";
 import type { ThreadReplacementPublicationOwner } from "../../threads/workflows/thread-replacement-publication";
 import type { TurnDiffViewState } from "../../turn-diff/model";
-import type { ComposerRuntimeSnapshot } from "../application/composer/runtime-snapshot";
 import type { ForkDisplaySnapshot } from "../application/threads/fork-display-snapshot";
-import type { ForkDraftPreparation, ForkReplacement } from "../application/threads/fork-draft";
+import type { ForkDraftPreparation } from "../application/threads/fork-draft";
 
 export interface CodexChatHost {
   readonly appServerConnection: Pick<AppServerContextConnection, "createLease" | "withClient">;
@@ -110,13 +109,6 @@ export interface ChatViewLifecycleSurface {
   open(): void;
   close(): Promise<void>;
   refreshSettings(): void;
-}
-
-export interface ChatPanelRuntimeSnapshot {
-  readonly viewState: Record<string, unknown>;
-  readonly composer: ComposerRuntimeSnapshot;
-  readonly forkDraft: ForkDraftPreparation | null;
-  readonly forkReplacement?: ForkReplacement;
 }
 
 export interface ChatViewRuntimeOwner {

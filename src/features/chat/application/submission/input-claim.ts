@@ -55,10 +55,6 @@ export class SubmissionInput implements ComposerSubmissionClaim {
     return null;
   }
 
-  settleForSnapshot(): void {
-    this.settle(this.phase === "adopted" ? "accepted" : "failed");
-  }
-
   readonly settle = (outcome: "accepted" | "failed", replacementDraft?: string): void => {
     if (this.phase === "settled") return;
     const current = this.isCurrent();

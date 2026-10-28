@@ -59,7 +59,32 @@ describe("CodexChatView workspace restoration", () => {
     await view.onClose();
   });
 
-  it("keeps an empty fork draft occupied and restores its input and history across context replacement", async () => {
+  it("does not restore a temporary conversation on context replacement", async () => {
+    const host = chatHost({ settings: { newConversationsEphemeral: true, showToolbar: false } });
+    const owner = chatViewRuntimeOwner(host);
+    const client = connectedClient({
+      "thread/start": vi.fn().mockResolvedValue(resumedThread("temporary", { ephemeral: true, name: null, preview: "" })),
+      "turn/start": vi.fn().mockRejectedValue(new Error("turn rejected")),
+    });
+    connectionMockState().client = client;
+    const view = await chatView({ runtimeOwner: owner });
+    await view.onOpen();
+    view.surface.setComposerText("Unsent temporary message");
+    await submitComposerByEnter(view);
+    await waitForAsyncWork(() => expect(view.surface.openPanelSnapshot().threadId).toBe("temporary"));
+
+    const nextClient = connectedClient();
+    owner.replace(chatHost(), () => {
+      connectionMockState().client = nextClient;
+    });
+    await waitForAsyncWork(() => expect(composerElement(view).value).toBe(""));
+    expect(view.getState()).toEqual({ version: 1 });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: false });
+    expect(requestMethods(nextClient)).not.toContain("thread/resume");
+    expect(requestMethods(client)).not.toContain("thread/delete");
+  });
+
+  it("discards an uncreated fork draft on context replacement", async () => {
     const host = chatHost();
     const owner = chatViewRuntimeOwner(host);
     connectionMockState().client = connectedClient();
@@ -96,17 +121,14 @@ describe("CodexChatView workspace restoration", () => {
     view.surface.setComposerText("Continue this branch");
     const replacementHost = chatHost();
     owner.replace(replacementHost);
-    await waitForAsyncWork(() => {
-      expect(composerElement(view).value).toBe("Continue this branch");
-    });
-    expect(view.getDisplayText()).toBe("Fork draft");
-    expect((view.surface as ChatPanelSession).runtimeSnapshot().forkDraft).toEqual(preparation);
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: true });
+    await waitForAsyncWork(() => expect(composerElement(view).value).toBe(""));
+    expect(view.getDisplayText()).toBe("Codex");
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: false });
     expect(view.getState()).toEqual({ version: 1 });
     expect(requestMethods(connectionMockState().client as ReturnType<typeof connectedClient>)).not.toContain("thread/fork");
   });
 
-  it("retains replacement intent after the first fork turn fails and the runtime is replaced", async () => {
+  it("restores the created fork without retrying its source archive after context replacement", async () => {
     const owner = chatViewRuntimeOwner(chatHost());
     const client = connectedClient({
       "turn/start": vi.fn().mockRejectedValue(new Error("turn rejected")),
@@ -126,11 +148,6 @@ describe("CodexChatView workspace restoration", () => {
       expectRequestTimes(client, "turn/start", 1);
       expect(composerElement(view).value).toBe("Retry this prompt");
     });
-    expect((view.surface as ChatPanelSession).runtimeSnapshot().forkReplacement).toEqual({
-      sourceThreadId: "source",
-      sourceLatestTurnId: "source-last",
-      saveMarkdown: false,
-    });
     const archiveThread = vi.fn().mockResolvedValue({ kind: "archived", exportedPath: null });
     const nextClient = connectedClient({
       "thread/resume": vi.fn().mockResolvedValue(resumedThread("thread-forked")),
@@ -139,16 +156,14 @@ describe("CodexChatView workspace restoration", () => {
     owner.replace(chatHost({ threadMutations: { archiveThread } }), () => {
       connectionMockState().client = nextClient;
     });
-    await waitForAsyncWork(() => expect(composerElement(view).value).toBe("Retry this prompt"));
-    expect((view.surface as ChatPanelSession).runtimeSnapshot().forkReplacement).toEqual({
-      sourceThreadId: "source",
-      sourceLatestTurnId: "source-last",
-      saveMarkdown: false,
-    });
+    await waitForAsyncWork(() => expect(composerElement(view).value).toBe(""));
+    expect(view.getState()).toMatchObject({ threadId: "thread-forked" });
+    await view.surface.activateThread();
+    view.surface.setComposerText("Continue fork");
     await submitComposerByEnter(view);
-    await waitForAsyncWork(() => expect(archiveThread).toHaveBeenCalledWith("source", { saveMarkdown: false }));
+    await waitForAsyncWork(() => expectRequestTimes(nextClient, "turn/start", 1));
+    expect(archiveThread).not.toHaveBeenCalled();
     expect(requestMethods(nextClient)).not.toContain("thread/fork");
-    expect((view.surface as ChatPanelSession).runtimeSnapshot().forkReplacement).toBeUndefined();
   });
 
   it("restores workspace thread state without hydrating it automatically", async () => {
@@ -207,11 +222,11 @@ describe("CodexChatView workspace restoration", () => {
     }
   });
 
-  it("closes the session even when runtime snapshot capture fails", async () => {
+  it("closes the session even when workspace state capture fails", async () => {
     const view = await chatView();
     const session = view.surface;
     const close = vi.spyOn(session, "close").mockResolvedValue(undefined);
-    vi.spyOn(session as ChatPanelSession, "runtimeSnapshot").mockImplementation(() => {
+    vi.spyOn(session as ChatPanelSession, "persistedState").mockImplementation(() => {
       throw new Error("snapshot failed");
     });
 
