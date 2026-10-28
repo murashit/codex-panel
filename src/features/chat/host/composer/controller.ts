@@ -16,7 +16,6 @@ import type { FuzzyMatcher } from "../../application/composer/fuzzy-search";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
 import type { NoteCandidateProvider } from "../../application/composer/note-context";
 import { composerContextReferences } from "../../application/composer/prepared-input";
-import type { ComposerRuntimeSnapshot } from "../../application/composer/runtime-snapshot";
 import { captureSelectionContext, selectionContextMatches } from "../../application/composer/selection-context";
 import type { ComposerSuggestion } from "../../application/composer/suggestion";
 import {
@@ -317,29 +316,6 @@ export class ChatComposerController {
 
   failActiveSubmissionClaim(): void {
     this.submissionInput?.settle("failed");
-  }
-
-  runtimeSnapshot(): ComposerRuntimeSnapshot {
-    this.submissionInput?.settleForSnapshot();
-    return {
-      draft: this.state.composer.draft,
-      attachments: [...this.attachments],
-      activeNoteSnapshots: [...this.activeNoteContextSnapshots],
-      selectionSnapshots: this.selectionSnapshots(),
-      threadCommandTarget: this.threadCommandTarget,
-    };
-  }
-
-  restoreRuntimeSnapshot(snapshot: ComposerRuntimeSnapshot): void {
-    this.attachments = [...snapshot.attachments];
-    this.activeNoteContextSnapshots = [...snapshot.activeNoteSnapshots];
-    this.clearSelectionContexts();
-    this.selectionContexts = new Map(snapshot.selectionSnapshots.map((snapshot) => [snapshot.marker, { ...snapshot, emphasis: null }]));
-    this.threadCommandTarget = snapshot.threadCommandTarget;
-    this.setDraft(snapshot.draft, {
-      preserveContext: true,
-      threadCommandTarget: snapshot.threadCommandTarget,
-    });
   }
 
   private handleSuggestionKeydown(event: KeyboardEvent): boolean {

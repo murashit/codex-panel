@@ -2,7 +2,6 @@ import { threadMeaningfulTitle } from "../../../../domain/threads/title";
 import { type ActiveThreadRuntimeState, initialChatRuntimeState } from "../../domain/runtime/state";
 import { turnOutcomeLabel } from "../../domain/runtime/turn-outcome";
 import { initialChatRequestState, resolveChatRequest } from "../pending-requests/state";
-import type { ForkReplacement } from "../threads/fork-draft";
 import { STATUS_TURN_RUNNING, transitionChatTurnLifecycleState } from "../turns/turn-state";
 import { initialComposerState } from "./composer";
 import {
@@ -108,7 +107,7 @@ export function reduceChatTransition(state: ChatState, action: ChatTransitionAct
     case "active-thread/settings-applied":
       return reduceActiveThreadSettingsAppliedTransition(state, action);
     case "panel/restored-thread-applied":
-      return reduceRestoredThreadAppliedTransition(state, action.threadId, action.fallbackTitle, action.forkReplacement);
+      return reduceRestoredThreadAppliedTransition(state, action.threadId, action.fallbackTitle);
     case "panel/restored-thread-renamed":
       return reduceRestoredThreadRenamedTransition(state, action.threadId, action.name);
     case "panel/view-state-cleared":
@@ -224,16 +223,11 @@ function reduceActiveThreadSettingsAppliedTransition(state: ChatState, action: A
   });
 }
 
-function reduceRestoredThreadAppliedTransition(
-  state: ChatState,
-  threadId: string,
-  fallbackTitle: string | null,
-  forkReplacement?: ForkReplacement,
-): ChatState {
+function reduceRestoredThreadAppliedTransition(state: ChatState, threadId: string, fallbackTitle: string | null): ChatState {
   const cleared = clearThreadScopedState(state);
   return patchObject(cleared, {
     connection: { ...cleared.connection, statusText: "Thread ready to resume." },
-    panelThread: { ...createAwaitingResumeThreadState(threadId, fallbackTitle), ...(forkReplacement ? { forkReplacement } : {}) },
+    panelThread: createAwaitingResumeThreadState(threadId, fallbackTitle),
   });
 }
 

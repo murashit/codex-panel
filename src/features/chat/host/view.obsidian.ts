@@ -1,14 +1,13 @@
 import { Component, ItemView, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL } from "../../../constants";
-import type { ComposerRuntimeSnapshot } from "../application/composer/runtime-snapshot";
 import { createLocalIdSource } from "../application/local-id-source";
-import type { ChatPanelHandle, ChatPanelRuntimeSnapshot, ChatViewRuntimeOwner, CodexChatHost } from "./contracts";
+import type { ChatPanelHandle, ChatViewRuntimeOwner, CodexChatHost } from "./contracts";
 import { ChatPanelSession } from "./session/session";
 
 export class CodexChatView extends ItemView {
   private attachment: { session: ChatPanelSession; owner: Component } | null = null;
-  private runtimeSnapshot: ChatPanelRuntimeSnapshot | null = null;
+  private detachedState: Record<string, unknown> | null = null;
   private opened = false;
   private readonly viewId = createLocalIdSource().next("codex-panel");
 
@@ -61,11 +60,11 @@ export class CodexChatView extends ItemView {
             },
           },
         },
-        this.runtimeSnapshot,
+        this.detachedState,
       );
       this.attachment = { session, owner };
       if (this.opened) session.open();
-      this.runtimeSnapshot = null;
+      this.detachedState = null;
     } catch {
       this.attachment = null;
       if (session) void session.close().catch(() => undefined);
@@ -82,9 +81,9 @@ export class CodexChatView extends ItemView {
     if (!attachment) return Promise.resolve();
     const { session, owner } = attachment;
     try {
-      this.runtimeSnapshot = session.runtimeSnapshot();
+      this.detachedState = session.persistedState();
     } catch {
-      // Preserve the previous snapshot if collecting the latest one fails.
+      // Preserve the previous view state if collecting the latest one fails.
     }
     this.attachment = null;
     const cleanup = session.close().catch(() => undefined);
@@ -102,7 +101,6 @@ export class CodexChatView extends ItemView {
 
   override getDisplayText(): string {
     if (this.attachment) return this.attachment.session.displayTitle();
-    if (this.runtimeSnapshot?.forkDraft) return "Fork draft";
     const title = this.detachedViewState()["threadTitle"];
     return typeof title === "string" ? title : "Codex";
   }
@@ -121,11 +119,7 @@ export class CodexChatView extends ItemView {
       this.attachment.session.applyViewState(state);
       return;
     }
-    this.runtimeSnapshot = {
-      viewState: typeof state === "object" && state !== null ? { ...(state as Record<string, unknown>) } : { version: 1 },
-      composer: this.runtimeSnapshot?.composer ?? emptyComposerRuntimeSnapshot(),
-      forkDraft: null,
-    };
+    this.detachedState = typeof state === "object" && state !== null ? { ...(state as Record<string, unknown>) } : { version: 1 };
   }
 
   override async onOpen(): Promise<void> {
@@ -151,16 +145,6 @@ export class CodexChatView extends ItemView {
   }
 
   private detachedViewState(): Record<string, unknown> {
-    return this.runtimeSnapshot?.viewState ?? { version: 1 };
+    return this.detachedState ?? { version: 1 };
   }
-}
-
-function emptyComposerRuntimeSnapshot(): ComposerRuntimeSnapshot {
-  return {
-    draft: "",
-    attachments: [],
-    activeNoteSnapshots: [],
-    selectionSnapshots: [],
-    threadCommandTarget: null,
-  };
 }

@@ -11,7 +11,8 @@ import { CodexChatView } from "../src/features/chat/host/view.obsidian";
 import { CodexThreadsView } from "../src/features/threads-view/view.obsidian";
 import { CodexTurnDiffView } from "../src/features/turn-diff/view.obsidian";
 import type CodexPanelPlugin from "../src/main";
-import { connectedClient } from "./features/chat/host/view-connection-harness";
+import { completedTurn, connectedClient, resumedThread } from "./features/chat/host/view-connection-harness";
+import { notices } from "./mocks/obsidian";
 import { deferred, waitForAsyncWork } from "./support/async";
 import { installObsidianDomShims } from "./support/dom";
 import {
@@ -293,6 +294,154 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(currentChatHost(plugin).appServerContext).toEqual({ codexPath: "codex-next", vaultPath: "/vault" });
     expect(saveData).toHaveBeenCalledTimes(2);
   });
+
+  it("automatically connects an empty panel after correcting an executable that failed on startup", async () => {
+    notices.length = 0;
+    const client = connectedClient();
+    contextConnectionClientMock.mockImplementation((codexPath: string) => {
+      if (codexPath === "codex") throw new Error("initial executable failed");
+      return client as unknown as AppServerClient;
+    });
+    const leaves: TestLeaf[] = [];
+    const plugin = await pluginWithLeaves(leaves);
+    const panelLeaf = leaf();
+    const view = chatView(CodexChatView, panelLeaf, plugin.runtime);
+    panelLeaf.view = view;
+    leaves.push(panelLeaf);
+    try {
+      await view.onOpen();
+      await vi.waitFor(() => expect(view.containerEl.textContent).toContain("initial executable failed"));
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, connected: false });
+      expect(notices).toContain("Codex app-server connection failed.");
+
+      await publishCodexPath(plugin, "corrected-codex");
+      await vi.waitFor(() => expect(view.surface.openPanelSnapshot().connected).toBe(true));
+
+      expect(contextConnectionClientMock).toHaveBeenCalledWith("corrected-codex", "/vault");
+      expect(view.containerEl.textContent).not.toContain("initial executable failed");
+      expect(view.getState()).toEqual({ version: 1 });
+      expect(client.request).toHaveBeenCalledWith("config/read", expect.anything());
+    } finally {
+      await view.onClose();
+      plugin.runtime.reset();
+      notices.length = 0;
+    }
+  });
+
+  it("automatically resumes the foreground restored thread after correcting a failed executable", async () => {
+    notices.length = 0;
+    const client = connectedClient({
+      "thread/resume": vi.fn((params: unknown) => Promise.resolve(resumedThread((params as { threadId: string }).threadId))),
+      "thread/turns/list": vi.fn().mockResolvedValue({ data: [completedTurn("saved-turn")], nextCursor: null }),
+    });
+    contextConnectionClientMock.mockImplementation((codexPath: string) => {
+      if (codexPath === "codex") throw new Error("initial executable failed");
+      return client as unknown as AppServerClient;
+    });
+    const leaves: TestLeaf[] = [];
+    const plugin = await pluginWithLeaves(leaves);
+    const foregroundLeaf = leaf();
+    const backgroundLeaf = leaf();
+    const foreground = chatView(CodexChatView, foregroundLeaf, plugin.runtime);
+    const background = chatView(CodexChatView, backgroundLeaf, plugin.runtime);
+    foregroundLeaf.view = foreground;
+    backgroundLeaf.view = background;
+    leaves.push(foregroundLeaf, backgroundLeaf);
+    (plugin.app.workspace.getActiveViewOfType as ReturnType<typeof vi.fn>).mockReturnValue(foreground);
+    try {
+      await foreground.setState({ threadId: "foreground", threadTitle: "Saved foreground" }, {} as never);
+      await background.setState({ threadId: "background", threadTitle: "Saved background" }, {} as never);
+      await foreground.onOpen();
+      await background.onOpen();
+      plugin.runtime.activeWorkspaceLeafChanged(foregroundLeaf as never);
+      await vi.waitFor(() => expect(foreground.containerEl.textContent).toContain("initial executable failed"));
+      expect(foreground.getState()).toMatchObject({ threadId: "foreground", threadTitle: "Saved foreground" });
+
+      await publishCodexPath(plugin, "corrected-codex");
+      await vi.waitFor(() => {
+        const roles = [...foreground.containerEl.querySelectorAll(".codex-panel__stream-item-role")].map((element) => element.textContent);
+        expect(roles).toEqual(["You", "Codex"]);
+      });
+
+      expect(contextConnectionClientMock).toHaveBeenCalledWith("corrected-codex", "/vault");
+      expect(foreground.surface.openPanelSnapshot()).toMatchObject({ threadId: "foreground", connected: true });
+      expect(foreground.getState()).toMatchObject({ threadId: "foreground" });
+      expect(background.getState()).toMatchObject({ threadId: "background", threadTitle: "Saved background" });
+      expect(client.request.mock.calls.filter(([method]) => method === "thread/resume")).toEqual([
+        ["thread/resume", expect.objectContaining({ threadId: "foreground" }), expect.anything()],
+      ]);
+      expect(client.request).toHaveBeenCalledWith("thread/turns/list", expect.objectContaining({ threadId: "foreground" }));
+      expect(foreground.containerEl.textContent).not.toContain("initial executable failed");
+    } finally {
+      await foreground.onClose();
+      await background.onClose();
+      plugin.runtime.reset();
+      notices.length = 0;
+    }
+  });
+
+  it.each(["resolve", "reject"] as const)(
+    "ignores a pending old initialization that later %ss after the executable is corrected",
+    async (outcome) => {
+      notices.length = 0;
+      const oldInitialization = deferred<{ codexHome: string; platformFamily: string; platformOs: string; userAgent: string }>();
+      const nextClient = connectedClient();
+      const oldClient = connectedClient();
+      const starts: string[] = [];
+      vi.spyOn(contextConnection, "AppServerContextConnection").mockImplementation(
+        class extends ActualContextConnection {
+          constructor(...args: ConstructorParameters<typeof ActualContextConnection>) {
+            let client: AppServerClient | null = null;
+            super(args[0], args[1], args[2], args[3], {
+              connect: async () => {
+                starts.push(args[0]);
+                if (args[0] === "codex") {
+                  const result = await oldInitialization.promise;
+                  client = oldClient as unknown as AppServerClient;
+                  return result;
+                }
+                client = nextClient as unknown as AppServerClient;
+                return { codexHome: "/new", platformFamily: "unix", platformOs: "macos", userAgent: "new" };
+              },
+              currentClient: () => client,
+              disconnect: () => {
+                client = null;
+              },
+            });
+          }
+        },
+      );
+      const leaves: TestLeaf[] = [];
+      const plugin = await pluginWithLeaves(leaves);
+      const panelLeaf = leaf();
+      const view = chatView(CodexChatView, panelLeaf, plugin.runtime);
+      panelLeaf.view = view;
+      leaves.push(panelLeaf);
+      try {
+        await view.onOpen();
+        await vi.waitFor(() => expect(starts).toContain("codex"));
+        await publishCodexPath(plugin, "corrected-codex");
+        await vi.waitFor(() => expect(view.surface.openPanelSnapshot().connected).toBe(true));
+        if (outcome === "resolve") {
+          oldInitialization.resolve({ codexHome: "/old", platformFamily: "unix", platformOs: "macos", userAgent: "old" });
+        } else {
+          oldInitialization.reject(new Error("late old startup failure"));
+        }
+        await flushMicrotasks();
+
+        expect(starts).toContain("corrected-codex");
+        expect(view.surface.openPanelSnapshot().connected).toBe(true);
+        expect(view.containerEl.textContent).not.toContain("late old startup failure");
+        expect(notices).not.toContain("Codex app-server connection failed.");
+        expect(oldClient.request).not.toHaveBeenCalled();
+        expect(nextClient.request).toHaveBeenCalledWith("config/read", expect.anything());
+      } finally {
+        await view.onClose();
+        plugin.runtime.reset();
+        notices.length = 0;
+      }
+    },
+  );
 
   it("does not resurrect a replacement after the runtime is reset", async () => {
     const save = deferred<void>();

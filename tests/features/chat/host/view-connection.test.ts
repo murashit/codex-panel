@@ -366,7 +366,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.request).not.toHaveBeenCalledWith("thread/unsubscribe", { threadId: "thread-c" }, expect.anything());
   });
 
-  it("keeps a preserved draft editable while workspace coordination restores its thread", async () => {
+  it("restores the thread without its draft after context replacement", async () => {
     const owner = chatViewRuntimeOwner(chatHost());
     connectionMockState().client = connectedClient();
     const view = await chatView({ runtimeOwner: owner });
@@ -388,7 +388,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(requestMethods(nextClient)).not.toContain("thread/resume");
     expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1" });
     await waitForAsyncWork(() => {
-      expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("Keep this draft");
+      expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("");
     });
 
     view.surface.setComposerText("Edited while reconnecting");
@@ -462,7 +462,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("");
   });
 
-  it("restores a side chat as a local draft until the next send", async () => {
+  it("drops a side chat on context replacement", async () => {
     const owner = chatViewRuntimeOwner(chatHost());
     const firstClient = connectedClient({
       "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
@@ -497,23 +497,10 @@ describe("CodexChatView connection lifecycle", () => {
     );
 
     await waitForAsyncWork(() => {
-      expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: true });
-      expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("Side draft");
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: false });
+      expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("");
     });
     expectRequestTimes(nextClient, "thread/fork", 0);
-    await submitComposerByEnter(view);
-    await waitForAsyncWork(() => {
-      expect(nextClient.request).toHaveBeenCalledWith(
-        "thread/fork",
-        expect.objectContaining({
-          threadId: "source",
-          cwd: "/vault",
-          model: "independent-side-model",
-          config: { model_reasoning_effort: "high" },
-        }),
-      );
-      expect(view.surface.openPanelSnapshot().threadId).toBe("ephemeral-b");
-    });
   });
 
   it("does not read unsupported goals for side chats", async () => {
