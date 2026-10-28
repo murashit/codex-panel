@@ -14,13 +14,15 @@ export function toolbarOutsidePointerHit(
     return { insideToolbarPanel: false, insideArchiveConfirm: false };
   }
 
+  const archiveConfirm = target.closest(".codex-panel__archive-confirm");
+  const insideArchiveConfirm = Boolean(archiveConfirm && root.contains(archiveConfirm));
   const toolbarPanel = target.closest(".codex-panel__toolbar-primary, .codex-panel__toolbar-panel");
   if (!toolbarPanel || !root.contains(toolbarPanel)) {
-    return { insideToolbarPanel: false, insideArchiveConfirm: false };
+    return { insideToolbarPanel: false, insideArchiveConfirm };
   }
 
   return {
     insideToolbarPanel: true,
-    insideArchiveConfirm: Boolean(target.closest(".codex-panel__archive-confirm")),
+    insideArchiveConfirm,
   };
 }

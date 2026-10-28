@@ -100,18 +100,8 @@ export function createToolbarPanelActions(host: ToolbarPanelActionsHost): Toolba
     },
 
     closeOnOutsidePointer(context: ToolbarOutsidePointerContext): void {
-      if (!hasOpenPanel()) return;
-
-      if (context.hit.insideToolbarPanel) {
-        if (archiveConfirmId() && !context.hit.insideArchiveConfirm) {
-          setArchiveConfirm(null);
-        }
-        return;
-      }
-
-      if (archiveConfirmId()) {
-        setArchiveConfirm(null);
-      }
+      if (archiveConfirmId() && !context.hit.insideArchiveConfirm) setArchiveConfirm(null);
+      if (!hasOpenPanel() || context.hit.insideToolbarPanel || context.hit.insideArchiveConfirm) return;
 
       if (context.renameEditing) return;
 
@@ -177,9 +167,7 @@ export function createToolbarUiActions(deps: ToolbarUiActionDependencies): Toolb
         },
       },
       rename: {
-        start: (threadId) => {
-          deps.rename.start(threadId);
-        },
+        start: (threadId) => deps.rename.start(threadId),
         updateDraft: (threadId, value) => {
           deps.rename.updateDraft(threadId, value);
         },

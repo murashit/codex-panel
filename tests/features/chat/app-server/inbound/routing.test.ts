@@ -107,6 +107,20 @@ describe("chat inbound routing", () => {
   });
 
   it.each([
+    { kind: "ephemeral", mode: "ordinary" },
+    { kind: "ephemeral", mode: "side-chat", sourceThreadId: "parent", sourceThreadTitle: null },
+  ] as const)("does not schedule automatic naming for $mode conversations", (lifetime) => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread-active", lifetime } });
+    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+
+    const plan = planChatInboundNotification(state, turnCompletedNotification(), (prefix) => `${prefix}-1`);
+
+    expect(plan.actions.length).toBeGreaterThan(0);
+    expect(plan.effects).toEqual([]);
+  });
+
+  it.each([
     { name: "command approval", request: commandApprovalRequest(), kind: "approval" },
     { name: "file change approval", request: fileChangeApprovalRequest(), kind: "approval" },
     { name: "permissions approval", request: permissionsApprovalRequest(), kind: "approval" },

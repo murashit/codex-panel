@@ -1,7 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 import { ToolbarIconAction, type ToolbarIconActionProps } from "../../../../shared/ui/icon.dom";
 import { pinnedThreadGroups } from "../../../threads/list/pinned-groups";
-import { ThreadAutoNameButton, ThreadRenameInput, ThreadRowControls } from "../../../threads/list/row-controls.dom";
+import { ThreadActionControls, ThreadAutoNameButton, ThreadRenameInput } from "../../../threads/ui/thread-controls.dom";
 import type { RateLimitSummary, ToolbarStatusRow, ToolbarStatusSection, ToolbarThreadRow, ToolbarViewModel } from "./model";
 
 interface ToolbarPrimaryActions {
@@ -23,7 +23,7 @@ interface ToolbarStatusActions {
   copyDebugDetails: () => void;
 }
 
-interface ToolbarThreadActions {
+export interface ToolbarThreadActions {
   loadMore: () => void;
   resume: (threadId: string) => void;
   setPinned: (threadId: string, isPinned: boolean) => void;
@@ -32,7 +32,7 @@ interface ToolbarThreadActions {
     confirm: (threadId: string, saveMarkdown: boolean) => void;
   };
   rename: {
-    start: (threadId: string) => void;
+    start: (threadId: string) => boolean;
     updateDraft: (threadId: string, value: string) => void;
     save: (threadId: string, value: string) => void;
     cancel: (threadId: string) => void;
@@ -369,7 +369,7 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
             }}
           />
           <div className="codex-panel__thread-actions">
-            <ThreadRowControls
+            <ThreadActionControls
               isPinned={thread.isPinned === true}
               renameDisabled={thread.renameDisabled}
               archiveDisabled={thread.archiveDisabled}

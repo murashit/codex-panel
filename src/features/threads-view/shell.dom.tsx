@@ -3,7 +3,7 @@ import { ToolbarIconAction, type ToolbarIconActionProps } from "../../shared/ui/
 import { unmountUiRoot } from "../../shared/ui/preact-root.dom";
 import { renderObsidianUiRoot } from "../../shared/ui/preact-root.obsidian";
 import { pinnedThreadGroups } from "../threads/list/pinned-groups";
-import { ThreadAutoNameButton, ThreadRenameInput, ThreadRowControls } from "../threads/list/row-controls.dom";
+import { ThreadActionControls, ThreadAutoNameButton, ThreadRenameInput } from "../threads/ui/thread-controls.dom";
 import type { ThreadsRowModel } from "./state";
 
 export interface ThreadsViewShellModel {
@@ -140,7 +140,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
             <span className="codex-panel-threads__row-title">{row.title}</span>
           </div>
           <div className="codex-panel-threads__actions">
-            <ThreadRowControls
+            <ThreadActionControls
               isPinned={row.isPinned}
               archiveDisabled={row.archiveDisabled}
               archiveConfirm={archiveConfirm}
