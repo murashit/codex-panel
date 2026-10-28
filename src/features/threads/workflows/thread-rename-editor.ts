@@ -20,7 +20,7 @@ export interface ThreadRenameEditorHost {
 export interface ThreadRenameEditor {
   invalidate(): void;
   cancelGenerations(): void;
-  start(threadId: string): void;
+  start(threadId: string): boolean;
   updateDraft(threadId: string, value: string): void;
   cancel(threadId: string): void;
   cancelAutoName(threadId: string): void;
@@ -49,9 +49,9 @@ export function createThreadRenameEditor(host: ThreadRenameEditorHost): ThreadRe
     },
 
     start(threadId) {
-      if (host.exclusive ? saves.size > 0 : saves.has(threadId)) return;
+      if (host.exclusive ? saves.size > 0 : saves.has(threadId)) return false;
       const draft = host.initialDraft(threadId);
-      if (draft === null) return;
+      if (draft === null) return false;
       if (host.exclusive) {
         abortAllTitleWork();
         host.state.clear();
@@ -60,6 +60,7 @@ export function createThreadRenameEditor(host: ThreadRenameEditorHost): ThreadRe
       }
       host.state.replace(threadId, { kind: "editing", draft, autoName: { kind: "checking" } });
       void prepareAutoName(threadId);
+      return true;
     },
 
     updateDraft(threadId, value) {

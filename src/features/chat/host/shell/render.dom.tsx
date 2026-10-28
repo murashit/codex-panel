@@ -7,11 +7,13 @@ import type { ThreadCatalogPaginatedActiveReader } from "../../../threads/catalo
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { activeThreadId, type ChatState } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
+import { chatTurnBusy } from "../../application/turns/turn-state";
 import { ComposerShell } from "../../ui/composer/composer";
 import { GoalPanel } from "../../ui/goal/goal";
 import { ConversationHeader } from "../../ui/header/header";
 import type { ThreadStreamScrollPortBinding } from "../../ui/thread-stream/flow-scroll";
 import { ThreadStreamViewport } from "../../ui/thread-stream/stream-blocks";
+import { toolbarThreadRows } from "../../ui/toolbar/thread-rows";
 import { Toolbar, type ToolbarActions } from "../../ui/toolbar/toolbar";
 import type { ChatPanelComposerActions, ChatPanelComposerPresenter } from "../composer/view-projection";
 import { selectChatPanelComposer } from "../composer/view-projection";
@@ -107,7 +109,13 @@ function ChatPanelShell({
       ) : null}
       <div key="body" className="codex-panel__body">
         <div className="codex-panel__region codex-panel__region--heading">
-          <ChatPanelIdentityRegion stateStore={stateStore} threadCatalog={threadCatalog} />
+          <ChatPanelIdentityRegion
+            stateStore={stateStore}
+            threadCatalog={threadCatalog}
+            dependencies={parts.toolbar.dependencies}
+            actions={parts.toolbar.actions}
+            showToolbar={showToolbar}
+          />
           <div className="codex-panel__region--goal">
             <ChatPanelGoalRegion stateStore={stateStore} threadGoalQueries={threadGoalQueries} dependencies={parts.goal} />
           </div>
@@ -126,7 +134,16 @@ function ChatPanelShell({
   );
 }
 
-function ChatPanelIdentityRegion({ stateStore, threadCatalog }: Pick<ChatPanelShellProps, "stateStore" | "threadCatalog">): UiNode {
+function ChatPanelIdentityRegion({
+  stateStore,
+  threadCatalog,
+  dependencies,
+  actions,
+  showToolbar,
+}: Pick<ChatPanelShellProps, "stateStore" | "threadCatalog" | "showToolbar"> & {
+  dependencies: ChatPanelToolbarDependencies;
+  actions: ToolbarActions;
+}): UiNode {
   const resource = useActiveThreadsResource(threadCatalog);
   const selector = useMemo(
     () => (state: ChatState) => {
@@ -135,13 +152,43 @@ function ChatPanelIdentityRegion({ stateStore, threadCatalog }: Pick<ChatPanelSh
         ...identity,
         selectable: state.panelThread.kind === "empty",
         disabled: state.panelThread.kind === "empty" && state.panelThread.operation !== undefined,
+        active:
+          state.panelThread.kind === "active" && state.panelThread.thread.lifetime?.kind === "persistent" ? state.panelThread.thread : null,
+        rename: state.ui.rename,
+        historyOpen: showToolbar && state.ui.toolbarPanel === "history",
+        archiveConfirmThreadId: state.ui.archiveConfirmThreadId,
+        turnBusy: chatTurnBusy(state.activeTurn),
       };
     },
-    [resource.threads],
+    [resource.threads, showToolbar],
   );
   const model = useChatSelector(stateStore, selector);
+  const thread = model.active ? resource.threads.find((item) => item.id === model.active?.id) : undefined;
+  const row =
+    thread && !thread.ephemeral && !thread.archived
+      ? toolbarThreadRows({
+          threads: [thread],
+          selectedRowId: thread.id,
+          archiveBlockedThreadId: model.turnBusy ? thread.id : null,
+          archiveConfirmThreadId: model.archiveConfirmThreadId,
+          archiveExportEnabled: dependencies.settings.archiveExportEnabled(),
+          renameState: model.rename.kind !== "idle" ? model.rename : null,
+        })[0]
+      : undefined;
   return (
     <ConversationHeader
+      thread={row && model.historyOpen ? { ...row, rename: null } : row}
+      actions={{
+        archive: actions.threads.archive,
+        rename: {
+          ...actions.threads.rename,
+          start: (threadId) => {
+            const started = actions.threads.rename.start(threadId);
+            if (started && model.historyOpen) actions.primary.toggleHistory();
+            return started;
+          },
+        },
+      }}
       title={model.title}
       persistence={
         model.ephemeral === null

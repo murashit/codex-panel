@@ -3,13 +3,18 @@
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { resumedThreadAction } from "../../../../../src/features/chat/application/state/transition-actions";
+import { createThreadRenameEditorActions } from "../../../../../src/features/chat/host/session/rename-editor";
 import {
   type ChatPanelShellParts,
   renderChatPanelShell,
   unmountChatPanelShell,
 } from "../../../../../src/features/chat/host/shell/render.dom";
+import { createToolbarPanelActions, createToolbarUiActions } from "../../../../../src/features/chat/host/toolbar/actions";
 import type { ThreadStreamScrollPortBinding } from "../../../../../src/features/chat/ui/thread-stream/flow-scroll";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { panelThreadFixture } from "../../../../support/panel-thread";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 import { composerPropsFixture } from "../../support/composer-shell";
 import { chatSharedSourcesFixture } from "../../support/shared-sources";
 import { threadStreamDependenciesFixture } from "../../support/thread-stream-dependencies";
@@ -115,42 +120,258 @@ describe("ChatPanelShell", () => {
     });
   });
 
-  it("refreshes the archive default in a mounted shell when the save preference changes", async () => {
+  it("uses the archive preference and forwards header confirmation choices for the current thread", async () => {
     const store = createChatStateStore();
+    const thread = panelThreadFixture({ id: "thread", name: "Thread" });
+    store.dispatch(resumedThreadAction({ response: threadActivationFixture(thread) }));
     store.dispatch({ type: "ui/panel-set", panel: "history" });
-    store.dispatch({ type: "ui/archive-confirm-set", threadId: "thread" });
     const container = document.body.appendChild(document.createElement("div"));
     let saveMarkdown = true;
-    const props = {
-      ...shellProps(store),
-      ...chatSharedSourcesFixture([
-        {
-          id: "thread",
-          name: "Thread",
-          preview: "",
-          archived: false,
-          ephemeral: false,
-          provenance: { kind: "interactive" },
-          createdAt: 1,
-          updatedAt: 1,
-        },
-      ]),
-      parts: shellParts({ archiveExportEnabled: () => saveMarkdown }),
-    };
-
-    await act(async () => {
-      renderChatPanelShell(container, props);
-      await settleShellEffects();
+    const parts = shellParts({ archiveExportEnabled: () => saveMarkdown });
+    parts.toolbar.actions.threads.archive.confirm = vi.fn(() => {
+      store.dispatch({ type: "ui/archive-confirm-set", threadId: null });
     });
-    expect(container.querySelector(".codex-panel__archive-default")?.getAttribute("aria-label")).toBe("Save and archive thread");
+    const props = { ...shellProps(store), ...chatSharedSourcesFixture([thread]), parts };
 
-    saveMarkdown = false;
-    await act(async () => {
-      renderChatPanelShell(container, props);
-      await settleShellEffects();
+    try {
+      await act(async () => {
+        renderChatPanelShell(container, props);
+        await settleShellEffects();
+      });
+      const header = container.querySelector<HTMLElement>(".codex-panel__conversation-header");
+      const archive = header?.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]');
+      archive?.focus();
+      archive?.click();
+      expect(parts.toolbar.actions.threads.archive.start).toHaveBeenCalledWith("thread");
+      await act(async () => {
+        store.dispatch({ type: "ui/archive-confirm-set", threadId: "thread" });
+        await settleShellEffects();
+      });
+      expect(header?.querySelector(".codex-panel__archive-default")?.getAttribute("aria-label")).toBe("Save and archive thread");
+      expect(document.activeElement).toBe(header?.querySelector(".codex-panel__archive-default"));
+      await act(async () => {
+        header?.querySelector<HTMLButtonElement>('[aria-label="Save and archive thread"]')?.click();
+        await settleShellEffects();
+      });
+      expect(document.activeElement).toBe(header?.querySelector('[aria-label="Archive thread"]'));
+      expect(parts.toolbar.actions.threads.archive.confirm).toHaveBeenNthCalledWith(1, "thread", true);
+      await act(async () => {
+        store.dispatch({ type: "ui/archive-confirm-set", threadId: "thread" });
+        await settleShellEffects();
+      });
+      await act(async () => {
+        const alternate = header?.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]');
+        alternate?.focus();
+        alternate?.click();
+        await settleShellEffects();
+      });
+      expect(document.activeElement).toBe(header?.querySelector('[aria-label="Archive thread"]'));
+      expect(parts.toolbar.actions.threads.archive.confirm).toHaveBeenNthCalledWith(2, "thread", false);
+      await act(async () => {
+        store.dispatch({ type: "ui/archive-confirm-set", threadId: "thread" });
+        await settleShellEffects();
+      });
+      saveMarkdown = false;
+      await act(async () => {
+        renderChatPanelShell(container, props);
+        await settleShellEffects();
+      });
+      expect(header?.querySelector(".codex-panel__archive-default")?.getAttribute("aria-label")).toBe("Archive thread without saving");
+      composer(container).focus();
+      await act(async () => {
+        store.dispatch({ type: "ui/archive-confirm-set", threadId: null });
+        store.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+        await settleShellEffects();
+      });
+      expect(document.activeElement).toBe(composer(container));
+      expect(header?.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.disabled).toBe(true);
+    } finally {
+      await act(async () => unmountChatPanelShell(container));
+      container.remove();
+    }
+  });
+
+  it("keeps the temporary choice before start and offers no thread actions to a started temporary chat", async () => {
+    const store = createChatStateStore();
+    const container = document.body.appendChild(document.createElement("div"));
+    try {
+      await act(async () => {
+        renderChatPanelShell(container, shellProps(store));
+        await settleShellEffects();
+      });
+      const header = container.querySelector<HTMLElement>(".codex-panel__conversation-header");
+      await act(async () => {
+        header?.querySelector<HTMLButtonElement>('[aria-label="Use temporary conversation"]')?.click();
+        await settleShellEffects();
+      });
+      expect(store.getState().panelThread).toMatchObject({ kind: "empty", ephemeral: true });
+      expect(header?.querySelector('[aria-label="Rename thread"]')).toBeNull();
+      const temporary = panelThreadFixture({ id: "temporary", ephemeral: true });
+      await act(async () => {
+        store.dispatch(resumedThreadAction({ response: threadActivationFixture(temporary) }));
+        await settleShellEffects();
+      });
+      expect(header?.querySelectorAll("button")).toHaveLength(0);
+      expect(header?.querySelector('[aria-label="Temporary conversation"]')).not.toBeNull();
+    } finally {
+      await act(async () => unmountChatPanelShell(container));
+      container.remove();
+    }
+  });
+
+  it("keeps one focused rename editor at the initiating surface through a failed save", async () => {
+    const store = createChatStateStore();
+    const thread = panelThreadFixture({ id: "current", name: "Current" });
+    const other = panelThreadFixture({ id: "other", name: "Other" });
+    store.dispatch(resumedThreadAction({ response: threadActivationFixture(thread) }));
+    store.dispatch({ type: "ui/panel-set", panel: "history" });
+    let rejectSave: (error: Error) => void = () => undefined;
+    const rename = createThreadRenameEditorActions({
+      stateStore: store,
+      threadById: (id) => (id === thread.id ? thread : id === other.id ? other : undefined),
+      ensureConnected: async () => undefined,
+      addSystemMessage: vi.fn(),
+      resolveThreadTitleContext: async () => ({ userRequest: "Question", assistantResponse: "Answer" }),
+      generateThreadTitle: (_context, signal) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true });
+        }),
+      renameThread: () =>
+        new Promise((_resolve, reject) => {
+          rejectSave = reject;
+        }),
     });
-    expect(container.querySelector(".codex-panel__archive-default")?.getAttribute("aria-label")).toBe("Archive thread without saving");
-    await act(async () => unmountChatPanelShell(container));
+    const parts = shellParts();
+    parts.toolbar.actions = createToolbarUiActions({
+      rename,
+      connectionCoordinator: {} as never,
+      reconnectCommand: vi.fn(),
+      threadCommands: {} as never,
+      goals: {} as never,
+      toolbarPanel: createToolbarPanelActions({ stateStore: store, threadCommands: {} as never }),
+      navigation: {} as never,
+      loadMoreThreads: async () => undefined,
+      openSideChat: vi.fn(),
+      debugDetails: {} as never,
+    });
+    const container = document.body.appendChild(document.createElement("div"));
+    try {
+      await act(async () => {
+        renderChatPanelShell(container, { ...shellProps(store), ...chatSharedSourcesFixture([thread, other]), parts });
+        await settleShellEffects();
+      });
+      const headerActions = container.querySelector(".codex-panel__conversation-header");
+      expect(headerActions?.querySelector('[aria-label="Rename thread"]')).not.toBeNull();
+      expect(headerActions?.querySelector('[aria-label="Archive thread"]')).not.toBeNull();
+      expect(headerActions?.querySelector('[aria-label="Pin thread"], [aria-label="Unpin thread"]')).toBeNull();
+      expect(container.querySelector('.codex-panel__toolbar [aria-label="Pin thread"]')).not.toBeNull();
+      for (const origin of ["toolbar", "header"] as const) {
+        const area = container.querySelector<HTMLElement>(
+          origin === "header" ? ".codex-panel__conversation-header" : ".codex-panel__toolbar",
+        );
+        await act(async () => {
+          area?.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+          await settleShellEffects();
+        });
+        const inputs = container.querySelectorAll<HTMLInputElement>(".codex-panel-ui__nav-inline-input");
+        expect(inputs).toHaveLength(1);
+        expect(area?.contains(inputs[0] ?? null)).toBe(true);
+        expect(document.activeElement).toBe(inputs[0]);
+        const labelId = inputs[0]?.getAttribute("aria-labelledby");
+        expect(labelId && document.getElementById(labelId)?.textContent).toBe("Thread name");
+        expect(inputs[0]?.hasAttribute("aria-label")).toBe(false);
+        expect(inputs[0]?.hasAttribute("title")).toBe(false);
+        await act(async () => {
+          inputs[0]?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+          await settleShellEffects();
+        });
+      }
+      const header = container.querySelector<HTMLElement>(".codex-panel__conversation-header");
+      await act(async () => {
+        header?.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+        await settleShellEffects();
+      });
+      await act(async () => {
+        header?.querySelector<HTMLInputElement>("input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+        await settleShellEffects();
+      });
+      expect(header?.querySelector<HTMLInputElement>("input")?.disabled).toBe(true);
+      await act(async () => {
+        rejectSave(new Error("offline"));
+        await settleShellEffects();
+      });
+      expect(container.querySelectorAll(".codex-panel-ui__nav-inline-input")).toHaveLength(1);
+      expect(document.activeElement).toBe(header?.querySelector("input"));
+      await act(async () => {
+        rename.cancel(thread.id);
+        store.dispatch({ type: "ui/panel-set", panel: "history" });
+        rename.start(other.id);
+        await settleShellEffects();
+      });
+      const otherInput = container.querySelector<HTMLInputElement>(".codex-panel__toolbar .codex-panel-ui__nav-inline-input");
+      await act(async () => {
+        otherInput?.blur();
+        await settleShellEffects();
+      });
+      expect(otherInput?.disabled).toBe(true);
+      expect(header?.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.disabled).toBe(true);
+      await act(async () => {
+        rejectSave(new Error("offline"));
+        await settleShellEffects();
+      });
+      expect(document.activeElement).toBe(container.querySelector(".codex-panel__toolbar .codex-panel-ui__nav-inline-input"));
+      await act(async () => {
+        rename.cancel(other.id);
+        await settleShellEffects();
+      });
+      await act(async () => {
+        header?.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+        await settleShellEffects();
+      });
+      await act(async () => {
+        header?.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
+        await settleShellEffects();
+      });
+      expect(header?.querySelector('[aria-label="Cancel auto-name"]')).not.toBeNull();
+      await act(async () => {
+        parts.toolbar.actions.primary.toggleHistory();
+        await settleShellEffects();
+      });
+      const toolbar = container.querySelector<HTMLElement>(".codex-panel__toolbar");
+      await act(async () => {
+        toolbar?.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]')?.click();
+        await settleShellEffects();
+      });
+      expect(document.activeElement).toBe(toolbar?.querySelector(".codex-panel-ui__nav-inline-input"));
+    } finally {
+      await act(async () => unmountChatPanelShell(container));
+      container.remove();
+    }
+  });
+
+  it("keeps history open when the rename editor declines a header request", async () => {
+    const store = createChatStateStore();
+    const thread = panelThreadFixture({ id: "thread", name: "Thread" });
+    store.dispatch(resumedThreadAction({ response: threadActivationFixture(thread) }));
+    store.dispatch({ type: "ui/panel-set", panel: "history" });
+    const parts = shellParts();
+    parts.toolbar.actions.threads.rename.start = vi.fn(() => false);
+    const container = document.body.appendChild(document.createElement("div"));
+    try {
+      await act(async () => {
+        renderChatPanelShell(container, { ...shellProps(store), ...chatSharedSourcesFixture([thread]), parts });
+        await settleShellEffects();
+      });
+      await act(async () => {
+        container.querySelector<HTMLButtonElement>('.codex-panel__conversation-header [aria-label="Rename thread"]')?.click();
+        await settleShellEffects();
+      });
+      expect(parts.toolbar.actions.threads.rename.start).toHaveBeenCalledWith("thread");
+      expect(parts.toolbar.actions.primary.toggleHistory).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => unmountChatPanelShell(container));
+      container.remove();
+    }
   });
 
   it("sets composer bottom clearance only for fixed visible Obsidian status bars", async () => {

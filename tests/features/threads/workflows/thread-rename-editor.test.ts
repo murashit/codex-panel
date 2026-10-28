@@ -48,8 +48,8 @@ describe("thread rename editor", () => {
 
   it("keeps an exclusive edit when a new target is unavailable", () => {
     const { editor, states } = fixture({ exclusive: true, initialDraft: (id) => (id === "missing" ? null : "Draft") });
-    editor.start("first");
-    editor.start("missing");
+    expect(editor.start("first")).toBe(true);
+    expect(editor.start("missing")).toBe(false);
     expect([...states.keys()]).toEqual(["first"]);
   });
 
@@ -162,9 +162,9 @@ describe("thread rename editor", () => {
     const saved = deferred<void>();
     const { editor, states } = fixture({ exclusive: true, renameThread: vi.fn(() => saved.promise) });
 
-    editor.start("first");
+    expect(editor.start("first")).toBe(true);
     const save = editor.save("first", "Saved title");
-    editor.start("second");
+    expect(editor.start("second")).toBe(false);
 
     expect(states.get("first")?.kind).toBe("saving");
     expect(states.has("second")).toBe(false);
@@ -194,14 +194,18 @@ describe("thread rename editor", () => {
 
   it("releases an exclusive save after its externally owned state is replaced", async () => {
     const saved = deferred<void>();
-    const { editor, states } = fixture({ exclusive: true, renameThread: vi.fn(() => saved.promise) });
+    const renameThread = vi.fn(() => saved.promise);
+    const { editor, states } = fixture({ exclusive: true, renameThread });
 
     editor.start("first");
     const save = editor.save("first", "Stale title");
+    await Promise.resolve();
+    expect(renameThread).toHaveBeenCalledOnce();
     states.delete("first");
+    expect(editor.start("second")).toBe(false);
     saved.resolve();
     await save;
-    editor.start("second");
+    expect(editor.start("second")).toBe(true);
 
     expect(states.get("second")?.kind).toBe("editing");
   });

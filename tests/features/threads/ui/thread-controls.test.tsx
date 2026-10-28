@@ -2,12 +2,12 @@
 
 import { describe, expect, it, vi } from "vitest";
 import {
+  ThreadActionControls,
+  type ThreadActionControlsProps,
   ThreadAutoNameButton,
   ThreadRenameInput,
-  ThreadRowControls,
-  type ThreadRowControlsProps,
-} from "../../../../src/features/threads/list/row-controls.dom";
-import { renderUiRoot } from "../../../../src/shared/ui/preact-root.dom";
+} from "../../../../src/features/threads/ui/thread-controls.dom";
+import { renderUiRoot, unmountUiRoot } from "../../../../src/shared/ui/preact-root.dom";
 import { changeInputValue } from "../../../support/dom";
 
 function expectPresent<T>(value: T | null | undefined): T {
@@ -15,7 +15,7 @@ function expectPresent<T>(value: T | null | undefined): T {
   return value;
 }
 
-function rowControlProps(overrides: Partial<ThreadRowControlsProps> = {}): ThreadRowControlsProps {
+function threadActionProps(overrides: Partial<ThreadActionControlsProps> = {}): ThreadActionControlsProps {
   return {
     isPinned: false,
     archiveConfirm: { active: false, defaultSaveMarkdown: false },
@@ -34,25 +34,25 @@ function rowControlProps(overrides: Partial<ThreadRowControlsProps> = {}): Threa
   };
 }
 
-describe("shared thread row controls", () => {
+describe("shared thread controls", () => {
   it("keeps rename, archive, and pin actions ordered and isolated from row navigation", () => {
     const parent = document.createElement("div");
     const rowClick = vi.fn();
-    const props = rowControlProps();
+    const props = threadActionProps();
     parent.addEventListener("click", rowClick);
 
-    renderUiRoot(parent, <ThreadRowControls {...props} />);
+    renderUiRoot(parent, <ThreadActionControls {...props} />);
 
     const buttons = [...parent.querySelectorAll<HTMLButtonElement>("button")];
     expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual(["Rename thread", "Archive thread", "Pin thread"]);
     expect(buttons.at(-1)?.getAttribute("aria-pressed")).toBe("false");
     for (const button of buttons) button.click();
-    expect(props.onRename).toHaveBeenCalledOnce();
+    expect(props.onRename).toHaveBeenCalledExactlyOnceWith();
     expect(props.onArchiveStart).toHaveBeenCalledOnce();
     expect(props.onPinChange).toHaveBeenCalledWith(true);
     expect(rowClick).not.toHaveBeenCalled();
 
-    renderUiRoot(parent, <ThreadRowControls {...props} isPinned={true} />);
+    renderUiRoot(parent, <ThreadActionControls {...props} isPinned={true} />);
     const unpin = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Unpin thread"]'));
     expect(unpin.getAttribute("aria-pressed")).toBe("true");
     expect(unpin.classList.contains("surface-pin-active")).toBe(true);
@@ -63,12 +63,12 @@ describe("shared thread row controls", () => {
   it("replaces row actions with the default and alternate archive modes", () => {
     const parent = document.createElement("div");
     const onArchiveConfirm = vi.fn();
-    const props = rowControlProps({
+    const props = threadActionProps({
       archiveConfirm: { active: true, defaultSaveMarkdown: false },
       onArchiveConfirm,
     });
 
-    renderUiRoot(parent, <ThreadRowControls {...props} />);
+    renderUiRoot(parent, <ThreadActionControls {...props} />);
 
     const buttons = [...parent.querySelectorAll<HTMLButtonElement>("button")];
     expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
@@ -81,11 +81,54 @@ describe("shared thread row controls", () => {
     buttons[1]?.click();
     expect(onArchiveConfirm.mock.calls).toEqual([[false], [true]]);
 
-    renderUiRoot(parent, <ThreadRowControls {...props} archiveDisabled={true} />);
+    renderUiRoot(parent, <ThreadActionControls {...props} archiveDisabled={true} />);
     const disabledButtons = [...parent.querySelectorAll<HTMLButtonElement>("button")];
     expect(disabledButtons.every((button) => button.disabled)).toBe(true);
     for (const button of disabledButtons) button.click();
     expect(onArchiveConfirm).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not transfer archive focus for existing list controls", () => {
+    const parent = document.body.appendChild(document.createElement("div"));
+    const props = threadActionProps();
+    try {
+      renderUiRoot(parent, <ThreadActionControls {...props} />);
+      const archive = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]'));
+      archive.focus();
+      archive.click();
+      renderUiRoot(parent, <ThreadActionControls {...props} archiveConfirm={{ active: true, defaultSaveMarkdown: true }} />);
+      const primary = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Save and archive thread"]'));
+      expect(document.activeElement).not.toBe(primary);
+    } finally {
+      unmountUiRoot(parent);
+      parent.remove();
+    }
+  });
+
+  it("keeps distinct accessible-name references across separate roots", () => {
+    const first = document.body.appendChild(document.createElement("div"));
+    const second = document.body.appendChild(document.createElement("div"));
+    try {
+      for (const parent of [first, second]) {
+        renderUiRoot(
+          parent,
+          <ThreadRenameInput className="surface-input" value="Title" busy={false} onUpdate={vi.fn()} onSave={vi.fn()} onCancel={vi.fn()} />,
+        );
+      }
+      const inputs = [first, second].map((parent) => expectPresent(parent.querySelector<HTMLInputElement>("input")));
+      const ids = inputs.map((input) => input.getAttribute("aria-labelledby"));
+      expect(ids[0]).not.toBe(ids[1]);
+      for (const [index, input] of inputs.entries()) {
+        expect(ids[index] && document.getElementById(ids[index])?.textContent).toBe("Thread name");
+        expect(input.hasAttribute("aria-label")).toBe(false);
+        expect(input.hasAttribute("title")).toBe(false);
+      }
+    } finally {
+      unmountUiRoot(first);
+      unmountUiRoot(second);
+      first.remove();
+      second.remove();
+    }
   });
 
   it("owns the rename input focus, IME, save, cancel, and busy protocol", () => {
@@ -162,7 +205,7 @@ describe("shared thread row controls", () => {
     expect(pointerDown.defaultPrevented).toBe(true);
     expect(rowPointerDown).not.toHaveBeenCalled();
     expect(rowClick).not.toHaveBeenCalled();
-    expect(onStart).toHaveBeenCalledOnce();
+    expect(onStart).toHaveBeenCalledExactlyOnceWith();
 
     render(true, false, true);
     button = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]'));

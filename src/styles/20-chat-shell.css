@@ -64,12 +64,27 @@
 .codex-panel__conversation-header {
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   min-width: 0;
   min-height: var(--nav-item-size, var(--codex-panel-size-nav-item));
   margin-inline: var(--codex-panel-edge-padding-x);
   padding-block: var(--codex-panel-panel-gap);
+}
+
+.codex-panel__conversation-rename-input {
+  width: 100%;
+}
+
+.codex-panel__conversation-title,
+.codex-panel__conversation-header .codex-panel__conversation-rename-input {
+  font-size: var(--font-ui-small);
+  font-weight: var(--nav-item-weight, var(--font-normal));
+  line-height: var(--line-height-tight);
+}
+
+.codex-panel__conversation-header .codex-panel__conversation-rename-input {
+  letter-spacing: inherit;
 }
 
 .codex-panel__conversation-title {
@@ -78,9 +93,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--nav-item-color-active, var(--text-normal));
-  font-size: var(--font-ui-small);
-  font-weight: var(--nav-item-weight, var(--font-normal));
-  line-height: var(--line-height-tight);
 }
 
 .codex-panel__conversation-persistence {
@@ -95,4 +107,32 @@
 .codex-panel__conversation-toggle:disabled:where(:hover, :focus, :focus-visible, :active),
 span.codex-panel__conversation-persistence:hover {
   color: var(--icon-color);
+}
+
+.codex-panel__conversation-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--codex-panel-panel-gap);
+  width: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.codex-panel__conversation-header--confirming .codex-panel__conversation-actions,
+.codex-panel__conversation-header:hover .codex-panel__conversation-actions,
+.codex-panel__conversation-header:focus-within .codex-panel__conversation-actions {
+  width: auto;
+  overflow: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .codex-panel__conversation-actions {
+    width: auto;
+    overflow: visible;
+    opacity: 1;
+    pointer-events: auto;
+  }
 }

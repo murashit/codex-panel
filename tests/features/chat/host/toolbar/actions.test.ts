@@ -74,6 +74,19 @@ describe("createToolbarPanelActions", () => {
     expect(stateStore.getState().ui.archiveConfirmThreadId).toBeNull();
   });
 
+  it("keeps header archive confirmation on its buttons and dismisses it outside even without a panel", () => {
+    const { stateStore, actions } = toolbarPanelActionsFixture();
+    actions.startArchive("thread");
+    actions.closeOnOutsidePointer({ hit: { insideToolbarPanel: false, insideArchiveConfirm: true }, renameEditing: false });
+    expect(stateStore.getState().ui.archiveConfirmThreadId).toBe("thread");
+    actions.closeOnOutsidePointer({ hit: { insideToolbarPanel: false, insideArchiveConfirm: false }, renameEditing: false });
+    expect(stateStore.getState().ui.archiveConfirmThreadId).toBeNull();
+    actions.toggleHistory();
+    actions.startArchive("thread");
+    actions.closeOnOutsidePointer({ hit: { insideToolbarPanel: false, insideArchiveConfirm: true }, renameEditing: false });
+    expect(stateStore.getState().ui.archiveConfirmThreadId).toBe("thread");
+  });
+
   it("copies debug details from the latest state at invocation time", () => {
     const stateStore = createChatStateStore();
     const actions = createToolbarUiActions({
