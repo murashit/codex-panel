@@ -114,7 +114,6 @@ async function sendTurnText(
       return false;
     }
     if (!commitPendingSubmission(host.stateStore, request.pendingSubmissionId)) return false;
-    if (request.pendingSubmissionId) request.submissionClaim.markAdopted();
     if (!(await host.applyPendingThreadSettings())) {
       failPendingSubmission(host.stateStore, request.pendingSubmissionId);
       return false;
@@ -136,7 +135,6 @@ async function sendTurnText(
       item: optimistic,
       ...(request.pendingSubmissionId ? { pendingSubmissionId: request.pendingSubmissionId } : {}),
     });
-    request.submissionClaim.markAdopted();
 
     const outcome = await host.turnPort.startTurn({
       threadId: activeThreadId,
@@ -194,7 +192,6 @@ async function steerCurrentTurn(
 ): Promise<boolean> {
   if (!pendingSubmissionIsCurrent(host.stateStore, request.pendingSubmissionId)) return false;
   if (!commitPendingSubmission(host.stateStore, request.pendingSubmissionId)) return false;
-  request.submissionClaim.markAdopted();
   const localSteerId = localItemIds.next("local-steer");
   const item = localUserDialogueItemFromInput({
     id: request.pendingSubmissionId ?? localSteerId,

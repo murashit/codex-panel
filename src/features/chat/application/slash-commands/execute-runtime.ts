@@ -20,7 +20,6 @@ export type RuntimeSlashCommandName =
 
 type RuntimeSlashCommandContext = Pick<
   SlashCommandExecutionContext,
-  | "submission"
   | "runtimeSettings"
   | "addSystemMessage"
   | "addStructuredSystemMessage"
@@ -39,15 +38,12 @@ export async function executeRuntimeSlashCommand(
 ): Promise<SlashCommandExecutionResult | undefined> {
   switch (command) {
     case "fast":
-      context.submission.markAdopted();
       await context.runtimeSettings.toggleFastMode();
       return;
     case "auto-review":
-      context.submission.markAdopted();
       await context.runtimeSettings.toggleAutoReview();
       return;
     case "plan":
-      context.submission.markAdopted();
       await context.runtimeSettings.toggleCollaborationMode();
       return args ? { sendText: args } : undefined;
     case "status":
@@ -59,7 +55,6 @@ export async function executeRuntimeSlashCommand(
         context.addStructuredSystemMessage("Permissions & Approvals", context.permissionDetails());
         return;
       }
-      context.submission.markAdopted();
       if ((await applyPermissionProfileOverride(context, requested)) === false) return;
       context.addSystemMessage(permissionProfileOverrideMessage(requested));
       return;
@@ -76,7 +71,6 @@ export async function executeRuntimeSlashCommand(
         context.addStructuredSystemMessage("Model settings", context.modelStatusDetails());
         return;
       }
-      context.submission.markAdopted();
       if ((await applyModelOverride(context, requested)) === false) return;
       context.addSystemMessage(modelOverrideMessage(requested));
       return;
@@ -91,7 +85,6 @@ export async function executeRuntimeSlashCommand(
         context.addStructuredSystemMessage("Reasoning effort", context.effortStatusDetails());
         return;
       }
-      context.submission.markAdopted();
       if ((await applyReasoningEffortOverride(context, requested)) === false) return;
       context.addSystemMessage(reasoningEffortOverrideMessage(requested));
       return;

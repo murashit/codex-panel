@@ -126,7 +126,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.environment.obsidian.requestWorkspaceLayoutSave();
     const text = initialMessage?.trim();
     if (!text) return true;
-    const submissionClaim = this.runtime.composer.controller.claimTextSubmission(text);
+    const submissionClaim = this.runtime.composer.input.claimTextSubmission(text);
     if (!submissionClaim) return false;
     return this.runtime.turn.submissionCommands.sendTurnText({ preparedInput: { text, input: codexTextInput(text) }, submissionClaim });
   }
@@ -139,7 +139,7 @@ export class ChatPanelSession implements ChatPanelHandle {
       panel.operation ||
       state.pendingSubmission ||
       state.composer.pendingAttachmentSaveIds.length ||
-      this.runtime.composer.controller.isSubmissionPreparing()
+      this.runtime.composer.input.isSubmissionPreparing()
     )
       return;
     const target = capturePanelTargetLease(state);
@@ -278,7 +278,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   setComposerText(text: string): void {
-    this.runtime.composer.controller.setDraft(text, { focus: true });
+    this.runtime.composer.input.setDraft(text, { focus: true });
   }
 
   async connect(): Promise<void> {

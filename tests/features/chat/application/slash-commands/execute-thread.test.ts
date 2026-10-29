@@ -68,11 +68,7 @@ describe("thread slash commands", () => {
 
     await executeThreadSlashCommand("fork", "", ctx);
 
-    expect(ctx.submission.markAdopted).toHaveBeenCalledOnce();
     expect(ctx.threadCommands.forkThread).toHaveBeenCalledWith("active-thread");
-    expect(vi.mocked(ctx.submission.markAdopted).mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(ctx.threadCommands.forkThread).mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
-    );
   });
 
   it("opens a side chat from the active thread", async () => {

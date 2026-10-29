@@ -1,16 +1,16 @@
 import { OwnerLifetime } from "../../../../shared/async/owner-lifetime";
-import type { ComposerAttachment, ComposerAttachmentHandler } from "../../application/composer/attachments";
-import type { ChatState } from "../../application/state/model";
-import type { ChatAction } from "../../application/state/reducer";
-import type { ChatStateStore } from "../../application/state/store";
-import type { ComposerPendingSelection } from "../../ui/composer/composer";
-import { type ComposerElementSelection, composerRangeInsertionSource, composerSelectionSource } from "./selection";
+import type { ChatState } from "../state/model";
+import type { ChatAction } from "../state/reducer";
+import type { ChatStateStore } from "../state/store";
+import type { ComposerAttachment, ComposerAttachmentHandler } from "./attachments";
+import { type ComposerSelection, collapsedComposerSelection } from "./selection";
 
 interface ComposerAttachmentTransfersOptions {
   attachmentHandler: ComposerAttachmentHandler;
   stateStore: ChatStateStore;
-  composerElement: () => HTMLTextAreaElement | null;
-  setPendingSelection: (selection: ComposerPendingSelection | null) => void;
+  selection: () => ComposerSelection | null;
+  focus: () => void;
+  setSelection: (selection: ComposerSelection | null) => void;
   onDraftReplaced: (draft: string, attachments: readonly ComposerAttachment[]) => void;
   onError: (message: string) => void;
 }
@@ -74,8 +74,7 @@ export class ComposerAttachmentTransfers {
   private startPendingSave(files: readonly File[]): PendingAttachmentSave {
     const id = ++this.pendingSaveId;
     const draft = this.state.composer.draft;
-    const composer = this.options.composerElement();
-    const source = composerRangeInsertionSource(composer);
+    const source = this.options.selection();
     const selection = source && source.value === draft ? source : null;
     const placeholder = pendingAttachmentPlaceholder(id, files.length);
     const insertion = applyAttachmentMarkerInsertion(draft, selection?.start ?? draft.length, selection?.end ?? draft.length, [
@@ -90,9 +89,9 @@ export class ComposerAttachmentTransfers {
       syntheticSuffix: insertion.insertedText.slice(placeholderOffset + placeholder.length),
       panelTargetRevision: this.state.panelTargetRevision,
     };
-    this.options.setPendingSelection(collapsedComposerSelection(insertion.value, insertion.cursor));
+    this.options.setSelection(collapsedComposerSelection(insertion.value, insertion.cursor));
     this.dispatch({ type: "composer/attachment-save-started", saveId: id, draft: insertion.value });
-    composer?.focus();
+    this.options.focus();
     return pending;
   }
 
@@ -108,9 +107,7 @@ export class ComposerAttachmentTransfers {
       markers.length === 0
         ? replacePendingAttachmentWithOriginalText(state.composer.draft, pending)
         : replacePendingAttachmentPlaceholder(state.composer.draft, pending, markers);
-    this.options.setPendingSelection(
-      adjustedComposerSelection(composerSelectionSource(this.options.composerElement()), state.composer.draft, replacement),
-    );
+    this.options.setSelection(adjustedComposerSelection(this.options.selection(), state.composer.draft, replacement));
     this.options.onDraftReplaced(replacement.value, attachments);
     this.dispatch({ type: "composer/attachment-save-settled", saveId: pending.id, draft: replacement.value });
   }
@@ -119,15 +116,9 @@ export class ComposerAttachmentTransfers {
     const state = this.state;
     if (!state.composer.pendingAttachmentSaveIds.includes(pending.id)) return;
     const replacement = replacePendingAttachmentWithOriginalText(state.composer.draft, pending);
-    this.options.setPendingSelection(
-      adjustedComposerSelection(composerSelectionSource(this.options.composerElement()), state.composer.draft, replacement),
-    );
+    this.options.setSelection(adjustedComposerSelection(this.options.selection(), state.composer.draft, replacement));
     this.dispatch({ type: "composer/attachment-save-settled", saveId: pending.id, draft: replacement.value });
   }
-}
-
-function collapsedComposerSelection(value: string, cursor: number): ComposerPendingSelection {
-  return { value, start: cursor, end: cursor, direction: "none" };
 }
 
 interface PendingAttachmentSave {
@@ -171,10 +162,10 @@ function replacePendingAttachmentWithOriginalText(draft: string, pending: Pendin
 }
 
 function adjustedComposerSelection(
-  selection: ComposerElementSelection | null,
+  selection: ComposerSelection | null,
   draft: string,
   replacement: DraftReplacement,
-): ComposerPendingSelection | null {
+): ComposerSelection | null {
   if (!selection || selection.value !== draft || replacement.value === draft) return null;
   const adjust = (position: number): number => {
     if (position <= replacement.start) return position;
@@ -227,26 +218,4 @@ function replaceDraftRange(draft: string, start: number, end: number, replacemen
 
 function unchangedDraftReplacement(draft: string): DraftReplacement {
   return { value: draft, start: draft.length, end: draft.length, replacementLength: 0 };
-}
-
-export function composerFilesFromTransfer(dataTransfer: DataTransfer | null): File[] {
-  if (!dataTransfer) return [];
-  const transfer = dataTransfer as Partial<DataTransfer>;
-  const files = Array.from(transfer.files ?? []).filter((file) => file.size > 0);
-  if (files.length > 0) return files;
-
-  return Array.from(transfer.items ?? [])
-    .filter((item) => item.kind === "file")
-    .flatMap((item) => {
-      const file = item.getAsFile();
-      return file && file.size > 0 ? [file] : [];
-    });
-}
-
-export function composerTransferHasFiles(dataTransfer: DataTransfer | null): boolean {
-  if (!dataTransfer) return false;
-  const transfer = dataTransfer as Partial<DataTransfer>;
-  if (Array.from(transfer.types ?? []).includes("Files")) return true;
-  if (Array.from(transfer.items ?? []).some((item) => item.kind === "file")) return true;
-  return Array.from(transfer.files ?? []).some((file) => file.size > 0);
 }

@@ -101,7 +101,6 @@ describe("context slash commands", () => {
 
     const result = await executeContextSlashCommand("web", "https://example.com/article Summarize this", ctx);
 
-    expect(ctx.submission.markAdopted).not.toHaveBeenCalled();
     expect(ctx.readWebUrl).toHaveBeenCalledWith("https://example.com/article", "Summarize this", inputSnapshot, ctx.submission.isCurrent);
     expect(result).toEqual({ sendInput: { text: "https://example.com/article Summarize this", input: input } });
   });
@@ -169,7 +168,6 @@ describe("context slash commands", () => {
     expect(ctx.goals.setStatus).toHaveBeenCalledWith("thread-1", "paused");
     expect(ctx.goals.setStatus).toHaveBeenCalledWith("thread-1", "active");
     expect(ctx.goals.clear).toHaveBeenCalledWith("thread-1");
-    expect(ctx.submission.markAdopted).toHaveBeenCalledTimes(3);
   });
 
   it("loads the current goal into the composer for /goal edit", async () => {
@@ -178,7 +176,6 @@ describe("context slash commands", () => {
 
     const result = await executeContextSlashCommand("goal", "edit", ctx);
 
-    expect(ctx.submission.markAdopted).not.toHaveBeenCalled();
     expect(result).toEqual({ composerDraft: "/goal set Ship goal support" });
   });
 

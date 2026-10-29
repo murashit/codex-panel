@@ -1,12 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { executeRuntimeSlashCommand } from "../../../../../src/features/chat/application/slash-commands/execute-runtime";
-import { slashRuntimeSettingsFixture, slashSubmissionFixture } from "../../support/slash-command-ports";
+import { slashRuntimeSettingsFixture } from "../../support/slash-command-ports";
 
 type RuntimeContext = Parameters<typeof executeRuntimeSlashCommand>[2];
 
 function context(overrides: Partial<RuntimeContext> = {}): RuntimeContext {
   return {
-    submission: slashSubmissionFixture(),
     runtimeSettings: slashRuntimeSettingsFixture(),
     addSystemMessage: vi.fn(),
     addStructuredSystemMessage: vi.fn(),

@@ -4,6 +4,7 @@ import { codexTextInput } from "../../../../domain/input/input";
 import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
 import type { ChatInboundHandler } from "../../app-server/inbound/handler";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
+import type { ComposerInput } from "../../application/composer/input";
 import type { NoteCandidateProvider } from "../../application/composer/note-context";
 import type { ReconnectPanelOptions } from "../../application/connection/reconnect-command";
 import type { LocalIdSource } from "../../application/local-id-source";
@@ -60,7 +61,8 @@ interface SessionTurnInput {
   threadLifecycle: SessionThreadLifecycle;
   threadCommands: ThreadCommands;
   navigation: ThreadNavigationCommands;
-  composerController: ChatComposerController;
+  composerInput: ComposerInput;
+  composerController: Pick<ChatComposerController, "hasFocus" | "focusComposer">;
   resolveFileReference: NoteCandidateProvider["resolveFileReference"];
   runtimeSettings: ChatRuntimeSettingsCommands;
   threadStart: ThreadStartCommand;
@@ -83,6 +85,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     threadLifecycle,
     threadCommands,
     navigation,
+    composerInput,
     composerController,
     resolveFileReference,
     runtimeSettings,
@@ -173,7 +176,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
   const planImplementationHost: PlanImplementationHost = {
     stateStore: host.stateStore,
     ensureConnected,
-    claimSubmission: (text) => composerController.claimTextSubmission(text, { restoreOnFailure: false }),
+    claimSubmission: (text) => composerInput.claimTextSubmission(text, { restoreOnFailure: false }),
     sendTurnText: async (claim) => {
       await turnSubmissionCommand.sendTurnText({
         preparedInput: { text: claim.text, input: codexTextInput(claim.text) },
@@ -188,7 +191,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     stateStore: host.stateStore,
     localItemIds,
     ensureRestoredThreadLoaded: threadLifecycle.ensureRestoredThreadLoaded,
-    composer: composerController,
+    composer: composerInput,
     resolveFileReference,
     slashCommandExecutor: {
       execute: (command, args, inputSnapshot, submission) =>

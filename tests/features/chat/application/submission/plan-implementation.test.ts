@@ -1,13 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { createChatState } from "../../../../../src/features/chat/application/state/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { SubmissionInput } from "../../../../../src/features/chat/application/submission/input-claim";
+import { installComposerInputFixtures } from "../../support/composer-input-fixture";
+
+const createInput = installComposerInputFixtures();
+
 import { implementPlan, type PlanImplementationHost } from "../../../../../src/features/chat/application/submission/plan-implementation";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred } from "../../../../support/async";
 import { threadActivationFixture } from "../../../../support/thread-activation";
-import { emptyComposerInputSnapshot } from "../../support/composer-input";
 
 const planItem = (id: string): ThreadStreamItem => ({
   id,
@@ -50,6 +52,7 @@ function resumeThread(
 
 function createPlanImplementationHost() {
   const stateStore = createChatStateStore(createChatState());
+  const { input } = createInput({ stateStore });
   const ensureConnected = vi.fn().mockResolvedValue(true);
   const sendTurnText = vi.fn().mockResolvedValue(undefined);
   const requestDefaultCollaborationModeForNextTurn = vi.fn(() => {
@@ -61,11 +64,12 @@ function createPlanImplementationHost() {
   const host: PlanImplementationHost = {
     stateStore,
     ensureConnected,
-    claimSubmission: (text) => new SubmissionInput(text, emptyComposerInputSnapshot(), stateStore.getState, () => {}),
+    claimSubmission: (text) => input.claimTextSubmission(text, { restoreOnFailure: false }),
     sendTurnText,
     requestDefaultCollaborationModeForNextTurn,
   };
   return {
+    input,
     ensureConnected,
     host,
     requestDefaultCollaborationModeForNextTurn,
@@ -75,6 +79,21 @@ function createPlanImplementationHost() {
 }
 
 describe("implementPlan", () => {
+  it("does not change plan mode while the composer already owns a submission", async () => {
+    const { host, input, stateStore, sendTurnText } = createPlanImplementationHost();
+    resumeThread(stateStore, [planItem("plan")]);
+    input.setDraft("existing draft");
+    const claim = input.claimSubmission();
+    stateStore.dispatch({ type: "ui/panel-set", panel: "status-panel" });
+    await implementPlan(host, "plan");
+    expect(stateStore.getState().runtime.active.collaborationMode).toBe("plan");
+    expect(host.requestDefaultCollaborationModeForNextTurn).not.toHaveBeenCalled();
+    expect(stateStore.getState().ui.toolbarPanel).toBe("status-panel");
+    expect(sendTurnText).not.toHaveBeenCalled();
+    claim?.settle("failed");
+    expect(input.draft).toBe("existing draft");
+  });
+
   it.each(["", "edit first"])("implements the latest completed plan without consuming draft %j", async (draft) => {
     const { host, sendTurnText, stateStore } = createPlanImplementationHost();
     resumeThread(stateStore, [planItem("first"), planItem("latest")]);

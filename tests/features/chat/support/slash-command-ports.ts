@@ -2,7 +2,7 @@ import { vi } from "vitest";
 import type { SlashCommandExecutionContext } from "../../../../src/features/chat/application/slash-commands/execution-contracts";
 
 export function slashSubmissionFixture(): SlashCommandExecutionContext["submission"] {
-  return { isCurrent: vi.fn(() => true), markAdopted: vi.fn(), adoptPanelTarget: vi.fn() };
+  return { isCurrent: vi.fn(() => true), adoptPanelTarget: vi.fn() };
 }
 
 export function slashRuntimeSettingsFixture(): SlashCommandExecutionContext["runtimeSettings"] {

@@ -21,8 +21,11 @@ import { deferred } from "../../../../support/async";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { emptyComposerInputSnapshot } from "../../support/composer-input";
+import { installComposerInputFixtures } from "../../support/composer-input-fixture";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 import { pendingWebSubmissionFixture } from "../../support/web-submission";
+
+const createInput = installComposerInputFixtures();
 
 const preparedText = (text: string): PreparedInput => ({ text, input: textInput(text) });
 const completed = <T>(value: T): EffectOutcome<T> => ({ kind: "completed", value });
@@ -526,9 +529,14 @@ describe("TurnSubmissionCommand", () => {
     const { host, startTurn, stateStore, steerTurn } = createHost();
     resumeThread(stateStore);
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+    const { input } = createInput({ stateStore });
+    input.setDraft("follow up");
+    const claim = input.claimSubmission();
+    if (!claim) throw new Error("Expected a submission claim");
+    expect(input.draft).toBe("");
     const commands = claimedCommand(host);
 
-    await commands.sendTurnText({ preparedInput: preparedText("follow up") });
+    await commands.sendTurnText({ preparedInput: preparedText("follow up"), submissionClaim: claim });
 
     expect(steerTurn).toHaveBeenCalledWith({
       threadId: "thread",
@@ -536,6 +544,8 @@ describe("TurnSubmissionCommand", () => {
       input: textInput("follow up"),
       clientUserMessageId: expect.any(String),
     });
+    expect(input.isSubmissionPreparing()).toBe(false);
+    expect(input.draft).toBe("");
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.setStatus).toHaveBeenCalledWith("Steered current turn.");
     const localSteerId = steerTurn.mock.calls[0]?.[0].clientUserMessageId;
@@ -543,28 +553,6 @@ describe("TurnSubmissionCommand", () => {
     expect(stateStore.getState().activeTurn.pendingSteers).toEqual([
       expect.objectContaining({ id: localSteerId, clientId: localSteerId, text: "follow up", turnId: "turn" }),
     ]);
-  });
-
-  it("settles an accepted steer through its submission claim", async () => {
-    const { host, stateStore } = createHost();
-    resumeThread(stateStore);
-    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
-    const settle = vi.fn();
-    const commands = claimedCommand(host);
-
-    await commands.sendTurnText({
-      preparedInput: preparedText("follow up"),
-      submissionClaim: {
-        text: "follow up",
-        inputSnapshot: {} as never,
-        isCurrent: vi.fn(() => true),
-        markAdopted: vi.fn(),
-        adoptPanelTarget: vi.fn(),
-        settle,
-      },
-    });
-
-    expect(settle).toHaveBeenCalledWith("accepted");
   });
 
   it("commits a successful pending web steer when its user message arrives before the RPC settles", async () => {
@@ -925,10 +913,15 @@ describe("deferred fork submission", () => {
 
   it("retains the draft when fork creation is rejected", async () => {
     const test = setup();
+    const { input } = createInput({ stateStore: test.stateStore });
+    const claim = input.claimSubmission();
+    if (!claim) throw new Error("Expected a submission claim");
+    expect(input.draft).toBe("");
     test.forkThread.mockRejectedValueOnce(new Error("source boundary unavailable"));
-    await expect(test.command.sendTurnText({ preparedInput: preparedText("edited prompt") })).resolves.toBe(false);
+    await expect(test.command.sendTurnText({ preparedInput: preparedText("edited prompt"), submissionClaim: claim })).resolves.toBe(false);
     expect(test.stateStore.getState().panelThread.kind).toBe("fork-draft");
     expect(test.stateStore.getState().composer.draft).toBe("edited prompt");
+    expect(input.isSubmissionPreparing()).toBe(false);
     expect(test.startTurn).not.toHaveBeenCalled();
     expect(test.archiveSource).not.toHaveBeenCalled();
     expect(test.publication.finish).toHaveBeenLastCalledWith(false);

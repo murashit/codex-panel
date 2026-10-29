@@ -1,32 +1,19 @@
-import type { ComposerInputSnapshot } from "../../../../../src/features/chat/application/composer/input-snapshot";
-import { prepareComposerInput } from "../../../../../src/features/chat/application/composer/prepared-input";
 // @vitest-environment jsdom
 
 import { h } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import type { SkillMetadata } from "../../../../../src/domain/runtime/catalog";
-import { createThreadReferenceResolver } from "../../../../../src/features/chat/app-server/adapters/thread-reference-resolver";
 import type {
   ComposerAttachment,
   ComposerAttachmentHandler,
   ComposerAttachmentSaveResult,
 } from "../../../../../src/features/chat/application/composer/attachments";
-import type {
-  ComposerContextReferenceProvider,
-  ComposerContextReferences,
-  SelectionContextReference,
-} from "../../../../../src/features/chat/application/composer/context-references";
-import type { NoteCandidateProvider } from "../../../../../src/features/chat/application/composer/note-context";
-import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
-import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
-import { executeContextSlashCommand } from "../../../../../src/features/chat/application/slash-commands/execute-context";
+import type { SelectionContextReference } from "../../../../../src/features/chat/application/composer/context-references";
+import type { ComposerInputSnapshot } from "../../../../../src/features/chat/application/composer/input-snapshot";
+import { prepareComposerInput } from "../../../../../src/features/chat/application/composer/prepared-input";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { submitComposer } from "../../../../../src/features/chat/application/submission/composer-submit-command";
-import { createGoalCommands } from "../../../../../src/features/chat/application/threads/goal-commands";
-import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
 import { ChatComposerController } from "../../../../../src/features/chat/host/composer/controller";
 import { selectChatPanelComposer } from "../../../../../src/features/chat/host/composer/view-projection";
 import { createVaultComposerAttachmentHandler } from "../../../../../src/features/chat/host/obsidian/composer-attachments.obsidian";
@@ -37,9 +24,17 @@ import { deferred } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
-import { substringMatcher } from "../../application/composer/fuzzy-matcher.test-support";
+import {
+  attachmentFixture,
+  attachmentSaveResult,
+  composerInputOptions,
+  contextProvider,
+  noteProvider,
+  readingReference,
+  sharedResourcesFixture,
+} from "../../support/composer-input-fixture";
 import { chatComposerSharedValuesFixture } from "../../support/shared-display-values";
-import { chatStateFixture, chatStateWith } from "../../support/state";
+import { chatStateFixture } from "../../support/state";
 import { pendingWebSubmissionFixture } from "../../support/web-submission";
 
 installObsidianDomShims();
@@ -48,6 +43,7 @@ const emptySharedResources = chatComposerSharedValuesFixture();
 
 type ChatComposerRenderActions = Parameters<ChatComposerController["renderState"]>[1];
 
+const controllers = new Set<ChatComposerController>();
 const renderedComposerParents = new Set<HTMLElement>();
 const composerControllerTestCleanups: (() => void)[] = [];
 
@@ -55,7 +51,20 @@ afterEach(() => {
   while (composerControllerTestCleanups.length > 0) composerControllerTestCleanups.pop()?.();
   for (const parent of renderedComposerParents) unmountUiRoot(parent);
   renderedComposerParents.clear();
+  for (const controller of controllers) disposeComposerController(controller);
+  vi.restoreAllMocks();
 });
+
+function createComposerController(options: ComposerControllerOptions): ChatComposerController {
+  const controller = new ChatComposerController(options);
+  controllers.add(controller);
+  return controller;
+}
+
+function disposeComposerController(controller: ChatComposerController): void {
+  controllers.delete(controller);
+  controller.dispose();
+}
 
 function renderComposerController(
   parent: HTMLElement,
@@ -83,36 +92,12 @@ function resumeComposerThread(stateStore: ChatStateStore, threadId: string, crea
 
 type ComposerControllerOptions = ConstructorParameters<typeof ChatComposerController>[0];
 
-function attachmentSaveResult(attachments: readonly ComposerAttachment[]) {
-  return { attachments, failures: [] };
-}
-
-function sharedResourcesFixture(
-  options: { skills?: readonly SkillMetadata[]; threads?: readonly import("../../../../../src/domain/threads/model").Thread[] } = {},
-): ComposerControllerOptions["sharedResources"] {
-  return {
-    runtimeConfigSnapshot: () => null,
-    rateLimitsSnapshot: () => undefined,
-    modelsSnapshot: () => null,
-    skillsSnapshot: () => options.skills ?? null,
-    permissionProfilesSnapshot: () => null,
-    activeThreadsSnapshot: () => options.threads ?? null,
-    subscribe: () => () => undefined,
-  };
-}
-
 function composerControllerOptions(
   stateStore: ChatStateStore,
   overrides: Partial<ComposerControllerOptions> = {},
 ): ComposerControllerOptions {
   return {
-    attachmentHandler: { saveFiles: async () => attachmentSaveResult([]) },
-    fuzzyMatcher: substringMatcher,
-    onAttachmentError: vi.fn(),
-    sharedResources: sharedResourcesFixture(),
-    noteCandidateProvider: noteProvider(),
-    contextReferenceProvider: contextProvider(),
-    sourcePath: () => "",
+    ...composerInputOptions({ stateStore }),
     viewId: "view",
     referenceActiveNoteOnSend: () => false,
     sendShortcut: () => "enter",
@@ -140,7 +125,7 @@ function composerControllerFixture(
   const stateStore = options.stateStore ?? createChatStateStore();
   const parent = document.createElement("div");
   const controllerOptions = composerControllerOptions(stateStore, options.controller);
-  const controller = new ChatComposerController(controllerOptions);
+  const controller = createComposerController(controllerOptions);
   const renderShell = vi.fn(() => renderComposerController(parent, controller, stateStore, options.renderActions));
   trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
   return {
@@ -148,7 +133,7 @@ function composerControllerFixture(
     parent,
     renderShell,
     stateStore,
-    prepareInput: (text, snapshot = controller.captureInputSnapshot()) =>
+    prepareInput: (text, snapshot = controller.input.captureInputSnapshot()) =>
       prepareComposerInput(text, snapshot, (target, sourcePath) =>
         controllerOptions.noteCandidateProvider.resolveFileReference(target, sourcePath),
       ),
@@ -167,7 +152,7 @@ describe("ChatComposerController", () => {
         display: { items: [], turnDiffs: new Map() },
       },
     });
-    controller.setDraft("/mo");
+    controller.input.setDraft("/mo");
     renderShell();
     const submit = vi.fn();
     const { callbacks } = controller.renderState(selectChatPanelComposer(stateStore.getState(), emptySharedResources), { submit });
@@ -187,7 +172,7 @@ describe("ChatComposerController", () => {
     stateStore.dispatch({ type: "panel/fork-operation-set", revision });
     callbacks.onInput("changed");
     expect(stateStore.getState().composer.draft).toBe("changed");
-    controller.dispose();
+    disposeComposerController(controller);
   });
 
   it.each([
@@ -201,7 +186,7 @@ describe("ChatComposerController", () => {
       stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
       const submit = vi.fn();
       const { controller, parent, renderShell } = composerControllerFixture({ stateStore, renderActions: { submit } });
-      controller.setDraft(draft);
+      controller.input.setDraft(draft);
       renderShell();
       const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
       expect(composer(parent).readOnly).toBe(!canAcceptDirectInput);
@@ -213,7 +198,7 @@ describe("ChatComposerController", () => {
       submit.mockClear();
       parent.querySelector("textarea")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
       expect(submit).toHaveBeenCalledOnce();
-      controller.dispose();
+      disposeComposerController(controller);
     },
   );
 
@@ -234,7 +219,7 @@ describe("ChatComposerController", () => {
       controller: { sendShortcut: () => shortcut },
       renderActions: { submit },
     });
-    controller.setDraft("Message");
+    controller.input.setDraft("Message");
     renderShell();
 
     const keydown = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...event });
@@ -242,268 +227,7 @@ describe("ChatComposerController", () => {
 
     expect(submit).toHaveBeenCalledTimes(sends ? 1 : 0);
     expect(keydown.defaultPrevented).toBe(sends);
-    controller.dispose();
-  });
-
-  it.each([
-    ["empty", "failed"],
-    ["existing", "failed"],
-    ["existing", "saved"],
-  ] as const)("preserves the next draft and inline editor after a slash goal save from an %s panel (%s)", async (panel, outcome) => {
-    const { controller, stateStore } = composerControllerFixture();
-    if (panel === "existing") resumeComposerThread(stateStore, "thread");
-    const starter = createThreadStartCommand({
-      withThreadActivation: async (operation) => operation(),
-      onThreadActivated: vi.fn(),
-      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
-      stateStore,
-      runtimeSnapshotForState: (state) =>
-        runtimeSnapshotForChatState(state, {
-          runtimeConfigSnapshot: () => null,
-          rateLimitsSnapshot: () => null,
-          modelsSnapshot: () => [],
-        }),
-      recordStartedThread: vi.fn(),
-      effects: {
-        forkSideChat: vi.fn(),
-        forkThread: vi.fn(),
-        startThread: vi.fn().mockResolvedValue({
-          kind: "completed",
-          value: threadActivationFixture(panelThreadFixture({ id: "thread" })),
-        }),
-      },
-    });
-    const saving = deferred<{ kind: "completed"; value: undefined }>();
-    const setThreadGoal = vi.fn(() => saving.promise);
-    const goals = createGoalCommands({
-      stateStore,
-      startThread: starter.startThread,
-      effects: { setThreadGoal, clearThreadGoal: vi.fn() },
-      goalQueries: { snapshot: () => null },
-      ensureConnected: async () => true,
-      ensureRestoredThreadLoaded: async () => true,
-      addSystemMessage: vi.fn(),
-    });
-    goals.startEditing(panel === "existing" ? "thread" : null, "Inline draft", null);
-    controller.setDraft("/goal set Ship this");
-    const pending = submitComposer({
-      stateStore,
-      localItemIds: createLocalIdSource(),
-      resolveFileReference: () => null,
-      composer: controller,
-      slashCommandExecutor: {
-        execute: (_command, args, inputSnapshot, submission) =>
-          executeContextSlashCommand("goal", args, {
-            activeThreadId: panel === "existing" ? "thread" : null,
-            listedThreads: [],
-            inputSnapshot,
-            submission,
-            goals,
-            referThread: vi.fn(),
-            readWebUrl: vi.fn(),
-            addSystemMessage: vi.fn(),
-            addStructuredSystemMessage: vi.fn(),
-          }),
-      },
-      turnSubmissionCommand: { sendTurnText: vi.fn() },
-      connection: { ensureConnected: async () => true },
-      turnPort: { interruptTurn: vi.fn() },
-      status: { setStatus: vi.fn(), addSystemMessage: vi.fn() },
-      scroll: { showLatest: vi.fn() },
-    });
-    await vi.waitFor(() =>
-      expect(setThreadGoal).toHaveBeenCalledWith("thread", { objective: "Ship this", status: "active", tokenBudget: null }),
-    );
-    controller.setDraft("Next input");
-    if (outcome === "saved") saving.resolve({ kind: "completed", value: undefined });
-    else saving.reject(new Error("save failed"));
-    await pending;
-    expect(controller.draft).toBe("Next input");
-    expect(controller.isSubmissionPreparing()).toBe(false);
-    expect(stateStore.getState().ui.goalEditor).toMatchObject({ kind: "editing", objectiveDraft: "Inline draft" });
-  });
-
-  it.each(["rpc-error", "empty-history", "stale-target"] as const)(
-    "preserves unsent reference input after %s without publishing into another thread",
-    async (failure) => {
-      const attachments: ComposerAttachment[] = [{ kind: "file", name: "attachment", path: "attachment.md", marker: "[[attachment.md]]" }];
-      const { controller, stateStore, parent, renderShell } = composerControllerFixture({
-        controller: { attachmentHandler: { saveFiles: async () => attachmentSaveResult(attachments) } },
-      });
-      const prefix = "/refer Other Consider this background and these constraints in detail";
-      controller.setDraft(prefix);
-      renderShell();
-      composer(parent).setSelectionRange(prefix.length, prefix.length);
-      composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["data"], "attachment.md")]));
-      await flushComposerAttachment();
-      const original = `${prefix}\n[[attachment.md]]`;
-      expect(controller.draft).toBe(original);
-      const response = deferred<{ data: []; nextCursor: null }>();
-      const requested = deferred<void>();
-      const request = vi.fn(() => {
-        requested.resolve();
-        return response.promise;
-      });
-      const addSystemMessage = vi.fn();
-      const referThread = createThreadReferenceResolver({
-        currentClient: () => ({ request }) as unknown as AppServerClient,
-        resolveFileReference: () => null,
-        setStatus: vi.fn(),
-      });
-      const sendTurnText = vi.fn().mockResolvedValue(true);
-      const submission = submitComposer({
-        stateStore,
-        localItemIds: createLocalIdSource(),
-        resolveFileReference: () => null,
-        composer: controller,
-        slashCommandExecutor: {
-          execute: (_command, args, inputSnapshot, adoption) =>
-            executeContextSlashCommand("refer", args, {
-              activeThreadId: null,
-              listedThreads: [panelThreadFixture({ id: "other", name: "Other" })],
-              inputSnapshot,
-              submission: adoption,
-              referThread,
-              readWebUrl: vi.fn(),
-              goals: { activeGoal: vi.fn(), setObjective: vi.fn(), setStatus: vi.fn(), clear: vi.fn() },
-              addSystemMessage,
-              addStructuredSystemMessage: vi.fn(),
-            }),
-        },
-        turnSubmissionCommand: { sendTurnText },
-        connection: { ensureConnected: vi.fn().mockResolvedValue(true) },
-        turnPort: { interruptTurn: vi.fn() },
-        status: { setStatus: vi.fn(), addSystemMessage },
-        scroll: { showLatest: vi.fn() },
-      });
-      await requested.promise;
-      if (failure === "stale-target") resumeComposerThread(stateStore, "another");
-      controller.setDraft("next message");
-      if (failure === "empty-history") response.resolve({ data: [], nextCursor: null });
-      else response.reject(new Error("history unavailable"));
-      await submission;
-
-      expect(sendTurnText).not.toHaveBeenCalled();
-      expect(controller.draft).toBe(failure === "stale-target" ? "next message" : `${original}\n\nnext message`);
-      expect(controller.captureInputSnapshot().attachments).toEqual(failure === "stale-target" ? [] : attachments);
-      expect(addSystemMessage.mock.calls).toEqual(
-        failure === "stale-target"
-          ? []
-          : [[failure === "empty-history" ? "Referenced thread has no readable turns." : "history unavailable"]],
-      );
-    },
-  );
-
-  it("settles accepted and failed claims without losing newer drafts", () => {
-    const { controller, stateStore } = composerControllerFixture();
-    controller.setDraft("first message");
-    const claim = controller.claimSubmission();
-    expect(claim?.text).toBe("first message");
-    expect(stateStore.getState().composer.draft).toBe("");
-
-    controller.setDraft("next message");
-    claim?.settle("accepted");
-
-    expect(stateStore.getState().composer.draft).toBe("next message");
-    const nextClaim = controller.claimSubmission();
-    claim?.settle("failed");
-    claim?.adoptPanelTarget("obsolete");
-    expect(controller.isSubmissionPreparing()).toBe(true);
-    expect(nextClaim?.isCurrent()).toBe(true);
-    controller.setDraft("later message");
-    nextClaim?.settle("failed");
-    expect(stateStore.getState().composer.draft).toBe("next message\n\nlater message");
-  });
-
-  it("places a slash command replacement before a draft typed while the command was running", () => {
-    const { controller, stateStore } = composerControllerFixture();
-    controller.setDraft("/goal");
-    const claim = controller.claimSubmission();
-
-    controller.setDraft("next message");
-    claim?.settle("accepted", "/goal set Current objective");
-
-    expect(stateStore.getState().composer.draft).toBe("/goal set Current objective\n\nnext message");
-  });
-
-  it.each(["composer", "literal"])("does not revive stale %s input after returning to its original thread", (source) => {
-    const stateStore = createChatStateStore();
-    resumeComposerThread(stateStore, "first");
-    const { controller } = composerControllerFixture({ stateStore });
-    controller.setDraft("/web https://example.com");
-    const staleClaim = source === "composer" ? controller.claimSubmission() : controller.claimTextSubmission("Side message");
-
-    resumeComposerThread(stateStore, "second");
-    resumeComposerThread(stateStore, "first");
-    controller.setDraft("returned-thread draft");
-
-    expect(controller.isSubmissionPreparing()).toBe(false);
-    expect(staleClaim?.isCurrent()).toBe(false);
-    staleClaim?.settle("failed");
-    expect(stateStore.getState().composer.draft).toBe("returned-thread draft");
-    expect(controller.claimSubmission()).not.toBeNull();
-  });
-
-  it("keeps an adopted target-changing slash command committed without restoring it over the next draft", async () => {
-    const stateStore = createChatStateStore();
-    const { controller } = composerControllerFixture({ stateStore });
-    controller.setDraft("/clear");
-    const execute = vi.fn(async (_command, _args, _snapshot, submission) => {
-      controller.setDraft("next message");
-      submission.adoptPanelTarget("started");
-      resumeComposerThread(stateStore, "started");
-      return undefined;
-    });
-
-    await submitComposer({
-      stateStore,
-      localItemIds: createLocalIdSource(),
-      resolveFileReference: () => null,
-      composer: controller,
-      slashCommandExecutor: { execute },
-      turnSubmissionCommand: { sendTurnText: vi.fn().mockResolvedValue(true) },
-      connection: { ensureConnected: vi.fn().mockResolvedValue(true) },
-      turnPort: { interruptTurn: vi.fn().mockResolvedValue({}) },
-      status: { setStatus: vi.fn(), addSystemMessage: vi.fn() },
-      scroll: { showLatest: vi.fn() },
-    });
-
-    expect(execute).toHaveBeenCalledOnce();
-    expect(stateStore.getState().composer.draft).toBe("next message");
-    expect(controller.isSubmissionPreparing()).toBe(false);
-  });
-
-  it("does not carry an adopted submission into an unexpected panel target", () => {
-    const stateStore = createChatStateStore();
-    resumeComposerThread(stateStore, "source");
-    const { controller } = composerControllerFixture({ stateStore });
-    controller.setDraft("/resume intended");
-    const claim = controller.claimSubmission();
-    controller.setDraft("source draft");
-    claim?.adoptPanelTarget("intended");
-
-    resumeComposerThread(stateStore, "other");
-
-    expect(stateStore.getState().composer.draft).toBe("");
-    expect(controller.isSubmissionPreparing()).toBe(false);
-    claim?.settle("failed");
-    expect(stateStore.getState().composer.draft).toBe("");
-  });
-
-  it("places a rollback replacement before the next draft across its adopted target", () => {
-    const stateStore = createChatStateStore();
-    resumeComposerThread(stateStore, "source");
-    const { controller } = composerControllerFixture({ stateStore });
-    controller.setDraft("/rollback");
-    const claim = controller.claimSubmission();
-    controller.setDraft("next message");
-    claim?.adoptPanelTarget("rolled-back", "rolled back prompt");
-
-    resumeComposerThread(stateStore, "rolled-back");
-
-    expect(stateStore.getState().composer.draft).toBe("rolled back prompt\n\nnext message");
-    claim?.settle("accepted");
-    expect(stateStore.getState().composer.draft).toBe("rolled back prompt\n\nnext message");
+    disposeComposerController(controller);
   });
 
   it("focuses only while its panel is foreground unless workspace publication forces it", () => {
@@ -519,7 +243,7 @@ describe("ChatComposerController", () => {
 
     controller.focusComposer();
     expect(document.activeElement).not.toBe(composer);
-    controller.setDraft("restored", { focus: true });
+    controller.input.setDraft("restored", { focus: true });
     expect(document.activeElement).not.toBe(composer);
 
     controller.focusComposer({ force: true });
@@ -545,7 +269,7 @@ describe("ChatComposerController", () => {
     submit.mockClear();
     parent.querySelector("textarea")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(submit).toHaveBeenCalledOnce();
-    controller.dispose();
+    disposeComposerController(controller);
   });
 
   it("locks composer input without offering cancel after a web submission commits", () => {
@@ -561,68 +285,6 @@ describe("ChatComposerController", () => {
     sendButton?.click();
     composer(parent).dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(submit).not.toHaveBeenCalled();
-  });
-
-  it("captures completed thread identity across message edits and drops it when the title token changes", () => {
-    const stateStore = createChatStateStore();
-    const preview = `Long preview ${"x".repeat(120)}`;
-    const completedTitle = `${preview.slice(0, 93)}...`;
-    const threads = [panelThreadFixture({ id: "target-thread", preview })];
-    const { controller, parent } = composerControllerFixture({
-      stateStore,
-      controller: { sharedResources: sharedResourcesFixture({ threads }) },
-    });
-    renderComposerController(parent, controller, stateStore);
-    setTextAreaValue(composer(parent), "/refer long");
-    composer(parent).setSelectionRange(11, 11);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
-
-    expect(composer(parent).value).toBe(`/refer "${completedTitle}" `);
-    expect(controller.captureInputSnapshot().threadCommandTarget).toEqual({
-      command: "refer",
-      threadId: "target-thread",
-      title: completedTitle,
-    });
-
-    setTextAreaValue(composer(parent), `${composer(parent).value}summarize`);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    expect(controller.captureInputSnapshot().threadCommandTarget?.threadId).toBe("target-thread");
-
-    setTextAreaValue(composer(parent), composer(parent).value.replace(completedTitle, "edited title"));
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    expect(controller.captureInputSnapshot().threadCommandTarget).toBeUndefined();
-  });
-
-  it.each([
-    ["/f", "/fork", false],
-    ["/f", "/fast", false],
-    ["/b", "/btw", false],
-    ["/r", "/rollback", false],
-    ["/g", "/goal", false],
-    ["/c", "/compact", true],
-  ])("applies ephemeral-thread suggestion policy for %s -> %s", (draft, suggestion, available) => {
-    const stateStore = createChatStateStore(
-      chatStateFixture({
-        activeThread: {
-          id: "side-thread",
-          lifetime: { kind: "ephemeral", mode: "side-chat", sourceThreadId: "source-thread", sourceThreadTitle: "Source" },
-        },
-      }),
-    );
-    const { controller, parent } = composerControllerFixture({ stateStore });
-
-    renderComposerController(parent, controller, stateStore);
-    setTextAreaValue(composer(parent), draft);
-    composer(parent).setSelectionRange(draft.length, draft.length);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-
-    expect(
-      stateStore
-        .getState()
-        .composer.suggestions.map((item) => item.replacement)
-        .includes(suggestion),
-    ).toBe(available);
   });
 
   it("keeps a disconnected subagent composer read-only without slash suggestions", () => {
@@ -670,33 +332,6 @@ describe("ChatComposerController", () => {
     expect(parent.querySelector(".codex-panel__composer-suggestion")?.textContent).toContain("#project/codex");
   });
 
-  it("inserts configured relative daily-note references as wikilinks", () => {
-    const dailyNoteReferences = vi.fn(() => [
-      {
-        keyword: "today" as const,
-        display: "Today",
-        name: "2026-07-10",
-        path: "Journal/2026-07-10.md",
-        linktext: "Journal/2026-07-10",
-      },
-    ]);
-    const { controller, parent, stateStore } = composerControllerFixture({
-      controller: {
-        noteCandidateProvider: noteProvider({ dailyNoteReferences }),
-        sourcePath: () => "Inbox.md",
-      },
-    });
-
-    renderComposerController(parent, controller, stateStore);
-    setTextAreaValue(composer(parent), "@today");
-    composer(parent).setSelectionRange(6, 6);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
-
-    expect(composer(parent).value).toBe("[[Journal/2026-07-10]]");
-    expect(dailyNoteReferences).toHaveBeenCalledWith("Inbox.md");
-  });
-
   it.each([
     { key: "Tab", cursor: "[[Beta Note".length },
     { key: "Enter", cursor: "[[Beta Note]]".length },
@@ -714,7 +349,7 @@ describe("ChatComposerController", () => {
       },
     ];
     const parent = document.createElement("div");
-    const controller = new ChatComposerController(
+    const controller = createComposerController(
       composerControllerOptions(stateStore, { noteCandidateProvider: noteProvider({ candidates: () => notes }) }),
     );
     const selector = (state: ReturnType<ChatStateStore["getState"]>) => selectChatPanelComposer(state, emptySharedResources);
@@ -746,251 +381,10 @@ describe("ChatComposerController", () => {
     expect(composer(parent).selectionEnd).toBe(cursor);
   });
 
-  it("does not insert a saved attachment into a later thread or draft", async () => {
-    const stateStore = createChatStateStore(chatStateWith(chatStateFixture(), { activeThread: { id: "thread-first" } }));
-    const { controller, parent, renderShell, saved } = pendingAttachmentFixture(stateStore);
-    renderShell();
-    controller.setDraft("first draft");
-    composer(parent).setSelectionRange(5, 5);
-    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
-
-    stateStore.dispatch({ type: "active-thread/cleared" });
-    controller.setDraft("later draft");
-    composer(parent).setSelectionRange(2, 2);
-    saved.resolve([attachmentFixture("first")]);
-    await flushComposerAttachment();
-
-    expect(composer(parent).value).toBe("later draft");
-    expect(controller.captureInputSnapshot().attachments).toEqual([]);
-  });
-
-  it("keeps next-draft attachments across initial thread creation", async () => {
-    const saved = deferred<ComposerAttachment[]>();
-    const { controller, parent, renderShell, stateStore } = composerControllerFixture({
-      controller: { attachmentHandler: { saveFiles: () => saved.promise.then(attachmentSaveResult) } },
-    });
-    renderShell();
-    controller.setDraft("First prompt");
-    const claim = controller.claimSubmission();
-    controller.setDraft("Next draft");
-    composer(parent).setSelectionRange(10, 10);
-    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
-    resumeComposerThread(stateStore, "created", true);
-    saved.resolve([attachmentFixture("first")]);
-    await flushComposerAttachment();
-    claim?.settle("failed");
-    expect(composer(parent).value).toBe("First prompt\n\nNext draft\n![[Codex Attachments/first.png]]");
-    expect(controller.captureInputSnapshot().attachments).toEqual([attachmentFixture("first")]);
-  });
-
-  it("does not insert a saved attachment after leaving and returning to the same thread state", async () => {
-    const stateStore = createChatStateStore(chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } }));
-    const { controller, parent, renderShell, saved } = pendingAttachmentFixture(stateStore);
-    renderShell();
-    controller.setDraft("same draft");
-    composer(parent).setSelectionRange(4, 4);
-    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
-
-    stateStore.dispatch({ type: "active-thread/cleared" });
-    resumeComposerThread(stateStore, "thread");
-    controller.setDraft("same draft");
-    composer(parent).setSelectionRange(4, 4);
-    saved.resolve([attachmentFixture("first")]);
-    await flushComposerAttachment();
-
-    expect(composer(parent).value).toBe("same draft");
-    expect(controller.captureInputSnapshot().attachments).toEqual([]);
-  });
-
-  it("keeps a pending attachment at its placeholder while the draft is edited", async () => {
-    const { controller, parent, renderShell, saved } = pendingAttachmentFixture();
-    renderShell();
-    controller.setDraft("before after");
-    composer(parent).setSelectionRange(6, 6);
-    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
-
-    setTextAreaValue(composer(parent), `edited ${composer(parent).value}`);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    saved.resolve([attachmentFixture("first")]);
-    await flushComposerAttachment();
-
-    expect(composer(parent).value).toBe("edited before\n![[Codex Attachments/first.png]]\n after");
-    expect(controller.captureInputSnapshot().attachments).toEqual([attachmentFixture("first")]);
-  });
-
-  it("prunes captured note context when an attachment replaces its draft marker", async () => {
-    const saved = deferred<ComposerAttachment[]>();
-    const activeNote = { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" };
-    const { controller, parent, renderShell } = composerControllerFixture({
-      controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
-        contextReferenceProvider: contextProvider(() => ({ activeNote, selection: null })),
-      },
-    });
-    renderShell();
-    setTextAreaValue(composer(parent), "@active");
-    composer(parent).setSelectionRange(7, 7);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
-    controller.setDraft("[[Alpha]] after");
-    expect(controller.captureInputSnapshot().activeNoteSnapshots).toEqual([activeNote]);
-    composer(parent).setSelectionRange(0, "[[Alpha]]".length);
-    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
-
-    expect(controller.captureInputSnapshot().activeNoteSnapshots).toEqual([activeNote]);
-    saved.resolve([attachmentFixture("first")]);
-    await flushComposerAttachment();
-
-    expect(controller.captureInputSnapshot().activeNoteSnapshots).toEqual([]);
-  });
-
-  it.each(["saved", "failed"] as const)("retains selection context until attachment replacement is %s", async (outcome) => {
-    const saved = deferred<ComposerAttachment[]>();
-    const selection = {
-      name: "Alpha",
-      path: "notes/Alpha.md",
-      linktext: "Alpha",
-      range: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 4 } },
-      text: "text",
-    };
-    const emphasis = { release: vi.fn(), setEnabled: vi.fn() };
-    const { controller, parent, renderShell } = composerControllerFixture({
-      controller: {
-        attachmentHandler: { saveFiles: () => saved.promise.then(attachmentSaveResult) },
-        contextReferenceProvider: {
-          ...contextProvider(() => ({ activeNote: null, selection })),
-          retainSelectionEmphasis: () => emphasis,
-        },
-      },
-    });
-    renderShell();
-    insertSelectionSuggestion(parent);
-    const draft = composer(parent).value;
-    expect(controller.captureInputSnapshot().selectionSnapshots).toEqual([{ reference: selection, marker: '[[Alpha]] "text"' }]);
-
-    composer(parent).setSelectionRange(0, draft.length);
-    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
-    expect(emphasis.release).not.toHaveBeenCalled();
-
-    if (outcome === "saved") saved.resolve([attachmentFixture("first")]);
-    else saved.reject(new Error("Attachment save failed."));
-    await flushComposerAttachment();
-    await flushComposerAttachment();
-
-    const snapshot = controller.captureInputSnapshot();
-    expect(snapshot.selectionSnapshots).toEqual(outcome === "saved" ? [] : [{ reference: selection, marker: '[[Alpha]] "text"' }]);
-    expect(snapshot.attachments).toEqual(outcome === "saved" ? [attachmentFixture("first")] : []);
-    expect(emphasis.release).toHaveBeenCalledTimes(outcome === "saved" ? 1 : 0);
-    expect(composer(parent).value).toBe(outcome === "saved" ? attachmentFixture("first").marker : draft);
-  });
-
-  it("inserts multiple transfers that began at the same draft anchor", async () => {
-    const first = deferred<ComposerAttachment[]>();
-    const second = deferred<ComposerAttachment[]>();
-    let call = 0;
-    const { controller, parent, renderShell } = composerControllerFixture({
-      controller: {
-        attachmentHandler: {
-          saveFiles: vi.fn(() => {
-            call += 1;
-            return (call === 1 ? first.promise : second.promise).then(attachmentSaveResult);
-          }),
-        },
-      },
-    });
-    renderShell();
-    controller.setDraft("note");
-    composer(parent).setSelectionRange(4, 4);
-    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
-    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "second.png", { type: "image/png" })]));
-
-    second.resolve([attachmentFixture("second")]);
-    await flushComposerAttachment();
-    first.resolve([attachmentFixture("first")]);
-    await flushComposerAttachment();
-
-    expect(composer(parent).value).toBe("note\n![[Codex Attachments/first.png]]\n![[Codex Attachments/second.png]]");
-    expect(controller.captureInputSnapshot().attachments.map((attachment) => attachment.name)).toEqual(["first", "second"]);
-  });
-
-  it("preserves the exact web draft and pasted image attachments across connection exit and late fetch success", async () => {
-    const stateStore = createChatStateStore();
-    const attachmentHandler: ComposerAttachmentHandler = {
-      saveFiles: vi.fn().mockResolvedValue(
-        attachmentSaveResult([
-          {
-            kind: "image",
-            name: "diagram",
-            path: "Codex Attachments/diagram.png",
-            marker: "![[Codex Attachments/diagram.png]]",
-          },
-        ]),
-      ),
-    };
-    const { prepareInput, controller, parent, renderShell } = composerControllerFixture({
-      stateStore,
-      controller: {
-        attachmentHandler,
-      },
-    });
-
-    renderShell();
-    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
-    await flushComposerAttachment();
-    const marker = composer(parent).value;
-    expect(attachmentHandler.saveFiles).toHaveBeenCalledOnce();
-    expect(marker).toBe("![[Codex Attachments/diagram.png]]");
-    expect(prepareInput(marker).input).toEqual([
-      { type: "text", text: marker },
-      { type: "fileReference", name: "diagram", path: "Codex Attachments/diagram.png" },
-      { type: "localImage", path: "Codex Attachments/diagram.png" },
-    ]);
-    const snapshot = controller.captureInputSnapshot();
-    const originalDraft = `  /web https://example.com Inspect ${marker}  `;
-    const fetched = deferred<{ sendText: string }>();
-    const execute = vi.fn(() => fetched.promise);
-    const sendTurnText = vi.fn().mockResolvedValue(true);
-
-    controller.setDraft(originalDraft);
-    const submitting = submitComposer({
-      stateStore,
-      localItemIds: createLocalIdSource(),
-      resolveFileReference: () => null,
-      composer: controller,
-      slashCommandExecutor: { execute },
-      turnSubmissionCommand: { sendTurnText },
-      connection: { ensureConnected: vi.fn().mockResolvedValue(true) },
-      turnPort: { interruptTurn: vi.fn() },
-      status: { setStatus: vi.fn(), addSystemMessage: vi.fn() },
-      scroll: { showLatest: vi.fn() },
-    });
-    await vi.waitFor(() => expect(execute).toHaveBeenCalledOnce());
-    stateStore.dispatch({ type: "connection/scoped-cleared" });
-    controller.failActiveSubmissionClaim();
-    expect(controller.draft).toBe(originalDraft);
-
-    fetched.resolve({ sendText: `Inspect ${marker}` });
-    await submitting;
-    expect(sendTurnText).not.toHaveBeenCalled();
-    const restoredSnapshot = controller.captureInputSnapshot();
-
-    expect(controller.draft).toBe(originalDraft);
-    expect(prepareInput(`Inspect ${marker}`, snapshot).input).toEqual([
-      { type: "text", text: `Inspect ${marker}` },
-      { type: "fileReference", name: "diagram", path: "Codex Attachments/diagram.png" },
-      { type: "localImage", path: "Codex Attachments/diagram.png" },
-    ]);
-    expect(prepareInput(`Inspect ${marker}`, restoredSnapshot).input).toEqual([
-      { type: "text", text: `Inspect ${marker}` },
-      { type: "fileReference", name: "diagram", path: "Codex Attachments/diagram.png" },
-      { type: "localImage", path: "Codex Attachments/diagram.png" },
-    ]);
-  });
-
   it("accepts protected file dragovers before dropped files are readable", () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
-    const controller = new ChatComposerController(composerControllerOptions(stateStore, {}));
+    const controller = createComposerController(composerControllerOptions(stateStore, {}));
     const dataTransfer = {
       files: [],
       items: [{ kind: "file", getAsFile: vi.fn(() => null) }],
@@ -1007,48 +401,33 @@ describe("ChatComposerController", () => {
     expect(dataTransfer.dropEffect).toBe("copy");
   });
 
-  it("keeps the composer editable but requires a new Send after attachment saves settle", async () => {
-    const stateStore = createChatStateStore();
-    const attachment: ComposerAttachment = {
-      kind: "image",
-      name: "diagram",
-      path: "Codex Attachments/diagram.png",
-      marker: "![[Codex Attachments/diagram.png]]",
-    };
-    const saveResolver: { current?: (attachments: ComposerAttachment[]) => void } = {};
-    const attachmentHandler: ComposerAttachmentHandler = {
-      saveFiles: vi.fn(() =>
-        new Promise<ComposerAttachment[]>((resolve) => {
-          saveResolver.current = resolve;
-        }).then(attachmentSaveResult),
-      ),
-    };
+  it.each([
+    { outcome: "saved", draft: "", expected: "![[Codex Attachments/diagram.png]]" },
+    { outcome: "failed", draft: "Keep this draft", expected: "Keep this draft" },
+  ])("keeps input editable and requires a new Send after an attachment is $outcome", async ({ outcome, draft, expected }) => {
+    const saved = deferred<ComposerAttachmentSaveResult>();
+    const saveFiles = vi.fn(() => saved.promise);
     const submit = vi.fn();
-    const { parent, renderShell } = composerControllerFixture({
-      stateStore,
-      controller: {
-        attachmentHandler,
-      },
+    const onAttachmentError = vi.fn();
+    const { controller, parent, renderShell, stateStore } = composerControllerFixture({
+      controller: { attachmentHandler: { saveFiles }, onAttachmentError },
       renderActions: { submit },
     });
-
+    controller.input.setDraft(draft);
     renderShell();
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
-    const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
-    expect(sendButton?.disabled).toBe(true);
+    expect(parent.querySelector<HTMLButtonElement>(".codex-panel__send")?.disabled).toBe(true);
     expect(composer(parent).readOnly).toBe(false);
     expect(composer(parent).value).toContain("Saving attachment…");
     composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter" }));
-
-    expect(attachmentHandler.saveFiles).toHaveBeenCalledOnce();
+    expect(saveFiles).toHaveBeenCalledOnce();
     expect(submit).not.toHaveBeenCalled();
 
-    if (!saveResolver.current) throw new Error("Expected save resolver.");
-    saveResolver.current([attachment]);
-    await flushComposerAttachment();
-    await flushComposerAttachment();
-
-    expect(composer(parent).value).toBe("![[Codex Attachments/diagram.png]]");
+    if (outcome === "saved") saved.resolve(attachmentSaveResult([attachmentFixture("diagram")]));
+    else saved.reject(new Error("Attachment save failed."));
+    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+    expect(composer(parent).value).toBe(expected);
+    expect(onAttachmentError.mock.calls).toEqual(outcome === "failed" ? [["Attachment save failed."]] : []);
     expect(parent.querySelector<HTMLButtonElement>(".codex-panel__send")?.disabled).toBe(false);
     expect(submit).not.toHaveBeenCalled();
 
@@ -1076,105 +455,39 @@ describe("ChatComposerController", () => {
       },
     });
     renderShell();
-    controller.setDraft("Read these");
+    controller.input.setDraft("Read these");
     composer(parent).dispatchEvent(
       transferEvent("drop", "dataTransfer", [new File(["first"], "first.txt"), new File(["broken"], "broken.txt")]),
     );
     await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
     expect(composer(parent).value).toBe("Read these\n[[Files/first.txt]]");
-    expect(controller.captureInputSnapshot().attachments.map((attachment) => attachment.path)).toEqual(["Files/first.txt"]);
+    expect(controller.input.captureInputSnapshot().attachments.map((attachment) => attachment.path)).toEqual(["Files/first.txt"]);
     expect(onAttachmentError).toHaveBeenCalledWith("Could not save attachments:\nbroken.txt: Write failed");
     expect(paths.has("Files/first.txt")).toBe(true);
   });
 
-  it.each(["switch", "dispose"] as const)("ignores partial attachment results after owner %s", async (action) => {
-    const saved = deferred<ComposerAttachmentSaveResult>();
-    const onAttachmentError = vi.fn();
-    const { controller, parent, renderShell, stateStore } = composerControllerFixture({
-      controller: {
-        attachmentHandler: { saveFiles: () => saved.promise },
-        onAttachmentError,
-      },
-    });
-    renderShell();
-    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png")]));
-    if (action === "switch") resumeComposerThread(stateStore, "another-thread");
-    else controller.dispose();
-    saved.resolve({ attachments: [attachmentFixture("diagram")], failures: [{ name: "broken.txt", message: "Write failed" }] });
-    await flushComposerAttachment();
-    expect(controller.captureInputSnapshot().attachments).toEqual([]);
-    expect(onAttachmentError).not.toHaveBeenCalled();
-  });
-
-  it("removes a failed attachment placeholder without submitting the draft", async () => {
-    const saved = deferred<ComposerAttachment[]>();
-    const submit = vi.fn();
-    const onAttachmentError = vi.fn();
-    const { controller, parent, renderShell, stateStore } = composerControllerFixture({
-      controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
-        onAttachmentError,
-      },
-      renderActions: { submit },
-    });
-    renderShell();
-    controller.setDraft("Keep this draft");
-    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
-    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter" }));
-
-    saved.reject(new Error("Attachment save failed."));
-    await flushComposerAttachment();
-    await flushComposerAttachment();
-
-    expect(composer(parent).value).toBe("Keep this draft");
-    expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]);
-    expect(onAttachmentError).toHaveBeenCalledWith("Attachment save failed.");
-    expect(submit).not.toHaveBeenCalled();
-  });
-
   it.each([
-    { label: "original placeholder", editPlaceholderLabel: false },
-    { label: "edited placeholder", editPlaceholderLabel: true },
-  ])("restores selected text and caret when attachment saving fails with $label", async ({ editPlaceholderLabel }) => {
-    const { controller, parent, renderShell, saved } = pendingAttachmentFixture();
-    controller.setDraft("keep selected text");
+    { outcome: "failed", editLabel: false, expected: "keep selected text" },
+    { outcome: "failed", editLabel: true, expected: "keep selected text" },
+    { outcome: "saved", editLabel: true, expected: "keep \n![[Codex Attachments/diagram.png]]\n text" },
+  ])("preserves the moved caret after an attachment is $outcome (edited label: $editLabel)", async ({ outcome, editLabel, expected }) => {
+    const saved = deferred<ComposerAttachmentSaveResult>();
+    const { controller, parent, renderShell, stateStore } = composerControllerFixture({
+      controller: { attachmentHandler: { saveFiles: () => saved.promise } },
+    });
+    controller.input.setDraft("keep selected text");
     renderShell();
     composer(parent).setSelectionRange(5, 13);
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
-    if (editPlaceholderLabel) controller.setDraft(composer(parent).value.replace("Saving attachment…", "Uploading…"));
+    if (editLabel) controller.input.setDraft(composer(parent).value.replace("Saving attachment…", "Uploading…"));
     composer(parent).setSelectionRange(0, 0);
 
-    saved.reject(new Error("Attachment save failed."));
-    await flushComposerAttachment();
-    await flushComposerAttachment();
-
-    expect(composer(parent).value).toBe("keep selected text");
+    if (outcome === "saved") saved.resolve(attachmentSaveResult([attachmentFixture("diagram")]));
+    else saved.reject(new Error("Attachment save failed."));
+    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+    expect(composer(parent).value).toBe(expected);
     expect(composer(parent).selectionStart).toBe(0);
     expect(composer(parent).selectionEnd).toBe(0);
-  });
-
-  it("settles an attachment after its placeholder label is edited", async () => {
-    const { controller, parent, renderShell, saved } = pendingAttachmentFixture();
-    controller.setDraft("Keep this draft");
-    renderShell();
-    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
-    controller.setDraft(composer(parent).value.replace("Saving attachment…", "Uploading…"));
-    composer(parent).setSelectionRange(0, 0);
-
-    saved.resolve([
-      {
-        kind: "image",
-        name: "diagram",
-        path: "Codex Attachments/diagram.png",
-        marker: "![[Codex Attachments/diagram.png]]",
-      },
-    ]);
-    await flushComposerAttachment();
-    await flushComposerAttachment();
-
-    expect(composer(parent).value).toBe("Keep this draft\n![[Codex Attachments/diagram.png]]");
-    expect(composer(parent).value).not.toContain("codex-panel-pending-attachment:");
-    expect(composer(parent).selectionStart).toBe(0);
   });
 
   it("allows an interrupt after a pending attachment placeholder is removed", () => {
@@ -1192,7 +505,7 @@ describe("ChatComposerController", () => {
     });
     renderShell();
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
-    controller.setDraft("");
+    controller.input.setDraft("");
 
     const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
     expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
@@ -1202,41 +515,15 @@ describe("ChatComposerController", () => {
     expect(submit).toHaveBeenCalledOnce();
   });
 
-  it("does not reinsert a saved attachment after the user removes its placeholder", async () => {
-    const saved = deferred<ComposerAttachment[]>();
-    const attachment: ComposerAttachment = {
-      kind: "image",
-      name: "diagram",
-      path: "Codex Attachments/diagram.png",
-      marker: "![[Codex Attachments/diagram.png]]",
-    };
-    const { controller, parent, renderShell, stateStore } = composerControllerFixture({
-      controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
-      },
-    });
-    renderShell();
-    controller.setDraft("Keep this draft");
-    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
-    controller.setDraft("Keep this edited draft");
-
-    saved.resolve([attachment]);
-    await flushComposerAttachment();
-    await flushComposerAttachment();
-
-    expect(composer(parent).value).toBe("Keep this edited draft");
-    expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]);
-  });
-
   it("does not submit or apply saved attachments after disposal", async () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
-    const saved = deferred<ComposerAttachment[]>();
+    const saved = deferred<ComposerAttachmentSaveResult>();
     const attachmentHandler: ComposerAttachmentHandler = {
-      saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)),
+      saveFiles: vi.fn(() => saved.promise),
     };
     const submit = vi.fn();
-    const controller = new ChatComposerController(
+    const controller = createComposerController(
       composerControllerOptions(stateStore, {
         attachmentHandler,
       }),
@@ -1245,21 +532,13 @@ describe("ChatComposerController", () => {
     renderComposerController(parent, controller, stateStore, { submit });
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
     composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter" }));
-    controller.dispose();
-    saved.resolve([
-      {
-        kind: "image",
-        name: "diagram",
-        path: "Codex Attachments/diagram.png",
-        marker: "![[Codex Attachments/diagram.png]]",
-      },
-    ]);
-    await flushComposerAttachment();
-    await flushComposerAttachment();
+    disposeComposerController(controller);
+    saved.resolve(attachmentSaveResult([attachmentFixture("diagram")]));
+    await saved.promise;
 
     expect(submit).not.toHaveBeenCalled();
     expect(stateStore.getState().composer.draft).toBe("");
-    expect(controller.captureInputSnapshot().attachments).toEqual([]);
+    expect(controller.input.captureInputSnapshot().attachments).toEqual([]);
   });
 
   it("saves dropped files, restores focus immediately, and preserves later focus on completion", async () => {
@@ -1293,7 +572,7 @@ describe("ChatComposerController", () => {
     composer(parent).dispatchEvent(transferEvent("drop", "dataTransfer", [new File(["pdf"], "paper.pdf", { type: "application/pdf" })]));
     expect(document.activeElement).toBe(composer(parent));
     otherControl.focus();
-    await flushComposerAttachment();
+    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
 
     expect(document.activeElement).toBe(otherControl);
     expect(attachmentHandler.saveFiles).toHaveBeenCalledOnce();
@@ -1302,278 +581,6 @@ describe("ChatComposerController", () => {
       { type: "text", text: "[[Codex Attachments/paper.pdf]]" },
       { type: "fileReference", name: "paper", path: "Codex Attachments/paper.pdf" },
     ]);
-  });
-
-  it("freezes active file context when inserting the active suggestion", async () => {
-    const stateStore = createChatStateStore();
-    let references: ComposerContextReferences = {
-      activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
-      selection: null,
-    };
-    const { prepareInput, controller, parent, renderShell } = composerControllerFixture({
-      stateStore,
-      controller: {
-        noteCandidateProvider: noteProvider({ resolveFileReference: () => null }),
-        contextReferenceProvider: contextProvider(() => references),
-        sourcePath: () => "Inbox.md",
-      },
-    });
-
-    renderShell();
-    setTextAreaValue(composer(parent), "@active");
-    composer(parent).setSelectionRange(7, 7);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
-    const completedActiveNoteReference = composer(parent).value;
-    const snapshot = controller.captureInputSnapshot();
-    references = { activeNote: null, selection: null };
-
-    expect(completedActiveNoteReference).toBe("[[Alpha]]");
-    expect(prepareInput(completedActiveNoteReference).input).toContainEqual({
-      type: "fileReference",
-      name: "Alpha",
-      path: "notes/Alpha.md",
-    });
-
-    controller.setDraft("", { clearSuggestions: true });
-    expect(prepareInput(completedActiveNoteReference, snapshot).input).toContainEqual({
-      type: "fileReference",
-      name: "Alpha",
-      path: "notes/Alpha.md",
-    });
-  });
-
-  it("freezes selection context when inserting the selection suggestion", async () => {
-    const stateStore = createChatStateStore();
-    let references = {
-      activeNote: null,
-      selection: {
-        name: "Alpha",
-        path: "notes/Alpha.md",
-        linktext: "notes/Alpha",
-        range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
-        text: "initial selection",
-      },
-    };
-    const alphaSelectionEmphasis = { release: vi.fn(), setEnabled: vi.fn() };
-    const firstBetaSelectionEmphasis = { release: vi.fn(), setEnabled: vi.fn() };
-    const secondBetaSelectionEmphasis = { release: vi.fn(), setEnabled: vi.fn() };
-    const nextDraftBetaSelectionEmphasis = { release: vi.fn(), setEnabled: vi.fn() };
-    const submittedBetaSelectionEmphasis = { release: vi.fn(), setEnabled: vi.fn() };
-    const retainSelectionEmphasis = vi
-      .fn()
-      .mockReturnValueOnce(alphaSelectionEmphasis)
-      .mockReturnValueOnce(firstBetaSelectionEmphasis)
-      .mockReturnValueOnce(secondBetaSelectionEmphasis)
-      .mockReturnValueOnce(nextDraftBetaSelectionEmphasis)
-      .mockReturnValueOnce(submittedBetaSelectionEmphasis);
-    const { prepareInput, controller, parent, renderShell } = composerControllerFixture({
-      stateStore,
-      controller: {
-        noteCandidateProvider: noteProvider({
-          resolveFileReference: (target) => (target === "notes/Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
-        }),
-        contextReferenceProvider: {
-          ...contextProvider(() => references),
-          retainSelectionEmphasis,
-        },
-      },
-    });
-
-    renderShell();
-    insertSelectionSuggestion(parent);
-    const completedSelectionReference = composer(parent).value;
-    const snapshot = controller.captureInputSnapshot();
-    references = {
-      activeNote: null,
-      selection: {
-        name: "Beta",
-        path: "notes/Beta.md",
-        linktext: "notes/Beta",
-        range: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 4 } },
-        text: "changed selection",
-      },
-    };
-
-    const prepared = prepareInput(completedSelectionReference, snapshot);
-
-    expect(composer(parent).value).toBe('[[notes/Alpha]] "initial selection"');
-    expect(retainSelectionEmphasis).toHaveBeenCalledWith(expect.objectContaining({ text: "initial selection" }));
-    expect(prepared.input).toContainEqual({
-      type: "additionalContext",
-      key: "codex_panel_obsidian_context",
-      kind: "untrusted",
-      value:
-        'Obsidian references for the current user input:\n- [[notes/Alpha]] "initial selection" -> notes/Alpha.md (source range 42:5-47:1) (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] "initial selection":\ninitial selection',
-    });
-
-    insertSelectionSuggestion(parent, `${completedSelectionReference}\n`);
-    const betaSelectionReference = '[[notes/Beta]] "changed selection"';
-    expect(composer(parent).value).toBe(`${completedSelectionReference}\n${betaSelectionReference}`);
-    expect(retainSelectionEmphasis).toHaveBeenCalledTimes(2);
-    expect(alphaSelectionEmphasis.release).not.toHaveBeenCalled();
-    expect(firstBetaSelectionEmphasis.release).not.toHaveBeenCalled();
-
-    insertSelectionSuggestion(parent, `${composer(parent).value}\n`);
-    expect(retainSelectionEmphasis).toHaveBeenCalledTimes(3);
-    expect(firstBetaSelectionEmphasis.release).toHaveBeenCalledOnce();
-    expect(secondBetaSelectionEmphasis.release).not.toHaveBeenCalled();
-
-    const claim = controller.claimSubmission();
-    expect(alphaSelectionEmphasis.setEnabled).toHaveBeenLastCalledWith(false);
-    expect(secondBetaSelectionEmphasis.setEnabled).toHaveBeenLastCalledWith(false);
-    expect(alphaSelectionEmphasis.release).not.toHaveBeenCalled();
-    expect(secondBetaSelectionEmphasis.release).not.toHaveBeenCalled();
-
-    insertSelectionSuggestion(parent);
-    expect(retainSelectionEmphasis).toHaveBeenCalledTimes(4);
-
-    claim?.settle("failed");
-    expect(alphaSelectionEmphasis.setEnabled).toHaveBeenLastCalledWith(true);
-    expect(secondBetaSelectionEmphasis.release).toHaveBeenCalledOnce();
-    expect(nextDraftBetaSelectionEmphasis.release).not.toHaveBeenCalled();
-    expect(controller.captureInputSnapshot().selectionSnapshots.map((selection) => selection.reference.text)).toEqual([
-      "initial selection",
-      "changed selection",
-    ]);
-
-    setTextAreaValue(composer(parent), betaSelectionReference);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    expect(alphaSelectionEmphasis.release).toHaveBeenCalledOnce();
-    expect(nextDraftBetaSelectionEmphasis.release).not.toHaveBeenCalled();
-
-    setTextAreaValue(composer(parent), "");
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    expect(nextDraftBetaSelectionEmphasis.release).toHaveBeenCalledOnce();
-
-    insertSelectionSuggestion(parent);
-    const acceptedClaim = controller.claimSubmission();
-    expect(submittedBetaSelectionEmphasis.setEnabled).toHaveBeenLastCalledWith(false);
-    acceptedClaim?.settle("accepted");
-    expect(submittedBetaSelectionEmphasis.release).toHaveBeenCalledOnce();
-
-    controller.setDraft("", { clearSuggestions: true });
-    expect(prepareInput(completedSelectionReference, snapshot).input).toContainEqual({
-      type: "additionalContext",
-      key: "codex_panel_obsidian_context",
-      kind: "untrusted",
-      value:
-        'Obsidian references for the current user input:\n- [[notes/Alpha]] "initial selection" -> notes/Alpha.md (source range 42:5-47:1) (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] "initial selection":\ninitial selection',
-    });
-    expect(prepareInput(completedSelectionReference).input).toContainEqual({
-      type: "additionalContext",
-      key: "codex_panel_obsidian_context",
-      kind: "untrusted",
-      value: "Obsidian references for the current user input:\n- [[notes/Alpha]] -> notes/Alpha.md",
-    });
-  });
-
-  it("keeps Reading excerpts distinct through claims and failed restoration", () => {
-    const prefix = "x".repeat(60);
-    let selection = readingReference("capture-a", `${prefix} first excerpt`);
-    const { controller, parent, prepareInput, renderShell } = composerControllerFixture({
-      controller: { contextReferenceProvider: contextProvider(() => ({ activeNote: null, selection })) },
-    });
-    renderShell();
-    insertSelectionSuggestion(parent);
-    const firstDraft = composer(parent).value;
-    expect(firstDraft).toBe(`[[Alpha]] "${"x".repeat(48)}…"`);
-    const claim = controller.claimSubmission();
-    selection = readingReference("capture-b", `${prefix} second excerpt`);
-    insertSelectionSuggestion(parent);
-    const secondDraft = composer(parent).value;
-    expect(secondDraft).toBe(`[[Alpha]] "${"x".repeat(49)}…"`);
-    claim?.settle("failed");
-    expect(controller.captureInputSnapshot().selectionSnapshots.map((snapshot) => snapshot.reference.text)).toEqual([
-      `${prefix} first excerpt`,
-      `${prefix} second excerpt`,
-    ]);
-
-    const context = expectPresent(prepareInput(composer(parent).value).input.find((item) => item.type === "additionalContext"));
-    expect(context.kind).toBe("untrusted");
-    expect(context.value).toContain("not verified excerpt provenance or an edit location");
-    expect(context.value).toContain(`${firstDraft}:\n${prefix} first excerpt`);
-    expect(context.value).toContain(`${secondDraft}:\n${prefix} second excerpt`);
-  });
-
-  it("keeps later exact source locations separate when the quoted text is identical", () => {
-    const first = editorReference("same text", 0);
-    let selection = first;
-    const { controller, parent, renderShell, prepareInput } = composerControllerFixture({
-      controller: { contextReferenceProvider: contextProvider(() => ({ activeNote: null, selection })) },
-    });
-    renderShell();
-    insertSelectionSuggestion(parent);
-    const plain = '[[Alpha]] "same text"';
-    expect(composer(parent).value).toBe(plain);
-    const claim = controller.claimSubmission();
-    selection = { ...first, range: { from: { line: 19, ch: 0 }, to: { line: 19, ch: 9 } } };
-    insertSelectionSuggestion(parent);
-    const located = '[[Alpha]] (20:1-20:10) "same text"';
-    expect(composer(parent).value).toBe(located);
-    claim?.settle("failed");
-    expect(composer(parent).value).toBe(`${plain}\n\n${located}`);
-    expect(controller.captureInputSnapshot().selectionSnapshots).toHaveLength(2);
-
-    // Removing one citation keeps only the other exact source location.
-    setTextAreaValue(composer(parent), located);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    expect(controller.captureInputSnapshot().selectionSnapshots).toEqual([{ reference: selection, marker: located }]);
-    const context = prepareInput(located).input.find((item) => item.type === "additionalContext");
-    expect(context).toMatchObject({ value: expect.stringContaining("source range 20:1-20:10") });
-    expect(context).toMatchObject({ value: expect.not.stringContaining("source range 1:1-1:10") });
-
-    setTextAreaValue(composer(parent), located.replace("same text", "same tex"));
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    expect(controller.captureInputSnapshot().selectionSnapshots).toEqual([]);
-  });
-
-  it("does not rebind a damaged coordinate citation to the first source location", () => {
-    const first = editorReference("same text", 0);
-    let selection = first;
-    const { controller, parent, renderShell, prepareInput } = composerControllerFixture({
-      controller: { contextReferenceProvider: contextProvider(() => ({ activeNote: null, selection })) },
-    });
-    renderShell();
-    insertSelectionSuggestion(parent);
-    const firstMarker = composer(parent).value;
-    selection = editorReference("same text", 19);
-    insertSelectionSuggestion(parent, `${firstMarker}\n`);
-    expect(controller.captureInputSnapshot().selectionSnapshots).toHaveLength(2);
-    const damaged = '[[Alpha]] (20:1-20:10 "same text"';
-    setTextAreaValue(composer(parent), `${firstMarker}\n${damaged}`);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    expect(controller.captureInputSnapshot().selectionSnapshots).toEqual([{ marker: firstMarker, reference: first }]);
-    setTextAreaValue(composer(parent), damaged);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-    expect(controller.captureInputSnapshot().selectionSnapshots).toEqual([]);
-    expect(prepareInput(damaged).input).not.toContainEqual(
-      expect.objectContaining({ type: "additionalContext", value: expect.stringContaining("source range") }),
-    );
-  });
-
-  it("reuses a Reading citation while refreshing emphasis from the current original candidate", () => {
-    let selection = readingReference("first", "same text");
-    const previousEmphasis = { release: vi.fn(), setEnabled: vi.fn() };
-    const freshEmphasis = { release: vi.fn(), setEnabled: vi.fn() };
-    const retainSelectionEmphasis = vi.fn().mockReturnValueOnce(previousEmphasis).mockReturnValueOnce(freshEmphasis);
-    const { controller, parent, renderShell } = composerControllerFixture({
-      controller: {
-        contextReferenceProvider: {
-          ...contextProvider(() => ({ activeNote: null, selection })),
-          retainSelectionEmphasis,
-        },
-      },
-    });
-    renderShell();
-    insertSelectionSuggestion(parent);
-    selection = readingReference("fresh", "same text");
-    insertSelectionSuggestion(parent, `${composer(parent).value}\n`);
-    expect(composer(parent).value).toBe('[[Alpha]] "same text"\n[[Alpha]] "same text"');
-    expect(controller.captureInputSnapshot().selectionSnapshots).toHaveLength(1);
-    expect(retainSelectionEmphasis).toHaveBeenLastCalledWith(selection);
-    expect(previousEmphasis.release).toHaveBeenCalledOnce();
-    expect(freshEmphasis.release).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -1595,7 +602,7 @@ describe("ChatComposerController", () => {
     if (activation === "click") staleOption.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
     else composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
     expect(composer(parent).value).toBe("@sel");
-    expect(controller.captureInputSnapshot().selectionSnapshots).toEqual([]);
+    expect(controller.input.captureInputSnapshot().selectionSnapshots).toEqual([]);
   });
 
   it("navigates suggestions and keeps them dismissed until the input changes", () => {
@@ -1689,41 +696,12 @@ describe("ChatComposerController", () => {
     const focus = vi.spyOn(mountedComposer, "focus");
 
     unmountUiRoot(parent);
-    controller.setDraft("state draft", { focus: true });
+    controller.input.setDraft("state draft", { focus: true });
 
-    expect(controller.draft).toBe("state draft");
+    expect(controller.input.draft).toBe("state draft");
     expect(focus).not.toHaveBeenCalled();
   });
 });
-
-function readingReference(selectionId: string, text: string): SelectionContextReference {
-  return { name: "Alpha", path: "Alpha.md", linktext: "Alpha", range: null, selectionId, text };
-}
-
-function editorReference(text: string, line: number): SelectionContextReference {
-  return { name: "Alpha", path: "Alpha.md", linktext: "Alpha", text, range: { from: { line, ch: 0 }, to: { line, ch: text.length } } };
-}
-
-function noteProvider(overrides: Partial<NoteCandidateProvider> = {}): NoteCandidateProvider {
-  return {
-    candidates: () => [],
-    dailyNoteReferences: () => [],
-    tags: () => [],
-    resolveFileReference: () => null,
-    dispose: vi.fn(),
-    ...overrides,
-  };
-}
-
-function contextProvider(
-  contextReferences: ComposerContextReferenceProvider["contextReferences"] = () => ({ activeNote: null, selection: null }),
-): ComposerContextReferenceProvider {
-  return {
-    contextReferences,
-    retainSelectionEmphasis: () => null,
-    dispose: vi.fn(),
-  };
-}
 
 function skill(name: string): SkillMetadata {
   return {
@@ -1765,39 +743,8 @@ function transferEvent(type: "paste" | "drop", key: "clipboardData" | "dataTrans
   return event;
 }
 
-function attachmentFixture(name: string): ComposerAttachment {
-  return {
-    kind: "image",
-    name,
-    path: `Codex Attachments/${name}.png`,
-    marker: `![[Codex Attachments/${name}.png]]`,
-  };
-}
-
-async function flushComposerAttachment(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
-}
-
 function expectPresent<T>(value: T | null | undefined): T {
   expect(value).not.toBeNull();
   expect(value).not.toBeUndefined();
   return value as T;
-}
-
-function pendingAttachmentFixture(stateStore = createChatStateStore()) {
-  const saved = deferred<ComposerAttachment[]>();
-  const fixture = composerControllerFixture({
-    stateStore,
-    controller: { attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) } },
-  });
-  return { ...fixture, saved };
-}
-
-function insertSelectionSuggestion(parent: HTMLElement, prefix = ""): void {
-  const input = composer(parent);
-  setTextAreaValue(input, `${prefix}@sel`);
-  input.setSelectionRange(input.value.length, input.value.length);
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-  input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
 }

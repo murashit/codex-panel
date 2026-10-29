@@ -232,6 +232,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     threadLifecycle: threadFeatures,
     threadCommands: threadCommands.commands,
     navigation: threadCommands.navigation,
+    composerInput: composerController.input,
     composerController,
     resolveFileReference: (target, sourcePath) => noteCandidateProvider.resolveFileReference(target, sourcePath),
     runtimeSettings,
@@ -368,6 +369,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       ensureRestoredThreadLoaded: threadFeatures.ensureRestoredThreadLoaded,
     },
     composer: {
+      input: composerController.input,
       controller: composerController,
     },
     turn,
