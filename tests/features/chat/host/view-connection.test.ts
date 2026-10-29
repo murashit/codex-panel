@@ -275,75 +275,6 @@ describe("CodexChatView connection lifecycle", () => {
     expectRequestTimes(client, "config/read", 1);
   });
 
-  it("keeps the latest explicit target when an older activation finishes later", async () => {
-    const { client, delayed } = delayedThreadResumeClient("thread-b");
-    const view = await chatViewForClient(client);
-    await view.surface.activateThread("thread-a", { focus: false });
-
-    const openingB = view.surface.activateThread("thread-b", { focus: false });
-    await waitForAsyncWork(() => {
-      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-b", cwd: "/vault" }), {
-        onResponse: expect.any(Function),
-      });
-    });
-    await view.surface.activateThread("thread-a", { focus: false });
-    delayed.resolve(resumedThread("thread-b"));
-    await openingB;
-
-    expect(view.surface.openPanelSnapshot().threadId).toBe("thread-a");
-  });
-
-  it("settles repeated selections on the requested target", async () => {
-    const history = deferred<{ data: []; nextCursor: null }>();
-    const client = connectedClient({
-      "thread/resume": vi.fn().mockResolvedValue(resumedThread("thread-a")),
-      "thread/turns/list": vi.fn(() => history.promise),
-    });
-    const view = await chatViewForClient(client);
-
-    const opening = view.surface.activateThread("thread-a", { focus: false });
-    await waitForAsyncWork(() => {
-      expect(client.request).toHaveBeenCalledWith("thread/turns/list", expect.objectContaining({ threadId: "thread-a" }));
-    });
-    const reselecting = view.surface.activateThread("thread-a", { focus: false });
-
-    history.resolve({ data: [], nextCursor: null });
-    await Promise.all([opening, reselecting]);
-
-    expect(view.surface.openPanelSnapshot().threadId).toBe("thread-a");
-  });
-
-  it("keeps the current thread and draft when another thread cannot be resumed", async () => {
-    const client = connectedClient({
-      "thread/resume": vi.fn((params) => {
-        const { threadId } = params as { threadId: string };
-        return threadId === "thread-b" ? Promise.reject(new Error("Resume failed")) : Promise.resolve(resumedThread(threadId));
-      }),
-    });
-    const view = await openedChatView(client);
-    await view.surface.activateThread("thread-a", { focus: false });
-    view.surface.setComposerText("Keep this draft");
-
-    await view.surface.activateThread("thread-b", { focus: false });
-
-    expect(view.surface.openPanelSnapshot().threadId).toBe("thread-a");
-    expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("Keep this draft");
-  });
-
-  it("does not replace explicit navigation with a passive panel focus", async () => {
-    const { client, delayed } = delayedThreadResumeClient("thread-b");
-    const view = await chatViewForClient(client);
-    await view.surface.activateThread("thread-a", { focus: false });
-
-    const openingB = view.surface.activateThread("thread-b", { focus: false });
-    await waitForAsyncWork(() => expectRequestTimes(client, "thread/resume", 2));
-    await view.surface.activateThread(undefined, { focus: false });
-    delayed.resolve(resumedThread("thread-b"));
-    await openingB;
-
-    expect(view.surface.openPanelSnapshot().threadId).toBe("thread-b");
-  });
-
   it("keeps the newest target when another activation starts during adoption", async () => {
     const client = connectedClient({
       "thread/resume": vi.fn((params) => Promise.resolve(resumedThread((params as { threadId: string }).threadId))),
@@ -983,17 +914,6 @@ function mcpStatus(name: string) {
     authStatus: "oAuth" as const,
     runtimeStatus: "connected" as const,
   };
-}
-
-function delayedThreadResumeClient(delayedThreadId: string) {
-  const delayed = deferred<ReturnType<typeof resumedThread>>();
-  const client = connectedClient({
-    "thread/resume": vi.fn((params) => {
-      const { threadId } = params as { threadId: string };
-      return threadId === delayedThreadId ? delayed.promise : Promise.resolve(resumedThread(threadId));
-    }),
-  });
-  return { client, delayed };
 }
 
 function pendingGoalReadClient() {

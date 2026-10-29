@@ -9,10 +9,10 @@ import {
 import { createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { submitComposer } from "../../../../../src/features/chat/application/submission/composer-submit-command";
-import { RestorationController } from "../../../../../src/features/chat/application/threads/restoration-controller";
 import { deferred } from "../../../../support/async";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
+import { createThreadActivationFixture } from "../../support/activation";
 import { slashGoalsFixture, slashRuntimeSettingsFixture } from "../../support/slash-command-ports";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
@@ -73,15 +73,14 @@ describe("executePanelSlashCommand", () => {
         listedThreads: () => [thread("other", "Other")],
       });
       stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "unavailable", fallbackTitle: "Old thread" });
-      const restoration = new RestorationController({ stateStore });
-      const loadSavedThread = vi.fn(async () => undefined);
+      const { commands: activation, resumeThread: loadSavedThread } = createThreadActivationFixture({ stateStore });
       const ensureConnected = vi.fn(async () => command === "resume");
       const draft = command === "resume" ? "/resume Other" : `/${command}`;
       await submitComposer({
         stateStore,
         localItemIds: createLocalIdSource(),
         resolveFileReference: () => null,
-        ensureRestoredThreadLoaded: () => restoration.ensureLoaded(loadSavedThread),
+        ensureRestoredThreadLoaded: () => activation.ensureRestoredThreadLoaded(),
         composer: {
           draft,
           claimSubmission: () => ({

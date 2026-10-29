@@ -11,7 +11,6 @@ import { activeThreadId, type ChatConnectionPhase } from "../../application/stat
 import type { ChatStateStore } from "../../application/state/store";
 import type { ForkDraftPreparation } from "../../application/threads/fork-draft";
 import { sideChatDraft } from "../../application/threads/fork-draft";
-import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { createThreadStartCommand } from "../../application/threads/thread-start-command";
 import { collaborationModeIntentValue } from "../../domain/runtime/intent";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../../domain/runtime/labels";
@@ -45,7 +44,6 @@ interface ChatPanelSessionRuntimeHost {
   environment: ChatPanelEnvironment;
   stateStore: ChatStateStore;
   appServerWarmup: DeferredTask;
-  resumeWork: ChatResumeWorkTracker;
   threadStreamScrollBinding: ChatThreadStreamScrollBinding;
   getClosing: () => boolean;
   applyForkDraft: (preparation: ForkDraftPreparation) => Promise<void>;
@@ -214,7 +212,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     },
     ensureConnected,
     isConnected: () => connection.isConnected(),
-    resumeThread: (threadId: string) => threadFeatures.resume.resumeThread(threadId),
+    resumeThread: (threadId: string) => threadFeatures.activation.resumeThread(threadId),
     addSystemMessage: (text: string) => {
       status.addSystemMessage(text);
     },
@@ -347,10 +345,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   };
 
   const commands = {
-    invalidateThreadWork: () => {
-      invalidateThreadWork();
-      threadFeatures.restoration.invalidate();
-    },
+    invalidateThreadWork,
     reconnect,
     refreshSharedThreads,
     startNewThread: (options?: { focus?: boolean }) => threadCommands.navigation.startNewThread(options),
@@ -363,8 +358,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       coordinator: connectionCoordinator,
     },
     thread: {
-      resume: threadFeatures.resume,
-      restoration: threadFeatures.restoration,
+      activation: threadFeatures.activation,
       identity: threadFeatures.identity,
       ensureRestoredThreadLoaded: threadFeatures.ensureRestoredThreadLoaded,
     },

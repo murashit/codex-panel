@@ -6,18 +6,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppServerClient, AppServerServerRequestResponder } from "../../../../../src/app-server/connection/client";
 import type { ConnectionManagerHandlers } from "../../../../../src/app-server/connection/connection-manager";
 import { AppServerContextConnection } from "../../../../../src/app-server/connection/context-connection";
+import type { ServerNotification } from "../../../../../src/app-server/connection/rpc-messages";
 import type { ServerInitialization } from "../../../../../src/domain/runtime/metadata";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import { selectChatPanelComposer } from "../../../../../src/features/chat/host/composer/view-projection";
 import type { ChatPanelEnvironment, CodexChatHost } from "../../../../../src/features/chat/host/contracts";
 import { createChatPanelSessionRuntime } from "../../../../../src/features/chat/host/session/runtime";
 import { createChatThreadStreamScrollBinding } from "../../../../../src/features/chat/host/thread-stream/scroll-binding";
+import { createThreadAutoTitleWork } from "../../../../../src/features/threads/workflows/thread-auto-title-work";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../../src/settings/preferences";
 import { DeferredTask } from "../../../../../src/shared/async/deferred-task";
 import { createKeyedOperationCoordinator } from "../../../../../src/shared/async/keyed-operation-coordinator";
+import {
+  appServerAgentMessageFixture,
+  appServerCompletedTurnFixture,
+  appServerUserMessageFixture,
+} from "../../../../support/app-server-records";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { panelThreadFixture } from "../../../../support/panel-thread";
@@ -44,24 +50,26 @@ describe("chat panel session runtime", () => {
     document.body.replaceChildren();
   });
 
-  it("invalidates active resume, history, and restoration work through the runtime action", async () => {
-    const { runtime, resumeWork, stateStore } = sessionRuntimeFixture();
-    const resume = resumeWork.begin("thread-1");
-    stateStore.dispatch({ type: "thread-stream/history-loading-set", loading: true });
+  it("invalidates thread activation and history through the runtime action", async () => {
+    const connecting = deferred<ServerInitialization>();
+    const request = vi.fn();
+    const client = { request } as unknown as AppServerClient;
+    const contextConnection = contextConnectionHarness({ initialization: connecting.promise, currentClient: () => client });
+    const { runtime, stateStore } = sessionRuntimeFixture({
+      environment: { plugin: { appServerConnection: contextConnection.connection } },
+    });
     stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "thread-1", fallbackTitle: null });
-    const restored = deferred<void>();
-    const loadRestoredThread = vi.fn(() => restored.promise);
-    const firstRestoration = runtime.thread.restoration.ensureLoaded(loadRestoredThread);
+    const restoring = runtime.thread.ensureRestoredThreadLoaded();
+    await waitForAsyncWork(() => expect(contextConnection.connect).toHaveBeenCalledOnce());
+    stateStore.dispatch({ type: "thread-stream/history-loading-set", loading: true });
 
     runtime.commands.invalidateThreadWork();
+    connecting.resolve(serverInitializationFixture());
 
-    expect(resumeWork.isCurrent(resume)).toBe(false);
+    await expect(restoring).resolves.toBe(false);
     expect(stateStore.getState().threadStream.loadingHistory).toBe(false);
-    const secondRestoration = runtime.thread.restoration.ensureLoaded(loadRestoredThread);
-    expect(loadRestoredThread).toHaveBeenCalledTimes(2);
-
-    restored.resolve(undefined);
-    await Promise.all([firstRestoration, secondRestoration]);
+    expect(request).not.toHaveBeenCalled();
+    await runtime.dispose(() => undefined);
   });
 
   it.each(["active-thread", "connection", "runtime"] as const)(
@@ -113,6 +121,44 @@ describe("chat panel session runtime", () => {
       await runtime.dispose(() => undefined);
     },
   );
+
+  it("lets shared first-turn naming finish after the panel clears its active thread", async () => {
+    const generatedTitle = deferred<string | null>();
+    const generateTitle = vi.fn(() => generatedTitle.promise);
+    const renameThread = vi.fn().mockResolvedValue(true);
+    const sharedTitleWork = createThreadAutoTitleWork({
+      titlePort: { persistedContext: vi.fn().mockResolvedValue(null), generateTitle },
+      mutations: { renameThread },
+    });
+    const client = { request: vi.fn().mockResolvedValue({}) } as unknown as AppServerClient;
+    const contextConnection = contextConnectionHarness({ currentClient: () => client });
+    const { runtime, stateStore } = sessionRuntimeFixture({
+      environment: { plugin: { appServerConnection: contextConnection.connection, threadAutoTitleWork: sharedTitleWork } },
+    });
+    await runtime.connection.coordinator.ensureConnected();
+    stateStore.dispatch({ type: "active-thread/created", ...threadActivationFixture(threadFixture()) });
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+    contextConnection.notify({
+      method: "turn/completed",
+      params: {
+        threadId: "thread",
+        turn: appServerCompletedTurnFixture([
+          appServerUserMessageFixture("user", "Capture this context."),
+          appServerAgentMessageFixture("answer", "Continue after the panel moves on."),
+        ]),
+      },
+    });
+    await waitForAsyncWork(() => expect(generateTitle).toHaveBeenCalledOnce());
+
+    runtime.thread.identity.clearActiveThreadIdentity();
+    generatedTitle.resolve("Shared runtime title");
+
+    await waitForAsyncWork(() =>
+      expect(renameThread).toHaveBeenCalledWith("thread", "Shared runtime title", { shouldStart: expect.any(Function) }),
+    );
+    await runtime.dispose(() => undefined);
+    sharedTitleWork.dispose();
+  });
 
   it("resets objective expansion only when a goal presentation changes", () => {
     let publishGoalChange: ((threadId: string, previous: ThreadGoal | null, next: ThreadGoal | null) => void) | undefined;
@@ -212,7 +258,7 @@ describe("chat panel session runtime", () => {
     });
     vi.spyOn(runtime.connection.coordinator, "ensureConnected").mockResolvedValue(undefined);
     vi.spyOn(runtime.connection.manager, "isConnected").mockReturnValue(true);
-    const resumeThread = vi.spyOn(runtime.thread.resume, "resumeThread").mockResolvedValue({
+    const resumeThread = vi.spyOn(runtime.thread.activation, "resumeThread").mockResolvedValue({
       hydrate: vi.fn().mockResolvedValue(true),
     });
 
@@ -260,7 +306,7 @@ describe("chat panel session runtime", () => {
     vi.useFakeTimers();
     const unsubscribeThreads = vi.fn();
     const unsubscribeMetadata = vi.fn();
-    const { runtime, stateStore, appServerWarmup, threadStreamScrollBinding, resumeWork } = sessionRuntimeFixture({
+    const { runtime, stateStore, appServerWarmup, threadStreamScrollBinding } = sessionRuntimeFixture({
       environment: {
         plugin: {
           threadCatalog: { observeActiveThreadsResult: vi.fn(() => unsubscribeThreads) },
@@ -270,7 +316,6 @@ describe("chat panel session runtime", () => {
         },
       },
     });
-    const resume = resumeWork.begin("thread-closing");
     stateStore.dispatch({ type: "thread-stream/history-loading-set", loading: true });
     runtime.observers.threadCatalog.subscribe();
     const warmup = vi.fn();
@@ -288,7 +333,6 @@ describe("chat panel session runtime", () => {
 
     const disposal = runtime.dispose(unmount);
 
-    expect(resumeWork.isCurrent(resume)).toBe(false);
     expect(stateStore.getState().threadStream.loadingHistory).toBe(false);
     expect(unmount).toHaveBeenCalledOnce();
 
@@ -495,12 +539,10 @@ describe("chat panel session runtime", () => {
   function sessionRuntimeFixture(options: { environment?: PartialChatPanelEnvironment; getClosing?: () => boolean } = {}): {
     runtime: ReturnType<typeof createChatPanelSessionRuntime>;
     stateStore: ChatStateStore;
-    resumeWork: ChatResumeWorkTracker;
     appServerWarmup: DeferredTask;
     threadStreamScrollBinding: ReturnType<typeof createChatThreadStreamScrollBinding>;
   } {
     const stateStore = createChatStateStore();
-    const resumeWork = new ChatResumeWorkTracker();
     const appServerWarmup = new DeferredTask(() => window, 0);
     const threadStreamScrollBinding = createChatThreadStreamScrollBinding();
     const environment = chatPanelEnvironmentFixture(options.environment);
@@ -508,13 +550,12 @@ describe("chat panel session runtime", () => {
       environment,
       stateStore,
       appServerWarmup,
-      resumeWork,
       threadStreamScrollBinding,
       getClosing: options.getClosing ?? (() => false),
       applyForkDraft: vi.fn().mockResolvedValue(undefined),
       cancelForkDraft: vi.fn(),
     });
-    return { runtime, stateStore, resumeWork, appServerWarmup, threadStreamScrollBinding };
+    return { runtime, stateStore, appServerWarmup, threadStreamScrollBinding };
   }
 
   interface PartialChatPanelEnvironment {
@@ -529,6 +570,7 @@ describe("chat panel session runtime", () => {
       threadGoalQueries?: ChatPanelEnvironment["plugin"]["threadGoalQueries"];
       threadMutations?: ChatPanelEnvironment["plugin"]["threadMutations"];
       threadTitlePort?: ChatPanelEnvironment["plugin"]["threadTitlePort"];
+      threadAutoTitleWork?: ChatPanelEnvironment["plugin"]["threadAutoTitleWork"];
       settings?: ChatPanelEnvironment["plugin"]["settings"];
       appServerContext?: ChatPanelEnvironment["plugin"]["appServerContext"];
       runtimeSettingsCommitQueue?: ChatPanelEnvironment["plugin"]["runtimeSettingsCommitQueue"];
@@ -566,7 +608,7 @@ describe("chat panel session runtime", () => {
           persistedContext: vi.fn().mockResolvedValue(null),
           generateTitle: vi.fn().mockResolvedValue(null),
         },
-        threadAutoTitleWork: { submit: vi.fn() },
+        threadAutoTitleWork: overrides.plugin?.threadAutoTitleWork ?? { submit: vi.fn() },
         settings: overrides.plugin?.settings ?? chatPanelSettingsAccess(settingsSource),
         workspace: {
           returnFromForkDraft: vi.fn().mockResolvedValue(true),
@@ -610,7 +652,11 @@ describe("chat panel session runtime", () => {
     currentClient: () => AppServerClient | null;
     initialization?: Promise<ServerInitialization>;
   }) {
-    const connect = vi.fn(() => options.initialization ?? Promise.resolve(serverInitializationFixture()));
+    let handlers: ConnectionManagerHandlers | null = null;
+    const connect = vi.fn((next: ConnectionManagerHandlers) => {
+      handlers = next;
+      return options.initialization ?? Promise.resolve(serverInitializationFixture());
+    });
     const connection = new AppServerContextConnection(
       "codex",
       "/vault",
@@ -622,7 +668,14 @@ describe("chat panel session runtime", () => {
         disconnect: vi.fn(),
       },
     );
-    return { connection, connect };
+    return {
+      connection,
+      connect,
+      notify(notification: ServerNotification) {
+        if (!handlers) throw new Error("Expected connected app-server handlers.");
+        handlers.onNotification(notification);
+      },
+    };
   }
 
   function serverInitializationFixture(): ServerInitialization {

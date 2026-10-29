@@ -1,6 +1,5 @@
 import type { ChatStateStore } from "../state/store";
 import type { ActiveThreadIdentitySync } from "./active-thread-identity-sync";
-import type { ChatResumeWorkTracker } from "./resume-work";
 import { canSwitchToThread } from "./thread-switching";
 
 export interface ThreadNavigationCommandsHost {
@@ -8,7 +7,6 @@ export interface ThreadNavigationCommandsHost {
   identity: ActiveThreadIdentitySync;
   closeForThreadSelection: () => void;
   openThreadFromPanel: (threadId: string, originSwitchable: boolean) => Promise<void>;
-  resumeWork: ChatResumeWorkTracker;
   addSystemMessage: (text: string) => void;
   focusComposer: () => void;
 }
@@ -34,7 +32,6 @@ export function createThreadNavigationCommands(host: ThreadNavigationCommandsHos
     async startNewThread(options: { focus?: boolean } = {}): Promise<void> {
       const state = host.stateStore.getState();
       if (!canSwitchToThread(state, null)) return;
-      host.resumeWork.begin(null);
 
       host.identity.clearActiveThreadIdentity();
       host.stateStore.dispatch({ type: "ui/panel-set", panel: null });

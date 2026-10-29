@@ -5,15 +5,13 @@ import type { ChatAppServerGateway } from "../../app-server/session-gateway";
 import type { ChatStateStore } from "../../application/state/store";
 import { threadStreamItems } from "../../application/state/thread-stream";
 import { chatThreadStreamViewState } from "../../application/state/turn-scope";
+import { ThreadActivation } from "../../application/threads/activation";
 import { type ActiveThreadIdentitySync, createActiveThreadIdentitySync } from "../../application/threads/active-thread-identity-sync";
 import { type AutoTitleCoordinator, createAutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
 import type { ForkDraftPreparation } from "../../application/threads/fork-draft";
 import { createGoalCommands, type GoalCommands } from "../../application/threads/goal-commands";
 import { HistoryController } from "../../application/threads/history-controller";
-import { RestorationController } from "../../application/threads/restoration-controller";
-import { createResumeCommand, type ResumeCommand } from "../../application/threads/resume-command";
-import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { createThreadCommands, type ThreadCommands, type ThreadCommandsHost } from "../../application/threads/thread-commands";
 import { createThreadNavigationCommands, type ThreadNavigationCommands } from "../../application/threads/thread-navigation-commands";
 import type { ThreadStartCommand } from "../../application/threads/thread-start-command";
@@ -24,8 +22,7 @@ import { createToolbarPanelActions, type ToolbarPanelActions } from "../toolbar/
 import { activeThreadRenameTitleContext, createThreadRenameEditorActions, type ThreadRenameEditorActions } from "./rename-editor";
 
 export interface SessionThreadLifecycle {
-  restoration: RestorationController;
-  resume: ResumeCommand;
+  activation: ThreadActivation;
   identity: ActiveThreadIdentitySync;
   ensureRestoredThreadLoaded: (displaySnapshot?: ForkDisplaySnapshot) => Promise<boolean>;
 }
@@ -38,7 +35,6 @@ interface SessionThreadStatus {
 interface SessionThreadHost {
   environment: ChatPanelEnvironment;
   stateStore: ChatStateStore;
-  resumeWork: ChatResumeWorkTracker;
   threadStreamScrollBinding: {
     showLatest(): void;
   };
@@ -54,7 +50,6 @@ interface SessionThreadFoundation {
   autoTitleCoordinator: AutoTitleCoordinator;
   history: HistoryController;
   threadMutations: ThreadMutationCommands;
-  invalidateActiveThreadWork(): void;
 }
 
 interface SessionThreadFeaturesInput {
@@ -114,15 +109,10 @@ export function createSessionThreadFoundation(host: SessionThreadHost, input: Se
       autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
     },
   });
-  const invalidateActiveThreadWork = () => {
-    host.resumeWork.invalidate();
-    history.invalidate();
-  };
   return {
     autoTitleCoordinator,
     history,
     threadMutations,
-    invalidateActiveThreadWork,
   };
 }
 
@@ -140,7 +130,8 @@ export function createSessionThreadFeatures(host: SessionThreadHost, input: Sess
     generateThreadTitle: (context, signal) => host.environment.plugin.threadTitlePort.generateTitle(context, signal),
   });
   const invalidateActiveThreadWork = (): void => {
-    foundation.invalidateActiveThreadWork();
+    foundation.history.invalidate();
+    lifecycle.activation.invalidate();
     rename.cancelGenerations();
   };
   const lifecycle = createSessionThreadLifecycle(host, {
@@ -167,15 +158,14 @@ export function createSessionThreadFeatures(host: SessionThreadHost, input: Sess
       status.addSystemMessage(text);
     },
   });
-  const { identity, restoration, resume, ensureRestoredThreadLoaded } = lifecycle;
+  const { identity, activation, ensureRestoredThreadLoaded } = lifecycle;
 
   return {
     goals,
     rename,
     invalidateActiveThreadWork,
     identity,
-    restoration,
-    resume,
+    activation,
     ensureRestoredThreadLoaded,
   };
 }
@@ -226,7 +216,6 @@ export function createSessionThreadCommands(host: SessionThreadHost, input: Sess
     },
     openThreadFromPanel: (threadId, originSwitchable) =>
       environment.plugin.workspace.openThreadFromPanel(threadId, environment.obsidian.viewId, originSwitchable),
-    resumeWork: host.resumeWork,
     addSystemMessage: status.addSystemMessage,
     focusComposer: () => {
       composerController.focusComposer();
@@ -250,13 +239,10 @@ function createSessionThreadLifecycle(
 ): SessionThreadLifecycle {
   const { appServer, ensureConnected, status, autoTitleCoordinator, history, invalidateThreadWork, notifyActiveThreadIdentityChanged } =
     input;
-  const restoration = new RestorationController({
-    stateStore: host.stateStore,
-  });
   const resetThreadTurnPresence = (hadTurns: boolean) => {
     autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
   };
-  const resume = createResumeCommand({
+  const activation = new ThreadActivation({
     withThreadActivation: input.withThreadActivation,
     stateStore: host.stateStore,
     effects: appServer.threadResume,
@@ -264,7 +250,6 @@ function createSessionThreadLifecycle(
       await ensureConnected();
       return appServer.connectionAvailable();
     },
-    resumeWork: host.resumeWork,
     history,
     closing: host.getClosing,
     resetThreadTurnPresence,
@@ -284,13 +269,8 @@ function createSessionThreadLifecycle(
   });
 
   return {
-    restoration,
-    resume,
+    activation,
     identity,
-    ensureRestoredThreadLoaded: (displaySnapshot) =>
-      restoration.ensureLoaded(async (threadId) => {
-        const activation = await resume.resumeThread(threadId, undefined, displaySnapshot);
-        await activation?.hydrate();
-      }),
+    ensureRestoredThreadLoaded: (displaySnapshot) => activation.ensureRestoredThreadLoaded(displaySnapshot),
   };
 }

@@ -3,7 +3,6 @@ import { createChatState } from "../../../../../src/features/chat/application/st
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ActiveThreadIdentitySync } from "../../../../../src/features/chat/application/threads/active-thread-identity-sync";
 import { sideChatDraft } from "../../../../../src/features/chat/application/threads/fork-draft";
-import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import {
   createThreadNavigationCommands,
   type ThreadNavigationCommandsHost,
@@ -37,7 +36,6 @@ function createActionsHarness(overrides: Partial<ThreadNavigationCommandsHost> =
     } as unknown as ActiveThreadIdentitySync,
     closeForThreadSelection: vi.fn(),
     openThreadFromPanel: vi.fn().mockResolvedValue(undefined),
-    resumeWork: new ChatResumeWorkTracker(),
     addSystemMessage: vi.fn(),
     focusComposer: vi.fn(),
     ...overrides,

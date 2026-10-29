@@ -15,7 +15,6 @@ import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../applic
 import { type ChatStateStore, createChatStateStore } from "../../application/state/store";
 import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
 import type { ForkDraftPreparation } from "../../application/threads/fork-draft";
-import { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { canSwitchToThread } from "../../application/threads/thread-switching";
 import { chatTurnBusy } from "../../application/turns/turn-state";
 import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../domain/pending-requests/aggregate";
@@ -31,7 +30,6 @@ export class ChatPanelSession implements ChatPanelHandle {
   private readonly runtime: ReturnType<typeof createChatPanelSessionRuntime>;
 
   private readonly appServerWarmup: DeferredTask;
-  private readonly resumeWork = new ChatResumeWorkTracker();
   private readonly threadStreamScrollBinding: ChatThreadStreamScrollBinding = createChatThreadStreamScrollBinding();
   private opened = false;
   private closing = false;
@@ -39,7 +37,6 @@ export class ChatPanelSession implements ChatPanelHandle {
   private unsubscribePanelActivity: (() => void) | null = null;
   private foregroundWindow: Window | null = null;
   private stopObservingForeground: (() => void) | null = null;
-  private pendingPersistentActivation: { threadId: string; promise: Promise<boolean> } | null = null;
 
   constructor(
     private readonly environment: ChatPanelEnvironment,
@@ -77,7 +74,6 @@ export class ChatPanelSession implements ChatPanelHandle {
   applyViewState(state: unknown): void {
     const restoredState = parseChatPanelViewState(state);
     this.runtime.commands.invalidateThreadWork();
-    this.pendingPersistentActivation = null;
     if (restoredState.kind === "thread") {
       this.stateStore.dispatch({
         type: "panel/restored-thread-applied",
@@ -120,7 +116,6 @@ export class ChatPanelSession implements ChatPanelHandle {
   async applyForkDraft(preparation: ForkDraftPreparation, initialMessage?: string): Promise<boolean> {
     if (this.closing || !canSwitchToThread(this.state, null)) return false;
     this.runtime.commands.invalidateThreadWork();
-    this.pendingPersistentActivation = null;
     this.stateStore.dispatch({ type: "panel/fork-draft-applied", preparation });
     this.environment.view.refreshTabHeader();
     this.environment.obsidian.requestWorkspaceLayoutSave();
@@ -165,57 +160,10 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   async activateThread(threadId?: string, options: { focus?: boolean; displaySnapshot?: ForkDisplaySnapshot } = {}): Promise<boolean> {
-    const restoredThread = awaitingResumeThreadState(this.state);
-    const restoredThreadId = restoredThread?.threadId ?? null;
-    const targetThreadId = threadId ?? restoredThreadId;
-    if (!targetThreadId) {
-      if (options.focus !== false) this.focusComposer();
-      return false;
-    }
-
-    const pending = this.pendingPersistentActivation;
-    if (pending?.threadId === targetThreadId) {
-      const activated = await pending.promise;
-      if (activated && options.focus !== false) this.focusComposer();
-      return activated;
-    }
-    if (threadId === undefined && pending) {
-      if (options.focus !== false) this.focusComposer();
-      return true;
-    }
-    if (activeThreadState(this.state)?.id === targetThreadId) {
-      this.resumeWork.begin(targetThreadId);
-      if (pending) {
-        this.pendingPersistentActivation = null;
-      }
-      if (options.focus !== false) this.focusComposer();
-      return true;
-    }
-
-    const activation = {
-      threadId: targetThreadId,
-      promise: this.activatePersistentThread(targetThreadId, options.displaySnapshot),
-    };
-    this.pendingPersistentActivation = activation;
-    let activated: boolean;
-    try {
-      activated = await activation.promise;
-    } finally {
-      if (this.pendingPersistentActivation === activation) this.pendingPersistentActivation = null;
-    }
-    if (activated && options.focus !== false) this.focusComposer();
+    const hasTarget = threadId !== undefined || awaitingResumeThreadState(this.state) !== null;
+    const activated = await this.runtime.thread.activation.activate(threadId, options.displaySnapshot);
+    if ((activated || !hasTarget) && options.focus !== false) this.focusComposer();
     return activated;
-  }
-
-  private async activatePersistentThread(threadId: string, displaySnapshot?: ForkDisplaySnapshot): Promise<boolean> {
-    if (this.runtime.thread.restoration.isPending(threadId)) {
-      return this.runtime.thread.ensureRestoredThreadLoaded(displaySnapshot);
-    }
-    const intent = this.resumeWork.begin(threadId);
-    const activation = await this.runtime.thread.resume.resumeThread(threadId, intent, displaySnapshot);
-    if (!activation) return false;
-    if (!(await activation.hydrate()) || !this.resumeWork.isCurrent(intent)) return false;
-    return true;
   }
 
   focusComposer(options: { force?: boolean } = {}): void {
@@ -287,9 +235,6 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   async startNewThread(options: { focus?: boolean } = {}): Promise<void> {
     await this.runtime.commands.startNewThread(options);
-    if (panelThreadId(this.state) === null) {
-      this.pendingPersistentActivation = null;
-    }
   }
 
   private get state(): ChatState {
@@ -384,7 +329,6 @@ export class ChatPanelSession implements ChatPanelHandle {
       environment: this.environment,
       stateStore: this.stateStore,
       appServerWarmup: this.appServerWarmup,
-      resumeWork: this.resumeWork,
       threadStreamScrollBinding: this.threadStreamScrollBinding,
       getClosing: () => this.closing,
       applyForkDraft: async (preparation) => {
