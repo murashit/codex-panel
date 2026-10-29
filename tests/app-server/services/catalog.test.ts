@@ -291,6 +291,7 @@ function hookFixture(overrides: Partial<CommandHookMetadata> = {}): CommandHookM
     sourcePath: "/vault/.codex/hooks.json",
     source: "project",
     pluginId: null,
+    environmentId: null,
     displayOrder: 0n,
     enabled: true,
     isManaged: false,
