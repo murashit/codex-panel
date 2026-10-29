@@ -699,6 +699,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       id: "image-gen-1",
       status: "completed",
       revisedPrompt: "A precise UI mockup.",
+      generationId: null,
       ...image,
       savedPath: "/vault/project/assets/generated.png",
       failure: null,
@@ -727,6 +728,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       id: "image-gen-1",
       status: "completed",
       revisedPrompt: "A precise UI mockup.",
+      generationId: null,
       ...image,
       failure: null,
     };
