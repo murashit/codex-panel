@@ -15,11 +15,9 @@ setupThreadStreamRendering();
 
 import {
   expectPresent,
-  idleTurnLifecycle,
   projectedThreadStream,
   renderThreadStreamBlockElement,
   renderThreadStreamBlocksInAct,
-  runningTurnLifecycle,
   testDisclosures,
   unmountUiRootInAct,
   withStreamItemContentScrollHeight,
@@ -531,7 +529,7 @@ describe("panel thread stream rendering and action menu", () => {
       turnId: "turn-1",
     } as const;
     const context = {
-      turnLifecycle: runningTurnLifecycle("turn-1"),
+      activeTurnId: "turn-1",
       items: [item],
       renderMarkdown: (parent: HTMLElement, text: string) => parent.createDiv({ text }),
       copyText: vi.fn(),
@@ -540,7 +538,7 @@ describe("panel thread stream rendering and action menu", () => {
     const { blocks: runningBlocks, context: runningContext } = projectedThreadStream(context);
     const { blocks: completedBlocks, context: completedContext } = projectedThreadStream({
       ...context,
-      turnLifecycle: idleTurnLifecycle(),
+      activeTurnId: null,
     });
 
     expect(
@@ -699,7 +697,7 @@ describe("panel thread stream rendering and action menu", () => {
 
   it("renders command items as a compact summary with output behind details", () => {
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       items: [
         commandItemFixture({
           statusLabel: "Failed",
@@ -724,7 +722,7 @@ describe("panel thread stream rendering and action menu", () => {
 
   it("omits command exit and duration rows while they are unavailable", () => {
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       items: [
         commandItemFixture({
           statusLabel: "Running",
@@ -745,7 +743,7 @@ describe("panel thread stream rendering and action menu", () => {
 
   it("derives command summaries from semantic targets instead of command text", () => {
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       items: [
         commandItemFixture({
           commandTarget: { kind: "search", query: "semantic target", path: "/vault/src" },
@@ -763,7 +761,7 @@ describe("panel thread stream rendering and action menu", () => {
 
   it("renders file diffs inside a single file change details block", () => {
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       workspaceRoot: "/vault/project",
       items: [
         {

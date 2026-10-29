@@ -3,11 +3,8 @@ import { activePanelOperationDecision } from "../../application/panel-operation-
 import { activeThreadState, type ChatState } from "../../application/state/model";
 import {
   type ThreadStreamRollbackCandidate,
-  threadStreamActiveItems,
   threadStreamItems,
-  threadStreamPendingSteers,
   threadStreamRollbackCandidateFromItems,
-  threadStreamStableItems,
 } from "../../application/state/thread-stream";
 import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import { implementPlanTarget } from "../../application/submission/plan-implementation";
@@ -101,13 +98,7 @@ function projectThreadStreamBlocks(
 ): readonly ThreadStreamViewBlock[] {
   const stream = chatThreadStreamViewState(model.threadStream, model.activeTurn);
   const canonicalItems = threadStreamItems(stream);
-  const pendingSteers = threadStreamPendingSteers(stream);
-  const stableItems = model.activeTurn.activeSegment
-    ? threadStreamStableItems(model.threadStream)
-    : appendPendingDisplayItems(threadStreamStableItems(model.threadStream), pendingSteers, model.pendingSubmission);
-  const activeItems = model.activeTurn.activeSegment
-    ? appendPendingDisplayItems(threadStreamActiveItems(stream), pendingSteers, model.pendingSubmission)
-    : threadStreamActiveItems(stream);
+  const items = appendPendingDisplayItems(canonicalItems, model.activeTurn.pendingSteers, model.pendingSubmission);
   const workspaceRoot = dependencies.vaultPath;
   const subagentActivities = new Map<string, ActiveSubagentActivity>();
   for (const [threadId, activity] of model.activeTurn.subagents.byThreadId) {
@@ -131,17 +122,14 @@ function projectThreadStreamBlocks(
   });
   const textActionTargetsByItemId = textActionTargetsForThreadStreamItems(rollbackCandidate, forkCandidates, planTarget);
   const pendingRequests =
-    stableItems.length === 0 && activeItems.length === 0
-      ? null
-      : projectPendingRequestBlock({ ...model.requests, approvalDetails: model.disclosureApprovalDetails });
+    items.length === 0 ? null : projectPendingRequestBlock({ ...model.requests, approvalDetails: model.disclosureApprovalDetails });
 
   return threadStreamViewBlocks({
     activeThreadId: model.activeThreadId,
     activeTurnId: activeTurnId(model.activeTurn),
     historyCursor: model.threadStream.historyCursor,
     loadingHistory: model.threadStream.loadingHistory,
-    stableItems,
-    activeItems,
+    items,
     workspaceRoot,
     turnDiffs: model.threadStream.turnDiffs,
     textActionTargetsByItemId,

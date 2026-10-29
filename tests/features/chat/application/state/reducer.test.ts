@@ -4,7 +4,6 @@ import { activeThreadState, type ChatState } from "../../../../../src/features/c
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../../../../src/features/chat/application/state/panel-target";
 import { type ChatAction, chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { threadStreamStableItems } from "../../../../../src/features/chat/application/state/thread-stream";
 import { localUserDialogueItemFromInput } from "../../../../../src/features/chat/application/submission/local-user-dialogue";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { activeTurnId, chatTurnBusy } from "../../../../../src/features/chat/application/turns/turn-state";
@@ -234,7 +233,7 @@ describe("chatReducer", () => {
       fallbackTitle: "Reconnect me",
       provenance,
     });
-    expect(threadStreamStableItems(disconnected.threadStream)).toEqual([dialogueItem("retained-item")]);
+    expect(disconnected.threadStream.stableItems).toEqual([dialogueItem("retained-item")]);
   });
 
   it("expires an active ephemeral thread instead of making it reconnectable", () => {
@@ -250,7 +249,7 @@ describe("chatReducer", () => {
     const disconnected = chatReducer(state, { type: "connection/scoped-cleared" });
 
     expect(disconnected.panelThread).toEqual({ kind: "empty" });
-    expect(threadStreamStableItems(disconnected.threadStream)).toEqual([]);
+    expect(disconnected.threadStream.stableItems).toEqual([]);
   });
 
   it("applies restored thread identity as an atomic thread-scoped transition", () => {

@@ -97,20 +97,6 @@ export function threadStreamItems(state: ChatThreadStreamViewState): readonly Th
   return [...state.stableItems, ...state.activeSegment.items];
 }
 
-export function threadStreamStableItems(state: Pick<ChatThreadStreamState, "stableItems">): readonly ThreadStreamItem[] {
-  return state.stableItems;
-}
-
-export function threadStreamActiveItems(state: Pick<ChatThreadStreamActiveState, "activeSegment">): readonly ThreadStreamItem[] {
-  return state.activeSegment?.items ?? [];
-}
-
-export function threadStreamPendingSteers(
-  state: Pick<ChatThreadStreamActiveState, "pendingSteers">,
-): readonly UserThreadStreamDialogueItem[] {
-  return state.pendingSteers;
-}
-
 export function threadStreamIsEmpty(state: ChatThreadStreamViewState): boolean {
   return state.stableItems.length === 0 && (!state.activeSegment || state.activeSegment.items.length === 0);
 }

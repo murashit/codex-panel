@@ -6,11 +6,13 @@ import { toolbarActionsFixture } from "../../support/toolbar-actions";
 
 import { h } from "preact";
 import { describe, expect, it, vi } from "vitest";
+import { codexTextInput } from "../../../../../src/domain/input/input";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
 import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { localUserDialogueItemFromInput } from "../../../../../src/features/chat/application/submission/local-user-dialogue";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ChatPanelComposerRuntimeActions } from "../../../../../src/features/chat/host/composer/view-projection";
 import {
@@ -51,6 +53,44 @@ const EXPECTED_EMPTY_CONTEXT_CELLS = [
 ];
 
 describe("chat panel projection integration", () => {
+  it("keeps the optimistic prompt visible before acknowledgement and through turn completion", () => {
+    const { store, prompt, blocks } = optimisticThreadStream();
+
+    expect(blocks()).toMatchObject([{ kind: "text", key: "item:local-user-1", view: { body: "Start this work" } }]);
+
+    store.dispatch({ type: "turn/start-acknowledged", threadId: "thread", turnId: "turn", anchorItemId: prompt.id });
+    expect(blocks()).toMatchObject([{ kind: "text", key: "item:local-user-1", view: { body: "Start this work" } }]);
+    store.dispatch({
+      type: "turn/completed",
+      turnId: "turn",
+      outcome: "completed",
+      items: [
+        { ...prompt, turnId: "turn" },
+        {
+          id: "assistant",
+          kind: "dialogue",
+          dialogueKind: "assistantResponse",
+          dialogueState: "completed",
+          role: "assistant",
+          text: "Finished",
+          turnId: "turn",
+        },
+      ],
+    });
+    expect(blocks()).toMatchObject([
+      { kind: "text", key: "item:local-user-1", view: { body: "Start this work" } },
+      { kind: "text", key: "item:assistant", view: { body: "Finished" } },
+    ]);
+  });
+
+  it("removes the optimistic prompt when turn start fails", () => {
+    const { store, prompt, blocks } = optimisticThreadStream();
+
+    expect(blocks()).toMatchObject([{ kind: "text", key: "item:local-user-1", view: { body: "Start this work" } }]);
+    store.dispatch({ type: "turn/start-failed", threadId: "thread", anchorItemId: prompt.id });
+    expect(blocks()).toEqual([{ kind: "empty", key: "empty" }]);
+  });
+
   it("uses replacement visibility only for the selected toolbar row", () => {
     let state = chatStateFixture({ activeThread: { id: "replacement" } });
     const shared = chatToolbarSharedValuesFixture({
@@ -641,6 +681,22 @@ describe("chat panel projection integration", () => {
     unmountUiRoot(parent);
   });
 });
+
+function optimisticThreadStream() {
+  const store = createChatStateStore(chatStateFixture({ activeThread: { id: "thread" } }));
+  const prompt = localUserDialogueItemFromInput({
+    id: "local-user-1",
+    text: "Start this work",
+    codexInput: codexTextInput("Start this work"),
+  });
+  const dependencies = threadStreamDependenciesFixture();
+  store.dispatch({ type: "turn/optimistic-started", item: prompt });
+  return {
+    store,
+    prompt,
+    blocks: () => projectThreadStream(selectChatPanelThreadStream(store.getState()), dependencies).blocks,
+  };
+}
 
 function renderGoal(state: ChatState, goal: ThreadGoal | null, dependencies: ChatPanelGoalDependencies): HTMLElement {
   const parent = document.createElement("div");

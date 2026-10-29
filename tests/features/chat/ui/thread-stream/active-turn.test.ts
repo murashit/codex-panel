@@ -8,7 +8,7 @@ describe("active turn presentation", () => {
     const latestReasoning: ThreadStreamItem = { id: "r2", kind: "reasoning", role: "tool", text: "latest", turnId: "turn" };
     const otherTurnReasoning: ThreadStreamItem = { id: "r3", kind: "reasoning", role: "tool", text: "other", turnId: "other" };
 
-    const context = { activeTurnId: "turn", activeItems: [firstReasoning, latestReasoning, otherTurnReasoning] };
+    const context = { activeTurnId: "turn", items: [firstReasoning, latestReasoning, otherTurnReasoning] };
 
     expect(threadStreamReasoningIsActive(firstReasoning, context)).toBe(false);
     expect(threadStreamReasoningIsActive(latestReasoning, context)).toBe(true);
@@ -178,7 +178,7 @@ describe("active turn presentation", () => {
     ];
     const summary = activeTurnLiveItems(
       {
-        activeItems: items,
+        items,
         subagentActivities: new Map([
           ["a", runningActivity("Inspecting notification routing")],
           ["b", runningActivity("Running tests")],
@@ -201,7 +201,7 @@ describe("active turn presentation", () => {
   it("uses tracked live activity when an in-progress wait item has no receiver state yet", () => {
     const summary = activeTurnLiveItems(
       {
-        activeItems: [agentItem({ targetThreadIds: [], agents: [] })],
+        items: [agentItem({ targetThreadIds: [], agents: [] })],
         subagentActivities: new Map([["child", runningActivity("Reading repository instructions")]]),
       },
       "t1",
@@ -225,7 +225,7 @@ describe("active turn presentation", () => {
     ];
     const summary = activeTurnLiveItems(
       {
-        activeItems: items,
+        items,
         subagentActivities: new Map([
           ["completed", completedActivity("completed", "Done")],
           ["failed", completedActivity("failed", "Interrupted")],
@@ -245,7 +245,7 @@ describe("active turn presentation", () => {
   it("prefers a running child activity over a completed spawn item", () => {
     const summary = activeTurnLiveItems(
       {
-        activeItems: [
+        items: [
           agentItem({
             action: "spawn",
             status: "completed",
@@ -282,7 +282,7 @@ describe("active turn presentation", () => {
 });
 
 function activeAgentSummary(items: readonly ThreadStreamItem[]) {
-  return activeTurnLiveItems({ activeItems: items }, "t1").find((item) => item.kind === "agentSummary")?.summary ?? null;
+  return activeTurnLiveItems({ items }, "t1").find((item) => item.kind === "agentSummary")?.summary ?? null;
 }
 
 function runningActivity(messagePreview: string) {

@@ -6,7 +6,7 @@ import type { AgentRunSummaryView, ThreadStreamStatusView } from "./model";
 
 export interface ThreadStreamStatusViewContext {
   activeTurnId: string | null;
-  activeItems: readonly ThreadStreamItem[];
+  items: readonly ThreadStreamItem[];
 }
 
 type StatusItem = Extract<ThreadStreamItem, { kind: "taskProgress" | "contextCompaction" | "reasoning" | "wait" }>;
