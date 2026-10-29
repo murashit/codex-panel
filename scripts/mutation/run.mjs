@@ -1,7 +1,6 @@
 import { spawn } from "node:child_process";
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from "node:fs";
 import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
 import { stripVTControlCharacters } from "node:util";
 import { compatibility, loadBaseline, saveBaseline } from "./baseline.mjs";
 
@@ -62,6 +61,37 @@ function countReport(cwd) {
   return counts;
 }
 
+function finishMutation(cwd, metadata) {
+  if (metadata.finishedAt) return;
+  if (["running", "not_started"].includes(metadata.status)) {
+    metadata.status = metadata.status === "running" ? "interrupted" : "not_started";
+    metadata.error ??= "Execution did not finalize; inspect the Actions job logs for setup failure or cancellation.";
+  }
+  metadata.counts = null;
+  try {
+    metadata.counts = countReport(cwd);
+  } catch (error) {
+    metadata.error ??= String(error);
+  }
+  // A checkpoint can omit unfinished mutants. Only the final report and a
+  // successful, uninterrupted process establish completion.
+  metadata.completed = metadata.exitCode === 0 && metadata.status !== "interrupted" && metadata.counts?.Pending === 0;
+  if (metadata.completed) {
+    metadata.status = "completed";
+  } else {
+    metadata.error ??= `Mutation execution did not complete: exit=${metadata.exitCode}, signal=${metadata.signal}, pending=${metadata.counts?.Pending}`;
+  }
+  const log = resolve(cwd, reportDirectory, "mutation.log");
+  const reuse = existsSync(log)
+    ? stripVTControlCharacters(readFileSync(log, "utf8")).match(/Result:\s*(\d+) of \d+ mutant result\(s\) are reused/)
+    : null;
+  metadata.reusedMutants = reuse ? Number(reuse[1]) : metadata.reuseEnabled ? null : 0;
+  metadata.finishedAt = new Date().toISOString();
+  metadata.durationSeconds = metadata.startedAt ? (Date.parse(metadata.finishedAt) - Date.parse(metadata.startedAt)) / 1000 : null;
+  saveBaseline(cwd, metadata);
+  writeMetadata(cwd, metadata);
+}
+
 // GNU timeout signals Stryker once; the wrapper owns cleanup of its worker group.
 // Keep its deadline below the Actions step/job limits so finalization can run.
 async function runMutation({ force = false } = {}) {
@@ -70,27 +100,27 @@ async function runMutation({ force = false } = {}) {
   const timeoutSeconds = 7200;
   rmSync(resolve(cwd, reportDirectory), { recursive: true, force: true });
   const metadata = initialMetadata(cwd);
-  metadata.compatibility = compatibility(cwd);
-  const baseline = loadBaseline(cwd, metadata.compatibility);
-  metadata.baseline = baseline
-    ? {
-        commit: baseline.commit,
-        runId: baseline.runId,
-        runAttempt: baseline.runAttempt,
-        artifactId: baseline.artifactId ?? null,
-        completed: baseline.completed,
-      }
-    : null;
-  metadata.reuseEnabled = Boolean(baseline) && !force;
-  metadata.force = force;
-  const started = Date.now();
-  Object.assign(metadata, { status: "running", startedAt: new Date(started).toISOString(), command: invocation, timeoutSeconds });
+  Object.assign(metadata, { status: "running", startedAt: new Date().toISOString(), command: invocation, timeoutSeconds });
   writeMetadata(cwd, metadata);
-  const log = openSync(resolve(cwd, reportDirectory, "mutation.log"), "w");
-  console.log(
-    `Full mutation run: ${invocation.join(" ")} (deadline ${timeoutSeconds}s; reuse enabled ${metadata.reuseEnabled}; log: ${reportDirectory}/mutation.log)`,
-  );
+  let log;
   try {
+    log = openSync(resolve(cwd, reportDirectory, "mutation.log"), "w");
+    metadata.compatibility = compatibility(cwd);
+    const baseline = loadBaseline(cwd, metadata.compatibility);
+    metadata.baseline = baseline
+      ? {
+          commit: baseline.commit,
+          runId: baseline.runId,
+          runAttempt: baseline.runAttempt,
+          artifactId: baseline.artifactId ?? null,
+          completed: baseline.completed,
+        }
+      : null;
+    metadata.reuseEnabled = Boolean(baseline) && !force;
+    writeMetadata(cwd, metadata);
+    console.log(
+      `Full mutation run: ${invocation.join(" ")} (deadline ${timeoutSeconds}s; reuse enabled ${metadata.reuseEnabled}; log: ${reportDirectory}/mutation.log)`,
+    );
     const result = await new Promise((resolveResult, reject) => {
       // Child reporters can write megabytes of output to the Actions summary.
       // Keep full output in mutation.log and write our own bounded summary.
@@ -143,27 +173,12 @@ async function runMutation({ force = false } = {}) {
     metadata.exitCode = result.code;
     metadata.signal = result.signal;
     metadata.status = result.interrupted ? "interrupted" : result.code === 124 ? "timed_out" : "failed";
-    // Keep partial counts useful, but never treat a nonzero exit as completion.
-    metadata.counts = countReport(cwd);
-    if (!result.interrupted && result.code === 0 && metadata.counts.Pending === 0) {
-      metadata.status = "completed";
-      metadata.completed = true;
-    } else {
-      metadata.error = `Mutation execution did not complete: exit=${result.code}, signal=${result.signal}, pending=${metadata.counts.Pending}`;
-    }
   } catch (error) {
     if (metadata.status === "running") metadata.status = "failed";
     metadata.error = String(error);
   } finally {
-    closeSync(log);
-    const reuse = stripVTControlCharacters(readFileSync(resolve(cwd, reportDirectory, "mutation.log"), "utf8")).match(
-      /Result:\s*(\d+) of \d+ mutant result\(s\) are reused/,
-    );
-    metadata.reusedMutants = reuse ? Number(reuse[1]) : metadata.reuseEnabled ? null : 0;
-    metadata.finishedAt = new Date().toISOString();
-    metadata.durationSeconds = (Date.now() - started) / 1000;
-    saveBaseline(cwd, metadata);
-    writeMetadata(cwd, metadata);
+    if (log !== undefined) closeSync(log);
+    finishMutation(cwd, metadata);
   }
   console.log(`Mutation run ${metadata.status}; metadata: ${reportDirectory}/run.json`);
   return metadata.completed ? 0 : 1;
@@ -174,24 +189,21 @@ function finalizeMutation() {
   const cwd = process.cwd();
   const file = resolve(cwd, reportDirectory, "run.json");
   const metadata = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : initialMetadata(cwd);
-  if (!metadata.finishedAt) {
-    metadata.status = metadata.status === "running" ? "interrupted" : "not_started";
-    metadata.completed = false;
-    metadata.finishedAt = new Date().toISOString();
-    metadata.durationSeconds = metadata.startedAt ? (Date.now() - Date.parse(metadata.startedAt)) / 1000 : null;
-    metadata.error = "Execution did not finalize; inspect the Actions job logs for setup failure or cancellation.";
-  }
-  saveBaseline(cwd, metadata);
-  writeMetadata(cwd, metadata);
+  finishMutation(cwd, metadata);
   if (process.env.GITHUB_STEP_SUMMARY) {
     writeFileSync(
       process.env.GITHUB_STEP_SUMMARY,
       `### Mutation run: ${metadata.status}\n\nCompleted: ${metadata.completed}\n\nBaseline: ${metadata.baseline ? JSON.stringify(metadata.baseline) : "none (cold run)"}\n\nReuse enabled: ${metadata.reuseEnabled}\n\nMutants reused: ${metadata.reusedMutants}\n\nCheckpoint saved: ${metadata.checkpointSaved}\n\nCounts: ${JSON.stringify(metadata.counts)}\n\nSee artifacts for full reports and logs.\n`,
     );
   }
-  return metadata.completed ? 0 : 1;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  process.exitCode = process.argv[2] === "--finalize" ? finalizeMutation() : await runMutation({ force: process.argv.includes("--force") });
+const args = process.argv.slice(2);
+if (args.length > 1 || (args.length === 1 && !["--force", "--finalize"].includes(args[0]))) {
+  console.error("Usage: node scripts/mutation/run.mjs [--force | --finalize]");
+  process.exitCode = 1;
+} else if (args[0] === "--finalize") {
+  finalizeMutation();
+} else {
+  process.exitCode = await runMutation({ force: args[0] === "--force" });
 }

@@ -4,7 +4,9 @@ Use this guide to implement, validate, and maintain changes to Codex Panel. See 
 
 ## Set Up and Iterate
 
-Use the Node.js version in `.node-version` and install dependencies with `npm ci`. Use focused scripts from `package.json` while iterating; the handoff checks below still apply.
+Use the Node.js version in `.node-version` and install dependencies with `npm ci`.
+
+Use `npm run check` for ordinary local iteration. It runs lint, CSS usage, unused-code and type checks, and product tests, then builds the plugin. Use focused scripts from `package.json` for narrower feedback while editing.
 
 The project `.npmrc` disables lifecycle scripts and automatic install-time audits. Explicit `npm run` commands still run, without pre/post hooks. Run `npm audit` separately when reviewing dependency vulnerabilities.
 
@@ -56,21 +58,22 @@ Read both matches and their callers, applying the criteria above equally to exis
 
 ## Validate a Change
 
-Before handoff, run `npm run fix`, review its diff, then run `npm run check`. Focused checks do not replace this sequence unless validation is explicitly scoped otherwise.
+Before handoff, run `npm run fix`, review its diff, then run `npm run check`. Also run `npm run api:baseline` and `npm run release:check`.
 
-Also run `npm run api:baseline` and `npm run release:check`. These metadata checks run on every CI change: the first checks compatibility declarations and dependency pins; the second checks version-file consistency and the last-compatible release boundary. They do not establish runtime API compatibility or readiness to publish.
+`api:baseline` checks compatibility declarations and dependency pins; `release:check` checks version-file consistency and the last-compatible release boundary using Git tags. During iteration, run these metadata checks when changing those inputs. They do not establish runtime API compatibility or readiness to publish.
 
-Local `check` uses parallel tests. CI uses one worker with shuffled files and tests; on POSIX shells, `CI=1 npm run check` selects that mode locally. Use `npm run test:order` when an explicit test-only run is needed, including on other shells. A successful CI-mode `check` already covers the order check for the same source state; do not repeat it solely to satisfy the table below.
-
-Run additional checks when the affected contract requires them:
+Run additional checks for the affected contracts:
 
 | Change | Additional validation |
 | --- | --- |
-| Test fixtures or shared state | `npm run test:order`; replay a failure with `npm run test:order -- --sequence.seed <reported-seed>` |
-| Biome configuration, Grit matchers, or Biome version | `npm run test:policies` |
+| Biome configuration or version, Grit matchers, policy scenarios/runner, or their Node.js version | `npm run test:policies` |
 | API baselines or generated bindings | Follow the compatibility procedure below |
 
-`test:order` runs the suite in one worker with shuffled files and tests, matching the CI test mode. Re-run affected checks after subsequent edits.
+GitHub Actions runs `check`, both metadata checks, and source-policy scenarios as separate steps on every change. The scenarios validate the policy configuration against fixed examples; Biome within `check` applies those policies to the source.
+
+### Diagnose a CI Failure
+
+Local `check` uses Vitest's default worker count for the available CPUs. GitHub Actions uses one worker and shuffles files and tests. To reproduce a CI test failure locally, use `npm run test:order -- --sequence.seed <reported-seed>`. On POSIX shells, `CI=1 npm run check` runs that test mode alongside the other local checks when diagnosis requires them.
 
 ### Validate in Obsidian
 
@@ -117,9 +120,9 @@ These are optional diagnostics, not additional handoff gates:
 
 ### Weekly Mutation Runs
 
-`Mutation` runs the full configured scope every Monday at 04:00 JST (Sunday 19:00 UTC). It restores the newest compatible incremental checkpoint from this workflow's completed runs on `main`, including timed-out runs. Stryker tracks changes to mutated source and tests; dependencies, configuration, runners, test helpers, fixtures, snapshots, and source outside the mutation scope invalidate reuse. Missing, expired, invalid, or incompatible baselines start a cold run.
+The [Mutation workflow](../.github/workflows/mutation.yml) runs the full configured scope every Monday at 04:00 JST (Sunday 19:00 UTC).
 
-Once the workflow is on the default branch, run it manually with `gh workflow run mutation.yml`. Use `-f force=true` only when a full rerun is needed. On Linux with GNU `timeout`, `node scripts/mutation/run.mjs` uses a compatible local checkpoint; add `--force` to rerun every mutant.
+Run it manually with `gh workflow run mutation.yml`. Add `-f force=true` to rerun every mutant without restoring a checkpoint.
 
 Download a run's artifact:
 
@@ -128,9 +131,13 @@ gh run list --workflow mutation.yml --limit 5
 gh run download RUN_ID --pattern 'mutation-*' --dir /tmp/mutation-RUN_ID
 ```
 
-Check the Actions conclusion and `run.json` (`commit` and `completed`) before opening `mutation.html` or reading `mutation.json`. Metadata records the baseline source, whether reuse was enabled, and Stryker's reported reused-mutant count (unknown if interrupted before analysis). Completion requires successful execution and a final report; a partial checkpoint is never proof of completion.
+Check the execution step's outcome and `run.json` (`commit` and `completed`) before opening `mutation.html` or reading `mutation.json`. Completion requires successful execution and a final report. Finalization records available diagnostics and checkpoints even when execution is incomplete. Metadata also records the baseline source, whether reuse was enabled, and Stryker's reused-mutant count (unknown if interrupted before analysis).
 
-Result and `mutation-baseline-*` checkpoint artifacts are retained for 90 days, subject to repository limits. Mutation execution is limited to 120 minutes plus 60 seconds of termination grace within a 122-minute step and 150-minute job. The grace lets Stryker save partial progress for the next run. Failed runs retain available checkpoints, metadata, and full logs; forced termination or cancellation can prevent checkpoint saving or artifact upload. Actions summaries stay compact.
+The workflow restores the newest compatible checkpoint from its completed runs on `main`, including timed-out runs. Stryker tracks changes to mutated source and tests; dependencies, configuration, runners, test helpers, fixtures, snapshots, and source outside the mutation scope invalidate reuse. Missing, expired, invalid, or incompatible baselines start a cold run.
+
+Result and `mutation-baseline-*` checkpoint artifacts are retained for 90 days, subject to repository limits. Execution is limited to 120 minutes plus 60 seconds of termination grace so Stryker can save partial progress. Failed runs retain available checkpoints, metadata, and full logs; forced termination or cancellation can prevent checkpoint saving or artifact upload.
+
+For occasional local runs on Linux with GNU `timeout`, `node scripts/mutation/run.mjs` uses a compatible local checkpoint; add `--force` to rerun every mutant. Use the native `npm run test:mutation -- <Stryker options>` command for focused diagnostics.
 
 ## Update API Compatibility
 

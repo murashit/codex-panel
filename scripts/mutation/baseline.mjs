@@ -83,15 +83,18 @@ function validLocation(location, endOptional = false) {
   );
 }
 
+function readBaseline(metadataContent, checkpointContent, expected) {
+  const metadata = JSON.parse(metadataContent);
+  readCheckpoint(checkpointContent);
+  if (metadata.schemaVersion !== 1 || metadata.compatibility.key !== expected.key || metadata.checkpointHash !== hash(checkpointContent)) {
+    throw new Error("Baseline compatibility or checkpoint hash mismatch");
+  }
+  return metadata;
+}
+
 export function loadBaseline(cwd, expected) {
   try {
-    const metadata = JSON.parse(readFileSync(resolve(cwd, directory, "baseline.json"), "utf8"));
-    const content = readFileSync(resolve(cwd, checkpoint));
-    readCheckpoint(content);
-    if (metadata.schemaVersion !== 1 || metadata.compatibility.key !== expected.key || metadata.checkpointHash !== hash(content)) {
-      throw new Error("Baseline compatibility or checkpoint hash mismatch");
-    }
-    return metadata;
+    return readBaseline(readFileSync(resolve(cwd, directory, "baseline.json"), "utf8"), readFileSync(resolve(cwd, checkpoint)), expected);
   } catch (error) {
     rmSync(resolve(cwd, checkpoint), { force: true });
     console.log(`Cold mutation run: ${error.message}`);
@@ -196,18 +199,14 @@ async function restoreBaseline(cwd = process.cwd()) {
           continue;
         if (artifact.size_in_bytes > 100 * 1024 * 1024) throw new Error("Oversized baseline archive");
         const files = readArchive(await api(`actions/artifacts/${artifact.id}/zip`));
-        const metadata = JSON.parse(files["baseline.json"]);
         const content = files["stryker-incremental.json"];
-        readCheckpoint(content);
+        const metadata = readBaseline(files["baseline.json"], content, expected);
         if (
-          metadata.schemaVersion !== 1 ||
-          metadata.compatibility.key !== expected.key ||
-          metadata.checkpointHash !== hash(content) ||
           metadata.commit !== run.head_sha ||
           String(metadata.runId) !== String(run.id) ||
           artifact.name !== `mutation-baseline-${run.id}-${metadata.runAttempt}`
         )
-          throw new Error("Incompatible baseline or provenance");
+          throw new Error("Invalid baseline provenance");
         metadata.artifactId = artifact.id;
         mkdirSync(resolve(cwd, directory), { recursive: true });
         writeFileSync(resolve(cwd, directory, "baseline.json"), JSON.stringify(metadata));
@@ -224,5 +223,11 @@ async function restoreBaseline(cwd = process.cwd()) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  await restoreBaseline();
+  const args = process.argv.slice(2);
+  if (args.length === 0) {
+    await restoreBaseline();
+  } else {
+    console.error("Usage: node scripts/mutation/baseline.mjs");
+    process.exitCode = 1;
+  }
 }
