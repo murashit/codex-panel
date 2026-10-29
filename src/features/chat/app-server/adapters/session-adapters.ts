@@ -16,9 +16,9 @@ import { interruptTurn, startTurn, steerTurn } from "../../../../app-server/serv
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/settings";
 import type { EffectOutcome } from "../../application/effect-outcome";
 import type { RuntimeSettingsPort } from "../../application/runtime/settings-commands";
+import type { ThreadResumeEffects } from "../../application/threads/activation";
 import type { ThreadGoalEffects } from "../../application/threads/goal-commands";
 import type { ThreadHistoryPage, ThreadHistorySource } from "../../application/threads/history-controller";
-import type { ThreadResumeEffects } from "../../application/threads/resume-command";
 import type { ThreadCommandEffects } from "../../application/threads/thread-commands";
 import type { ThreadStartEffects } from "../../application/threads/thread-start-command";
 import type { ChatTurnPort } from "../../application/turns/turn-port";

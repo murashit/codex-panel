@@ -1,7 +1,7 @@
 import { activeThreadId, activeThreadState, type ChatConnectionPhase, panelThreadId } from "../state/model";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import type { ChatStateStore } from "../state/store";
-import type { ThreadResumeActivation } from "../threads/resume-command";
+import type { ThreadResumeActivation } from "../threads/activation";
 
 const STATUS_RECONNECTING = "Reconnecting...";
 

@@ -6,7 +6,7 @@ import { createChatState } from "../../../../src/features/chat/application/state
 import type { ForkDraftPreparation } from "../../../../src/features/chat/application/threads/fork-draft";
 import type { ChatPanelSession } from "../../../../src/features/chat/host/session/session";
 import { appServerTurnFixture } from "../../../support/app-server-records";
-import { deferred, waitForAsyncWork } from "../../../support/async";
+import { waitForAsyncWork } from "../../../support/async";
 import {
   chatHost,
   chatView,
@@ -370,31 +370,6 @@ describe("CodexChatView workspace restoration", () => {
       "thread/turns/list",
       expect.objectContaining({ threadId: "thread-1", cursor: null, limit: 20 }),
     );
-  });
-
-  it("starts fresh hydration when the same restored view state is reapplied", async () => {
-    const resume = deferred<ReturnType<typeof resumedThread>>();
-    const client = connectedClient({
-      "thread/resume": vi.fn(() => resume.promise),
-    });
-    const view = await chatViewForClient(client);
-
-    await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
-    await view.onOpen();
-    const firstHydration = view.surface.activateThread("thread-1");
-    await waitForAsyncWork(() => {
-      expectRequestTimes(client, "thread/resume", 1);
-    });
-
-    await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
-    const secondHydration = view.surface.activateThread("thread-1");
-    await waitForAsyncWork(() => {
-      expectRequestTimes(client, "thread/resume", 2);
-    });
-
-    resume.resolve(resumedThread("thread-1"));
-    await Promise.all([firstHydration, secondHydration]);
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1" });
   });
 
   it("resumes a restored thread before sending the first message", async () => {

@@ -15,11 +15,11 @@ import {
   type TurnSubmissionCommandHost,
   type TurnSubmissionRequest,
 } from "../../../../../src/features/chat/application/submission/turn-submission-command";
-import { RestorationController } from "../../../../../src/features/chat/application/threads/restoration-controller";
 import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
 import { deferred } from "../../../../support/async";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
+import { createThreadActivationFixture } from "../../support/activation";
 import { emptyComposerInputSnapshot } from "../../support/composer-input";
 import { installComposerInputFixtures } from "../../support/composer-input-fixture";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
@@ -116,25 +116,24 @@ function resumeSideChat(stateStore: ReturnType<typeof createChatStateStore>) {
 }
 
 describe("TurnSubmissionCommand", () => {
-  it("aborts when restoration changes target while hydration is pending", async () => {
+  it.each([false, true])("submits after restoration only while its target is current (replaced: %s)", async (replaced) => {
     const { host, startTurn, stateStore } = createHost();
-    const restoration = new RestorationController({ stateStore });
-    const resume = deferred<void>();
-    const loadThread = vi.fn(() => resume.promise);
-    host.ensureRestoredThreadLoaded = () => restoration.ensureLoaded(loadThread);
+    const resume = deferred<boolean>();
+    const ensureConnected = vi.fn(() => resume.promise);
+    const { commands: activation } = createThreadActivationFixture({ stateStore, ensureConnected });
+    host.ensureRestoredThreadLoaded = () => activation.ensureRestoredThreadLoaded();
     stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "first", fallbackTitle: null });
     const commands = claimedCommand(host);
 
     const submitting = commands.sendTurnText({ preparedInput: preparedText("hello") });
-    await vi.waitFor(() => {
-      expect(loadThread).toHaveBeenCalledWith("first");
-    });
-    stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "second", fallbackTitle: null });
-    resume.resolve(undefined);
+    await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalledOnce());
+    if (replaced) stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "second", fallbackTitle: null });
+    resume.resolve(true);
 
-    await expect(submitting).resolves.toBe(false);
+    await expect(submitting).resolves.toBe(!replaced);
     expect(host.startThread).not.toHaveBeenCalled();
-    expect(startTurn).not.toHaveBeenCalled();
+    const expectedTurn = { threadId: "first", input: textInput("hello"), clientUserMessageId: expect.any(String) };
+    expect(startTurn.mock.calls).toEqual(replaced ? [] : [[expectedTurn]]);
   });
 
   it("does not submit to an old thread after the panel changes during connection", async () => {
