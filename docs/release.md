@@ -2,7 +2,7 @@
 
 The [release workflow](../.github/workflows/check.yml) uses tagpr to maintain the release PR and tag the approved merge. The [publisher](../scripts/release/publish.mjs) alone creates the draft with the merged PR body, attaches the checked `main.js`, `manifest.json`, and `styles.css`, verifies their digests, and publishes it. This follows [tagpr’s downstream release ownership](https://github.com/Songmu/tagpr/blob/v1.21.3/docs/guides/immutable-releases.md#let-another-workflow-create-the-release); tagpr does not generate a separate release draft.
 
-The repository must enable **Allow GitHub Actions to create and approve pull requests** under Settings → Actions → General → Workflow permissions. Approve release-PR check runs if GitHub requires it.
+Tagpr uses the dedicated GitHub App described in [Development](development.md#codex-app-server) when both App secrets are configured. Its PR checks then start automatically. With neither secret configured, tagpr retains `GITHUB_TOKEN`: the repository must enable **Allow GitHub Actions to create and approve pull requests** under Settings → Actions → General → Workflow permissions, and release-PR checks may require approval. Configuring only one secret fails the release job rather than silently switching credentials. After App setup, verify a subsequent tagpr PR update and its checks; release publishing continues to use `GITHUB_TOKEN`. Do not grant the App branch-protection bypass.
 
 ## Prepare the release PR and notes
 

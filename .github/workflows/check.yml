@@ -194,12 +194,39 @@ jobs:
           test "$CHECKED_SHA" = "$GITHUB_SHA"
           git switch -C main "$GITHUB_SHA"
 
+      - name: Check App configuration
+        if: github.event_name == 'push'
+        id: app-config
+        env:
+          APP_ID: ${{ secrets.CODEX_PANEL_APP_CLIENT_ID }}
+          APP_KEY: ${{ secrets.CODEX_PANEL_APP_PRIVATE_KEY }}
+        run: |
+          if [ -n "$APP_ID" ] && [ -n "$APP_KEY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          elif [ -n "$APP_ID" ] || [ -n "$APP_KEY" ]; then
+            echo "::error::Configure both CODEX_PANEL_APP_CLIENT_ID and CODEX_PANEL_APP_PRIVATE_KEY."
+            exit 1
+          fi
+
+      - name: Create App token for tagpr
+        if: github.event_name == 'push' && steps.app-config.outputs.configured == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@v3.3.0
+        with:
+          client-id: ${{ secrets.CODEX_PANEL_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CODEX_PANEL_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: read
+
       - name: Maintain release PR or tag approved merge
         if: github.event_name == 'push'
         id: tagpr
         uses: Songmu/tagpr@v1.21.3
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
 
       - name: Download this run's checked assets
         if: steps.tagpr.outputs.tag != '' || github.event_name == 'workflow_dispatch'
