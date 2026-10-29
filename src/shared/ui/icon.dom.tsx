@@ -66,7 +66,7 @@ export function ToolbarIconAction({ icon, label, actionRef, className, disabled,
   const ref = useRef<HTMLDivElement | null>(null);
   useRenderedIcon(ref, icon, true);
   return (
-    // biome-ignore lint/a11y: Obsidian-style toolbar actions are pointer-first div elements with aria-label tooltips.
+    // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useAriaPropsSupportedByRole lint/a11y/useKeyWithClickEvents: Obsidian-style toolbar actions are pointer-first div elements with aria-label tooltips.
     <div
       {...props}
       ref={(element) => {
@@ -82,7 +82,7 @@ export function ToolbarIconAction({ icon, label, actionRef, className, disabled,
 
 function useRenderedIcon(ref: { readonly current: HTMLElement | null }, icon: string, enabled: boolean): void {
   const renderer = useContext(IconRendererContext);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the ref object is stable; icon and renderer changes drive repainting its current element.
+  // biome-ignore lint/correctness/useExhaustiveDependencies(ref.current): the ref object is stable; icon and renderer changes drive repainting its current element.
   useLayoutEffect(() => {
     const element = ref.current;
     if (!element || !enabled) return;

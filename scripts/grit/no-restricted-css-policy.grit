@@ -3,17 +3,19 @@ language css
 
 or {
   // Keep colors on Obsidian or Codex Panel design tokens.
-  CssDeclarationWithSemicolon() as $decl where {
-    $decl <: r"\s*(?:background(?:-color)?|border(?:-(?:block|inline|top|right|bottom|left))?(?:-color)?|box-shadow|caret-color|color|fill|outline(?:-color)?|stroke|text-shadow): .*?(?:#[0-9a-fA-F]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\(|\b(?:black|white)\b).*",
-    register_diagnostic(span=$decl, message="Use Obsidian or Codex Panel design tokens instead of hardcoded colors.")
+  CssGenericProperty(name=$name, value=$value) as $property where {
+    $property <: within CssDeclarationWithSemicolon(),
+    $name <: r"^(?:background(?:-color)?|border(?:-(?:block|inline|top|right|bottom|left))?(?:-color)?|box-shadow|caret-color|color|fill|outline(?:-color)?|stroke|text-shadow|--codex-panel-.*(?:accent|background|border|color|danger|error|faint|muted|ring|success|surface|text|warning).*)$",
+    $value <: contains or {
+      CssColor() as $color where { $color <: r"^#[0-9a-fA-F]{3,8}$" },
+      CssIdentifier() as $color where { $color <: r"^(?:black|white)$" }
+    },
+    register_diagnostic(span=$property, message="Use Obsidian or Codex Panel design tokens instead of hardcoded colors.")
   },
-  CssDeclarationWithSemicolon() as $decl where {
-    $decl <: r".*--codex-panel-.*(?:accent|background|border|color|danger|error|faint|muted|ring|success|surface|text|warning).*: .*?(?:#[0-9a-fA-F]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\(|\b(?:black|white)\b).*",
-    register_diagnostic(span=$decl, message="Use Obsidian or Codex Panel design tokens instead of hardcoded colors.")
-  },
-  CssDeclarationWithSemicolon() as $decl where {
-    $decl <: r".*\b(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\(.*",
-    register_diagnostic(span=$decl, message="Use Obsidian or Codex Panel design tokens instead of color functions.")
+  CssFunction(name=$name) as $function where {
+    $name <: r"^(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)$",
+    $function <: within CssDeclarationWithSemicolon(),
+    register_diagnostic(span=$function, message="Use Obsidian or Codex Panel design tokens instead of color functions.")
   },
   // Keep typography and layout dimensions on shared variables.
   CssDeclarationWithSemicolon() as $decl where {

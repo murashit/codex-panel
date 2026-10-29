@@ -135,7 +135,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
         <RenameRow row={row} actions={actions} className={mainClassName} />
       ) : (
         <>
-          {/* biome-ignore lint/a11y: Thread rows intentionally follow Obsidian's native file explorer nav rows: pointer-first div items with selection represented by classes, while row actions stay as real icon buttons. */}
+          {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: Thread rows intentionally follow Obsidian's native file explorer nav rows: pointer-first div items with selection represented by classes, while row actions stay as real icon buttons. */}
           <div className={mainClassName} onClick={open}>
             <span className="codex-panel-threads__row-title">{row.title}</span>
           </div>

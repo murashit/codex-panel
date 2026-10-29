@@ -42,7 +42,7 @@ export function ObsidianDropdown({
       container.empty();
     };
   }, [onChangeRef]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: use the semantic option key rather than array identity to synchronize the native control.
+  // biome-ignore lint/correctness/useExhaustiveDependencies(optionsRef.current): use the semantic option key rather than array identity to synchronize the native control.
   useLayoutEffect(() => {
     const dropdown = dropdownRef.current;
     if (!dropdown) return;

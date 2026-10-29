@@ -25,6 +25,7 @@ describe("useChatSelector", () => {
     const store = controllableStore(chatStateFixture());
     const parent = document.createElement("div");
     let renders = 0;
+    // biome-ignore lint/correctness/noComponentHookFactories: The test creates this component once, outside any render.
     function RuntimeValue(): ComponentChild {
       renders += 1;
       return useChatSelector<RuntimeSnapshot>(store, selector).active.model;
