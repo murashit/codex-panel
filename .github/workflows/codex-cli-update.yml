@@ -1,0 +1,146 @@
+name: Codex CLI update
+
+on:
+  schedule:
+    - cron: '23 */4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: codex-cli-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Find latest stable series
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api graphql --paginate -f query='query($endCursor: String) { repository(owner: "openai", name: "codex") { releases(first: 100, after: $endCursor) { nodes { tagName isDraft isPrerelease } pageInfo { hasNextPage endCursor } } } }' | jq -s '[.[].data.repository.releases.nodes]' > "$RUNNER_TEMP/releases.json"
+          version=$(node scripts/app-server/update-candidate.mjs select "$RUNNER_TEMP/releases.json")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check for existing work
+        if: steps.candidate.outputs.version != ''
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.candidate.outputs.version }}
+        run: |
+          series="${VERSION%.*}"
+          branch="automation/codex-cli-$series"
+          gh api --paginate "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" | jq -s '[.[][]]' > "$RUNNER_TEMP/pulls.json"
+          count=$(jq --arg branch "$branch" --arg marker "<!-- codex-cli-update: $series -->" '[.[] | select(.head.ref == $branch or ((.body // "") | contains($marker)))] | length' "$RUNNER_TEMP/pulls.json")
+          while read -r number; do
+            [ "$count" = 0 ] || break
+            count=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$number/files?per_page=100" | jq -s --arg prefix "\"testedCliVersion\": \"$series." '[.[][] | select(.filename == "src/app-server/compatibility.json") | (.patch // error("Compatibility diff unavailable")) | split("\n")[] | select(startswith("+") and contains($prefix))] | length')
+          done < <(jq -r '.[].number' "$RUNNER_TEMP/pulls.json")
+          if [ "$count" != 0 ]; then
+            echo "An open PR already covers $VERSION."
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          elif git ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null; then
+            echo "::error::Branch $branch already exists without an open PR; inspect it before retrying."
+            exit 1
+          else
+            status=$?
+            [ "$status" = 2 ] || exit "$status"
+          fi
+
+      - name: Setup Node.js
+        if: steps.candidate.outputs.version != '' && steps.existing.outputs.found != 'true'
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies and exact Codex CLI
+        if: steps.candidate.outputs.version != '' && steps.existing.outputs.found != 'true'
+        env:
+          VERSION: ${{ steps.candidate.outputs.version }}
+        run: |
+          npm ci
+          npm install --global "@openai/codex@$VERSION"
+          command -v codex
+          codex --version
+          node scripts/app-server/update-candidate.mjs update "$VERSION"
+          npm run generate:app-server-types
+          test -n "$(find src/generated/app-server -type f -name '*.ts' -print -quit)"
+          node scripts/app-server/generate-types.mjs --check
+          npm run api:baseline
+
+      - name: Check type normalization
+        if: steps.candidate.outputs.version != '' && steps.existing.outputs.found != 'true'
+        continue-on-error: true
+        run: node scripts/app-server/check-type-normalization.mjs
+
+      - name: Typecheck generated update
+        if: steps.candidate.outputs.version != '' && steps.existing.outputs.found != 'true'
+        continue-on-error: true
+        run: npm run typecheck
+
+      - name: Test generated update
+        if: steps.candidate.outputs.version != '' && steps.existing.outputs.found != 'true'
+        continue-on-error: true
+        run: npm test
+
+      - name: Check App configuration
+        if: steps.candidate.outputs.version != '' && steps.existing.outputs.found != 'true'
+        env:
+          APP_ID: ${{ secrets.CODEX_PANEL_APP_CLIENT_ID }}
+          APP_KEY: ${{ secrets.CODEX_PANEL_APP_PRIVATE_KEY }}
+        run: |
+          if [ -z "$APP_ID" ] || [ -z "$APP_KEY" ]; then
+            echo "::error::Configure CODEX_PANEL_APP_CLIENT_ID and CODEX_PANEL_APP_PRIVATE_KEY before creating update PRs."
+            exit 1
+          fi
+
+      - name: Create App token
+        if: steps.candidate.outputs.version != '' && steps.existing.outputs.found != 'true'
+        id: app-token
+        uses: actions/create-github-app-token@v3.3.0
+        with:
+          client-id: ${{ secrets.CODEX_PANEL_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CODEX_PANEL_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: read
+
+      - name: Create update PR
+        if: steps.candidate.outputs.version != '' && steps.existing.outputs.found != 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ steps.candidate.outputs.version }}
+        run: |
+          series="${VERSION%.*}"
+          branch="automation/codex-cli-$series"
+          main=$(git ls-remote origin refs/heads/main | cut -f1)
+          test "$main" = "$(git rev-parse HEAD)" || { echo '::error::main changed; retry on the latest main.'; exit 1; }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$branch"
+          git add README.md src/app-server/compatibility.json src/generated/app-server
+          git commit -m "chore: update Codex CLI baseline to $VERSION"
+          git -c credential.helper= -c credential.helper='!gh auth git-credential' push --force-with-lease="refs/heads/$branch:" origin "HEAD:refs/heads/$branch"
+          cat > "$RUNNER_TEMP/pr-body.md" <<BODY
+          <!-- codex-cli-update: $series -->
+          Generated app-server bindings and updated the compatibility baseline for Codex CLI $VERSION.
+
+          Compatibility review is pending: generation does not verify runtime compatibility. Review protocol changes, make any required compatibility fixes, and bring CI to green before merging.
+          BODY
+          gh pr create --base main --head "$branch" --title "chore: update Codex CLI baseline to $VERSION" --body-file "$RUNNER_TEMP/pr-body.md"
