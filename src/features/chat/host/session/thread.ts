@@ -78,7 +78,7 @@ interface SessionThreadCommandInput {
   appServer: ChatAppServerGateway;
   ensureConnected: () => Promise<void>;
   status: SessionThreadStatus;
-  composerController: ChatComposerController;
+  composerController: Pick<ChatComposerController, "focusComposer">;
   foundation: SessionThreadFoundation;
   features: SessionThreadFeatures;
 }

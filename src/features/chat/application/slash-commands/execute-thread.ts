@@ -45,7 +45,6 @@ export async function executeThreadSlashCommand(
       return;
     }
     case "reconnect":
-      context.submission.markAdopted();
       await context.reconnect({
         beforeTargetReset: () => {
           context.submission.adoptPanelTarget(null);
@@ -57,7 +56,6 @@ export async function executeThreadSlashCommand(
         noActiveThread(context, "to fork");
         return;
       }
-      context.submission.markAdopted();
       await context.threadCommands.forkThread(forkSourceThreadId);
       return;
     case "btw":
@@ -69,7 +67,6 @@ export async function executeThreadSlashCommand(
         context.addSystemMessage("Side chat is not available.");
         return;
       }
-      context.submission.markAdopted();
       if (args) await context.openSideChat(context.activeThreadId, args);
       else await context.openSideChat(context.activeThreadId);
       return;
@@ -78,7 +75,6 @@ export async function executeThreadSlashCommand(
         noActiveThread(context, "to roll back");
         return;
       }
-      context.submission.markAdopted();
       await context.threadCommands.rollbackThread(forkSourceThreadId, { adoptPanelTarget: context.submission.adoptPanelTarget });
       return;
     case "compact":
@@ -86,7 +82,6 @@ export async function executeThreadSlashCommand(
         noActiveThread(context, "to compact");
         return;
       }
-      context.submission.markAdopted();
       await context.threadCommands.compactThread(context.activeThreadId);
       return;
     case "archive": {
@@ -100,7 +95,6 @@ export async function executeThreadSlashCommand(
         context.addSystemMessage(thread.message);
         return;
       }
-      context.submission.markAdopted();
       await context.threadCommands.archiveThread(
         thread.thread.id,
         undefined,
@@ -123,7 +117,6 @@ export async function executeThreadSlashCommand(
         context.addSystemMessage(thread.message);
         return;
       }
-      context.submission.markAdopted();
       await context.threadCommands.renameThread(thread.thread.id, parsed.text);
       return;
     }

@@ -99,7 +99,6 @@ async function executeGoalCommand(args: string, context: ContextSlashCommandCont
     return;
   }
   if (parsed.kind === "edit") return { composerDraft: `/goal set ${goal.objective}` };
-  context.submission.markAdopted();
   switch (parsed.kind) {
     case "pause":
       await context.goals.setStatus(threadId, "paused");

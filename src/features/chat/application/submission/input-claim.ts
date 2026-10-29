@@ -4,7 +4,6 @@ import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurre
 
 export interface ComposerSubmissionAdoption {
   readonly isCurrent: () => boolean;
-  readonly markAdopted: () => void;
   readonly adoptPanelTarget: (targetThreadId: string | null, replacementDraft?: string) => void;
 }
 
@@ -18,7 +17,7 @@ type TargetAdoption = { targetThreadId: string | null; replacementDraft?: string
 
 export class SubmissionInput implements ComposerSubmissionClaim {
   private panelTarget: PanelTargetLease;
-  private phase: "preflight" | "adopted" | "settled" = "preflight";
+  private settled = false;
   private targetAdoption: TargetAdoption | null = null;
 
   constructor(
@@ -30,21 +29,16 @@ export class SubmissionInput implements ComposerSubmissionClaim {
     this.panelTarget = capturePanelTargetLease(state());
   }
 
-  readonly isCurrent = (): boolean => this.phase !== "settled" && panelTargetLeaseIsCurrent(this.state(), this.panelTarget);
-
-  readonly markAdopted = (): void => {
-    if (this.phase !== "settled") this.phase = "adopted";
-  };
+  readonly isCurrent = (): boolean => !this.settled && panelTargetLeaseIsCurrent(this.state(), this.panelTarget);
 
   readonly adoptPanelTarget = (targetThreadId: string | null, replacementDraft?: string): void => {
-    if (this.phase === "settled") return;
-    this.phase = "adopted";
+    if (this.settled) return;
     this.targetAdoption = replacementDraft === undefined ? { targetThreadId } : { targetThreadId, replacementDraft };
   };
 
   reconcilePanelTarget(): TargetAdoption | null {
     const state = this.state();
-    if (this.phase === "settled" || panelTargetLeaseIsCurrent(state, this.panelTarget)) return null;
+    if (this.settled || panelTargetLeaseIsCurrent(state, this.panelTarget)) return null;
     const adoption = this.targetAdoption;
     if (adoption && adoption.targetThreadId === panelThreadId(state)) {
       this.panelTarget = capturePanelTargetLease(state);
@@ -56,9 +50,9 @@ export class SubmissionInput implements ComposerSubmissionClaim {
   }
 
   readonly settle = (outcome: "accepted" | "failed", replacementDraft?: string): void => {
-    if (this.phase === "settled") return;
+    if (this.settled) return;
     const current = this.isCurrent();
-    this.phase = "settled";
+    this.settled = true;
     this.finish(current ? outcome : "discarded", replacementDraft);
   };
 }

@@ -99,7 +99,6 @@ async function saveObjective(
   }
   const threadId = activeThreadId(host.stateStore.getState());
   if (!threadId) return startThreadAndSaveObjective(host, normalized, tokenBudget, submission);
-  submission?.markAdopted();
   return setNormalizedObjective(host, threadId, normalized, tokenBudget);
 }
 
@@ -170,7 +169,6 @@ async function startThreadAndSaveObjective(
     if (submission && !submission.isCurrent()) return false;
     const outcome = await host.startThread(objective);
     if (outcome.kind !== "created-activated" || !panelTargetLeaseIsCurrent(host.stateStore.getState(), outcome.target)) return false;
-    submission?.markAdopted();
     return await setNormalizedObjective(host, outcome.target.threadId, objective, tokenBudget);
   } catch (error) {
     if (panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) host.addSystemMessage(errorMessage(error));

@@ -53,6 +53,5 @@ export async function executePanelSlashCommand(
 
 const NOOP_SUBMISSION_ADOPTION: ComposerSubmissionAdoption = {
   isCurrent: () => true,
-  markAdopted: () => undefined,
   adoptPanelTarget: () => undefined,
 };

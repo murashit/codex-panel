@@ -175,7 +175,6 @@ async function executeSlashCommandAndRestoreOnFailure(
       failed: false,
       result: await host.slashCommandExecutor.execute(command, args, inputSnapshot, {
         isCurrent: commandIsCurrent,
-        markAdopted: submission.markAdopted,
         adoptPanelTarget: submission.adoptPanelTarget,
       }),
     };

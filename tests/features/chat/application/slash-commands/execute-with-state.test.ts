@@ -96,7 +96,6 @@ describe("executePanelSlashCommand", () => {
               attachments: [],
             },
             isCurrent: () => true,
-            markAdopted: vi.fn(),
             adoptPanelTarget: vi.fn(),
             settle: vi.fn(),
           }),
@@ -137,7 +136,6 @@ describe("executePanelSlashCommand", () => {
 
     const result = await executePanelSlashCommand(host, "clear", "", undefined, {
       isCurrent: () => true,
-      markAdopted: vi.fn(),
       adoptPanelTarget,
     });
 
@@ -235,7 +233,6 @@ describe("executePanelSlashCommand", () => {
 
     const executing = executePanelSlashCommand(host, "tools", "", undefined, {
       isCurrent: () => current,
-      markAdopted: vi.fn(),
       adoptPanelTarget: vi.fn(),
     });
     await vi.waitFor(() => expect(toolInventoryDetails).toHaveBeenCalledOnce());

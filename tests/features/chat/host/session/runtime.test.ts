@@ -151,14 +151,14 @@ describe("chat panel session runtime", () => {
       getClosing: () => true,
       environment: { plugin: { appServerConnection: contextConnection.connection } },
     });
-    runtime.composer.controller.setDraft("hello");
+    runtime.composer.input.setDraft("hello");
 
     await runtime.turn.submissionCommands.composerSubmit.submit();
 
     expect(contextConnection.connect).not.toHaveBeenCalled();
     expect(request).not.toHaveBeenCalled();
-    expect(runtime.composer.controller.draft).toBe("hello");
-    expect(runtime.composer.controller.isSubmissionPreparing()).toBe(false);
+    expect(runtime.composer.input.draft).toBe("hello");
+    expect(runtime.composer.input.isSubmissionPreparing()).toBe(false);
   });
 
   it("does not submit when the panel starts closing during connection", async () => {
@@ -175,7 +175,7 @@ describe("chat panel session runtime", () => {
       getClosing: () => closing,
       environment: { plugin: { appServerConnection: contextConnection.connection } },
     });
-    runtime.composer.controller.setDraft("hello");
+    runtime.composer.input.setDraft("hello");
 
     const submission = runtime.turn.submissionCommands.composerSubmit.submit();
     await vi.waitFor(() => expect(contextConnection.connect).toHaveBeenCalledOnce());
@@ -185,8 +185,8 @@ describe("chat panel session runtime", () => {
     await submission;
 
     expect(request).not.toHaveBeenCalled();
-    expect(runtime.composer.controller.draft).toBe("hello");
-    expect(runtime.composer.controller.isSubmissionPreparing()).toBe(false);
+    expect(runtime.composer.input.draft).toBe("hello");
+    expect(runtime.composer.input.isSubmissionPreparing()).toBe(false);
   });
 
   it("retains a submission when initialization settles without a current client", async () => {
@@ -194,14 +194,14 @@ describe("chat panel session runtime", () => {
     const { runtime, stateStore } = sessionRuntimeFixture({
       environment: { plugin: { appServerConnection: contextConnection.connection } },
     });
-    runtime.composer.controller.setDraft("hello");
+    runtime.composer.input.setDraft("hello");
 
     await runtime.turn.submissionCommands.composerSubmit.submit();
 
     expect(contextConnection.connect).toHaveBeenCalledOnce();
     expect(stateStore.getState().panelThread).toEqual({ kind: "empty" });
-    expect(runtime.composer.controller.draft).toBe("hello");
-    expect(runtime.composer.controller.isSubmissionPreparing()).toBe(false);
+    expect(runtime.composer.input.draft).toBe("hello");
+    expect(runtime.composer.input.isSubmissionPreparing()).toBe(false);
   });
 
   it("wires reconnect cleanup through the runtime toolbar action", async () => {
@@ -233,7 +233,7 @@ describe("chat panel session runtime", () => {
     });
     const reconnecting = deferred<void>();
     const ensureConnected = vi.spyOn(runtime.connection.coordinator, "ensureConnected").mockReturnValue(reconnecting.promise);
-    runtime.composer.controller.setDraft("/reconnect");
+    runtime.composer.input.setDraft("/reconnect");
 
     const reconnectSubmission = runtime.turn.submissionCommands.composerSubmit.submit();
     await waitForAsyncWork(() => {
@@ -241,19 +241,19 @@ describe("chat panel session runtime", () => {
     });
 
     expect(stateStore.getState().panelThread).toEqual({ kind: "empty" });
-    expect(runtime.composer.controller.isSubmissionPreparing()).toBe(true);
+    expect(runtime.composer.input.isSubmissionPreparing()).toBe(true);
 
-    runtime.composer.controller.setDraft("next message");
+    runtime.composer.input.setDraft("next message");
     await runtime.turn.submissionCommands.composerSubmit.submit();
 
-    expect(runtime.composer.controller.draft).toBe("next message");
+    expect(runtime.composer.input.draft).toBe("next message");
     expect(ensureConnected).toHaveBeenCalledOnce();
 
     reconnecting.resolve(undefined);
     await reconnectSubmission;
 
-    expect(runtime.composer.controller.isSubmissionPreparing()).toBe(false);
-    expect(runtime.composer.controller.draft).toBe("next message");
+    expect(runtime.composer.input.isSubmissionPreparing()).toBe(false);
+    expect(runtime.composer.input.draft).toBe("next message");
   });
 
   it("disposes scheduled, subscribed, composer, scroll, and connection resources", async () => {
