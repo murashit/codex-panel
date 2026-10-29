@@ -1,4 +1,3 @@
-import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -7,7 +6,7 @@ import path from "node:path";
 const repoRoot = process.cwd();
 const biomeBin = path.join(repoRoot, "node_modules", ".bin", "biome");
 
-// Regression probes for nontrivial source-policy scopes and syntax. Run only when editing policies or upgrading Biome.
+// Regression probes for nontrivial source-policy scopes and syntax, exercised with the actual Biome plugin configuration.
 const cases = [
   policyCase(
     "chat workflows cannot instantiate the Obsidian Vault destination",
@@ -250,9 +249,10 @@ const cases = [
   ),
 ];
 
-const project = JSON.parse((await readFile(path.join(repoRoot, "biome.jsonc"), "utf8")).replace(/^\s*\/\/.*$/gm, ""));
-const workspace = await mkdtemp(path.join(tmpdir(), "codex-panel-grit-policy-"));
+let workspace;
 try {
+  const project = JSON.parse((await readFile(path.join(repoRoot, "biome.jsonc"), "utf8")).replace(/^\s*\/\/.*$/gm, ""));
+  workspace = await mkdtemp(path.join(tmpdir(), "codex-panel-grit-policy-"));
   await writeFile(
     path.join(workspace, "biome.json"),
     JSON.stringify({
@@ -274,24 +274,58 @@ try {
     cwd: workspace,
     encoding: "utf8",
   });
-  const output = `${result.stdout}\n${result.stderr}`;
-  assert.equal(result.status, 1, output);
-  const report = JSON.parse(result.stdout.slice(result.stdout.indexOf("{")));
-  const rejected = new Set(
-    report.diagnostics
-      .filter((diagnostic) => diagnostic.category === "plugin")
-      .map((diagnostic) => {
-        const file = typeof diagnostic.location.path === "string" ? diagnostic.location.path : diagnostic.location.path.file;
-        return path.relative(workspace, path.resolve(workspace, file)).replaceAll(path.sep, "/");
-      }),
-  );
-  for (const probe of probes) {
-    assert(rejected.has(probe.invalid), `${probe.label}: forbidden source was accepted (${probe.invalid})\n${output}`);
-    assert(!rejected.has(probe.valid), `${probe.label}: allowed source was rejected (${probe.valid})\n${output}`);
+  if (result.error) throw new Error(`Could not run Biome: ${result.error.message}`);
+  if (result.status !== 0 && result.status !== 1) {
+    throw new Error(`Biome failed (${result.signal ?? `exit ${result.status}`}):\n${result.stderr.trim()}`);
   }
+  let report;
+  try {
+    report = JSON.parse(result.stdout.slice(result.stdout.indexOf("{")));
+  } catch {
+    throw new Error(`Biome did not return a JSON report (exit ${result.status}):\n${result.stderr.trim() || result.stdout.trim()}`);
+  }
+  const diagnosticsByFile = new Map();
+  const failures = [];
+  for (const diagnostic of report.diagnostics) {
+    const file = diagnosticFile(diagnostic);
+    const diagnostics = diagnosticsByFile.get(file) ?? [];
+    diagnostics.push(diagnostic);
+    diagnosticsByFile.set(file, diagnostics);
+    if (diagnostic.category !== "plugin") failures.push(formatDiagnostic(diagnostic));
+  }
+  for (const probe of probes) {
+    for (const [file, forbidden] of [
+      [probe.invalid, true],
+      [probe.valid, false],
+    ]) {
+      const diagnostics = diagnosticsByFile.get(file) ?? [];
+      // A parse or tool failure cannot establish whether the policy accepts this source.
+      if (diagnostics.some((diagnostic) => diagnostic.category !== "plugin")) continue;
+      if (forbidden && diagnostics.length === 0) failures.push(`${probe.label}: forbidden source was accepted (${file})`);
+      if (!forbidden && diagnostics.length > 0) {
+        failures.push(`${probe.label}: allowed source was rejected\n${diagnostics.map(formatDiagnostic).join("\n")}`);
+      }
+    }
+  }
+  if (failures.length > 0) throw new Error(`Source-policy validation failed:\n\n${failures.join("\n\n")}`);
   console.log(`Validated ${probes.length} source-policy scenarios in one Biome invocation.`);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
 } finally {
-  await rm(workspace, { recursive: true, force: true });
+  if (workspace) await rm(workspace, { recursive: true, force: true });
+}
+
+function diagnosticFile(diagnostic) {
+  const location = diagnostic.location?.path;
+  const file = typeof location === "string" ? location : location?.file;
+  return file ? path.relative(workspace, path.resolve(workspace, file)).replaceAll(path.sep, "/") : "Biome";
+}
+
+function formatDiagnostic(diagnostic) {
+  const position = diagnostic.location?.start;
+  const location = `${diagnosticFile(diagnostic)}${position ? `:${position.line}:${position.column}` : ""}`;
+  return `  ${location} [${diagnostic.category}]: ${diagnostic.message}`;
 }
 
 function policyCase(label, path, invalidSource, validSource, validPath = path) {

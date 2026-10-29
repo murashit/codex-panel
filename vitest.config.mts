@@ -10,8 +10,7 @@ export default defineConfig({
   test: {
     exclude: [...configDefaults.exclude, "**/.stryker-tmp/**"],
     pool: "threads",
-    maxWorkers: process.env["CI"] ? 1 : 6,
-    sequence: { shuffle: Boolean(process.env["CI"]) },
+    ...(process.env["CI"] ? { maxWorkers: 1, sequence: { shuffle: true } } : {}),
     fsModuleCache: true,
     isolate: false,
     coverage: {

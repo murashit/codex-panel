@@ -49,6 +49,7 @@ jobs:
         timeout-minutes: 5
 
       - name: Restore compatible mutation baseline
+        # Checkout is clean, so skipping restoration forces a cold run.
         if: ${{ !inputs.force }}
         continue-on-error: true
         run: node scripts/mutation/baseline.mjs
@@ -57,9 +58,7 @@ jobs:
         timeout-minutes: 3
 
       - name: Run full mutation suite
-        run: node scripts/mutation/run.mjs $MUTATION_FORCE
-        env:
-          MUTATION_FORCE: ${{ inputs.force && '--force' || '' }}
+        run: node scripts/mutation/run.mjs
         timeout-minutes: 122
 
       - name: Finalize run metadata
