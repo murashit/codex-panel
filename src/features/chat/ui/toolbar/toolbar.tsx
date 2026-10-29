@@ -490,7 +490,7 @@ function ToolbarPanelItem({
     return <div className={itemClassName}>{content}</div>;
   }
   return (
-    // biome-ignore lint/a11y: Toolbar panel rows intentionally match Obsidian's native file explorer nav rows: pointer-first div items with state expressed by classes, while row icon actions remain real buttons.
+    // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: Toolbar panel rows intentionally match Obsidian's native file explorer nav rows: pointer-first div items with state expressed by classes, while row icon actions remain real buttons.
     <div
       className={itemClassName}
       onClick={

@@ -354,6 +354,7 @@ describe("ChatComposerController", () => {
     );
     const selector = (state: ReturnType<ChatStateStore["getState"]>) => selectChatPanelComposer(state, emptySharedResources);
     const actions = { submit: vi.fn() };
+    // biome-ignore lint/correctness/noComponentHookFactories: The test creates this component once, outside any render.
     function ObservedComposer() {
       const model = useChatSelector(stateStore, selector);
       return h(ComposerShell, controller.renderState(model, actions));

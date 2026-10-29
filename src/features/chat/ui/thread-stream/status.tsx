@@ -130,7 +130,7 @@ function AgentSummaryRows({
     <ul className="codex-panel__agent-list codex-panel__agent-list--summary">
       {view.rows.map((agent) => (
         <li key={agent.threadId} className="codex-panel__agent-row-shell">
-          {/* biome-ignore lint/a11y: Agent summary rows follow the toolbar subpanel nav-item pattern: pointer-first rows with visible text as the interaction target. */}
+          {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: Agent summary rows follow the toolbar subpanel nav-item pattern: pointer-first rows with visible text as the interaction target. */}
           <div
             className="codex-panel-ui__nav-item codex-panel__agent-row codex-panel__agent-row--interactive"
             onClick={(event) => {

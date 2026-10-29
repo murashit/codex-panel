@@ -156,24 +156,23 @@
     "indentStyle": "space",
     "lineWidth": 140
   },
-  "assist": {
-    "actions": {
-      "source": {
-        "noDuplicateClasses": "on",
-        "organizeImports": "on"
-      }
-    }
-  },
   "linter": {
     "domains": {
-      "react": "recommended",
-      "test": "recommended"
+      // Preact uses React-compatible hooks, but does not auto-enable the React domain.
+      "react": "recommended"
     },
     "rules": {
       "preset": "recommended",
       "complexity": {
         // TypeScript noPropertyAccessFromIndexSignature requires brackets for unknown record keys.
-        "useLiteralKeys": "off"
+        "useLiteralKeys": "off",
+        // Keep selectors easy to override alongside Obsidian styles.
+        "noExcessiveSelectorClasses": {
+          "level": "error",
+          "options": {
+            "maxClasses": 4
+          }
+        }
       },
       "correctness": {
         "useExhaustiveDependencies": {
@@ -185,21 +184,16 @@
         }
       },
       "nursery": {
-        "noLoopFunc": "error",
-        "noUnmodifiedLoopCondition": "error",
-        "noExcessiveSelectorClasses": {
-          "level": "error",
-          "options": {
-            "maxClasses": 4
-          }
-        }
+        // Detect stalled scalar loops such as the UTF-8 truncation search.
+        "noUnmodifiedLoopCondition": "error"
       },
       "style": {
-        "noCommonJs": "error",
-        "useReadonlyClassProperties": "error"
+        // Import-boundary plugins cover ESM imports, not require().
+        "noCommonJs": "error"
       },
       "suspicious": {
         "noImportCycles": "error",
+        "noLoopFunc": "error",
         "noUnassignedVariables": "error"
       }
     }
