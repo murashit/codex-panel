@@ -19,19 +19,31 @@ describe("thread stream presentation blocks", () => {
     expect(blocks.map((block) => block.kind)).toEqual(["historyBar", "empty"]);
   });
 
-  it("moves active task progress out of the persisted layout into live blocks", () => {
+  it("keeps historical work grouped while moving active task progress into live blocks", () => {
     const blocks = threadStreamViewBlocks(
       blockInput({
         activeThreadId: "thread",
         activeTurnId: "turn",
         historyCursor: null,
         loadingHistory: false,
-        items: [userDialogue("u1", "turn"), taskProgressItem("task", "turn"), assistantDialogue("a1", "turn")],
+        items: [
+          userDialogue("past-user", "past"),
+          { ...taskProgressItem("past-task", "past"), executionState: "completed" },
+          assistantDialogue("past-assistant", "past"),
+          userDialogue("u1", "turn"),
+          taskProgressItem("task", "turn"),
+          assistantDialogue("a1", "turn"),
+        ],
         workspaceRoot: "/vault",
       }),
     );
 
-    expect(blocks.map((block) => block.kind)).toEqual(["text", "text", "status"]);
+    expect(blocks.map((block) => block.kind)).toEqual(["text", "activityGroup", "text", "text", "text", "status"]);
+    expect(blocks[1]).toMatchObject({
+      kind: "activityGroup",
+      turnId: "past",
+      items: [{ id: "past-task", kind: "status", view: { kind: "taskProgress", state: "completed" } }],
+    });
     expect(blocks.find((block) => block.key === "live-task:task")).toMatchObject({ kind: "status" });
   });
 
@@ -42,13 +54,30 @@ describe("thread stream presentation blocks", () => {
         activeTurnId: "turn",
         historyCursor: null,
         loadingHistory: false,
-        items: [userDialogue("u1", "turn"), agentItem("agent", "turn"), taskProgressItem("task", "turn")],
+        items: [
+          userDialogue("past-user", "past"),
+          agentItem("past-agent", "past", "past-receiver"),
+          assistantDialogue("past-assistant", "past"),
+          userDialogue("u1", "turn"),
+          agentItem("agent", "turn"),
+          taskProgressItem("task", "turn"),
+        ],
         workspaceRoot: "/vault",
         pendingRequests: { signature: "request:1", snapshot: emptyPendingRequestSnapshot() },
       }),
     );
 
-    expect(blocks.map((block) => block.key)).toEqual(["item:u1", "item:agent", "live-agents:turn", "live-task:task", "pending-requests"]);
+    expect(blocks.map((block) => block.key)).toEqual([
+      "item:past-user",
+      "activity:turn-past-activity",
+      "item:past-assistant",
+      "item:u1",
+      "item:agent",
+      "live-agents:turn",
+      "live-task:task",
+      "pending-requests",
+    ]);
+    expect(blocks.find((block) => block.kind === "liveAgentSummary")).toMatchObject({ view: { summary: "Agents 1 running" } });
   });
 
   it("appends transient auth recovery with the active live blocks before requests", () => {
@@ -138,25 +167,17 @@ describe("thread stream presentation blocks", () => {
 function blockInput(
   input: Omit<
     Parameters<typeof threadStreamViewBlocks>[0],
-    "stableItems" | "activeItems" | "turnDiffs" | "textActionTargetsByItemId" | "pendingRequests" | "subagentActivities" | "authRecovery"
-  > & { items: readonly ThreadStreamItem[] } & Partial<
+    "turnDiffs" | "textActionTargetsByItemId" | "pendingRequests" | "subagentActivities" | "authRecovery"
+  > &
+    Partial<
       Pick<
         Parameters<typeof threadStreamViewBlocks>[0],
-        | "stableItems"
-        | "activeItems"
-        | "turnDiffs"
-        | "textActionTargetsByItemId"
-        | "pendingRequests"
-        | "subagentActivities"
-        | "authRecovery"
+        "turnDiffs" | "textActionTargetsByItemId" | "pendingRequests" | "subagentActivities" | "authRecovery"
       >
     >,
 ): Parameters<typeof threadStreamViewBlocks>[0] {
-  const { items, ...projection } = input;
   return {
-    ...projection,
-    stableItems: input.stableItems ?? (input.activeTurnId ? [] : items),
-    activeItems: input.activeItems ?? (input.activeTurnId ? items : []),
+    ...input,
     turnDiffs: input.turnDiffs ?? new Map(),
     textActionTargetsByItemId: input.textActionTargetsByItemId ?? new Map(),
     pendingRequests: input.pendingRequests ?? null,
@@ -185,7 +206,7 @@ function taskProgressItem(id: string, turnId: string): ThreadStreamItem {
   };
 }
 
-function agentItem(id: string, turnId: string): ThreadStreamItem {
+function agentItem(id: string, turnId: string, targetThreadId = "receiver"): ThreadStreamItem {
   return {
     id,
     kind: "agent",
@@ -194,8 +215,8 @@ function agentItem(id: string, turnId: string): ThreadStreamItem {
     turnId,
     action: "spawn",
     senderThreadId: "sender",
-    targets: [{ threadId: "receiver" }],
-    agents: [{ threadId: "receiver", status: "running", executionState: "running", message: "Still working" }],
+    targets: [{ threadId: targetThreadId }],
+    agents: [{ threadId: targetThreadId, status: "running", executionState: "running", message: "Still working" }],
     status: "running",
     prompt: null,
     model: null,

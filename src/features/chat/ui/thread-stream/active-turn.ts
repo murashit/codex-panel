@@ -3,7 +3,7 @@ import { type ActiveSubagentActivity, type AgentRunSummary, activeAgentRunSummar
 
 export interface ActiveTurnItemsContext {
   activeTurnId: string | null;
-  activeItems: readonly ThreadStreamItem[];
+  items: readonly ThreadStreamItem[];
   subagentActivities?: ReadonlyMap<string, ActiveSubagentActivity> | undefined;
 }
 
@@ -18,10 +18,10 @@ export type ActiveTurnLiveItem =
     };
 
 export function activeTurnLiveItems(
-  input: Pick<ActiveTurnItemsContext, "activeItems" | "subagentActivities">,
+  input: Pick<ActiveTurnItemsContext, "items" | "subagentActivities">,
   activeTurnId: string,
 ): ActiveTurnLiveItem[] {
-  const items = input.activeItems;
+  const items = input.items;
   const agentSummaryAnchorId = activeAgentRunSummaryAnchorId(items, activeTurnId);
   const agentSummary = agentSummaryAnchorId ? activeAgentRunSummary(items, activeTurnId, input.subagentActivities) : null;
 
@@ -44,8 +44,11 @@ export function threadStreamReasoningIsActive(item: ReasoningThreadStreamItem, c
   const activeTurn = context.activeTurnId;
   if (!activeTurn || item.turnId !== activeTurn) return false;
   if (item.executionState === "completed") return false;
-  const latestActiveTurnItem = [...context.activeItems].reverse().find((candidate) => candidate.turnId === activeTurn);
-  return latestActiveTurnItem?.id === item.id;
+  for (let index = context.items.length - 1; index >= 0; index -= 1) {
+    const candidate = context.items[index];
+    if (candidate?.turnId === activeTurn) return candidate.id === item.id;
+  }
+  return false;
 }
 
 function threadStreamItemIsActiveTaskProgress(item: ThreadStreamItem, activeTurnId: string): item is TaskProgressThreadStreamItem {

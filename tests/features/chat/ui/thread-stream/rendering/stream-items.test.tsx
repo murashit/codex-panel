@@ -13,7 +13,6 @@ import {
   projectedThreadStream,
   renderThreadStreamBlockElement,
   renderThreadStreamBlocksInAct,
-  runningTurnLifecycle,
   testDisclosures,
   unmountUiRootInAct,
 } from "./test-helpers";
@@ -31,7 +30,7 @@ describe("panel thread stream item rendering", () => {
 
   it("renders generic tool details as visible sections inside one details block", () => {
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       items: [
         {
           id: "tool-1",
@@ -61,7 +60,7 @@ describe("panel thread stream item rendering", () => {
 
   it("renders dynamic tool type and qualified identity separately", () => {
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       items: [
         {
           id: "dynamic-tool-1",
@@ -116,7 +115,7 @@ describe("panel thread stream item rendering", () => {
 
   it("derives generic tool summaries from primary targets instead of item text", () => {
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       workspaceRoot: "/vault/project",
       items: [
         {
@@ -149,7 +148,7 @@ describe("panel thread stream item rendering", () => {
       turnId: "turn",
     } as const;
     const baseContext = {
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       items: [item] satisfies ThreadStreamItem[],
     };
 
@@ -163,7 +162,7 @@ describe("panel thread stream item rendering", () => {
 
   it("keeps path summary tools absolute outside the workspace root", () => {
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       workspaceRoot: "/vault/project",
       items: [
         {
@@ -185,7 +184,7 @@ describe("panel thread stream item rendering", () => {
 
   it("does not treat generic tool summaries as paths without an explicit marker", () => {
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       workspaceRoot: "/vault/project",
       items: [
         {
@@ -206,7 +205,7 @@ describe("panel thread stream item rendering", () => {
 
   it("renders hook metadata as rows inside one details block", () => {
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       items: [
         {
           id: "hook-1",
@@ -286,7 +285,7 @@ describe("panel thread stream item rendering", () => {
 
   it("renders task progress items as a dedicated task list", () => {
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       items: [
         {
           id: "plan-progress-turn",
@@ -315,7 +314,7 @@ describe("panel thread stream item rendering", () => {
 
   it("renders agent activity with a summary and consolidated details", () => {
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       items: [
         agentItemFixture({
           text: "Spawn agent",
@@ -346,7 +345,7 @@ describe("panel thread stream item rendering", () => {
   it("renders v2 activity through the existing agent detail and summary UI", () => {
     const openThreadInNewView = vi.fn();
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       openThreadInNewView,
       items: [
         {
@@ -383,7 +382,7 @@ describe("panel thread stream item rendering", () => {
   it("keeps agent thread actions available after agent details expand", () => {
     const openThreadInNewView = vi.fn();
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       openThreadInNewView,
       disclosures: testDisclosures({ details: ["agent-1:agent-details"] }),
       items: [
@@ -407,7 +406,7 @@ describe("panel thread stream item rendering", () => {
 
   it("shortens multiline agent prompts in summaries", () => {
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       items: [
         agentItemFixture({
           text: "Spawn agent",
@@ -434,7 +433,7 @@ describe("panel thread stream item rendering", () => {
     const threadId = "019e061e-0046-7653-a362-86de9a47cb5c";
     const onDisclosureToggle = vi.fn();
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       items: [
         agentItemFixture({
           text: "Wait for agent",
@@ -467,7 +466,7 @@ describe("panel thread stream item rendering", () => {
   it("renders a compact live agent summary while subagents are running", () => {
     const openThreadInNewView = vi.fn();
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       openThreadInNewView,
       items: [
         agentItemFixture({
@@ -510,7 +509,7 @@ describe("panel thread stream item rendering", () => {
     renderThreadStreamBlocksInAct(
       runningParent,
       projectedThreadStream({
-        turnLifecycle: runningTurnLifecycle("turn"),
+        activeTurnId: "turn",
         items: [item],
         renderMarkdown: (element, text) => element.createDiv({ text }),
       }),
@@ -543,7 +542,7 @@ describe("panel thread stream item rendering", () => {
 
   it("marks the live agent summary failed when any subagent fails", () => {
     const { blocks, context } = projectedThreadStream({
-      turnLifecycle: runningTurnLifecycle("turn"),
+      activeTurnId: "turn",
       items: [
         agentItemFixture({
           text: "Wait for agent",

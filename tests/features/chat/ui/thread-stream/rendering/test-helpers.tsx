@@ -31,11 +31,10 @@ export function projectedThreadStream(context: TestThreadStreamContext): TestThr
   const normalized = normalizeThreadStreamContext(context);
   const blocks = threadStreamViewBlocks({
     activeThreadId: normalized.activeThreadId,
-    activeTurnId: activeTurnIdForThreadStream(normalized.turnLifecycle),
+    activeTurnId: normalized.activeTurnId ?? null,
     historyCursor: normalized.historyCursor,
     loadingHistory: normalized.loadingHistory,
-    stableItems: normalized.stableItems ?? (normalized.turnLifecycle.kind === "running" ? [] : normalized.items),
-    activeItems: normalized.activeItems ?? (normalized.turnLifecycle.kind === "running" ? normalized.items : []),
+    items: normalized.items,
     workspaceRoot: normalized.workspaceRoot,
     turnDiffs: normalized.turnDiffs ?? new Map(),
     textActionTargetsByItemId: normalized.textActionTargetsByItemId ?? new Map(),
@@ -47,7 +46,6 @@ export function projectedThreadStream(context: TestThreadStreamContext): TestThr
 }
 
 function pendingRequestBlockInput(context: TestThreadStreamContext): { signature: string; snapshot: PendingRequestBlockSnapshot } | null {
-  if (threadStreamBlockItemsEmpty(context)) return null;
   const pendingRequests = context.pendingRequests;
   const signature = pendingRequests?.signature;
   if (!signature) return null;
@@ -57,19 +55,12 @@ function pendingRequestBlockInput(context: TestThreadStreamContext): { signature
   };
 }
 
-function threadStreamBlockItemsEmpty(context: TestThreadStreamContext): boolean {
-  if (!context.stableItems && !context.activeItems) return context.items.length === 0;
-  return (context.stableItems?.length ?? 0) === 0 && (context.activeItems?.length ?? 0) === 0;
-}
-
 type TestThreadStreamContext = Partial<Omit<ThreadStreamContext, "pendingRequests">> & {
   renderMarkdown?: (parent: HTMLElement, text: string) => void;
-  turnLifecycle?: ThreadStreamTurnLifecycleState;
+  activeTurnId?: string | null;
   historyCursor?: string | null;
   loadingHistory?: boolean;
   items: readonly ThreadStreamItem[];
-  stableItems?: readonly ThreadStreamItem[];
-  activeItems?: readonly ThreadStreamItem[];
   workspaceRoot?: string;
   turnDiffs?: ReadonlyMap<string, string>;
   textActionTargetsByItemId?: ReadonlyMap<string, ThreadStreamTextActionTargets>;
@@ -81,16 +72,13 @@ interface TestPendingRequestContext extends PendingRequestBlockContext {
   snapshot: () => PendingRequestBlockSnapshot;
 }
 
-type ThreadStreamTurnLifecycleState = { kind: "idle" } | { kind: "running"; turnId: string };
-
 type NormalizedTestThreadStreamContext = ThreadStreamContext &
-  Omit<TestThreadStreamContext, "activeThreadId" | "historyCursor" | "loadingHistory" | "loadOlderTurns" | "turnLifecycle"> & {
+  Omit<TestThreadStreamContext, "activeThreadId" | "historyCursor" | "loadingHistory" | "loadOlderTurns"> & {
     activeThreadId: string | null;
     historyCursor: string | null;
     loadingHistory: boolean;
     loadOlderTurns: () => void;
     workspaceRoot: string;
-    turnLifecycle: ThreadStreamTurnLifecycleState;
   };
 
 export function testDisclosures(
@@ -115,7 +103,6 @@ function normalizeThreadStreamContext(context: TestThreadStreamContext): Normali
   return {
     ...context,
     activeThreadId: context.activeThreadId ?? "thread",
-    turnLifecycle: context.turnLifecycle ?? idleTurnLifecycle(),
     historyCursor: context.historyCursor ?? null,
     loadingHistory: context.loadingHistory ?? false,
     loadOlderTurns: context.loadOlderTurns ?? vi.fn(),
@@ -264,18 +251,6 @@ function emptyPendingRequestSnapshot(): PendingRequestBlockSnapshot {
     mcpElicitationDrafts: new Map(),
     approvalDetails: new Set(),
   });
-}
-
-export function idleTurnLifecycle(): ThreadStreamTurnLifecycleState {
-  return { kind: "idle" };
-}
-
-export function runningTurnLifecycle(turnId = "turn"): ThreadStreamTurnLifecycleState {
-  return { kind: "running", turnId };
-}
-
-function activeTurnIdForThreadStream(lifecycle: ThreadStreamTurnLifecycleState): string | null {
-  return lifecycle.kind === "running" ? lifecycle.turnId : null;
 }
 
 export function withStreamItemContentScrollHeight<T>(scrollHeight: number, fn: () => T): T {

@@ -18,8 +18,7 @@ interface ThreadStreamBlockProjectionInput {
   activeTurnId: string | null;
   historyCursor: string | null;
   loadingHistory: boolean;
-  stableItems: readonly ThreadStreamItem[];
-  activeItems: readonly ThreadStreamItem[];
+  items: readonly ThreadStreamItem[];
   workspaceRoot: string;
   turnDiffs: ReadonlyMap<string, string>;
   textActionTargetsByItemId: ReadonlyMap<string, ThreadStreamTextActionTargets>;
@@ -30,7 +29,7 @@ interface ThreadStreamBlockProjectionInput {
 
 export function threadStreamViewBlocks(input: ThreadStreamBlockProjectionInput): ThreadStreamViewBlock[] {
   const headerBlocks = historyViewBlocks(input);
-  if (input.stableItems.length === 0 && input.activeItems.length === 0 && !input.authRecovery) {
+  if (input.items.length === 0 && !input.authRecovery) {
     return [...headerBlocks, { kind: "empty", key: "empty" }];
   }
 
@@ -122,17 +121,12 @@ function pendingRequestViewBlocks(input: ThreadStreamBlockProjectionInput): read
 
 function layoutBlocksForInput(input: ThreadStreamBlockProjectionInput): ThreadStreamLayoutBlock[] {
   const { activeTurnId } = input;
-  if (!activeTurnId) {
-    return threadStreamLayoutBlocks(input.stableItems, null, input.workspaceRoot, input.turnDiffs);
-  }
-  const stableBlocks = threadStreamLayoutBlocks(input.stableItems, activeTurnId, input.workspaceRoot, input.turnDiffs);
-  const activeBlocks = threadStreamLayoutBlocks(
-    threadStreamItemsWithoutActiveTaskProgress(input.activeItems, activeTurnId),
+  return threadStreamLayoutBlocks(
+    activeTurnId ? threadStreamItemsWithoutActiveTaskProgress(input.items, activeTurnId) : input.items,
     activeTurnId,
     input.workspaceRoot,
     input.turnDiffs,
   );
-  return [...stableBlocks, ...activeBlocks];
 }
 
 function threadStreamActivityItemView(
@@ -181,6 +175,6 @@ function threadStreamRenderedItemView(
 function statusViewContext(input: ThreadStreamBlockProjectionInput): ThreadStreamStatusViewContext {
   return {
     activeTurnId: input.activeTurnId,
-    activeItems: input.activeItems,
+    items: input.items,
   };
 }
