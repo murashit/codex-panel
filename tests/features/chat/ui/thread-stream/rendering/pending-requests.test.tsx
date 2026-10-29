@@ -11,11 +11,11 @@ import type {
 } from "../../../../../../src/features/chat/domain/pending-requests/model";
 import { pendingRequestFocusSignature } from "../../../../../../src/features/chat/domain/pending-requests/signatures";
 import type { ThreadStreamItem } from "../../../../../../src/features/chat/domain/thread-stream/items";
-import { createPendingRequestActions } from "../../../../../../src/features/chat/host/thread-stream/pending-request-actions";
 import type { PendingRequestBlockContext } from "../../../../../../src/features/chat/ui/thread-stream/context";
 import type { PendingRequestBlockSnapshot } from "../../../../../../src/features/chat/ui/thread-stream/model";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../../src/features/chat/ui/thread-stream/pending-requests";
 import { changeInputValue, textContents } from "../../../../../support/dom";
+import { pendingRequestFixture } from "../../../support/pending-requests";
 import { setupThreadStreamRendering } from "./setup";
 
 setupThreadStreamRendering();
@@ -41,16 +41,8 @@ describe("panel pending request rendering", () => {
     const composer = document.createElement("textarea");
     document.body.append(composer, parent);
     const stateStore = createChatStateStore(createChatState());
-    const requests = createPendingRequestActions({
+    const { handler, pendingRequests: requests } = pendingRequestFixture({
       stateStore,
-      responder: {
-        resolveApproval: vi.fn(),
-        resolveUserInput: vi.fn(),
-        skipUserInput: vi.fn(),
-        extendUserInputAutoResolution: vi.fn(),
-        cancelUserInput: vi.fn(),
-        resolveMcpElicitation: vi.fn(),
-      },
       composerHasFocus: () => document.activeElement === composer,
       focusComposer: () => composer.focus(),
     });
@@ -107,6 +99,7 @@ describe("panel pending request rendering", () => {
       render();
       expect(parent.contains(document.activeElement)).toBe(true);
     } finally {
+      handler.clearServerRequests();
       unmountUiRootInAct(parent);
       parent.remove();
       composer.remove();

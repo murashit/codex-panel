@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import type { TurnRecord } from "../../../../../src/app-server/protocol/turn";
 import {
@@ -31,27 +31,37 @@ import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from
 
 type ThreadStartedNotification = Extract<ServerNotification, { method: "thread/started" }>;
 
-type TestChatInboundHandler = Omit<ChatInboundHandler, "handleNotification"> & {
-  handleNotification(notification: ServerNotification): void;
+type TestChatInboundHandler = Omit<ChatInboundHandler, "handleServerRequest"> & {
+  handleServerRequest(request: ServerRequest): boolean;
   currentState(): ChatState;
 };
 
-function handlerForState(state = chatStateFixture(), actions: Partial<ChatInboundHandlerEffects> = {}): TestChatInboundHandler {
+function handlerForState(
+  state = chatStateFixture(),
+  actions: Partial<ChatInboundHandlerEffects> & {
+    respondToServerRequest?: (id: string | number, result: unknown) => void;
+    rejectServerRequest?: (id: string | number, code: number, message: string) => void;
+  } = {},
+): TestChatInboundHandler {
   const store = createChatStateStore(state);
   const handler = createChatInboundHandler(
     store,
     {
       maybeNameThread: vi.fn(),
-      respondToServerRequest: vi.fn(() => true),
-      rejectServerRequest: vi.fn(() => true),
-      executeDynamicTool: vi.fn(async () => ({ success: false, contentItems: [] })),
+      executeDynamicTool: vi.fn(() => ({ success: false, contentItems: [] })),
       ...actions,
     },
     createLocalIdSource({ nowMs: () => 1, seed: "test" }),
   );
-  return Object.assign(handler, {
+  return {
+    ...handler,
+    handleServerRequest: (request) =>
+      handler.handleServerRequest(request, {
+        respond: (result) => actions.respondToServerRequest?.(request.id, result),
+        reject: (code, message) => actions.rejectServerRequest?.(request.id, code, message),
+      }),
     currentState: () => store.getState(),
-  });
+  };
 }
 
 function turnNotification(
@@ -435,215 +445,14 @@ describe("ChatInboundHandler", () => {
       expect(handler.currentState().requests.pendingUserInputs).toHaveLength(1);
     });
 
-    it("queues and resolves requestUserInput server requests", () => {
-      const state = activeRunningState();
-      const respondToServerRequest = vi.fn(() => true);
-      const handler = handlerForState(state, { respondToServerRequest });
-
-      handler.handleServerRequest(
-        userInputRequestFixture(42, {
-          questions: [
-            {
-              id: "scope",
-              header: "Scope",
-              question: "How broad should this be?",
-              isOther: true,
-              isSecret: false,
-              options: [{ label: "Narrow", description: "Small change" }],
-            },
-          ],
-          isBlocking: true,
-        }),
-      );
-
-      expect(handler.currentState().requests.pendingUserInputs).toMatchObject([{ requestId: 42, params: { isBlocking: true } }]);
-      handler.resolveUserInput(42, { scope: "Narrow" });
-      expect(respondToServerRequest).toHaveBeenCalledWith(42, { answers: { scope: { answers: ["Narrow"] } } });
-      expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
-      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
-        kind: "userInputResult",
-        role: "tool",
-        text: "Input submitted for 1 question.",
-        executionState: "completed",
-        turnId: "turn-active",
-        questions: [expect.objectContaining({ id: "scope", header: "Scope", answer: "Narrow" })],
-      });
-    });
-
-    describe("non-blocking user-input timers", () => {
-      beforeEach(() => {
-        vi.useFakeTimers();
-        vi.stubGlobal("window", globalThis);
-      });
-      afterEach(() => {
-        vi.unstubAllGlobals();
-        vi.useRealTimers();
-      });
-
-      it("auto-resolves non-blocking requestUserInput server requests after the client grace period", () => {
-        const respondToServerRequest = vi.fn(() => true);
-        const handler = handlerForState(activeRunningState(), { respondToServerRequest });
-
-        handler.handleServerRequest(
-          userInputRequestFixture(44, {
-            isBlocking: false,
-          }),
-        );
-
-        expect(handler.currentState().requests.pendingUserInputs).toEqual([
-          expect.objectContaining({ requestId: 44, params: expect.objectContaining({ isBlocking: false }) }),
-        ]);
-        vi.advanceTimersByTime(119_999);
-        expect(respondToServerRequest).not.toHaveBeenCalled();
-
-        vi.advanceTimersByTime(1);
-        expect(respondToServerRequest).toHaveBeenCalledWith(44, { answers: {} });
-        expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
-      });
-
-      it("cancels non-blocking user-input auto-resolution when the server resolves the request", () => {
-        const respondToServerRequest = vi.fn(() => true);
-        const handler = handlerForState(activeRunningState(), { respondToServerRequest });
-
-        handler.handleServerRequest(
-          userInputRequestFixture(45, {
-            isBlocking: false,
-          }),
-        );
-        handler.handleNotification({
-          method: "serverRequest/resolved",
-          params: { threadId: "thread-active", requestId: 45 },
-        });
-
-        vi.advanceTimersByTime(120_000);
-        expect(respondToServerRequest).not.toHaveBeenCalled();
-        expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
-      });
-
-      it("extends non-blocking user-input auto-resolution after interaction", () => {
-        vi.setSystemTime(1_000);
-        const respondToServerRequest = vi.fn(() => true);
-        const handler = handlerForState(activeRunningState(), { respondToServerRequest });
-        handler.handleServerRequest(
-          userInputRequestFixture(46, {
-            isBlocking: false,
-          }),
-        );
-
-        vi.advanceTimersByTime(100_000);
-        handler.extendUserInputAutoResolution(46);
-        expect(handler.currentState().requests.pendingUserInputs[0]?.autoResolutionAtMs).toBe(221_000);
-
-        vi.advanceTimersByTime(119_999);
-        expect(respondToServerRequest).not.toHaveBeenCalled();
-        vi.advanceTimersByTime(1);
-        expect(respondToServerRequest).toHaveBeenCalledWith(46, { answers: {} });
-      });
-
-      it("skips non-blocking user input with an empty answer response", () => {
-        const respondToServerRequest = vi.fn(() => true);
-        const handler = handlerForState(activeRunningState(), { respondToServerRequest });
-        handler.handleServerRequest(
-          userInputRequestFixture(47, {
-            isBlocking: false,
-          }),
-        );
-
-        handler.skipUserInput(47);
-
-        expect(respondToServerRequest).toHaveBeenCalledWith(47, { answers: {} });
-        expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
-        vi.advanceTimersByTime(120_000);
-        expect(respondToServerRequest).toHaveBeenCalledTimes(1);
-      });
-    });
-
-    it("rejects cancelled requestUserInput server requests", () => {
-      const state = activeRunningState();
-      const rejectServerRequest = vi.fn(() => true);
-      const handler = handlerForState(state, { rejectServerRequest });
-
-      handler.handleServerRequest(
-        userInputRequestFixture(43, {
-          isBlocking: true,
-        }),
-      );
-
-      handler.cancelUserInput(43);
-      expect(rejectServerRequest).toHaveBeenCalledWith(43, -32000, "User cancelled input request.");
-      expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
-      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
-        kind: "userInputResult",
-        role: "tool",
-        text: "Input request cancelled for 1 question.",
-        executionState: "failed",
-        turnId: "turn-active",
-      });
-      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).not.toHaveProperty("questions.0.answer");
-    });
-
-    it("queues and accepts MCP elicitation form server requests", () => {
-      let state = activeRunningState();
-      state = chatStateWith(state, {
-        requests: {
-          mcpElicitationDrafts: new Map([
-            ["45:mcp:title", "Fix tests"],
-            ["45:mcp:notify", "false"],
-          ]),
-        },
-      });
-      const respondToServerRequest = vi.fn(() => true);
-      const handler = handlerForState(state, { respondToServerRequest });
-
-      handler.handleServerRequest({
-        id: 45,
-        method: "mcpServer/elicitation/request",
-        params: {
-          threadId: "thread-active",
-          turnId: null,
-          serverName: "github",
-          mode: "form",
-          _meta: null,
-          message: "Provide issue details",
-          requestedSchema: {
-            type: "object",
-            required: ["title"],
-            properties: {
-              title: { type: "string", title: "Title", default: "Issue" },
-              notify: { type: "boolean", title: "Notify", default: true },
-            },
-          },
-        },
-      });
-
-      expect(handler.currentState().requests.pendingMcpElicitations).toHaveLength(1);
-      handler.resolveMcpElicitation(45, "accept");
-
-      expect(respondToServerRequest).toHaveBeenCalledWith(45, {
-        action: "accept",
-        content: { title: "Fix tests", notify: false },
-        _meta: null,
-      });
-      expect(handler.currentState().requests.pendingMcpElicitations).toEqual([]);
-      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
-        kind: "userInputResult",
-        role: "tool",
-        text: "MCP request from github accepted.",
-        questions: [
-          expect.objectContaining({ id: "title", answer: "Fix tests" }),
-          expect.objectContaining({ id: "notify", answer: "false" }),
-        ],
-      });
-    });
-
     it("records the accepted URL in the MCP elicitation result item", () => {
       const state = activeRunningState();
-      const respondToServerRequest = vi.fn(() => true);
+      const respondToServerRequest = vi.fn();
       const handler = handlerForState(state, { respondToServerRequest });
 
       handler.handleServerRequest(mcpUrlRequestFixture());
 
-      handler.resolveMcpElicitation(46, "accept");
+      handler.pendingRequests.resolveMcpElicitation(46, "accept");
 
       expect(respondToServerRequest).toHaveBeenCalledWith(46, { action: "accept", content: null, _meta: null });
       expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
@@ -656,12 +465,12 @@ describe("ChatInboundHandler", () => {
 
     it("declines MCP elicitation URL server requests", () => {
       const state = activeRunningState();
-      const respondToServerRequest = vi.fn(() => true);
+      const respondToServerRequest = vi.fn();
       const handler = handlerForState(state, { respondToServerRequest });
 
       handler.handleServerRequest(mcpUrlRequestFixture());
 
-      handler.resolveMcpElicitation(46, "decline");
+      handler.pendingRequests.resolveMcpElicitation(46, "decline");
 
       expect(respondToServerRequest).toHaveBeenCalledWith(46, { action: "decline", content: null, _meta: null });
       expect(handler.currentState().requests.pendingMcpElicitations).toEqual([]);
@@ -674,46 +483,13 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).not.toHaveProperty("questions.0.answer");
     });
 
-    it("ignores missing requestUserInput ids", () => {
-      const state = activeRequestState();
-      const respondToServerRequest = vi.fn(() => true);
-      const rejectServerRequest = vi.fn(() => true);
-      const handler = handlerForState(state, { respondToServerRequest, rejectServerRequest });
-
-      handler.handleServerRequest(userInputRequest(44));
-      const current = expectPresent(handler.currentState().requests.pendingUserInputs[0]);
-
-      handler.resolveUserInput(45, { note: "stale" });
-      handler.cancelUserInput(45);
-
-      expect(respondToServerRequest).not.toHaveBeenCalled();
-      expect(rejectServerRequest).not.toHaveBeenCalled();
-      expect(handler.currentState().requests.pendingUserInputs).toEqual([current]);
-      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
-    });
-
-    it("ignores missing MCP elicitation ids", () => {
-      const state = activeRequestState();
-      const respondToServerRequest = vi.fn(() => true);
-      const handler = handlerForState(state, { respondToServerRequest });
-
-      handler.handleServerRequest(mcpElicitationRequest(47));
-      const current = expectPresent(handler.currentState().requests.pendingMcpElicitations[0]);
-
-      handler.resolveMcpElicitation(48, "accept");
-
-      expect(respondToServerRequest).not.toHaveBeenCalled();
-      expect(handler.currentState().requests.pendingMcpElicitations).toEqual([current]);
-      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
-    });
-
     it("records manual permission approvals as colored result items", () => {
       const state = activeRequestState();
-      const respondToServerRequest = vi.fn(() => true);
+      const respondToServerRequest = vi.fn();
       const handler = handlerForState(state, { respondToServerRequest });
 
       handler.handleServerRequest(expectPresent(supportedApprovalRequests()[2]));
-      handler.resolveApproval(12, "accept-session");
+      handler.pendingRequests.resolveApproval(12, "accept-session");
 
       expect(respondToServerRequest).toHaveBeenCalledWith(12, {
         scope: "session",
@@ -736,25 +512,10 @@ describe("ChatInboundHandler", () => {
       });
     });
 
-    it("ignores missing approval ids", () => {
+    it("responds to current-time and dynamic-tool requests", () => {
       const state = activeRequestState();
-      const respondToServerRequest = vi.fn(() => true);
-      const handler = handlerForState(state, { respondToServerRequest });
-
-      handler.handleServerRequest(expectPresent(supportedApprovalRequests()[2]));
-      const current = expectPresent(handler.currentState().requests.approvals[0]);
-
-      handler.resolveApproval(13, "accept-session");
-
-      expect(respondToServerRequest).not.toHaveBeenCalled();
-      expect(handler.currentState().requests.approvals).toEqual([current]);
-      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
-    });
-
-    it("responds to current-time and dynamic-tool requests", async () => {
-      const state = activeRequestState();
-      const respondToServerRequest = vi.fn(() => true);
-      const executeDynamicTool = vi.fn(async () => ({
+      const respondToServerRequest = vi.fn();
+      const executeDynamicTool = vi.fn(() => ({
         success: true as const,
         contentItems: [{ type: "inputText" as const, text: "result" }],
       }));
@@ -769,7 +530,7 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread", turnId: "turn", callId: "call", namespace: null, tool: "tool", arguments: {} },
       } satisfies Extract<ServerRequest, { method: "item/tool/call" }>;
       handler.handleServerRequest(toolCall);
-      await vi.waitFor(() => expect(respondToServerRequest).toHaveBeenCalledTimes(2));
+      expect(respondToServerRequest).toHaveBeenCalledTimes(2);
 
       expect(respondToServerRequest).toHaveBeenCalledWith(28, { currentTimeAt: 1_700_000_123 });
       expect(executeDynamicTool).toHaveBeenCalledWith(toolCall.params);
@@ -780,10 +541,10 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
-    it("turns dynamic-tool executor failures into failed tool responses", async () => {
-      const respondToServerRequest = vi.fn(() => true);
+    it("turns dynamic-tool executor failures into failed tool responses", () => {
+      const respondToServerRequest = vi.fn();
       const handler = handlerForState(activeRequestState(), {
-        executeDynamicTool: vi.fn(async () => {
+        executeDynamicTool: vi.fn(() => {
           throw new Error("Resolver unavailable");
         }),
         respondToServerRequest,
@@ -801,9 +562,7 @@ describe("ChatInboundHandler", () => {
           arguments: {},
         },
       });
-      await vi.waitFor(() => expect(respondToServerRequest).toHaveBeenCalledOnce());
-
-      expect(respondToServerRequest).toHaveBeenCalledWith(29, {
+      expect(respondToServerRequest).toHaveBeenCalledExactlyOnceWith(29, {
         success: false,
         contentItems: [{ type: "inputText", text: "Resolver unavailable" }],
       });
@@ -811,7 +570,7 @@ describe("ChatInboundHandler", () => {
 
     it("keeps unknown server request fallback out of the normal thread stream", () => {
       const state = chatStateFixture();
-      const rejectServerRequest = vi.fn(() => true);
+      const rejectServerRequest = vi.fn();
       const handler = handlerForState(state, { rejectServerRequest });
 
       handler.handleServerRequest(unknownRequest());
@@ -821,7 +580,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("rejects unsupported command approval decisions with a specific diagnostic", () => {
-      const rejectServerRequest = vi.fn(() => true);
+      const rejectServerRequest = vi.fn();
       const handler = handlerForState(activeRunningState(), { rejectServerRequest });
       const request = commandApprovalRequest(51, "thread-active", "turn-active", "command");
       if (request.method !== "item/commandExecution/requestApproval") throw new Error("Expected a command approval request");
@@ -841,7 +600,7 @@ describe("ChatInboundHandler", () => {
 
     it("leaves server requests for a different active thread or turn unclaimed", () => {
       const state = activeRunningState();
-      const rejectServerRequest = vi.fn(() => true);
+      const rejectServerRequest = vi.fn();
       const handler = handlerForState(state, { rejectServerRequest });
 
       const otherThread = handler.handleServerRequest(
@@ -866,14 +625,14 @@ describe("ChatInboundHandler", () => {
     });
 
     it("presents tracked-child approvals in the parent turn and answers their original request ID", () => {
-      const respondToServerRequest = vi.fn(() => true);
+      const respondToServerRequest = vi.fn();
       const handler = handlerForState(activeRunningState(), { respondToServerRequest });
       trackDirectSubagent(handler, "child", "child-turn");
 
       handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "command"));
 
       expect(handler.currentState().requests.approvals).toEqual([expect.objectContaining({ requestId: 51, turnId: "turn-active" })]);
-      handler.resolveApproval(51, commandApprovalAction(handler, 51, "accept"));
+      handler.pendingRequests.resolveApproval(51, commandApprovalAction(handler, 51, "accept"));
 
       expect(respondToServerRequest).toHaveBeenCalledExactlyOnceWith(51, { decision: "accept" });
       expect(handler.currentState().requests.approvals).toEqual([]);
@@ -883,34 +642,20 @@ describe("ChatInboundHandler", () => {
       });
     });
 
-    it("keeps one pending approval when app-server replays the same request", () => {
-      const respondToServerRequest = vi.fn(() => true);
-      const handler = handlerForState(activeRunningState(), { respondToServerRequest });
-      const request = commandApprovalRequest(51, "thread-active", "turn-active", "command");
-      handler.handleServerRequest(request);
-      handler.handleServerRequest(request);
-
-      expect(handler.currentState().requests.approvals).toHaveLength(1);
-      const action = commandApprovalAction(handler, 51, "accept");
-      handler.resolveApproval(51, action);
-      handler.resolveApproval(51, action);
-
-      expect(respondToServerRequest).toHaveBeenCalledExactlyOnceWith(51, { decision: "accept" });
-      expect(handler.currentState().requests.approvals).toEqual([]);
-    });
-
     it("retains a failed approval for an explicit retry using the user's current choice", () => {
-      const respondToServerRequest = vi.fn(() => true).mockReturnValueOnce(false);
+      const respondToServerRequest = vi.fn().mockImplementationOnce(() => {
+        throw new Error("transport unavailable");
+      });
       const handler = handlerForState(activeRunningState(), { respondToServerRequest });
       const request = commandApprovalRequest(51, "thread-active", "turn-active", "command");
       handler.handleServerRequest(request);
-      handler.resolveApproval(51, commandApprovalAction(handler, 51, "accept"));
+      handler.pendingRequests.resolveApproval(51, commandApprovalAction(handler, 51, "accept"));
 
       expect(handler.currentState().requests.approvals).toHaveLength(1);
       expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toEqual([]);
       handler.handleServerRequest(request);
       expect(respondToServerRequest).toHaveBeenCalledTimes(1);
-      handler.resolveApproval(51, commandApprovalAction(handler, 51, "decline"));
+      handler.pendingRequests.resolveApproval(51, commandApprovalAction(handler, 51, "decline"));
 
       expect(respondToServerRequest).toHaveBeenNthCalledWith(2, 51, { decision: "decline" });
       expect(handler.currentState().requests.approvals).toEqual([]);
@@ -932,19 +677,19 @@ describe("ChatInboundHandler", () => {
     });
 
     it("does not send an approval after connection scope cleanup", () => {
-      const respondToServerRequest = vi.fn(() => true);
+      const respondToServerRequest = vi.fn();
       const handler = handlerForState(activeRunningState(), { respondToServerRequest });
       handler.handleServerRequest(commandApprovalRequest(51, "thread-active", "turn-active", "command"));
 
       handler.clearServerRequests();
-      handler.resolveApproval(51, "accept");
+      handler.pendingRequests.resolveApproval(51, "accept");
 
       expect(respondToServerRequest).not.toHaveBeenCalled();
       expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toEqual([]);
     });
 
     it("does not carry delayed child activity into the parent turn that follows", () => {
-      const respondToServerRequest = vi.fn(() => true);
+      const respondToServerRequest = vi.fn();
       const handler = handlerForState(activeRunningState(), { respondToServerRequest });
       trackDirectSubagent(handler, "child", "child-turn");
       handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "shared-command"));
@@ -981,7 +726,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "item/reasoning/summaryTextDelta" }>);
 
-      handler.resolveApproval(51, "accept");
+      handler.pendingRequests.resolveApproval(51, "accept");
       expect(respondToServerRequest).not.toHaveBeenCalled();
       expect(handler.currentState().activeTurn.lifecycle).toEqual({ kind: "running", turnId: "next-turn" });
       expect(handler.currentState().activeTurn.subagents.byThreadId).toEqual(new Map());
@@ -1001,7 +746,7 @@ describe("ChatInboundHandler", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "idle" } } });
-      const rejectServerRequest = vi.fn(() => true);
+      const rejectServerRequest = vi.fn();
       const handler = handlerForState(state, { rejectServerRequest });
 
       const handled = handler.handleServerRequest(
@@ -1017,27 +762,17 @@ describe("ChatInboundHandler", () => {
       expect(rejectServerRequest).not.toHaveBeenCalled();
     });
 
-    it("keeps pending requests when response delivery fails", () => {
-      const state = activeRequestState();
-      const respondToServerRequest = vi.fn(() => false);
-      const handler = handlerForState(state, { respondToServerRequest });
-
-      handler.handleServerRequest(userInputRequest(55));
-      handler.resolveUserInput(55, { note: "Later" });
-
-      expect(handler.currentState().requests.pendingUserInputs).toHaveLength(1);
-      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([
-        expect.objectContaining({ kind: "system", text: "Could not send user input because Codex app-server is not connected." }),
-      ]);
-    });
-
     it.each([
       {
         name: "approval response",
-        actions: { respondToServerRequest: vi.fn(() => false) },
+        actions: {
+          respondToServerRequest: vi.fn(() => {
+            throw new Error("transport unavailable");
+          }),
+        },
         exercise(handler: TestChatInboundHandler) {
           handler.handleServerRequest(expectPresent(supportedApprovalRequests()[2]));
-          handler.resolveApproval(12, "decline");
+          handler.pendingRequests.resolveApproval(12, "decline");
         },
         expectedMessages: ["Could not send approval response because Codex app-server is not connected."],
         pending(handler: TestChatInboundHandler) {
@@ -1046,10 +781,14 @@ describe("ChatInboundHandler", () => {
       },
       {
         name: "user-input cancellation",
-        actions: { rejectServerRequest: vi.fn(() => false) },
+        actions: {
+          rejectServerRequest: vi.fn(() => {
+            throw new Error("transport unavailable");
+          }),
+        },
         exercise(handler: TestChatInboundHandler) {
           handler.handleServerRequest(userInputRequest(56));
-          handler.cancelUserInput(56);
+          handler.pendingRequests.cancelUserInput(56);
         },
         expectedMessages: ["Could not cancel user input because Codex app-server is not connected."],
         pending(handler: TestChatInboundHandler) {
@@ -1058,10 +797,14 @@ describe("ChatInboundHandler", () => {
       },
       {
         name: "MCP response",
-        actions: { respondToServerRequest: vi.fn(() => false) },
+        actions: {
+          respondToServerRequest: vi.fn(() => {
+            throw new Error("transport unavailable");
+          }),
+        },
         exercise(handler: TestChatInboundHandler) {
           handler.handleServerRequest(mcpElicitationRequest(57));
-          handler.resolveMcpElicitation(57, "cancel");
+          handler.pendingRequests.resolveMcpElicitation(57, "cancel");
         },
         expectedMessages: ["Could not send MCP request response because Codex app-server is not connected."],
         pending(handler: TestChatInboundHandler) {
@@ -1079,7 +822,11 @@ describe("ChatInboundHandler", () => {
 
     it("reports failed current-time delivery without adding a pending request", () => {
       const initialState = activeRequestState();
-      const handler = handlerForState(initialState, { respondToServerRequest: vi.fn(() => false) });
+      const handler = handlerForState(initialState, {
+        respondToServerRequest: vi.fn(() => {
+          throw new Error("transport unavailable");
+        }),
+      });
 
       handler.handleServerRequest(currentTimeRequest(58, "thread"));
 

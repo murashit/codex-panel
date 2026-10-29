@@ -1,22 +1,12 @@
+import type { PendingRequests } from "../../application/pending-requests/controller";
 import type { ChatStateStore } from "../../application/state/store";
 import { approvalDetailsDisclosureId } from "../../domain/pending-requests/disclosure-ids";
-import { answersForPendingUserInput } from "../../domain/pending-requests/drafts";
-import type { ApprovalAction, McpElicitationAction, PendingRequestId, PendingUserInput } from "../../domain/pending-requests/model";
 import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
 import type { PendingRequestBlockActions } from "../../ui/thread-stream/context";
 
-interface PendingRequestResponder {
-  resolveApproval: (requestId: PendingRequestId, action: ApprovalAction) => void;
-  resolveUserInput: (requestId: PendingRequestId, answers: Record<string, string>) => void;
-  skipUserInput: (requestId: PendingRequestId) => void;
-  extendUserInputAutoResolution: (requestId: PendingRequestId) => void;
-  cancelUserInput: (requestId: PendingRequestId) => void;
-  resolveMcpElicitation: (requestId: PendingRequestId, action: McpElicitationAction) => void;
-}
-
 export interface PendingRequestActionsHost {
   stateStore: ChatStateStore;
-  responder: PendingRequestResponder;
+  requests: PendingRequests;
   composerHasFocus: () => boolean;
   focusComposer: () => void;
 }
@@ -31,34 +21,19 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
 
   const blockActions: PendingRequestActions["actions"] = {
     resolveApproval: (requestId, approvalAction) => {
-      const approval = host.stateStore.getState().requests.approvals.find((item) => item.requestId === requestId) ?? null;
-      if (!approval) return;
-      host.responder.resolveApproval(requestId, approvalAction);
-      host.focusComposer();
+      if (host.requests.resolveApproval(requestId, approvalAction)) host.focusComposer();
     },
     resolveUserInput: (requestId) => {
-      const input = pendingUserInput(host, requestId);
-      if (!input) return;
-      host.responder.resolveUserInput(requestId, answersForPendingUserInput(input, host.stateStore.getState().requests.userInputDrafts));
-      host.focusComposer();
+      if (host.requests.resolveUserInput(requestId)) host.focusComposer();
     },
     skipUserInput: (requestId) => {
-      const input = pendingUserInput(host, requestId);
-      if (!input || input.params.isBlocking) return;
-      host.responder.skipUserInput(requestId);
-      host.focusComposer();
+      if (host.requests.skipUserInput(requestId)) host.focusComposer();
     },
     cancelUserInput: (requestId) => {
-      const input = pendingUserInput(host, requestId);
-      if (!input) return;
-      host.responder.cancelUserInput(requestId);
-      host.focusComposer();
+      if (host.requests.cancelUserInput(requestId)) host.focusComposer();
     },
     resolveMcpElicitation: (requestId, action) => {
-      const elicitation = host.stateStore.getState().requests.pendingMcpElicitations.find((item) => item.requestId === requestId) ?? null;
-      if (!elicitation) return;
-      host.responder.resolveMcpElicitation(requestId, action);
-      host.focusComposer();
+      if (host.requests.resolveMcpElicitation(requestId, action)) host.focusComposer();
     },
     setApprovalDetailsExpanded: (requestId, expanded) => {
       host.stateStore.dispatch({
@@ -69,12 +44,10 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
       });
     },
     setUserInputDraft: (requestId, key, value) => {
-      host.stateStore.dispatch({ type: "request/user-input-draft-set", key, value });
-      const input = pendingUserInput(host, requestId);
-      if (input && !input.params.isBlocking) host.responder.extendUserInputAutoResolution(requestId);
+      host.requests.setUserInputDraft(requestId, key, value);
     },
     setMcpElicitationDraft: (key, value) => {
-      host.stateStore.dispatch({ type: "request/mcp-elicitation-draft-set", key, value });
+      host.requests.setMcpElicitationDraft(key, value);
     },
   };
 
@@ -97,8 +70,4 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
       return host.composerHasFocus();
     },
   };
-}
-
-function pendingUserInput(host: PendingRequestActionsHost, requestId: PendingRequestId): PendingUserInput | null {
-  return host.stateStore.getState().requests.pendingUserInputs.find((input) => input.requestId === requestId) ?? null;
 }

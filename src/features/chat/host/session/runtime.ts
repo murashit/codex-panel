@@ -228,7 +228,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     appServer,
     ensureConnected: ensureSubmissionConnected,
     status,
-    inboundHandler,
+    pendingRequests: inboundHandler.pendingRequests,
     threadLifecycle: threadFeatures,
     threadCommands: threadCommands.commands,
     navigation: threadCommands.navigation,

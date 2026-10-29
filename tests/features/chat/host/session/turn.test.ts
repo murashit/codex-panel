@@ -194,7 +194,7 @@ function sessionTurnFixture(
       },
       ensureConnected: options.ensureConnected ?? vi.fn().mockResolvedValue(true),
       status,
-      inboundHandler: {},
+      pendingRequests: {},
       threadLifecycle: {
         ensureRestoredThreadLoaded: vi.fn().mockResolvedValue(true),
       },
