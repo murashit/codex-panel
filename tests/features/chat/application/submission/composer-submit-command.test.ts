@@ -584,8 +584,6 @@ describe("submitComposer", () => {
         stateStore,
         {
           maybeNameThread: vi.fn(),
-          respondToServerRequest: vi.fn(() => true),
-          rejectServerRequest: vi.fn(() => true),
           executeDynamicTool: vi.fn(),
         },
         host.localItemIds,

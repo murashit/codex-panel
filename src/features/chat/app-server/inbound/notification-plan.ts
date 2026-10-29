@@ -12,7 +12,7 @@ import { activeTurnId } from "../../application/turns/turn-state";
 import { isStreamOrTurnLifecycleNotification, routeServerNotification, type ThreadLifecycleNotification } from "./notification-routing";
 import { type RuntimeFactSource, turnRuntimeFactFromNotification } from "./runtime-fact-adapter";
 
-export type ChatInboundEffect = {
+type ChatInboundEffect = {
   type: "maybe-name-thread";
   threadId: string;
   turnId: string;

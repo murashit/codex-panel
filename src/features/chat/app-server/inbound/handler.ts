@@ -1,64 +1,26 @@
-import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
+import type { AppServerServerRequestResponder } from "../../../../app-server/connection/client";
+import type { ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
-import type { DynamicToolCallResponse } from "../../../../generated/app-server/v2/DynamicToolCallResponse";
-import { dynamicToolFailure, type PanelDynamicToolCall, type PanelDynamicToolResponse } from "../../application/dynamic-tools";
+import type { PanelDynamicToolCall, PanelDynamicToolResponse } from "../../application/dynamic-tools";
 import type { LocalIdSource } from "../../application/local-id-source";
-import { activeThreadId, type ChatState } from "../../application/state/model";
-import type { ChatAction } from "../../application/state/reducer";
+import type { PendingRequests } from "../../application/pending-requests/controller";
 import type { ChatStateStore } from "../../application/state/store";
-import { activeTurnId } from "../../application/turns/turn-state";
-import { contentForPendingMcpElicitation } from "../../domain/pending-requests/drafts";
-import {
-  type ApprovalAction,
-  type McpElicitationAction,
-  NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS,
-  type PendingRequestId,
-  type PendingUserInput,
-} from "../../domain/pending-requests/model";
-import {
-  createApprovalResultItem,
-  createMcpElicitationResultItem,
-  createUserInputResultItem,
-} from "../../domain/pending-requests/result-items";
 import { createSystemItem } from "../../domain/thread-stream/factories/system-items";
 import { classifyAppServerLog } from "./app-server-logs";
-import { type ChatInboundEffect, planChatInboundNotification } from "./notification-plan";
-import {
-  type ApprovalRequest,
-  appServerApprovalResponse,
-  appServerMcpElicitationResponse,
-  appServerUserInputResponse,
-  isApprovalServerRequest,
-} from "./server-request-adapter";
-import { routeServerRequest, serverRequestCurrentTimeResponse } from "./server-request-routing";
+import { planChatInboundNotification } from "./notification-plan";
+import { ChatServerRequests } from "./server-requests";
 
 export interface ChatInboundHandlerEffects {
   maybeNameThread: (threadId: string, turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null) => void;
-  respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
-  rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;
-  executeDynamicTool: (call: PanelDynamicToolCall) => Promise<PanelDynamicToolResponse>;
+  executeDynamicTool: (call: PanelDynamicToolCall) => PanelDynamicToolResponse;
 }
 
 export interface ChatInboundHandler {
+  readonly pendingRequests: PendingRequests;
   handleNotification(notification: ServerNotification): void;
-  handleServerRequest(request: ServerRequest): boolean;
+  handleServerRequest(request: ServerRequest, responder: AppServerServerRequestResponder): boolean;
   handleAppServerLog(message: string): void;
-  resolveApproval(requestId: PendingRequestId, action: ApprovalAction): void;
-  resolveUserInput(requestId: PendingRequestId, answers: Record<string, string>): void;
-  skipUserInput(requestId: PendingRequestId): void;
-  extendUserInputAutoResolution(requestId: PendingRequestId): void;
-  cancelUserInput(requestId: PendingRequestId): void;
-  resolveMcpElicitation(requestId: PendingRequestId, action: McpElicitationAction): void;
-  clearServerRequests(): void;
-}
-
-interface ChatInboundHandlerContext {
-  store: ChatStateStore;
-  effects: ChatInboundHandlerEffects;
-  localItemIds: LocalIdSource;
-  // App-server replays the original request ID; keep its opaque decision payload until resolution.
-  approvalRequests: Map<RequestId, ApprovalRequest>;
-  userInputAutoResolutionTimers: Map<PendingRequestId, number>;
+  clearServerRequests(reason?: "disconnect" | "close"): void;
 }
 
 export function createChatInboundHandler(
@@ -66,315 +28,34 @@ export function createChatInboundHandler(
   effects: ChatInboundHandlerEffects,
   localItemIds: LocalIdSource,
 ): ChatInboundHandler {
-  const context: ChatInboundHandlerContext = {
-    store,
-    effects,
-    localItemIds,
-    approvalRequests: new Map(),
-    userInputAutoResolutionTimers: new Map(),
-  };
+  const requests = new ChatServerRequests({
+    stateStore: store,
+    executeDynamicTool: effects.executeDynamicTool,
+    addSystemMessage: (text) => {
+      store.dispatch({ type: "thread-stream/system-item-added", item: createSystemItem(localItemIds.next("system"), text) });
+    },
+  });
   return {
+    pendingRequests: requests.pending,
     handleNotification: (notification) => {
-      handleNotification(context, notification);
+      requests.pending.reconcile();
+      if (notification.method === "serverRequest/resolved" && requests.resolved(notification.params.requestId)) return;
+      const plan = planChatInboundNotification(store.getState(), notification, (prefix) => localItemIds.next(prefix));
+      for (const action of plan.actions) store.dispatch(action);
+      for (const effect of plan.effects) {
+        effects.maybeNameThread(effect.threadId, effect.turnId, effect.completedTurnTranscriptSummary);
+      }
+      requests.pending.reconcile();
     },
-    handleServerRequest: (request) => handleServerRequest(context, request),
+    handleServerRequest: (request, responder) => requests.handle(request, responder),
     handleAppServerLog: (message) => {
-      handleAppServerLog(context, message);
+      const classified = classifyAppServerLog(message);
+      if (classified === null) return;
+      const text = `app-server error: ${classified.text}`;
+      store.dispatch({ type: "thread-stream/deduped-log-added", text, item: createSystemItem(localItemIds.next("system"), text) });
     },
-    resolveApproval: (requestId, action) => {
-      resolveApproval(context, requestId, action);
-    },
-    resolveUserInput: (requestId, answers) => {
-      resolveUserInput(context, requestId, answers);
-    },
-    skipUserInput: (requestId) => {
-      skipUserInput(context, requestId);
-    },
-    extendUserInputAutoResolution: (requestId) => {
-      extendUserInputAutoResolution(context, requestId);
-    },
-    cancelUserInput: (requestId) => {
-      cancelUserInput(context, requestId);
-    },
-    resolveMcpElicitation: (requestId, action) => {
-      resolveMcpElicitation(context, requestId, action);
-    },
-    clearServerRequests: () => {
-      context.approvalRequests.clear();
-      clearUserInputAutoResolutionTimers(context);
+    clearServerRequests: (reason) => {
+      requests.clear(reason);
     },
   };
-}
-
-function state(context: ChatInboundHandlerContext): ChatState {
-  return context.store.getState();
-}
-
-function dispatch(context: ChatInboundHandlerContext, action: ChatAction): void {
-  context.store.dispatch(action);
-}
-
-function handleNotification(context: ChatInboundHandlerContext, notification: ServerNotification): void {
-  reconcileApprovalRequests(context);
-  if (notification.method === "serverRequest/resolved") {
-    clearUserInputAutoResolutionTimer(context, notification.params.requestId);
-    // Child requests are displayed in the parent panel, so resolve known IDs before thread routing.
-    if (context.approvalRequests.delete(notification.params.requestId)) {
-      dispatch(context, { type: "request/resolved", requestId: notification.params.requestId });
-      return;
-    }
-  }
-  const plan = planChatInboundNotification(state(context), notification, (prefix) => localItemId(context, prefix));
-  for (const action of plan.actions) dispatch(context, action);
-  for (const effect of plan.effects) runInboundEffect(context, effect);
-  reconcileApprovalRequests(context);
-}
-
-function handleServerRequest(context: ChatInboundHandlerContext, request: ServerRequest): boolean {
-  reconcileApprovalRequests(context);
-  const current = state(context);
-  const activeScope = { activeThreadId: activeThreadId(current), activeTurnId: activeTurnId(current.activeTurn) };
-  let route = routeServerRequest(request, activeScope);
-  let trackedSubagent = false;
-  if (route.kind === "inactive") {
-    const trackedScope = trackedSubagentApprovalScope(current, request);
-    if (trackedScope) {
-      route = routeServerRequest(request, trackedScope);
-      trackedSubagent = true;
-    }
-  }
-  switch (route.kind) {
-    case "approval": {
-      const parentTurnId = activeTurnId(current.activeTurn) ?? route.approval.turnId;
-      if (!parentTurnId) {
-        rejectServerRequest(context, request, `Rejected approval without a turn: ${request.method}`);
-        return true;
-      }
-      context.approvalRequests.set(route.request.id, route.request);
-      const approval = trackedSubagent ? { ...route.approval, turnId: parentTurnId } : route.approval;
-      dispatch(context, { type: "request/approval-queued", approval });
-      return true;
-    }
-    case "userInput": {
-      const input = route.input.params.isBlocking
-        ? route.input
-        : { ...route.input, autoResolutionAtMs: Date.now() + NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS };
-      dispatch(context, { type: "request/user-input-queued", input });
-      if (!input.params.isBlocking) scheduleUserInputAutoResolution(context, input);
-      return true;
-    }
-    case "mcpElicitation":
-      dispatch(context, { type: "request/mcp-elicitation-queued", elicitation: route.elicitation });
-      return true;
-    case "currentTime":
-      if (!context.effects.respondToServerRequest(route.request.id, serverRequestCurrentTimeResponse(Date.now()))) {
-        addSystemMessage(context, "Could not send current time because Codex app-server is not connected.");
-      }
-      return true;
-    case "dynamicTool":
-      void respondToDynamicToolCall(context, route.request.id, route.request.params);
-      return true;
-    case "inactive": {
-      return false;
-    }
-    case "unsupported":
-      rejectServerRequest(
-        context,
-        request,
-        request.method === "item/commandExecution/requestApproval"
-          ? "Rejected command approval: availableDecisions must be a nonempty list of supported decisions."
-          : `Rejected unsupported app-server request: ${request.method}`,
-      );
-      return true;
-    case "unknown": {
-      const message = `Rejected unknown app-server request: ${request.method}`;
-      context.effects.rejectServerRequest(request.id, -32601, message);
-      return true;
-    }
-  }
-}
-
-async function respondToDynamicToolCall(
-  context: ChatInboundHandlerContext,
-  requestId: RequestId,
-  call: PanelDynamicToolCall,
-): Promise<void> {
-  let response: PanelDynamicToolResponse;
-  try {
-    response = await context.effects.executeDynamicTool(call);
-  } catch (error) {
-    response = dynamicToolFailure(error instanceof Error ? error.message : String(error));
-  }
-  const result: DynamicToolCallResponse = { success: response.success, contentItems: [...response.contentItems] };
-  if (!context.effects.respondToServerRequest(requestId, result)) {
-    addSystemMessage(context, "Could not send the dynamic tool response because Codex app-server is not connected.");
-  }
-}
-
-function handleAppServerLog(context: ChatInboundHandlerContext, message: string): void {
-  const classified = classifyAppServerLog(message);
-  if (classified === null) return;
-  addDedupedSystemMessage(context, `app-server error: ${classified.text}`);
-}
-
-function resolveApproval(context: ChatInboundHandlerContext, requestId: PendingRequestId, action: ApprovalAction): void {
-  reconcileApprovalRequests(context);
-  const approval = state(context).requests.approvals.find((item) => item.requestId === requestId) ?? null;
-  if (!approval) return;
-  const request = context.approvalRequests.get(approval.requestId);
-  if (!request) {
-    addSystemMessage(context, "Could not find the approval request to answer.");
-    return;
-  }
-  if (!context.effects.respondToServerRequest(request.id, appServerApprovalResponse(request, action))) {
-    addSystemMessage(context, "Could not send approval response because Codex app-server is not connected.");
-    return;
-  }
-  context.approvalRequests.delete(request.id);
-  dispatch(context, {
-    type: "request/resolved",
-    requestId: approval.requestId,
-    resultItem: createApprovalResultItem(approval, action),
-  });
-}
-
-function trackedSubagentApprovalScope(current: ChatState, request: ServerRequest): { activeThreadId: string; activeTurnId: string } | null {
-  if (!isApprovalServerRequest(request)) return null;
-  const parentTurnId = activeTurnId(current.activeTurn);
-  const tracked = current.activeTurn.subagents.byThreadId.get(request.params.threadId);
-  if (!parentTurnId || !tracked?.childTurnId || tracked.childTurnId !== request.params.turnId || tracked.liveness !== "running") {
-    return null;
-  }
-  return { activeThreadId: tracked.threadId, activeTurnId: tracked.childTurnId };
-}
-
-function reconcileApprovalRequests(context: ChatInboundHandlerContext): void {
-  const current = state(context);
-  const turnId = activeTurnId(current.activeTurn);
-  const approvals = new Map(current.requests.approvals.map((approval) => [approval.requestId, approval]));
-  for (const requestId of context.approvalRequests.keys()) {
-    const approval = approvals.get(requestId);
-    if (approval && approval.turnId === turnId) continue;
-    context.approvalRequests.delete(requestId);
-    if (approval) dispatch(context, { type: "request/resolved", requestId });
-  }
-}
-
-function resolveUserInput(context: ChatInboundHandlerContext, requestId: PendingRequestId, answers: Record<string, string>): void {
-  const input = pendingUserInput(context, requestId);
-  if (!input) return;
-  if (!context.effects.respondToServerRequest(input.requestId, appServerUserInputResponse(input.params.questions, answers))) {
-    addSystemMessage(context, "Could not send user input because Codex app-server is not connected.");
-    return;
-  }
-  clearUserInputAutoResolutionTimer(context, input.requestId);
-  dispatch(context, {
-    type: "request/resolved",
-    requestId: input.requestId,
-    resultItem: createUserInputResultItem(input, answers, "submitted"),
-  });
-}
-
-function cancelUserInput(context: ChatInboundHandlerContext, requestId: PendingRequestId): void {
-  const input = pendingUserInput(context, requestId);
-  if (!input) return;
-  if (!context.effects.rejectServerRequest(input.requestId, -32000, "User cancelled input request.")) {
-    addSystemMessage(context, "Could not cancel user input because Codex app-server is not connected.");
-    return;
-  }
-  clearUserInputAutoResolutionTimer(context, input.requestId);
-  dispatch(context, {
-    type: "request/resolved",
-    requestId: input.requestId,
-    resultItem: createUserInputResultItem(input, {}, "cancelled"),
-  });
-}
-
-function skipUserInput(context: ChatInboundHandlerContext, requestId: PendingRequestId): void {
-  const input = pendingUserInput(context, requestId);
-  if (!input || input.params.isBlocking) return;
-  if (!context.effects.respondToServerRequest(input.requestId, { answers: {} })) {
-    addSystemMessage(context, "Could not skip user input because Codex app-server is not connected.");
-    return;
-  }
-  clearUserInputAutoResolutionTimer(context, input.requestId);
-  dispatch(context, { type: "request/resolved", requestId: input.requestId });
-}
-
-function extendUserInputAutoResolution(context: ChatInboundHandlerContext, requestId: PendingRequestId): void {
-  const input = pendingUserInput(context, requestId);
-  if (!input || input.params.isBlocking) return;
-  const autoResolutionAtMs = Date.now() + NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS;
-  const extended = { ...input, autoResolutionAtMs };
-  dispatch(context, { type: "request/user-input-auto-resolution-extended", requestId, autoResolutionAtMs });
-  scheduleUserInputAutoResolution(context, extended);
-}
-
-function resolveMcpElicitation(context: ChatInboundHandlerContext, requestId: PendingRequestId, action: McpElicitationAction): void {
-  const elicitation = state(context).requests.pendingMcpElicitations.find((item) => item.requestId === requestId) ?? null;
-  if (!elicitation) return;
-  const content = action === "accept" ? contentForPendingMcpElicitation(elicitation, state(context).requests.mcpElicitationDrafts) : null;
-  if (!context.effects.respondToServerRequest(elicitation.requestId, appServerMcpElicitationResponse(action, content))) {
-    addSystemMessage(context, "Could not send MCP request response because Codex app-server is not connected.");
-    return;
-  }
-  dispatch(context, {
-    type: "request/resolved",
-    requestId: elicitation.requestId,
-    resultItem: createMcpElicitationResultItem(elicitation, action, content),
-  });
-}
-
-function pendingUserInput(context: ChatInboundHandlerContext, requestId: PendingRequestId): PendingUserInput | null {
-  return state(context).requests.pendingUserInputs.find((input) => input.requestId === requestId) ?? null;
-}
-
-function scheduleUserInputAutoResolution(context: ChatInboundHandlerContext, input: PendingUserInput): void {
-  clearUserInputAutoResolutionTimer(context, input.requestId);
-  const delayMs = Math.max(0, (input.autoResolutionAtMs ?? Date.now()) - Date.now());
-  const timer = window.setTimeout(() => {
-    context.userInputAutoResolutionTimers.delete(input.requestId);
-    if (!pendingUserInput(context, input.requestId)) return;
-    if (!context.effects.respondToServerRequest(input.requestId, { answers: {} })) {
-      addSystemMessage(context, "Could not auto-resolve user input because Codex app-server is not connected.");
-      return;
-    }
-    dispatch(context, { type: "request/resolved", requestId: input.requestId });
-  }, delayMs);
-  context.userInputAutoResolutionTimers.set(input.requestId, timer);
-}
-
-function clearUserInputAutoResolutionTimer(context: ChatInboundHandlerContext, requestId: PendingRequestId): void {
-  const timer = context.userInputAutoResolutionTimers.get(requestId);
-  if (timer === undefined) return;
-  window.clearTimeout(timer);
-  context.userInputAutoResolutionTimers.delete(requestId);
-}
-
-function clearUserInputAutoResolutionTimers(context: ChatInboundHandlerContext): void {
-  for (const timer of context.userInputAutoResolutionTimers.values()) window.clearTimeout(timer);
-  context.userInputAutoResolutionTimers.clear();
-}
-
-function addSystemMessage(context: ChatInboundHandlerContext, text: string): void {
-  dispatch(context, { type: "thread-stream/system-item-added", item: createSystemItem(localItemId(context, "system"), text) });
-}
-
-function addDedupedSystemMessage(context: ChatInboundHandlerContext, text: string): void {
-  dispatch(context, { type: "thread-stream/deduped-log-added", text, item: createSystemItem(localItemId(context, "system"), text) });
-}
-
-function rejectServerRequest(context: ChatInboundHandlerContext, request: ServerRequest, message: string): void {
-  addSystemMessage(context, message);
-  if (!context.effects.rejectServerRequest(request.id, -32601, message)) {
-    addSystemMessage(context, "Could not reject app-server request because Codex app-server is not connected.");
-  }
-}
-
-function localItemId(context: ChatInboundHandlerContext, prefix: string): string {
-  return context.localItemIds.next(prefix);
-}
-
-function runInboundEffect(context: ChatInboundHandlerContext, effect: ChatInboundEffect): void {
-  context.effects.maybeNameThread(effect.threadId, effect.turnId, effect.completedTurnTranscriptSummary);
 }

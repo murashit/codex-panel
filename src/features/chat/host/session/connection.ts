@@ -1,9 +1,7 @@
 import { Notice } from "obsidian";
-import type { AppServerClient, AppServerServerRequestResponder } from "../../../../app-server/connection/client";
 import { StaleConnectionError } from "../../../../app-server/connection/connection-manager";
 import type { AppServerContextConnectionLease } from "../../../../app-server/connection/context-connection";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
-import { isApprovalServerRequest } from "../../app-server/inbound/server-request-adapter";
 import { type ChatConnectionCoordinator, createChatConnectionCoordinator } from "../../application/connection/connection-coordinator";
 import { executePanelDynamicTool } from "../../application/dynamic-tools";
 import type { LocalIdSource } from "../../application/local-id-source";
@@ -14,8 +12,6 @@ import { panelThreadSubscriptions } from "../../application/threads/thread-subsc
 import type { ChatPanelEnvironment } from "../contracts";
 import { resolveObsidianWikilinks } from "../obsidian/wikilink-resolution.obsidian";
 import type { SessionThreadReadState } from "./thread-read-state";
-
-type RespondRequestId = Parameters<AppServerClient["respondToServerRequest"]>[0];
 
 interface SessionConnectionStatus {
   set: (statusText: string, phase?: ChatConnectionPhase) => void;
@@ -54,55 +50,10 @@ export interface SessionConnection {
   refreshSharedThreads: () => Promise<void>;
 }
 
-function createServerRequestResponderRegistry() {
-  const responders = new Map<RespondRequestId, { responder: AppServerServerRequestResponder; approval: boolean }>();
-  const settle = (requestId: RespondRequestId, deliver: (responder: AppServerServerRequestResponder) => void): boolean => {
-    const responder = responders.get(requestId)?.responder ?? null;
-    if (!responder) return false;
-    try {
-      deliver(responder);
-      responders.delete(requestId);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-  return {
-    remember: (requestId: RespondRequestId, responder: AppServerServerRequestResponder, approval: boolean) => {
-      responders.set(requestId, { responder, approval });
-    },
-    forget: (requestId: RespondRequestId) => {
-      responders.delete(requestId);
-    },
-    respond: (requestId: RespondRequestId, result: unknown) =>
-      settle(requestId, (responder) => {
-        responder.respond(result);
-      }),
-    reject: (requestId: RespondRequestId, code: number, message: string) =>
-      settle(requestId, (responder) => {
-        responder.reject(code, message);
-      }),
-    forgetApprovals: () => {
-      for (const [requestId, entry] of responders) {
-        if (entry.approval) responders.delete(requestId);
-      }
-    },
-    rejectAll: (code: number, message: string) => {
-      for (const requestId of responders.keys()) {
-        settle(requestId, (responder) => {
-          responder.reject(code, message);
-        });
-      }
-      responders.clear();
-    },
-  };
-}
-
 export function createSessionConnection(host: SessionConnectionHost, input: SessionConnectionInput): SessionConnection {
   const { environment, stateStore } = host;
   const { connection, localItemIds, status, autoTitleCoordinator } = input;
   let active = true;
-  const serverRequestResponders = createServerRequestResponderRegistry();
   const updateThreadSubscriptions = () => {
     connection.updateThreadSubscriptions(panelThreadSubscriptions(stateStore.getState()));
   };
@@ -120,9 +71,7 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
       maybeNameThread: (threadId, turnId, completedTurnTranscriptSummary) => {
         autoTitleCoordinator.maybeAutoTitleThread(threadId, turnId, completedTurnTranscriptSummary);
       },
-      respondToServerRequest: (requestId, result) => serverRequestResponders.respond(requestId, result),
-      rejectServerRequest: (requestId, code, message) => serverRequestResponders.reject(requestId, code, message),
-      executeDynamicTool: async (call) =>
+      executeDynamicTool: (call) =>
         executePanelDynamicTool(call, {
           resolveWikilinks: (argumentsValue) => resolveObsidianWikilinks(environment.obsidian.app, argumentsValue),
         }),
@@ -131,7 +80,6 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
   );
   const invalidateConnectionScope = () => {
     inboundHandler.clearServerRequests();
-    serverRequestResponders.rejectAll(-32000, "Codex Panel disconnected before the request was answered.");
   };
   const connectionCoordinator = createChatConnectionCoordinator({
     stateStore,
@@ -152,10 +100,7 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
           },
           onServerRequest: (request, responder) => {
             if (!active) return false;
-            serverRequestResponders.remember(request.id, responder, isApprovalServerRequest(request));
-            const handled = inboundHandler.handleServerRequest(request);
-            if (!handled) serverRequestResponders.forget(request.id);
-            return handled;
+            return inboundHandler.handleServerRequest(request, responder);
           },
           onLog: (message) => {
             if (!active) return;
@@ -195,9 +140,7 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
       stopObservingSubscriptions();
       connection.updateThreadSubscriptions([]);
       connectionCoordinator.invalidate();
-      // Codex retains approvals across unsubscribe; closing presentation is not a decision.
-      serverRequestResponders.forgetApprovals();
-      invalidateConnectionScope();
+      inboundHandler.clearServerRequests("close");
     },
     refreshSharedThreads,
   };

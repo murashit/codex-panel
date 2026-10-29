@@ -1,227 +1,289 @@
-import { describe, expect, it, vi } from "vitest";
-import { createChatState } from "../../../../../src/features/chat/application/state/model";
-import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import type {
-  ApprovalAction,
-  PendingApproval,
-  PendingMcpElicitation,
-  PendingUserInput,
-} from "../../../../../src/features/chat/domain/pending-requests/model";
-import { createPendingRequestActions } from "../../../../../src/features/chat/host/thread-stream/pending-request-actions";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
+import { commandApprovalRequestFixture, userInputRequestFixture } from "../../../../support/server-requests";
+import { pendingRequestFixture } from "../../support/pending-requests";
+import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
-describe("PendingRequestActions", () => {
-  it("resolves user input from immutable draft state and restores composer focus", () => {
-    const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
-    const input = userInputRequest();
-    stateStore.dispatch({ type: "request/user-input-queued", input });
-    stateStore.dispatch({ type: "request/user-input-draft-set", key: "7:direction", value: "Left" });
+describe("pending request actions", () => {
+  it("submits the latest answer draft, clears it, records the result and restores focus", () => {
+    const { stateStore, receive, pendingRequests, focusComposer } = pendingRequestFixture();
+    const response = receive(inputRequest());
+    pendingRequests.actions.setUserInputDraft(7, "7:direction", "Left");
+    pendingRequests.actions.setUserInputDraft(7, "7:direction", "Right");
 
-    pendingRequests.actions.resolveUserInput(input.requestId);
+    pendingRequests.actions.resolveUserInput(7);
 
-    expect(responder.resolveUserInput).toHaveBeenCalledWith(input.requestId, { direction: "Left" });
+    expect(response.respond).toHaveBeenCalledExactlyOnceWith({ answers: { direction: { answers: ["Right"] } } });
+    expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);
+    expect(stateStore.getState().requests.userInputDrafts.size).toBe(0);
+    expect(chatStateThreadStreamItems(stateStore.getState()).at(-1)).toMatchObject({
+      kind: "userInputResult",
+      turnId: "turn-active",
+      questions: [{ id: "direction", answer: "Right" }],
+      executionState: "completed",
+    });
     expect(focusComposer).toHaveBeenCalledOnce();
   });
 
-  it.each([
-    ["allows", "accept"],
-    ["denies", "decline"],
-  ] satisfies [string, ApprovalAction][])("%s a queued approval and commits the action", (_label, action) => {
-    const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
-    stateStore.dispatch({ type: "request/approval-queued", approval: approvalRequest() });
+  it("keeps a failed answer editable and retries with the new draft", () => {
+    const { stateStore, receive, pendingRequests, focusComposer } = pendingRequestFixture();
+    const response = receive(inputRequest());
+    response.respond.mockImplementationOnce(() => {
+      throw new Error("transport unavailable");
+    });
+    pendingRequests.actions.setUserInputDraft(7, "7:direction", "Left");
+    pendingRequests.actions.resolveUserInput(7);
 
+    expect(stateStore.getState().requests.pendingUserInputs).toHaveLength(1);
+    expect(stateStore.getState().requests.userInputDrafts.get("7:direction")).toBe("Left");
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
+      expect.objectContaining({ kind: "system", text: "Could not send user input because Codex app-server is not connected." }),
+    ]);
+    pendingRequests.actions.setUserInputDraft(7, "7:direction", "Right");
+    pendingRequests.actions.resolveUserInput(7);
+
+    expect(response.respond).toHaveBeenLastCalledWith({ answers: { direction: { answers: ["Right"] } } });
+    expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);
+    expect(chatStateThreadStreamItems(stateStore.getState()).filter((item) => item.kind === "userInputResult")).toHaveLength(1);
+    expect(focusComposer).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["accept", "decline"] as const)("answers an approval with %s and records the choice", (action) => {
+    const { stateStore, receive, pendingRequests, focusComposer } = pendingRequestFixture();
+    const response = receive(approvalRequest());
     pendingRequests.actions.resolveApproval(1, action);
 
-    expect(responder.resolveApproval).toHaveBeenCalledWith(1, action);
+    expect(response.respond).toHaveBeenCalledExactlyOnceWith({ decision: action });
+    expect(stateStore.getState().requests.approvals).toEqual([]);
+    expect(chatStateThreadStreamItems(stateStore.getState()).at(-1)).toMatchObject({
+      kind: "approvalResult",
+      executionState: action === "accept" ? "completed" : "failed",
+    });
     expect(focusComposer).toHaveBeenCalledOnce();
   });
 
-  it("cancels queued user input and commits the action", () => {
-    const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
-    const input = userInputRequest();
-    stateStore.dispatch({ type: "request/user-input-queued", input });
+  it("uses the replayed approval's responder once without duplicating presentation", () => {
+    const { stateStore, receive, pendingRequests } = pendingRequestFixture();
+    const request = commandApprovalRequestFixture(51, { threadId: "thread-active", turnId: "turn-active" });
+    const original = receive(request);
+    const replayed = receive(request);
+    expect(stateStore.getState().requests.approvals).toHaveLength(1);
+    const action = stateStore.getState().requests.approvals[0]?.actionOptions?.[0]?.action;
+    if (!action) throw new Error("Expected an offered approval action");
+    pendingRequests.actions.resolveApproval(51, action);
+    pendingRequests.actions.resolveApproval(51, action);
+    expect(original.respond).not.toHaveBeenCalled();
+    expect(original.reject).not.toHaveBeenCalled();
+    expect(replayed.respond).toHaveBeenCalledExactlyOnceWith({ decision: "accept" });
+    expect(stateStore.getState().requests.approvals).toEqual([]);
+  });
 
-    pendingRequests.actions.cancelUserInput(input.requestId);
+  it("cancels user input without publishing an answer", () => {
+    const { stateStore, receive, pendingRequests, focusComposer } = pendingRequestFixture();
+    const response = receive(inputRequest());
+    pendingRequests.actions.setUserInputDraft(7, "7:direction", "Left");
+    pendingRequests.actions.cancelUserInput(7);
 
-    expect(responder.cancelUserInput).toHaveBeenCalledWith(input.requestId);
+    expect(response.reject).toHaveBeenCalledExactlyOnceWith(-32000, "User cancelled input request.");
+    expect(response.respond).not.toHaveBeenCalled();
+    expect(stateStore.getState().requests.userInputDrafts.size).toBe(0);
+    expect(chatStateThreadStreamItems(stateStore.getState()).at(-1)).toMatchObject({
+      kind: "userInputResult",
+      turnId: "turn-active",
+      executionState: "failed",
+    });
+    expect(chatStateThreadStreamItems(stateStore.getState()).at(-1)).not.toHaveProperty("questions.0.answer");
     expect(focusComposer).toHaveBeenCalledOnce();
   });
 
-  it("skips optional user input without cancelling the request", () => {
-    const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
-    const input = optionalUserInputRequest();
-    stateStore.dispatch({ type: "request/user-input-queued", input });
-
-    pendingRequests.actions.skipUserInput(input.requestId);
-
-    expect(responder.skipUserInput).toHaveBeenCalledWith(input.requestId);
-    expect(responder.cancelUserInput).not.toHaveBeenCalled();
-    expect(focusComposer).toHaveBeenCalledOnce();
-  });
-
-  it("resolves a queued MCP elicitation and commits the action", () => {
-    const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
-    stateStore.dispatch({ type: "request/mcp-elicitation-queued", elicitation: mcpElicitationRequest() });
-
+  it("submits an MCP draft through the same request workflow", () => {
+    const { stateStore, receive, pendingRequests, focusComposer } = pendingRequestFixture();
+    const response = receive(mcpRequest());
+    pendingRequests.actions.setMcpElicitationDraft("9:mcp:title", "Fix tests");
+    pendingRequests.actions.setMcpElicitationDraft("9:mcp:notify", "false");
     pendingRequests.actions.resolveMcpElicitation(9, "accept");
 
-    expect(responder.resolveMcpElicitation).toHaveBeenCalledWith(9, "accept");
+    expect(response.respond).toHaveBeenCalledExactlyOnceWith({
+      action: "accept",
+      content: { title: "Fix tests", notify: false },
+      _meta: null,
+    });
+    expect(stateStore.getState().requests.mcpElicitationDrafts.size).toBe(0);
+    expect(stateStore.getState().requests.pendingMcpElicitations).toEqual([]);
+    expect(chatStateThreadStreamItems(stateStore.getState()).at(-1)).toMatchObject({
+      kind: "userInputResult",
+      questions: [
+        { id: "title", answer: "Fix tests" },
+        { id: "notify", answer: "false" },
+      ],
+    });
     expect(focusComposer).toHaveBeenCalledOnce();
   });
 
-  it("ignores actions for requests that disappeared before the action ran", () => {
-    const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
-    const input = userInputRequest();
-    stateStore.dispatch({ type: "request/approval-queued", approval: approvalRequest() });
-    stateStore.dispatch({ type: "request/user-input-queued", input });
-    stateStore.dispatch({ type: "request/mcp-elicitation-queued", elicitation: mcpElicitationRequest() });
-    stateStore.dispatch({ type: "request/resolved", requestId: 1 });
-    stateStore.dispatch({ type: "request/resolved", requestId: input.requestId });
-    stateStore.dispatch({ type: "request/resolved", requestId: 9 });
+  it("ignores actions for resolved requests and keeps blocking questions unskippable", () => {
+    const { handler, stateStore, receive, pendingRequests, focusComposer } = pendingRequestFixture();
+    const responses = [receive(approvalRequest()), receive(inputRequest()), receive(mcpRequest())];
+    pendingRequests.actions.skipUserInput(7);
+    expect(stateStore.getState().requests.pendingUserInputs).toHaveLength(1);
+    for (const requestId of [1, 7, 9])
+      handler.handleNotification({ method: "serverRequest/resolved", params: { threadId: "thread-active", requestId } });
 
     pendingRequests.actions.resolveApproval(1, "accept");
-    pendingRequests.actions.resolveUserInput(input.requestId);
-    pendingRequests.actions.cancelUserInput(input.requestId);
+    pendingRequests.actions.resolveUserInput(7);
+    pendingRequests.actions.cancelUserInput(7);
+    pendingRequests.actions.skipUserInput(7);
     pendingRequests.actions.resolveMcpElicitation(9, "accept");
 
-    expect(responder.resolveApproval).not.toHaveBeenCalled();
-    expect(responder.resolveUserInput).not.toHaveBeenCalled();
-    expect(responder.cancelUserInput).not.toHaveBeenCalled();
-    expect(responder.resolveMcpElicitation).not.toHaveBeenCalled();
+    for (const response of responses) {
+      expect(response.respond).not.toHaveBeenCalled();
+      expect(response.reject).not.toHaveBeenCalled();
+    }
     expect(focusComposer).not.toHaveBeenCalled();
   });
 
-  it("dispatches request drafts and approval disclosure state", () => {
-    const { stateStore, responder, pendingRequests } = actionsHarness();
-    const actions = pendingRequests.actions;
-
-    actions.setUserInputDraft(7, "7:direction", "Right");
-    actions.setMcpElicitationDraft("9:mcp:title", "Fix tests");
-    actions.setApprovalDetailsExpanded?.(1, true);
-
-    expect(stateStore.getState().requests.userInputDrafts.get("7:direction")).toBe("Right");
-    expect(responder.extendUserInputAutoResolution).not.toHaveBeenCalled();
-    expect(stateStore.getState().requests.mcpElicitationDrafts.get("9:mcp:title")).toBe("Fix tests");
+  it("keeps approval disclosure state in the host", () => {
+    const { stateStore, pendingRequests } = pendingRequestFixture();
+    pendingRequests.actions.setApprovalDetailsExpanded?.(1, true);
     expect(stateStore.getState().ui.disclosures.approvalDetails.has("1:details")).toBe(true);
-
-    actions.setApprovalDetailsExpanded?.(1, false);
-
+    pendingRequests.actions.setApprovalDetailsExpanded?.(1, false);
     expect(stateStore.getState().ui.disclosures.approvalDetails.has("1:details")).toBe(false);
   });
 
-  it("extends optional user-input auto-resolution when its draft changes", () => {
-    const { stateStore, responder, pendingRequests } = actionsHarness();
-    stateStore.dispatch({ type: "request/user-input-queued", input: optionalUserInputRequest() });
-
-    pendingRequests.actions.setUserInputDraft(7, "7:direction", "Right");
-
-    expect(responder.extendUserInputAutoResolution).toHaveBeenCalledWith(7);
-  });
-
-  it("consumes each pending-request focus signature once and resets after the queue clears", () => {
+  it("consumes each focus signature once and resets after the queue clears", () => {
     const composerHasFocus = vi.fn(() => true);
-    const { stateStore, pendingRequests } = actionsHarness(composerHasFocus);
-    const input = userInputRequest();
-
+    const { handler, receive, pendingRequests } = pendingRequestFixture({ composerHasFocus });
     expect(pendingRequests.consumeAutoFocus()).toBe(false);
-    stateStore.dispatch({ type: "request/user-input-queued", input });
+    receive(inputRequest());
     expect(pendingRequests.consumeAutoFocus()).toBe(true);
     expect(pendingRequests.consumeAutoFocus()).toBe(false);
-
-    stateStore.dispatch({ type: "request/approval-queued", approval: approvalRequest() });
+    receive(approvalRequest());
     expect(pendingRequests.consumeAutoFocus()).toBe(true);
-    stateStore.dispatch({ type: "request/resolved", requestId: input.requestId });
-    stateStore.dispatch({ type: "request/resolved", requestId: 1 });
+    for (const requestId of [1, 7])
+      handler.handleNotification({ method: "serverRequest/resolved", params: { threadId: "thread-active", requestId } });
     expect(pendingRequests.consumeAutoFocus()).toBe(false);
-
-    stateStore.dispatch({ type: "request/user-input-queued", input });
+    receive(inputRequest());
     expect(pendingRequests.consumeAutoFocus()).toBe(true);
     expect(composerHasFocus).toHaveBeenCalledTimes(3);
   });
 
-  it("does not request autofocus when focus was outside the composer", () => {
+  it("does not steal focus when the composer was not focused", () => {
     const composerHasFocus = vi.fn(() => false);
-    const { stateStore, pendingRequests } = actionsHarness(composerHasFocus);
-    stateStore.dispatch({ type: "request/approval-queued", approval: approvalRequest() });
-
+    const { receive, pendingRequests } = pendingRequestFixture({ composerHasFocus });
+    receive(approvalRequest());
     expect(pendingRequests.consumeAutoFocus()).toBe(false);
     composerHasFocus.mockReturnValue(true);
     expect(pendingRequests.consumeAutoFocus()).toBe(false);
     expect(composerHasFocus).toHaveBeenCalledOnce();
   });
+
+  describe("optional questions", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.stubGlobal("window", globalThis);
+      vi.setSystemTime(1_000);
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    });
+
+    it.each(["submit", "timeout"])("extends the deadline on editing before %s resolves the request", (action) => {
+      const { stateStore, receive, pendingRequests } = pendingRequestFixture();
+      const response = receive(inputRequest(false));
+      vi.advanceTimersByTime(100_000);
+      pendingRequests.actions.setUserInputDraft(7, "7:direction", "Left");
+      expect(stateStore.getState().requests.pendingUserInputs[0]?.autoResolutionAtMs).toBe(221_000);
+      vi.advanceTimersByTime(119_999);
+      expect(response.respond).not.toHaveBeenCalled();
+      if (action === "submit") {
+        pendingRequests.actions.setUserInputDraft(7, "7:direction", "Right");
+        pendingRequests.actions.resolveUserInput(7);
+      } else {
+        vi.advanceTimersByTime(1);
+      }
+      vi.advanceTimersByTime(120_000);
+      expect(response.respond).toHaveBeenCalledExactlyOnceWith(
+        action === "submit" ? { answers: { direction: { answers: ["Right"] } } } : { answers: {} },
+      );
+      expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);
+    });
+
+    it.each(["timeout", "skip"])("resolves by %s without an answer or result item", (action) => {
+      const { stateStore, receive, pendingRequests } = pendingRequestFixture();
+      const response = receive(inputRequest(false));
+      vi.advanceTimersByTime(119_999);
+      expect(response.respond).not.toHaveBeenCalled();
+      if (action === "skip") pendingRequests.actions.skipUserInput(7);
+      vi.advanceTimersByTime(1);
+      expect(response.respond).toHaveBeenCalledExactlyOnceWith({ answers: {} });
+      expect(response.reject).not.toHaveBeenCalled();
+      expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);
+      expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
+    });
+
+    it.each(["resolved", "disconnect", "close"] as const)("clears the timer when the request is %s", (action) => {
+      const { handler, receive } = pendingRequestFixture();
+      const response = receive(inputRequest(false));
+      if (action === "resolved")
+        handler.handleNotification({ method: "serverRequest/resolved", params: { threadId: "thread-active", requestId: 7 } });
+      else handler.clearServerRequests(action);
+      vi.advanceTimersByTime(120_000);
+      expect(response.respond).not.toHaveBeenCalled();
+      expect(response.reject).toHaveBeenCalledTimes(action === "resolved" ? 0 : 1);
+    });
+  });
 });
 
-function actionsHarness(composerHasFocus = vi.fn(() => false)) {
-  const stateStore = createChatStateStore(createChatState());
-  const responder = {
-    resolveApproval: vi.fn(),
-    resolveUserInput: vi.fn(),
-    skipUserInput: vi.fn(),
-    extendUserInputAutoResolution: vi.fn(),
-    cancelUserInput: vi.fn(),
-    resolveMcpElicitation: vi.fn(),
-  };
-  const focusComposer = vi.fn();
-  const pendingRequests = createPendingRequestActions({
-    stateStore,
-    responder,
-    composerHasFocus,
-    focusComposer,
+function inputRequest(isBlocking = true) {
+  return userInputRequestFixture(7, {
+    isBlocking,
+    questions: [
+      {
+        id: "direction",
+        header: "Direction",
+        question: "Which direction?",
+        isOther: false,
+        isSecret: false,
+        options: [
+          { label: "Left", description: "Go left" },
+          { label: "Right", description: "Go right" },
+        ],
+      },
+    ],
   });
-  return { stateStore, responder, focusComposer, pendingRequests };
 }
 
-function approvalRequest(): PendingApproval {
+function approvalRequest(): ServerRequest {
   return {
-    requestId: 1,
-    kind: "fileChange",
-    turnId: "turn",
-    title: "File change approval",
-    summary: "Run tests",
-    resultSummary: "Run tests",
-    details: [],
-    actionOptions: null,
+    id: 1,
+    method: "item/fileChange/requestApproval",
+    params: {
+      threadId: "thread-active",
+      turnId: "turn-active",
+      itemId: "file",
+      startedAtMs: 1,
+      reason: "Write file",
+      grantRoot: null,
+    },
   };
 }
 
-function mcpElicitationRequest(): PendingMcpElicitation {
+function mcpRequest(): ServerRequest {
   return {
-    requestId: 9,
+    id: 9,
+    method: "mcpServer/elicitation/request",
     params: {
-      turnId: "turn",
-      serverName: "server",
+      threadId: "thread-active",
+      turnId: "turn-active",
+      serverName: "github",
       mode: "form",
-      message: "Need input",
-      fields: [],
+      _meta: null,
+      message: "Provide issue details",
+      requestedSchema: {
+        type: "object",
+        properties: { title: { type: "string", title: "Title" }, notify: { type: "boolean", title: "Notify", default: true } },
+        required: ["title"],
+      },
     },
-  };
-}
-
-function userInputRequest(): PendingUserInput {
-  return {
-    requestId: 7,
-    autoResolutionAtMs: null,
-    params: {
-      turnId: "turn",
-      isBlocking: true,
-      questions: [
-        {
-          id: "direction",
-          header: "Direction",
-          question: "Which way?",
-          isOther: true,
-          isSecret: false,
-          options: [{ label: "Recommended", description: "Use the default path" }],
-        },
-      ],
-    },
-  };
-}
-
-function optionalUserInputRequest(): PendingUserInput {
-  const input = userInputRequest();
-  return {
-    ...input,
-    autoResolutionAtMs: 120_000,
-    params: { ...input.params, isBlocking: false },
   };
 }

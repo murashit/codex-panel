@@ -237,8 +237,12 @@ function sessionConnectionFixture(lease?: AppServerContextConnectionLease, ephem
       if (!handlers) throw new Error("Expected connection handlers.");
       handlers.onServerRequest(request, responder);
     },
-    resolveUserInput: connection.inboundHandler.resolveUserInput,
-    resolveApproval: connection.inboundHandler.resolveApproval,
+    resolveUserInput: (requestId: number, answers: Record<string, string>) => {
+      for (const [key, value] of Object.entries(answers))
+        connection.inboundHandler.pendingRequests.setUserInputDraft(requestId, `${requestId}:${key}`, value);
+      connection.inboundHandler.pendingRequests.resolveUserInput(requestId);
+    },
+    resolveApproval: connection.inboundHandler.pendingRequests.resolveApproval.bind(connection.inboundHandler.pendingRequests),
     invalidate: connection.invalidateConnectionScope,
     deactivate: connection.deactivate,
     exit: () => handlers?.onExit(),

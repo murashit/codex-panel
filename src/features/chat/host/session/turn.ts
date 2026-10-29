@@ -2,12 +2,12 @@ import { Notice } from "obsidian";
 import { readLatestThreadTurnId } from "../../../../app-server/services/threads";
 import { codexTextInput } from "../../../../domain/input/input";
 import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
-import type { ChatInboundHandler } from "../../app-server/inbound/handler";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
 import type { ComposerInput } from "../../application/composer/input";
 import type { NoteCandidateProvider } from "../../application/composer/note-context";
 import type { ReconnectPanelOptions } from "../../application/connection/reconnect-command";
 import type { LocalIdSource } from "../../application/local-id-source";
+import type { PendingRequests } from "../../application/pending-requests/controller";
 import type { ChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
 import type { ChatRuntimeSharedResources } from "../../application/runtime/snapshot";
 import { executePanelSlashCommand, type PanelSlashCommandHost } from "../../application/slash-commands/execute-with-state";
@@ -57,7 +57,7 @@ interface SessionTurnInput {
   appServer: ChatAppServerGateway;
   ensureConnected: () => Promise<boolean>;
   status: SessionTurnStatus;
-  inboundHandler: ChatInboundHandler;
+  pendingRequests: PendingRequests;
   threadLifecycle: SessionThreadLifecycle;
   threadCommands: ThreadCommands;
   navigation: ThreadNavigationCommands;
@@ -81,7 +81,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     appServer,
     ensureConnected,
     status,
-    inboundHandler,
+    pendingRequests: requestController,
     threadLifecycle,
     threadCommands,
     navigation,
@@ -97,7 +97,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
   } = input;
   const pendingRequests = createPendingRequestActions({
     stateStore: host.stateStore,
-    responder: inboundHandler,
+    requests: requestController,
     composerHasFocus: () => composerController.hasFocus(),
     focusComposer: () => {
       composerController.focusComposer();
