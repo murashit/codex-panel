@@ -65,7 +65,7 @@
     "vitest": "^5.0.0"
   },
   "dependencies": {
-    "@tanstack/query-core": "^5.104.3",
+    "@tanstack/query-core": "^5.104.5",
     "defuddle": "^0.19.5",
     "diff": "^9.0.0",
     "mdast-util-from-markdown": "^2.1.0",
