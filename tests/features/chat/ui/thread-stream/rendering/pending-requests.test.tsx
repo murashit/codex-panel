@@ -55,7 +55,7 @@ describe("panel pending request rendering", () => {
         parent,
         state.approvals,
         state.pendingUserInputs,
-        { values: state.userInputDrafts },
+        state.userInputDrafts,
         new Set(),
         requests.actions,
         false,
@@ -111,18 +111,7 @@ describe("panel pending request rendering", () => {
     const second = document.createElement("div");
     const input = pendingUserInput();
     const render = (parent: HTMLElement, namespace: string) =>
-      renderPendingRequestNode(
-        parent,
-        [],
-        [input],
-        { values: new Map() },
-        new Set(),
-        pendingRequestActions(),
-        false,
-        undefined,
-        "",
-        namespace,
-      );
+      renderPendingRequestNode(parent, [], [input], new Map(), new Set(), pendingRequestActions(), false, undefined, "", namespace);
 
     render(first, "panel-a");
     render(second, "panel-b");
@@ -140,18 +129,7 @@ describe("panel pending request rendering", () => {
     const resolveUserInput = vi.fn();
     const input = pendingUserInput();
 
-    renderPendingRequestNode(
-      parent,
-      [],
-      [input],
-      {
-        values: drafts,
-        draftKey: (requestId, questionId) => `${String(requestId)}:${questionId}`,
-        otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
-      },
-      new Set(),
-      pendingRequestActions({ resolveUserInput }),
-    );
+    renderPendingRequestNode(parent, [], [input], drafts, new Set(), pendingRequestActions({ resolveUserInput }));
 
     expect(parent.querySelectorAll(".codex-panel__pending-request-block")).toHaveLength(1);
     expect(parent.querySelector(".codex-panel__pending-request-block")?.classList.contains("codex-panel__status-stream-item")).toBe(true);
@@ -181,7 +159,7 @@ describe("panel pending request rendering", () => {
     };
     const actions = pendingRequestActions();
     try {
-      renderPendingRequestNode(parent, [], [input], { values: new Map() }, new Set(), actions);
+      renderPendingRequestNode(parent, [], [input], new Map(), new Set(), actions);
 
       expect(parent.querySelector(".codex-panel__pending-request-body")?.textContent).toBe("Optional — Codex will continue automatically.");
       expect(textContents(parent, ".codex-panel__pending-request-button")).toEqual(["Submit", "Skip"]);
@@ -193,7 +171,7 @@ describe("panel pending request rendering", () => {
         "Optional — Codex will continue without an answer in 30 seconds.",
       );
 
-      renderPendingRequestNode(parent, [], [{ ...input, autoResolutionAtMs: 211_000 }], { values: new Map() }, new Set(), actions);
+      renderPendingRequestNode(parent, [], [{ ...input, autoResolutionAtMs: 211_000 }], new Map(), new Set(), actions);
       expect(parent.querySelector(".codex-panel__pending-request-body")?.textContent).toBe("Optional — Codex will continue automatically.");
 
       actEvent(() => {
@@ -304,7 +282,7 @@ describe("panel pending request rendering", () => {
     const approval = pendingApproval();
     const input = pendingUserInput();
 
-    renderPendingRequestNode(parent, [approval], [input], userInputDraftsFixture(), new Set(), pendingRequestActions());
+    renderPendingRequestNode(parent, [approval], [input], new Map(), new Set(), pendingRequestActions());
 
     expect(parent.querySelectorAll(".codex-panel__pending-request-block")).toHaveLength(1);
     expect(parent.querySelectorAll(".codex-panel__pending-request-card")).toHaveLength(2);
@@ -340,7 +318,7 @@ describe("panel pending request rendering", () => {
         parent,
         [pendingApproval()],
         [input],
-        userInputDraftsFixture(),
+        new Map(),
         new Set(),
         pendingRequestActions({ setUserInputDraft }),
         true,
@@ -363,7 +341,7 @@ describe("panel pending request rendering", () => {
     const input = pendingOtherUserInput();
 
     try {
-      renderPendingRequestNode(parent, [], [input], userInputDraftsFixture(), new Set(), pendingRequestActions(), true);
+      renderPendingRequestNode(parent, [], [input], new Map(), new Set(), pendingRequestActions(), true);
 
       expect(document.activeElement).toBe(parent.querySelector(".codex-panel__user-input-radio:checked"));
       expect(document.activeElement).not.toBe(parent.querySelector(".codex-panel__user-input-other-text"));
@@ -378,7 +356,7 @@ describe("panel pending request rendering", () => {
     document.body.appendChild(parent);
 
     try {
-      renderPendingRequestNode(parent, [pendingApproval()], [], userInputDraftsFixture(), new Set(), pendingRequestActions(), true);
+      renderPendingRequestNode(parent, [pendingApproval()], [], new Map(), new Set(), pendingRequestActions(), true);
 
       expect(document.activeElement).toBe(parent.querySelector(".codex-panel__pending-request-button.mod-cta"));
     } finally {
@@ -415,7 +393,7 @@ describe("panel pending request rendering", () => {
     };
     const resolveApproval = vi.fn();
 
-    renderPendingRequestNode(parent, [approval], [], userInputDraftsFixture(), new Set(), pendingRequestActions({ resolveApproval }));
+    renderPendingRequestNode(parent, [approval], [], new Map(), new Set(), pendingRequestActions({ resolveApproval }));
 
     const buttons = [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-button")];
     expect(textContents(parent, ".codex-panel__pending-request-button")).toEqual(["Allow network rule", "Deny"]);
@@ -725,7 +703,7 @@ describe("panel pending request rendering", () => {
       parent,
       [approval],
       [input],
-      { values: new Map() },
+      new Map(),
       new Set(),
       pendingRequestActions({ cancelUserInput, setApprovalDetailsExpanded }),
     );
@@ -883,30 +861,16 @@ function pendingMcpMultiSelectElicitation(): PendingRequestBlockSnapshot["pendin
   });
 }
 
-function controlledUserInputDrafts() {
+function controlledOtherInput(parent = document.createElement("div")) {
+  const input = pendingOtherUserInput();
   const drafts = new Map<string, string>();
-  const { draftKey, otherDraftKey } = userInputDraftsFixture(drafts);
   const actions = pendingRequestActions({
     setUserInputDraft: vi.fn((_requestId, key: string, value: string) => {
       drafts.set(key, value);
     }),
   });
-  return { drafts, draftKey, otherDraftKey, actions };
-}
-
-function userInputDraftsFixture(values = new Map<string, string>()) {
-  return {
-    values,
-    draftKey: (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}`,
-    otherDraftKey: (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}:other`,
-  };
-}
-
-function controlledOtherInput(parent = document.createElement("div")) {
-  const input = pendingOtherUserInput();
-  const { drafts, draftKey, otherDraftKey, actions } = controlledUserInputDrafts();
   const render = () => {
-    renderPendingRequestNode(parent, [], [input], { values: drafts, draftKey, otherDraftKey }, new Set(), actions);
+    renderPendingRequestNode(parent, [], [input], drafts, new Set(), actions);
   };
   return { parent, actions, drafts, render };
 }
