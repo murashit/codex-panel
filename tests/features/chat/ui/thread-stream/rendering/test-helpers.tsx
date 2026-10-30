@@ -203,11 +203,7 @@ export function renderPendingRequestNode(
   parent: HTMLElement,
   approvals: readonly PendingApproval[],
   pendingUserInputs: readonly PendingUserInput[],
-  drafts: {
-    values: ReadonlyMap<string, string>;
-    draftKey?: (requestId: PendingUserInput["requestId"], questionId: string) => string;
-    otherDraftKey?: (requestId: PendingUserInput["requestId"], questionId: string) => string;
-  },
+  drafts: ReadonlyMap<string, string>,
   approvalDetails: ReadonlySet<string>,
   actions: PendingRequestBlockActions,
   autoFocusRequested = false,
@@ -219,7 +215,7 @@ export function renderPendingRequestNode(
     approvals,
     pendingUserInputs,
     pendingMcpElicitations: [],
-    userInputDrafts: drafts.values,
+    userInputDrafts: drafts,
     mcpElicitationDrafts: new Map(),
     approvalDetails,
   });
