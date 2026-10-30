@@ -1,30 +1,34 @@
 # Codex Panel
 
-Codex Panel is a dedicated Codex frontend for Obsidian. Work with Codex beside your notes, bring vault references into prompts, and review edits without leaving your workspace. The panel combines Obsidian integration with controls for Codex models, permissions, plans, and conversations, using your existing local Codex CLI installation, authentication, and configuration.
+Codex Panel brings Codex into Obsidian, so you can work with it alongside your notes using your existing Codex setup.
 
 ![Codex Panel](assets/screenshot.webp)
 
 ## Connect your notes and Codex
 
-Reference notes and headings with wikilink completion, use `@active` for the open note or `@selection` for selected text, or include the active note automatically. With Daily Notes or Periodic Notes configured, `@today`, `@tomorrow`, and `@yesterday` reference daily notes. Attach files and images or use `/web` to bring readable web content into a prompt. Codex can follow Obsidian links between notes, and links and tags in replies open notes and vault searches.
+Write prompts as you would an Obsidian note, with wikilink completion for notes and headings. Links and tags in replies work as they do in your Obsidian notes.
 
-**Rewrite selection** uses the surrounding note context to propose an edit to selected text, with a diff preview before applying it. For broader file changes, the panel also provides a diff view and patch copying.
+Use `@active` to mention the open note and `@selection` to include selected text. `@today`, `@tomorrow`, and `@yesterday` reference daily notes. You can also attach files and images or bring web content into a prompt with `/web`.
+
+**Rewrite selection** proposes changes to selected text using the surrounding note as context, with a diff preview before applying them.
 
 ## Work with Codex in Obsidian
 
-The panel brings Codex features such as Plan mode and Goals into Obsidian. It shows command and tool activity and subagent progress, and lets you guide or interrupt a running turn.
+You can keep separate conversations open side by side in different panels.
 
-Answer Codex's questions and review requests for commands, file changes, and additional permissions in the conversation. Connected MCP tools can also present input forms and links for browser-based confirmation.
+Plan mode and Goals are available as you work with Codex in a conversation. While Codex works, you can follow tool activity and subagent progress, steer or interrupt a turn, and respond to questions and approval requests. When files change, the panel provides a diff view for review.
 
-The panel gives you access to model and permission controls, context and usage information, and conversation compaction. Your existing Codex skills, MCP servers, plugins, and configuration are available alongside these controls.
+You can adjust the model and permissions from the panel, check context and usage, and compact the conversation when needed.
+
+For a side question, `/btw` opens a temporary chat. You can also fork from a completed turn or roll back the latest turn. To bring context from another conversation into your prompt, use `/refer` for its recent turns.
 
 ## Manage conversations
 
-Each panel has its own conversation and draft, so you can work on separate tasks side by side. Regular conversations can be resumed later; temporary conversations stay out of history. Temporary side chats are also available with `/btw`.
+The **Open thread...** picker lets you search for past conversations and resume earlier work. You can also start a temporary conversation without adding it to your history.
 
-From the panel, you can fork from a completed turn, include recent turns from another non-archived conversation in a prompt with `/refer`, and roll back the latest conversation turn.
+For an overview of your conversations, **Open threads view** opens a dedicated view with running and unread indicators. You can rename and archive conversations directly from this view.
 
-Search and organize conversations, archive and restore them, and optionally save conversations as Markdown notes in your vault when archiving. Running and unread indicators help you follow work across panels.
+Archiving can also save a conversation as a Markdown note in your vault. Archived conversations remain available to restore later.
 
 ## Get started
 
@@ -32,6 +36,8 @@ Search and organize conversations, archive and restore them, and optionally save
 2. In Obsidian's Community plugins browser, search for **Codex Panel**, install it, and enable it. You can also visit the [Community plugin page](https://community.obsidian.md/plugins/codex-panel).
 3. Open a note, then run **Codex Panel: Open panel** from the command palette or select the ribbon icon.
 4. Try `@active Summarize this note and suggest the next three actions.`
+
+The panel uses your existing Codex skills, MCP servers, and plugins.
 
 If Obsidian cannot find `codex`, set **Settings → Codex Panel → Codex executable** to its absolute path, such as `/opt/homebrew/bin/codex`.
 
