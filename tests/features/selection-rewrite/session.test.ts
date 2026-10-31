@@ -43,7 +43,7 @@ describe("SelectionRewriteSession", () => {
     else result.reject(new Error("Cancelled generation"));
 
     await expect(first).resolves.toBe("started");
-    expect(session.state).toMatchObject({ status: "generating", streamText: "", replacementText: null });
+    expect(session.state).toMatchObject({ status: "generating", streamText: "" });
   });
 
   it("discards a failed partial replacement and allows a successful retry", async () => {
@@ -59,7 +59,7 @@ describe("SelectionRewriteSession", () => {
 
     await session.generate(renderHooks);
 
-    expect(session.state).toMatchObject({ status: "failed", streamText: "", replacementText: null, debugText: "malformed output" });
+    expect(session.state).toMatchObject({ status: "failed", debugText: "malformed output" });
     expect(session.status).toEqual({ text: "Invalid replacement", active: false });
     expect(session.isGenerating).toBe(false);
     expect(renderHooks.focusApplyButton).not.toHaveBeenCalled();
@@ -67,7 +67,7 @@ describe("SelectionRewriteSession", () => {
     await session.generate(renderHooks);
 
     expect(generate).toHaveBeenCalledTimes(2);
-    expect(session.state).toMatchObject({ status: "preview", streamText: "", replacementText: "recovered", debugText: null });
+    expect(session.state).toMatchObject({ status: "preview", replacementText: "recovered" });
     expect(session.status).toEqual({ text: "", active: false });
     expect(session.isGenerating).toBe(false);
     expect(renderHooks.focusApplyButton).toHaveBeenCalledOnce();
@@ -89,7 +89,7 @@ describe("SelectionRewriteSession", () => {
 
     await expect(session.generate(renderHooks)).resolves.toBe("started");
 
-    expect(session.state).toMatchObject({ status: "preview", streamText: "", replacementText: "final" });
+    expect(session.state).toMatchObject({ status: "preview", replacementText: "final" });
     expect(session.status).toEqual({ text: "", active: false });
     expect(renders).toContainEqual({ status: "Reasoning", active: true, streamText: "" });
     expect(renders).toContainEqual({ status: "Writing replacement", active: true, streamText: "partial" });

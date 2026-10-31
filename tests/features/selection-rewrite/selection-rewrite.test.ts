@@ -367,7 +367,7 @@ describe("selection rewrite popover", () => {
     const popover = new SelectionRewritePopover(
       popoverOptions({
         editor: editor.editor,
-        state: rewriteState({ originalText: "---", replacementText: "++ frontmatter\n" }),
+        state: { ...rewriteState({ originalText: "---" }), status: "preview", streamText: "", replacementText: "++ frontmatter\n" },
       }),
     );
     openPopover(popover);
@@ -428,7 +428,7 @@ describe("selection rewrite popover", () => {
     const popover = new SelectionRewritePopover(
       popoverOptions({
         editor: editor.editor,
-        state: rewriteState({ status: "preview", replacementText: "Rewritten sentence." }),
+        state: { ...rewriteState(), status: "preview", streamText: "", replacementText: "Rewritten sentence." },
       }),
     );
 
@@ -645,7 +645,9 @@ describe("selection rewrite popover", () => {
   });
 });
 
-function rewriteState(overrides: Partial<SelectionRewriteState> = {}): SelectionRewriteState {
+type EditingRewriteState = Extract<SelectionRewriteState, { status: "editing" }>;
+
+function rewriteState(overrides: Partial<EditingRewriteState> = {}): EditingRewriteState {
   return {
     filePath: "Note.md",
     targetRange: {
@@ -660,7 +662,7 @@ function rewriteState(overrides: Partial<SelectionRewriteState> = {}): Selection
     replacementText: null,
     debugText: null,
     ...overrides,
-  } as SelectionRewriteState;
+  };
 }
 
 function openPopover(popover: SelectionRewritePopover): void {
