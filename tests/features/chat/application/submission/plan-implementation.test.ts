@@ -9,6 +9,7 @@ import { implementPlan, type PlanImplementationHost } from "../../../../../src/f
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred } from "../../../../support/async";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 
 const planItem = (id: string): ThreadStreamItem => ({
@@ -38,7 +39,7 @@ function resumeThread(
   threadId = "thread",
 ): void {
   stateStore.dispatch({
-    ...threadActivationFixture({ id: threadId, cliVersion: "test" } as never),
+    ...threadActivationFixture(panelThreadFixture({ id: threadId })),
     type: "active-thread/resumed",
     items,
     lifetime,
