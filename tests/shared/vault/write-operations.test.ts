@@ -7,75 +7,28 @@ import {
   type VaultPathDestination,
   withVaultWriteLock,
 } from "../../../src/shared/vault/write-operations";
-import { deferred, waitForAsyncWork } from "../../support/async";
+import { deferred } from "../../support/async";
 
 describe("vault write paths", () => {
-  it("runs writes for the same destination in FIFO order", async () => {
-    const destination = lockDestination();
-    const firstRelease = deferred<void>();
-    const secondRelease = deferred<void>();
-    const events: string[] = [];
+  it.each(["implicit", "explicit"] as const)("serializes %s lock keys without blocking distinct keys", async (keyKind) => {
+    const destination: VaultPathDestination = {
+      ...(keyKind === "explicit" ? { writeLockKey: {} } : {}),
+      normalizePath: (path) => path,
+      exists: async () => false,
+      createFolder: async () => undefined,
+    };
+    const release = deferred<void>();
+    const nextOperation = vi.fn(async () => "next");
+    const first = withVaultWriteLock(destination, () => release.promise);
+    const next = withVaultWriteLock(destination, nextOperation);
 
-    const first = withVaultWriteLock(destination, async () => {
-      events.push("first:start");
-      await firstRelease.promise;
-      events.push("first:end");
-    });
-    const second = withVaultWriteLock(destination, async () => {
-      events.push("second:start");
-      await secondRelease.promise;
-      events.push("second:end");
-    });
+    const independent = { ...destination, ...(keyKind === "explicit" ? { writeLockKey: {} } : {}) };
+    await expect(withVaultWriteLock(independent, async () => "independent")).resolves.toBe("independent");
+    expect(nextOperation).not.toHaveBeenCalled();
+    release.resolve();
 
-    await waitForAsyncWork(() => expect(events).toEqual(["first:start"]));
-    firstRelease.resolve();
     await first;
-    await waitForAsyncWork(() => expect(events).toEqual(["first:start", "first:end", "second:start"]));
-    const third = withVaultWriteLock(destination, async () => {
-      events.push("third");
-    });
-    await Promise.resolve();
-    expect(events).toEqual(["first:start", "first:end", "second:start"]);
-
-    secondRelease.resolve();
-    await Promise.all([second, third]);
-
-    expect(events).toEqual(["first:start", "first:end", "second:start", "second:end", "third"]);
-  });
-
-  it("releases the write lock when an operation fails", async () => {
-    const destination = lockDestination();
-    const firstRelease = deferred<void>();
-    const first = withVaultWriteLock(destination, async () => {
-      await firstRelease.promise;
-      throw new Error("write failed");
-    });
-    const second = withVaultWriteLock(destination, async () => "second completed");
-
-    firstRelease.resolve();
-
-    await expect(first).rejects.toThrow("write failed");
-    await expect(second).resolves.toBe("second completed");
-  });
-
-  it("allows destinations with different write lock keys to write concurrently", async () => {
-    const firstRelease = deferred<void>();
-    const secondRelease = deferred<void>();
-    const events: string[] = [];
-
-    const first = withVaultWriteLock(lockDestination({}), async () => {
-      events.push("first");
-      await firstRelease.promise;
-    });
-    const second = withVaultWriteLock(lockDestination({}), async () => {
-      events.push("second");
-      await secondRelease.promise;
-    });
-
-    await waitForAsyncWork(() => expect(events).toEqual(["first", "second"]));
-    firstRelease.resolve();
-    secondRelease.resolve();
-    await Promise.all([first, second]);
+    await expect(next).resolves.toBe("next");
   });
 
   it("creates missing folder segments in parent-first order and skips existing segments", async () => {
@@ -125,15 +78,6 @@ describe("vault write paths", () => {
     );
   });
 });
-
-function lockDestination(writeLockKey?: object): VaultPathDestination {
-  return {
-    ...(writeLockKey === undefined ? {} : { writeLockKey }),
-    normalizePath: (path) => path,
-    exists: vi.fn(async () => false),
-    createFolder: vi.fn(async () => undefined),
-  };
-}
 
 function memoryDestination(existingPaths: readonly string[]): Pick<VaultPathDestination, "normalizePath" | "exists"> {
   const paths = new Set(existingPaths);

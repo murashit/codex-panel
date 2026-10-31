@@ -1,4 +1,5 @@
 import { splitVaultFilename } from "../../domain/files/vault-write-paths";
+import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../async/keyed-operation-coordinator";
 
 export interface VaultPathDestination {
   readonly writeLockKey?: object;
@@ -11,24 +12,16 @@ export interface VaultMarkdownDestination extends VaultPathDestination {
   createMarkdownFile(path: string, content: string): Promise<void>;
 }
 
-const writeTails = new WeakMap<object, Promise<void>>();
+const writeQueues = new WeakMap<object, KeyedOperationCoordinator<object>>();
 
-export async function withVaultWriteLock<T>(destination: VaultPathDestination, operation: () => Promise<T>): Promise<T> {
+export function withVaultWriteLock<T>(destination: VaultPathDestination, operation: () => Promise<T>): Promise<T> {
   const key = destination.writeLockKey ?? destination;
-  const previous = writeTails.get(key) ?? Promise.resolve();
-  let release!: () => void;
-  const current = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const tail = previous.then(() => current);
-  writeTails.set(key, tail);
-  await previous;
-  try {
-    return await operation();
-  } finally {
-    release();
-    if (writeTails.get(key) === tail) writeTails.delete(key);
+  let queue = writeQueues.get(key);
+  if (!queue) {
+    queue = createKeyedOperationCoordinator({ whenBusy: "queue" });
+    writeQueues.set(key, queue);
   }
+  return queue.run(key, operation);
 }
 
 const DEFAULT_FIRST_COLLISION_SUFFIX = 2;
