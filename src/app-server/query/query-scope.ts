@@ -83,10 +83,9 @@ export class AppServerQueryScope {
         isFetching: result.isFetching,
       } satisfies ObservedResult<TValue>);
     };
-    const unsubscribe = observer.subscribe(emit);
+    observer.subscribe(emit);
     emit(observer.getCurrentResult());
     return this.trackObserver(() => {
-      unsubscribe();
       observer.destroy();
     });
   }

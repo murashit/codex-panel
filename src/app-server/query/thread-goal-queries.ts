@@ -26,10 +26,9 @@ export class AppServerThreadGoalQueries {
       const result = observer.getCurrentResult();
       listener(result.data ?? null, result.error ? errorMessage(result.error) : null);
     };
-    const unsubscribe = observer.subscribe(emit);
+    observer.subscribe(emit);
     emit();
     return this.scope.trackObserver(() => {
-      unsubscribe();
       observer.destroy();
     });
   }
