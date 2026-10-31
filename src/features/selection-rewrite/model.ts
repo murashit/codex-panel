@@ -19,33 +19,35 @@ interface SelectionRewriteBaseState {
   instruction: string;
 }
 
-export type SelectionRewriteState = SelectionRewriteBaseState &
-  (
-    | {
-        status: "editing";
-        streamText: string;
-        replacementText: null;
-        debugText: null;
-      }
-    | {
-        status: "generating";
-        streamText: string;
-        replacementText: null;
-        debugText: null;
-      }
-    | {
-        status: "preview";
-        streamText: "";
-        replacementText: string;
-        debugText: null;
-      }
-    | {
-        status: "failed";
-        streamText: "";
-        replacementText: null;
-        debugText: string | null;
-      }
-  );
+export type SelectionRewriteState = Readonly<
+  SelectionRewriteBaseState &
+    (
+      | {
+          status: "editing";
+          streamText: string;
+          replacementText: null;
+          debugText: null;
+        }
+      | {
+          status: "generating";
+          streamText: string;
+          replacementText: null;
+          debugText: null;
+        }
+      | {
+          status: "preview";
+          streamText: "";
+          replacementText: string;
+          debugText: null;
+        }
+      | {
+          status: "failed";
+          streamText: "";
+          replacementText: null;
+          debugText: string | null;
+        }
+    )
+>;
 
 export interface SelectionRewriteRuntimeSettings {
   rewriteSelectionModel: string | null;
