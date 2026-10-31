@@ -122,8 +122,9 @@ describe("wikilink context", () => {
           description: "Maintain Codex Panel",
           path: "/vault/___/skills/obsidian-codex-panel-maintain/SKILL.md",
           scope: "repo",
+          pluginId: null,
           enabled: true,
-        } as never,
+        },
       ],
     );
 
@@ -147,29 +148,33 @@ describe("wikilink context", () => {
         description: "First skill",
         path: "/skills/first/SKILL.md",
         scope: "user",
+        pluginId: null,
         enabled: true,
-      } as never,
+      },
       {
         name: "first",
         description: "Duplicate name should not win",
         path: "/skills/duplicate/SKILL.md",
         scope: "user",
+        pluginId: null,
         enabled: true,
-      } as never,
+      },
       {
         name: "Alias",
         description: "Same path alias",
         path: "/skills/first/SKILL.md",
         scope: "user",
+        pluginId: null,
         enabled: true,
-      } as never,
+      },
       {
         name: "missing",
         description: "Disabled skill",
         path: "/skills/missing/SKILL.md",
         scope: "user",
+        pluginId: null,
         enabled: false,
-      } as never,
+      },
     ]);
 
     expect(input).toEqual([
@@ -191,14 +196,14 @@ describe("wikilink context", () => {
       "    [[Indented]] $Indented",
     ].join("\n");
     const skills = ["Visible", "Inline", "Fenced", "Indented"].map(
-      (name) =>
-        ({
-          name,
-          description: name,
-          path: `/skills/${name.toLowerCase()}/SKILL.md`,
-          scope: "repo",
-          enabled: true,
-        }) as never,
+      (name): SkillMetadata => ({
+        name,
+        description: name,
+        path: `/skills/${name.toLowerCase()}/SKILL.md`,
+        scope: "repo",
+        pluginId: null,
+        enabled: true,
+      }),
     );
 
     const input = userInputWithWikiLinkReferencesAndSkills(text, (target) => ({ name: target, path: `${target}.md` }), skills);

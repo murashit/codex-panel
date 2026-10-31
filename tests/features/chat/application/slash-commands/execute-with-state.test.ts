@@ -13,6 +13,7 @@ import { deferred } from "../../../../support/async";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { createThreadActivationFixture } from "../../support/activation";
+import { emptyComposerInputSnapshot } from "../../support/composer-input";
 import { slashGoalsFixture, slashRuntimeSettingsFixture } from "../../support/slash-command-ports";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
@@ -246,7 +247,7 @@ describe("executePanelSlashCommand", () => {
     const { host, referThread } = createHost({
       listedThreads: () => [thread("019abcde-0000-7000-8000-000000000001", "Other")],
     });
-    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
+    const inputSnapshot = { ...emptyComposerInputSnapshot(), sourcePath: "snapshot.md" };
     referThread.mockResolvedValue({
       text: "prepared summarize",
       input: textInput("referenced summarize"),

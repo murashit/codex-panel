@@ -3,6 +3,7 @@ import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { executeContextSlashCommand } from "../../../../../src/features/chat/application/slash-commands/execute-context";
 import { panelThreadFixture } from "../../../../support/panel-thread";
+import { emptyComposerInputSnapshot } from "../../support/composer-input";
 import { slashGoalsFixture, slashSubmissionFixture } from "../../support/slash-command-ports";
 
 type ContextCommandContext = Parameters<typeof executeContextSlashCommand>[2];
@@ -73,7 +74,7 @@ describe("context slash commands", () => {
   it("does not let the active thread shadow a non-active /refer match", async () => {
     const target = thread({ id: "alpha-thread", name: "Alpha other thread" });
     const input = [{ type: "text" as const, text: "A question" }];
-    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
+    const inputSnapshot = { ...emptyComposerInputSnapshot(), sourcePath: "snapshot.md" };
     const ctx = context({
       activeThreadId: "thread-current",
       inputSnapshot,
@@ -89,7 +90,7 @@ describe("context slash commands", () => {
   });
 
   it("returns fetched web context input for /web", async () => {
-    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
+    const inputSnapshot = { ...emptyComposerInputSnapshot(), sourcePath: "snapshot.md" };
     const input = [
       { type: "text" as const, text: "https://example.com/article Summarize this" },
       { type: "additionalContext" as const, key: "codex_panel_web_context", kind: "untrusted" as const, value: "Readable article" },
@@ -106,7 +107,7 @@ describe("context slash commands", () => {
   });
 
   it("returns fetched web context input for /web without a message", async () => {
-    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
+    const inputSnapshot = { ...emptyComposerInputSnapshot(), sourcePath: "snapshot.md" };
     const input = [
       { type: "text" as const, text: "https://example.com/article" },
       { type: "additionalContext" as const, key: "codex_panel_web_context", kind: "untrusted" as const, value: "Readable article" },

@@ -26,7 +26,7 @@ describe("chatReducer", () => {
         targetThreadId: null,
         phase: "cancellable",
       },
-    } as never);
+    });
 
     const cleared = chatReducer(state, { type: "connection/scoped-cleared" });
 
