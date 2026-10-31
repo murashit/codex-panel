@@ -1,30 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerRequestClient } from "../../../src/app-server/services/request-client";
 import { readInstalledPluginInventory, readMcpServerInventory } from "../../../src/app-server/services/tool-inventory";
 
 describe("tool inventory", () => {
   it("loads every MCP server status page", async () => {
-    const listMcpServers = vi
+    const request = vi
       .fn()
       .mockResolvedValueOnce({ data: [mcpServerStatus("first")], nextCursor: "next" })
       .mockResolvedValueOnce({ data: [mcpServerStatus("second")], nextCursor: null });
-    const client = toolInventoryClient({ "mcpServerStatus/list": listMcpServers });
+    const result = await readMcpServerInventory({ request }, "thread");
 
-    const result = await readMcpServerInventory(client, "thread");
-
-    expect(listMcpServers).toHaveBeenNthCalledWith(1, {
-      detail: "toolsAndAuthOnly",
-      cursor: null,
-      limit: 100,
-      threadId: "thread",
-    });
-    expect(listMcpServers).toHaveBeenNthCalledWith(2, {
-      detail: "toolsAndAuthOnly",
-      cursor: "next",
-      limit: 100,
-      threadId: "thread",
-    });
+    expect(request.mock.calls).toEqual([
+      ["mcpServerStatus/list", { detail: "toolsAndAuthOnly", cursor: null, limit: 100, threadId: "thread" }],
+      ["mcpServerStatus/list", { detail: "toolsAndAuthOnly", cursor: "next", limit: 100, threadId: "thread" }],
+    ]);
     expect(result.servers).toEqual([
       expect.objectContaining({ name: "first", connectionStatus: "connected" }),
       expect.objectContaining({ name: "second", connectionStatus: "connected" }),
@@ -32,15 +21,16 @@ describe("tool inventory", () => {
   });
 
   it("reports runtime connection and authentication issues without loading resource inventories", async () => {
-    const client = toolInventoryClient({
-      "mcpServerStatus/list": vi.fn().mockResolvedValue({
-        data: [{ ...mcpServerStatus("github"), runtimeStatus: "authenticationRequired", authStatus: "notLoggedIn" }],
-        nextCursor: null,
-      }),
+    const request = vi.fn().mockResolvedValue({
+      data: [{ ...mcpServerStatus("github"), runtimeStatus: "authenticationRequired", authStatus: "notLoggedIn" }],
+      nextCursor: null,
     });
 
-    const result = await readMcpServerInventory(client, "thread");
+    const result = await readMcpServerInventory({ request }, "thread");
 
+    expect(request.mock.calls).toEqual([
+      ["mcpServerStatus/list", { detail: "toolsAndAuthOnly", cursor: null, limit: 100, threadId: "thread" }],
+    ]);
     expect(result.servers).toEqual([
       {
         name: "github",
@@ -54,87 +44,50 @@ describe("tool inventory", () => {
   });
 
   it("reads and sorts installed plugins without loading plugin details", async () => {
-    const readPlugin = vi.fn();
-    const client = toolInventoryClient({
-      "plugin/installed": vi.fn().mockResolvedValue({
-        marketplaces: [
-          {
-            name: "remote-marketplace",
-            path: null,
-            plugins: [
-              {
-                id: "remote-plugin@remote-marketplace",
-                name: "remote-plugin",
-                interface: { displayName: "Remote Plugin" },
-                localVersion: "2.0.0",
-                installed: true,
-                enabled: true,
-                availability: "AVAILABLE",
-                source: { type: "remote" },
-              },
-            ],
-          },
-          {
-            name: "local-marketplace",
-            path: "/marketplaces/local.json",
-            plugins: [
-              {
-                id: "local-plugin@local-marketplace",
-                name: "local-plugin",
-                interface: { displayName: "Local Plugin" },
-                localVersion: "1.0.0",
-                installed: true,
-                enabled: true,
-                availability: "AVAILABLE",
-                source: { type: "local", path: "/plugins/local-plugin" },
-              },
-            ],
-          },
-        ],
-        marketplaceLoadErrors: [],
-      }),
-      "plugin/read": readPlugin,
+    const request = vi.fn().mockResolvedValue({
+      marketplaces: [
+        {
+          name: "remote-marketplace",
+          path: null,
+          plugins: [
+            {
+              id: "remote-plugin@remote-marketplace",
+              name: "remote-plugin",
+              interface: { displayName: "Remote Plugin" },
+              localVersion: "2.0.0",
+              installed: true,
+              enabled: true,
+              availability: "AVAILABLE",
+              source: { type: "remote" },
+            },
+          ],
+        },
+        {
+          name: "local-marketplace",
+          path: "/marketplaces/local.json",
+          plugins: [
+            {
+              id: "local-plugin@local-marketplace",
+              name: "local-plugin",
+              interface: { displayName: "Local Plugin" },
+              localVersion: "1.0.0",
+              installed: true,
+              enabled: true,
+              availability: "AVAILABLE",
+              source: { type: "local", path: "/plugins/local-plugin" },
+            },
+          ],
+        },
+      ],
+      marketplaceLoadErrors: [],
     });
 
-    const result = await readInstalledPluginInventory(client, "/vault");
+    const result = await readInstalledPluginInventory({ request }, "/vault");
 
-    expect(readPlugin).not.toHaveBeenCalled();
+    expect(request.mock.calls).toEqual([["plugin/installed", { cwds: ["/vault"] }]]);
     expect(result.plugins.map((plugin) => plugin.name)).toEqual(["local-plugin", "remote-plugin"]);
   });
 });
-
-function toolInventoryClient(
-  overrides: Partial<Record<string, ReturnType<typeof vi.fn>>> = {},
-): AppServerRequestClient & { request: ReturnType<typeof vi.fn> } {
-  const handlers = {
-    "plugin/installed": vi.fn().mockResolvedValue({
-      marketplaces: [],
-      marketplaceLoadErrors: [],
-    }),
-    "plugin/read": vi.fn().mockResolvedValue({
-      plugin: { skills: [], hooks: [], apps: [], appTemplates: [], mcpServers: [] },
-    }),
-    "mcpServerStatus/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
-    ...overrides,
-  };
-  const request = vi.fn(async (method: string, params: unknown) => {
-    switch (method) {
-      case "plugin/installed":
-        return (handlers["plugin/installed"] as unknown as (params: unknown) => Promise<unknown>)(params);
-      case "plugin/read":
-        return (handlers["plugin/read"] as unknown as (params: unknown) => Promise<unknown>)(params);
-      case "mcpServerStatus/list":
-        return (handlers["mcpServerStatus/list"] as unknown as (params: unknown) => Promise<unknown>)(params);
-      case "skills/list":
-        return { data: [{ cwd: "/vault", skills: [] }] };
-      default:
-        throw new Error(`Unexpected app-server request: ${method}`);
-    }
-  });
-  return {
-    request,
-  } as unknown as AppServerRequestClient & { request: ReturnType<typeof vi.fn> };
-}
 
 function mcpServerStatus(name: string) {
   return {
