@@ -84,10 +84,9 @@ export class AppServerThreadCatalog {
     const emit = (result: InfiniteQueryObserverResult<readonly Thread[]>): void => {
       if (!this.scope.isDisposed()) listener(this.projectObservedActiveThreadsResult(result));
     };
-    const unsubscribe = observer.subscribe(emit);
+    observer.subscribe(emit);
     emit(observer.getCurrentResult());
     return this.scope.trackObserver(() => {
-      unsubscribe();
       observer.destroy();
     });
   }

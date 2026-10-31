@@ -305,10 +305,9 @@ export class AppServerMetadataQueries {
       if (this.scope.isDisposed() || (result.isFetching && !includeFetching)) return;
       listener(project(result));
     };
-    const unsubscribe = observer.subscribe(emit);
+    observer.subscribe(emit);
     emit(observer.getCurrentResult(), true);
     return this.scope.trackObserver(() => {
-      unsubscribe();
       observer.destroy();
     });
   }

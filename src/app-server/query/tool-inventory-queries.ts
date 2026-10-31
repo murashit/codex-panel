@@ -67,10 +67,9 @@ export class AppServerToolInventoryQueries {
     const emit = (): void => {
       listener(this.snapshot(threadId));
     };
-    const unsubscribers = observers.map((observer) => observer.subscribe(emit));
+    for (const observer of observers) observer.subscribe(emit);
     emit();
     return this.scope.trackObserver(() => {
-      for (const unsubscribe of unsubscribers) unsubscribe();
       for (const observer of observers) observer.destroy();
     });
   }
