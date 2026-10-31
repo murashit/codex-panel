@@ -240,12 +240,23 @@ describe("CodexChatView connection lifecycle", () => {
     expectRequestTimes(client, "thread/list", 2);
   });
 
-  it("resumes while metadata is still loading without reconnecting", async () => {
+  it("shows history and resumes while metadata is still loading without reconnecting", async () => {
     const config = deferred<unknown>();
     const client = connectedClient({
       "config/read": vi.fn(() => config.promise),
+      "thread/list": vi.fn().mockResolvedValue({ data: [{ ...threadFixture("history"), name: "History before metadata" }] }),
     });
     const view = await chatViewForClient(client);
+    await view.onOpen();
+    let connected = false;
+    const fullyConnected = view.surface.connect().then(() => {
+      connected = true;
+    });
+    requiredButton(view.containerEl, ".codex-panel__history-toggle").click();
+    await waitForAsyncWork(() => {
+      expectRequestTimes(client, "config/read", 1);
+      expect(view.containerEl.querySelector(".codex-panel__threads")?.textContent).toContain("History before metadata");
+    });
 
     const opening = view.surface.activateThread("thread-1");
     await waitForAsyncWork(() => {
@@ -255,10 +266,6 @@ describe("CodexChatView connection lifecycle", () => {
       });
     });
     await opening;
-    let connected = false;
-    const fullyConnected = view.surface.connect().then(() => {
-      connected = true;
-    });
     await Promise.resolve();
 
     expect(connectionMockState().connected).toBe(true);
@@ -268,9 +275,6 @@ describe("CodexChatView connection lifecycle", () => {
 
     config.resolve({});
     await fullyConnected;
-    await waitForAsyncWork(() => {
-      expectRequestTimes(client, "thread/list", 2);
-    });
 
     expectRequestTimes(client, "config/read", 1);
   });
@@ -827,17 +831,19 @@ describe("CodexChatView connection lifecycle", () => {
       ),
     });
     const view = await chatViewForClient(client);
+    await view.onOpen();
 
     const connecting = view.surface.connect();
     await waitForAsyncWork(() => {
       expectRequestTimes(client, "config/read", 1);
     });
+    const startedRequestCount = client.request.mock.calls.length;
     await view.onClose();
     resolveConfig({});
     await connecting;
 
     expect(notices).toEqual([]);
-    expect(requestMethods(client)).not.toContain("thread/list");
+    expect(client.request).toHaveBeenCalledTimes(startedRequestCount);
   });
 
   it("notifies Threads immediately and after the workspace settles when the panel closes", async () => {
@@ -870,24 +876,37 @@ describe("CodexChatView connection lifecycle", () => {
     expect(notifyPanelActivityChanged).toHaveBeenCalledTimes(2);
   });
 
-  it("ignores stale connection work after the app-server exits during metadata loading", async () => {
+  it("ignores both pending hydration results after the app-server exits", async () => {
     const config = deferred<unknown>();
+    const threads = deferred<unknown>();
     const client = connectedClient({
       "config/read": vi.fn(() => config.promise),
+      "thread/list": vi.fn(() => threads.promise),
     });
     const view = await chatViewForClient(client);
+    await view.onOpen();
 
     const connecting = view.surface.connect();
     await waitForAsyncWork(() => {
       expectRequestTimes(client, "config/read", 1);
+      expectRequestTimes(client, "thread/list", 2);
+    });
+    requiredButton(view.containerEl, ".codex-panel__history-toggle").click();
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.querySelector(".codex-panel__threads")?.textContent).toContain("Loading threads");
     });
     connectionMockState().connected = false;
     connectionMockState().onExit?.();
 
     config.resolve({});
+    threads.resolve({ data: [{ ...threadFixture("obsolete"), name: "Obsolete history" }] });
     await connecting;
 
-    expect(requestMethods(client)).not.toContain("thread/list");
+    expectRequestTimes(client, "thread/list", 2);
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.querySelector(".codex-panel__threads")?.textContent).toContain("No threads");
+      expect(view.containerEl.textContent).not.toContain("Obsolete history");
+    });
     expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: false });
   });
 });

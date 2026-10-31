@@ -132,6 +132,7 @@ export class AppServerThreadCatalog {
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         this.scope.runWithClient((client) => listThreads(client, this.scope.context.vaultPath, { signal })),
       staleTime: 0,
+      gcTime: 0,
     };
     return this.scope.client.query(options);
   }

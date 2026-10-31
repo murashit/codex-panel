@@ -142,21 +142,14 @@ async function initializeConnection(host: ChatConnectionCoordinatorHost, isStale
 }
 
 async function hydrateConnectedResources(host: ChatConnectionCoordinatorHost, isStale: () => boolean): Promise<void> {
-  try {
-    await host.ensureAppServerMetadata();
-  } catch (error) {
-    if (isStale()) return;
-    host.addSystemMessage(`Could not refresh Codex metadata: ${errorMessage(error)}`);
-  }
-  if (isStale()) return;
-
-  try {
-    await host.ensureSharedThreads();
-  } catch (error) {
-    if (isStale()) return;
-    host.addSystemMessage(`Could not refresh Codex threads: ${errorMessage(error)}`);
-  }
-  if (isStale()) return;
+  await Promise.all([
+    host.ensureAppServerMetadata().catch((error: unknown) => {
+      if (!isStale()) host.addSystemMessage(`Could not refresh Codex metadata: ${errorMessage(error)}`);
+    }),
+    host.ensureSharedThreads().catch((error: unknown) => {
+      if (!isStale()) host.addSystemMessage(`Could not refresh Codex threads: ${errorMessage(error)}`);
+    }),
+  ]);
 }
 
 function connectionErrorMessage(error: unknown, configuredCommand: string): string {
