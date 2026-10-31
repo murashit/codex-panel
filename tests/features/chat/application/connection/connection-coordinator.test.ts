@@ -115,16 +115,17 @@ describe("ChatConnectionCoordinator", () => {
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
   });
 
-  it("publishes initialization readiness before shared resources finish hydrating", async () => {
+  it.each(["metadata", "threads"] as const)("starts independent hydration without waiting for %s", async (resource) => {
     const { coordinator, ensureAppServerMetadata, host, stateStore } = createCoordinatorHarness();
-    const metadata = deferred<void>();
-    ensureAppServerMetadata.mockReturnValueOnce(metadata.promise);
+    const pending = deferred<void>();
+    vi.mocked(resource === "metadata" ? ensureAppServerMetadata : host.ensureSharedThreads).mockReturnValueOnce(pending.promise);
 
     await coordinator.ensureConnected();
 
     expect(stateStore.getState().connection.initializeResponse).toMatchObject({ codexHome: "/codex" });
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
-    expect(host.ensureSharedThreads).not.toHaveBeenCalled();
+    expect(ensureAppServerMetadata).toHaveBeenCalledOnce();
+    expect(host.ensureSharedThreads).toHaveBeenCalledOnce();
 
     let connected = false;
     const fullyHydrated = coordinator.ensureHydrated().then(() => {
@@ -133,7 +134,7 @@ describe("ChatConnectionCoordinator", () => {
     await Promise.resolve();
     expect(connected).toBe(false);
 
-    metadata.resolve(undefined);
+    pending.resolve(undefined);
     await fullyHydrated;
 
     expect(host.ensureSharedThreads).toHaveBeenCalledOnce();
@@ -169,29 +170,28 @@ describe("ChatConnectionCoordinator", () => {
     expect(host.refreshTabHeader).toHaveBeenCalledOnce();
   });
 
-  it("keeps the initialized connection usable when metadata hydration fails", async () => {
-    const { coordinator, ensureAppServerMetadata, host, stateStore } = createCoordinatorHarness();
-    ensureAppServerMetadata.mockRejectedValueOnce(new Error("config unavailable"));
+  it.each([
+    { resource: "ensureAppServerMetadata", owner: "current", notificationCalls: [["Could not refresh Codex metadata: unavailable"]] },
+    { resource: "ensureSharedThreads", owner: "current", notificationCalls: [["Could not refresh Codex threads: unavailable"]] },
+    { resource: "ensureAppServerMetadata", owner: "retired", notificationCalls: [] },
+    { resource: "ensureSharedThreads", owner: "retired", notificationCalls: [] },
+  ] as const)("keeps the connection usable after $resource fails ($owner owner)", async ({ resource, owner, notificationCalls }) => {
+    const { coordinator, host, stateStore } = createCoordinatorHarness();
+    const pending = deferred<void>();
+    vi.mocked(host[resource]).mockReturnValueOnce(pending.promise);
+    const hydration = coordinator.ensureHydrated();
+    await coordinator.ensureConnected();
 
-    await coordinator.ensureHydrated();
+    if (owner === "retired") coordinator.invalidate();
+    pending.reject(new Error("unavailable"));
+    await hydration;
 
     expect(stateStore.getState().connection.initializeResponse).toMatchObject({ codexHome: "/codex" });
+    expect(host.ensureAppServerMetadata).toHaveBeenCalledOnce();
     expect(host.ensureSharedThreads).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
     expect(host.setStatus).not.toHaveBeenCalledWith("Connection failed.", expect.anything());
-    expect(host.addSystemMessage).toHaveBeenCalledWith("Could not refresh Codex metadata: config unavailable");
-    expect(host.notifyConnectionFailed).not.toHaveBeenCalled();
-  });
-
-  it("keeps the initialized connection usable when thread hydration fails", async () => {
-    const { coordinator, host } = createCoordinatorHarness();
-    vi.mocked(host.ensureSharedThreads).mockRejectedValueOnce(new Error("threads unavailable"));
-
-    await coordinator.ensureHydrated();
-
-    expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
-    expect(host.setStatus).not.toHaveBeenCalledWith("Connection failed.", expect.anything());
-    expect(host.addSystemMessage).toHaveBeenCalledWith("Could not refresh Codex threads: threads unavailable");
+    expect(vi.mocked(host.addSystemMessage).mock.calls).toEqual(notificationCalls);
     expect(host.notifyConnectionFailed).not.toHaveBeenCalled();
   });
 
