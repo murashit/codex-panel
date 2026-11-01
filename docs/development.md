@@ -116,7 +116,7 @@ Vitest reuses workers with `isolate: false`. Restore boundary spies, timers, glo
 These are optional diagnostics, not additional handoff gates:
 
 - `npm run test:coverage` reports unexercised authored source, including modules not imported by tests, in `coverage/index.html`. Use it to find missing behavior coverage; there is no percentage threshold.
-- `npm run test:mutation` explores correctness-critical logic selected in `stryker.config.mjs` and writes `reports/mutation/mutation.html`. Review surviving mutants individually: add tests for meaningful gaps, simplify equivalent or redundant code, and leave cases alone when neither improves the contract. Do not optimize for the aggregate score.
+- `npm run test:mutation` explores authored runtime and interaction code selected by directory-level globs in `stryker.config.mjs` and writes `reports/mutation/mutation.html`. Targets include chat host integration, selection-rewrite UI, workspace coordination, and plugin entry points; generated bindings remain outside the scope. Review surviving mutants individually: add tests for meaningful gaps, simplify equivalent or redundant code, and leave cases alone when neither improves the contract. Do not optimize for the aggregate score.
 
 ### Weekly Mutation Runs
 
@@ -133,7 +133,7 @@ gh run download RUN_ID --pattern 'mutation-*' --dir /tmp/mutation-RUN_ID
 
 Check the execution step's outcome and `run.json` (`commit` and `completed`) before opening `mutation.html` or reading `mutation.json`. Completion requires successful execution and a final report. Finalization records available diagnostics and checkpoints even when execution is incomplete. Metadata also records the baseline source, whether reuse was enabled, and Stryker's reused-mutant count (unknown if interrupted before analysis).
 
-The workflow restores the newest compatible checkpoint from its completed runs on `main`, including timed-out runs. Stryker tracks changes to mutated source and tests; dependencies, configuration, runners, test helpers, fixtures, snapshots, and source outside the mutation scope invalidate reuse. Missing, expired, invalid, or incompatible baselines start a cold run.
+The workflow restores the newest compatible checkpoint from its completed runs on `main`, including timed-out runs. Stryker tracks changes to mutated source and tests; dependencies, configuration, runners, test helpers, fixtures, snapshots, and source outside the mutation scope invalidate reuse. Missing, expired, invalid, or incompatible baselines start a cold run; this includes the first run after changing the mutation globs.
 
 Result and `mutation-baseline-*` checkpoint artifacts are retained for 90 days, subject to repository limits. Execution is limited to 120 minutes plus 60 seconds of termination grace so Stryker can save partial progress. Failed runs retain available checkpoints, metadata, and full logs; forced termination or cancellation can prevent checkpoint saving or artifact upload.
 
