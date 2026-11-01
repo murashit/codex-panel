@@ -130,7 +130,10 @@ describe("thread management commands", () => {
     expect(host.setStatus).not.toHaveBeenCalledWith("Compaction requested.");
   });
 
-  it("reports archive operation failures", async () => {
+  it.each([
+    { saveMarkdown: undefined, expectedOptions: {} },
+    { saveMarkdown: false, expectedOptions: { saveMarkdown: false } },
+  ])("preserves the archive save choice ($saveMarkdown) while reporting operation failures", async ({ saveMarkdown, expectedOptions }) => {
     const host = hostMock({
       items: [],
       mutations: {
@@ -139,9 +142,9 @@ describe("thread management commands", () => {
     });
     const controller = threadCommands(host);
 
-    await controller.archiveThread("source");
+    await controller.archiveThread("source", saveMarkdown);
 
-    expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", {});
+    expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", expectedOptions);
     expect(host.addSystemMessage).toHaveBeenCalledWith("disk full");
   });
 

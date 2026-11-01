@@ -26,13 +26,18 @@ describe("runtime control resolution", () => {
     const activeUnreported = runtimeSnapshot({
       activeThreadId: "thread",
       runtimeConfig: runtimeConfigFromAppServerFixture({
-        default_permissions: ":workspace",
         approval_policy: "on-request",
+        sandbox_mode: "read-only",
       }),
     });
     expect(resolveRuntimeControls(activeUnreported, snapshotConfig(activeUnreported))).toMatchObject({
-      permissionProfile: { configured: ":workspace", active: null, effective: ":workspace", source: "config" },
-      sandboxPolicy: { configured: null, active: null, effective: null, source: "none" },
+      permissionProfile: { configured: null, active: null, effective: null, source: "none" },
+      sandboxPolicy: {
+        configured: { type: "readOnly", networkAccess: false },
+        active: null,
+        effective: { type: "readOnly", networkAccess: false },
+        source: "config",
+      },
       approvalPolicy: { configured: "on-request", active: null, effective: "on-request", source: "config" },
     });
 

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { createThreadReferenceResolver } from "../../../../../src/features/chat/app-server/adapters/thread-reference-resolver";
+import { createChatAppServerGateway } from "../../../../../src/features/chat/app-server/session-gateway";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 
 import { emptyComposerInputSnapshot } from "../../support/composer-input";
@@ -38,8 +39,11 @@ describe("thread reference resolver", () => {
     const setStatus = vi.fn();
     const inputSnapshot = { ...emptyComposerInputSnapshot(), sourcePath: "snapshot.md" };
     const resolveFileReference = vi.fn((target: string) => (target === "Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null));
-    const resolver = createThreadReferenceResolver({
+    const resolver = createChatAppServerGateway({
       currentClient: () => client,
+      vaultPath: "/vault",
+      recordThreadSubscription: vi.fn(),
+    }).threadReferences({
       resolveFileReference,
       setStatus,
     });

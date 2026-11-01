@@ -12,6 +12,7 @@ import type { ChatRuntimeView, CodexChatHost } from "../src/features/chat/host/c
 import type { ThreadPickerController } from "../src/features/thread-picker/modal.obsidian";
 import * as threadPicker from "../src/features/thread-picker/modal.obsidian";
 import type { ThreadsViewHost } from "../src/features/threads-view/session";
+import type { ThreadsViewPanelActivity } from "../src/features/threads-view/state";
 import type { ThreadsRuntimeView } from "../src/features/threads-view/view.obsidian";
 import type { RateLimitSnapshot } from "../src/generated/app-server/v2/RateLimitSnapshot";
 import { DEFAULT_SETTINGS } from "../src/settings/preferences";
@@ -146,6 +147,32 @@ describe("CodexExecutionRuntime", () => {
     expect(contextConnectionMock.instances).toHaveLength(1);
   });
 
+  it("blocks archive for matching pending or running panels while allowing unrelated activity", async () => {
+    contextConnectionMock.client.request.mockResolvedValue({});
+    const activities: ThreadsViewPanelActivity[] = [];
+    const runtime = executionRuntime(vi.fn(), () => activities);
+    const chat = attachChatHost(runtime);
+    for (const [pending, running] of [
+      [true, false],
+      [false, true],
+    ] as const) {
+      activities.splice(0, activities.length, { threadId: "thread", selected: false, pending, running, unread: false });
+      await expect(chat.threadMutations.archiveThread("thread", { saveMarkdown: false })).resolves.toEqual({
+        kind: "blocked",
+        reason: "thread-busy",
+        exportedPath: null,
+      });
+      expect(contextConnectionMock.client.request).not.toHaveBeenCalled();
+    }
+    activities.splice(0, activities.length, { threadId: "other", selected: true, pending: true, running: true, unread: false });
+    await expect(chat.threadMutations.archiveThread("thread", { saveMarkdown: false })).resolves.toEqual({
+      kind: "archived",
+      exportedPath: null,
+    });
+    expect(contextConnectionMock.client.request).toHaveBeenCalledExactlyOnceWith("thread/archive", { threadId: "thread" });
+    runtime.dispose();
+  });
+
   it("publishes descendant lifecycle notifications once from the context owner", async () => {
     const onThreadFacts = vi.fn();
     await executionRuntime(onThreadFacts).appServerConnection.withClient(async () => undefined);
@@ -241,6 +268,8 @@ describe("CodexExecutionRuntime", () => {
     });
 
     expect(chat.threadGoalQueries.snapshot("thread")).toEqual(next);
+    contextHandlers().onNotification({ method: "thread/goal/cleared", params: { threadId: "thread" } });
+    expect(chat.threadGoalQueries.snapshot("thread")).toBeNull();
   });
 
   it.each([
@@ -400,12 +429,15 @@ function pickerFactory(): {
   return { controllers, finish };
 }
 
-function executionRuntime(onThreadFacts = vi.fn()): CodexExecutionRuntime {
+function executionRuntime(
+  onThreadFacts = vi.fn(),
+  openPanelActivities = (): readonly ThreadsViewPanelActivity[] => [],
+): CodexExecutionRuntime {
   return new CodexExecutionRuntime({
     app: { vault: { configDir: ".obsidian" } } as never,
     context: { codexPath: "codex", vaultPath: "/vault" },
     settings: () => ({ ...DEFAULT_SETTINGS }),
-    workspace: { openPanelActivities: () => [] } as never,
+    workspace: { openPanelActivities } as never,
     onThreadFacts,
   });
 }

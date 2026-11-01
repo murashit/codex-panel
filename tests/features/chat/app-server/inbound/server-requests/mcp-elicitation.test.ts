@@ -32,6 +32,7 @@ describe("MCP elicitation request model", () => {
         expect.objectContaining({
           id: "priority",
           type: "single-select",
+          defaultValue: "high",
           options: [
             { value: "low", label: "Low" },
             { value: "high", label: "High" },
@@ -40,6 +41,7 @@ describe("MCP elicitation request model", () => {
         expect.objectContaining({
           id: "labels",
           type: "multi-select",
+          defaultValue: ["bug"],
           options: [
             { value: "bug", label: "Bug" },
             { value: "docs", label: "Docs" },
@@ -142,7 +144,7 @@ function formRequest(): ServerRequest {
               { const: "low", title: "Low" },
               { const: "high", title: "High" },
             ],
-            default: "low",
+            default: "high",
           },
           labels: {
             type: "array",

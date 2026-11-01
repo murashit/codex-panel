@@ -154,6 +154,11 @@ describe("createReconnectPanelCommand", () => {
     finishConnecting();
     await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
     expect(host.resumeThread).toHaveBeenCalledOnce();
+
+    await expect(reconnect()).resolves.toBe(true);
+    expect(host.resetConnectionScope).toHaveBeenCalledTimes(2);
+    expect(host.ensureConnected).toHaveBeenCalledTimes(2);
+    expect(host.resumeThread).toHaveBeenCalledTimes(2);
   });
 
   it("does not resume the old target after navigation while reconnecting", async () => {

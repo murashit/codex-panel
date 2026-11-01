@@ -57,10 +57,12 @@ describe("vault composer attachments", () => {
 
     const { attachments, failures } = await handler.saveFiles([
       new File([new Uint8Array([0, 127, 128, 255])], "Paper.pdf", { type: "application/pdf" }),
+      new File([new Uint8Array([137, 80, 78, 71])], "Photo.png"),
     ]);
 
     expect(vault.createBinary.mock.calls.map(([path, data]) => ({ path, bytes: [...new Uint8Array(data)] }))).toEqual([
       { path: "Files/Paper 2.pdf", bytes: [0, 127, 128, 255] },
+      { path: "Files/Photo.png", bytes: [137, 80, 78, 71] },
     ]);
     expect(failures).toEqual([]);
     expect(attachments).toEqual([
@@ -70,6 +72,7 @@ describe("vault composer attachments", () => {
         path: "Files/Paper 2.pdf",
         marker: "[[Files/Paper 2.pdf]]",
       },
+      { kind: "image", name: "Photo", path: "Files/Photo.png", marker: "![[Files/Photo.png]]" },
     ]);
   });
 

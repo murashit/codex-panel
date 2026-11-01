@@ -42,7 +42,7 @@ function createGoalCommands(
 }
 
 describe("createGoalCommands", () => {
-  it("sets objective, status, and clears goals through app-server", async () => {
+  it.each(["active", "paused"] as const)("preserves %s goal status when editing its objective", async (status) => {
     const stateStore = createChatStateStore(chatStateFixture({ activeThread: { id: "thread" } }));
     const effects = effectsFixture({
       setThreadGoal: vi.fn().mockResolvedValue(completed(undefined)),
@@ -54,13 +54,14 @@ describe("createGoalCommands", () => {
       stateStore,
       effects,
       addSystemMessage,
+      goalQueries: { snapshot: () => threadGoalFixture({ status }) },
     });
 
     await commands.setObjective(" Updated ", 250);
     await commands.setStatus("thread", "paused");
     await commands.clear("thread");
 
-    expect(setThreadGoal).toHaveBeenCalledWith("thread", { objective: "Updated", status: "active", tokenBudget: 250 });
+    expect(setThreadGoal).toHaveBeenCalledWith("thread", { objective: "Updated", status, tokenBudget: 250 });
     expect(setThreadGoal).toHaveBeenCalledWith("thread", { status: "paused" });
     expect(clearThreadGoal).toHaveBeenCalledWith("thread");
     expect(addSystemMessage).not.toHaveBeenCalledWith("Goal updated.");

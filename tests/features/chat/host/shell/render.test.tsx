@@ -2,8 +2,11 @@
 
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
+import { diagnosticProbeOk } from "../../../../../src/domain/runtime/diagnostics";
+import type { SharedServerMetadataResourceFor } from "../../../../../src/domain/runtime/metadata";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { resumedThreadAction } from "../../../../../src/features/chat/application/state/transition-actions";
+import { projectChatPanelComposer } from "../../../../../src/features/chat/host/composer/view-projection";
 import { createThreadRenameEditorActions } from "../../../../../src/features/chat/host/session/rename-editor";
 import {
   type ChatPanelShellParts,
@@ -13,6 +16,7 @@ import {
 import { createToolbarPanelActions, createToolbarUiActions } from "../../../../../src/features/chat/host/toolbar/actions";
 import type { ThreadStreamScrollPortBinding } from "../../../../../src/features/chat/ui/thread-stream/flow-scroll";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { modelMetadataFixture } from "../../../../support/model-metadata";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { composerPropsFixture } from "../../support/composer-shell";
@@ -23,6 +27,76 @@ import { toolbarActionsFixture } from "../../support/toolbar-actions";
 installObsidianDomShims();
 
 describe("ChatPanelShell", () => {
+  it("updates rendered model choices and usage limits from shared resource publications", async () => {
+    const store = createChatStateStore();
+    store.dispatch({ type: "ui/panel-set", panel: "status-panel" });
+    const container = document.body.appendChild(document.createElement("div"));
+    const props = shellProps(store);
+    const modelListeners = new Set<(resource: SharedServerMetadataResourceFor<"models">) => void>();
+    const limitListeners = new Set<(resource: SharedServerMetadataResourceFor<"rateLimits">) => void>();
+    props.appServerQueries.observeMetadataResource = (id, listener) => {
+      if (id === "models") {
+        const receive = listener as (resource: SharedServerMetadataResourceFor<"models">) => void;
+        modelListeners.add(receive);
+        return () => modelListeners.delete(receive);
+      }
+      if (id === "rateLimits") {
+        const receive = listener as (resource: SharedServerMetadataResourceFor<"rateLimits">) => void;
+        limitListeners.add(receive);
+        return () => limitListeners.delete(receive);
+      }
+      return () => undefined;
+    };
+    props.parts.composer.presenter = {
+      renderState: (model) =>
+        composerPropsFixture({
+          draft: model.draft,
+          meta: projectChatPanelComposer(model, { requestModel: vi.fn(), requestReasoningEffort: vi.fn() }).meta,
+        }),
+    };
+    try {
+      await act(async () => {
+        renderChatPanelShell(container, props);
+        await settleShellEffects();
+      });
+      for (const [model, usedPercent, expectedUsed] of [
+        ["model-first", 20, "20%"],
+        ["model-next", 70, "70%"],
+      ] as const) {
+        await act(async () => {
+          for (const receive of modelListeners)
+            receive({ id: "models", value: [modelMetadataFixture(model)], probe: diagnosticProbeOk("available", 1) });
+          for (const receive of limitListeners)
+            receive({
+              id: "rateLimits",
+              probe: diagnosticProbeOk("available", 1),
+              value: {
+                limitId: "codex",
+                limitName: "Codex",
+                primary: { usedPercent, windowDurationMins: 300, resetsAt: null },
+                secondary: null,
+                individualLimit: null,
+                rateLimitReachedType: null,
+              },
+            });
+          await settleShellEffects();
+        });
+        await act(async () => {
+          container.querySelector(".codex-panel__composer-meta-model")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+          await settleShellEffects();
+        });
+        expect(container.querySelector(".codex-panel__composer-meta-popover")?.textContent).toContain(model);
+        expect(container.querySelector(".codex-panel__limit-panel-value")?.textContent).toBe(expectedUsed);
+        await act(async () => {
+          container.querySelector(".codex-panel__composer-meta-model")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+          await settleShellEffects();
+        });
+      }
+    } finally {
+      await act(async () => unmountChatPanelShell(container));
+      container.remove();
+    }
+  });
   it("updates shell components from the state store", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
@@ -128,10 +202,25 @@ describe("ChatPanelShell", () => {
     const container = document.body.appendChild(document.createElement("div"));
     let saveMarkdown = true;
     const parts = shellParts({ archiveExportEnabled: () => saveMarkdown });
-    parts.toolbar.actions.threads.archive.confirm = vi.fn(() => {
-      store.dispatch({ type: "ui/archive-confirm-set", threadId: null });
+    const archiveThread = vi.fn().mockResolvedValue(undefined);
+    const threadCommands = { archiveThread } as never;
+    parts.toolbar.actions = createToolbarUiActions({
+      rename: {} as never,
+      connectionCoordinator: {} as never,
+      reconnectCommand: vi.fn(),
+      threadCommands,
+      goals: {} as never,
+      toolbarPanel: createToolbarPanelActions({ stateStore: store, threadCommands }),
+      navigation: {} as never,
+      loadMoreThreads: async () => undefined,
+      openSideChat: vi.fn(),
+      debugDetails: {} as never,
     });
-    const props = { ...shellProps(store), ...chatSharedSourcesFixture([thread]), parts };
+    const props = {
+      ...shellProps(store),
+      ...chatSharedSourcesFixture([panelThreadFixture({ id: "other", name: "Other" }), thread]),
+      parts,
+    };
 
     try {
       await act(async () => {
@@ -139,12 +228,10 @@ describe("ChatPanelShell", () => {
         await settleShellEffects();
       });
       const header = container.querySelector<HTMLElement>(".codex-panel__conversation-header");
-      const archive = header?.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]');
-      archive?.focus();
-      archive?.click();
-      expect(parts.toolbar.actions.threads.archive.start).toHaveBeenCalledWith("thread");
+      const archive = () => header?.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]');
+      archive()?.focus();
       await act(async () => {
-        store.dispatch({ type: "ui/archive-confirm-set", threadId: "thread" });
+        archive()?.click();
         await settleShellEffects();
       });
       expect(header?.querySelector(".codex-panel__archive-default")?.getAttribute("aria-label")).toBe("Save and archive thread");
@@ -154,9 +241,9 @@ describe("ChatPanelShell", () => {
         await settleShellEffects();
       });
       expect(document.activeElement).toBe(header?.querySelector('[aria-label="Archive thread"]'));
-      expect(parts.toolbar.actions.threads.archive.confirm).toHaveBeenNthCalledWith(1, "thread", true);
+      expect(archiveThread).toHaveBeenNthCalledWith(1, "thread", true);
       await act(async () => {
-        store.dispatch({ type: "ui/archive-confirm-set", threadId: "thread" });
+        archive()?.click();
         await settleShellEffects();
       });
       await act(async () => {
@@ -166,9 +253,9 @@ describe("ChatPanelShell", () => {
         await settleShellEffects();
       });
       expect(document.activeElement).toBe(header?.querySelector('[aria-label="Archive thread"]'));
-      expect(parts.toolbar.actions.threads.archive.confirm).toHaveBeenNthCalledWith(2, "thread", false);
+      expect(archiveThread).toHaveBeenNthCalledWith(2, "thread", false);
       await act(async () => {
-        store.dispatch({ type: "ui/archive-confirm-set", threadId: "thread" });
+        archive()?.click();
         await settleShellEffects();
       });
       saveMarkdown = false;
@@ -397,7 +484,6 @@ describe("ChatPanelShell", () => {
 
     await act(async () => {
       statusBar.style.position = "static";
-      renderChatPanelShell(container, props);
       await settleShellEffects();
     });
     expect(container.style.getPropertyValue("--codex-panel-status-bar-clearance")).toBe("0px");

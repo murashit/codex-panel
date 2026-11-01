@@ -37,10 +37,11 @@ describe("CodexChatView connection lifecycle", () => {
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
     const markRead = vi.fn().mockResolvedValue({ readState: { revision: "read", firstUnread: null } });
     const client = connectedClient({
-      "thread/read": vi.fn().mockResolvedValue({ thread: threadFixture("thread-1"), readState: { revision: "read", firstUnread: null } }),
+      "thread/read": vi.fn().mockResolvedValue({ thread: threadFixture("thread-1"), readState: null }),
       "thread/readState/update": markRead,
     });
-    const view = await openedChatView(client);
+    const notifyPanelActivityChanged = vi.fn();
+    const view = await openedChatView(client, { host: chatHost({ notifyPanelActivityChanged }) });
     await view.surface.activateThread("thread-1", { focus: false });
     await waitForAsyncWork(() => expectRequestTimes(client, "thread/read", 1));
 
@@ -70,6 +71,7 @@ describe("CodexChatView connection lifecycle", () => {
     });
     expect(view.surface.openPanelSnapshot()).toMatchObject({ turnBusy: false, unread: false });
 
+    notifyPanelActivityChanged.mockClear();
     connectionMockState().onNotification?.({
       method: "thread/readState/changed",
       params: {
@@ -78,6 +80,7 @@ describe("CodexChatView connection lifecycle", () => {
       },
     });
     expect(view.surface.openPanelSnapshot().unread).toBe(true);
+    expect(notifyPanelActivityChanged).toHaveBeenCalledOnce();
     expect(markRead).not.toHaveBeenCalled();
     focus.mockReturnValue(true);
     const activeLeafChanged = (view.app.workspace.on as ReturnType<typeof vi.fn>).mock.calls

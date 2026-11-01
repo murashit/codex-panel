@@ -27,6 +27,7 @@ import {
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { panelThreadFixture } from "../../../../support/panel-thread";
+import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { createServerDiagnostics } from "../../../../support/runtime-diagnostics";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { threadMutationCommandsMock } from "../../../../support/thread-mutations";
@@ -347,6 +348,58 @@ describe("chat panel session runtime", () => {
 
     await vi.runAllTimersAsync();
     expect(warmup).not.toHaveBeenCalled();
+  });
+
+  it("preserves composer runtime choices as intents for the next conversation", async () => {
+    const config = runtimeConfigFixture({ model: "gpt-known", reasoningEffort: "low", approvalsReviewer: "user", serviceTier: null });
+    const models = [
+      {
+        id: "gpt-known",
+        model: "gpt-known",
+        displayName: "Known model",
+        description: "",
+        hidden: false,
+        supportedReasoningEfforts: [
+          { reasoningEffort: "low" as const, description: "" },
+          { reasoningEffort: "high" as const, description: "" },
+        ],
+        defaultReasoningEffort: "low" as const,
+        inputModalities: [],
+        serviceTiers: [{ id: "priority", name: "Fast" }],
+        defaultServiceTier: null,
+        isDefault: true,
+      },
+    ];
+    const client = { request: vi.fn().mockResolvedValue({}) } as unknown as AppServerClient;
+    const context = contextConnectionHarness({ currentClient: () => client });
+    const { runtime, stateStore } = sessionRuntimeFixture({
+      environment: {
+        plugin: {
+          appServerConnection: context.connection,
+          appServerQueries: { metadataSnapshot: (id) => (id === "runtimeConfig" ? config : id === "models" ? models : null) as never },
+        },
+      },
+    });
+    await runtime.connection.coordinator.ensureConnected();
+    const presentation = runtime.composer.controller.renderState(
+      selectChatPanelComposer(stateStore.getState(), chatComposerSharedValuesFixture({ runtimeConfig: config, models })),
+      { submit: vi.fn() },
+    );
+    const high = presentation.meta.effortChoices.find((choice) => choice.label === "high");
+    if (!high) throw new Error("Expected high reasoning effort to be offered");
+    high.onClick();
+    presentation.callbacks.onTogglePlan();
+    presentation.callbacks.onToggleAutoReview();
+    presentation.callbacks.onToggleFast();
+    await waitForAsyncWork(() => {
+      expect(stateStore.getState().runtime.pending).toMatchObject({
+        reasoningEffort: { kind: "set", value: "high" },
+        collaborationMode: { kind: "set", value: "plan" },
+        approvalsReviewer: { kind: "set", value: "auto_review" },
+        fastMode: { kind: "set", value: "enabled" },
+      });
+    });
+    await runtime.dispose(() => undefined);
   });
 
   it.each(["success", "failure"] as const)(

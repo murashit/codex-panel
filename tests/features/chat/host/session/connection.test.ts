@@ -12,12 +12,53 @@ import { createChatStateStore } from "../../../../../src/features/chat/applicati
 import { createSessionConnection } from "../../../../../src/features/chat/host/session/connection";
 import { waitForAsyncWork } from "../../../../support/async";
 import { userInputRequestFixture } from "../../../../support/server-requests";
+import { markdownFileFixture } from "../../../../support/vault-file";
 import { chatStateFixture } from "../../support/state";
 
 type SessionConnectionHost = Parameters<typeof createSessionConnection>[0];
 type SessionConnectionInput = Parameters<typeof createSessionConnection>[1];
 
 describe("session connection", () => {
+  it("answers wikilink tool calls through the host resolver", async () => {
+    const getFirstLinkpathDest = vi.fn(() => markdownFileFixture("topics/Alpha.md"));
+    const fixture = sessionConnectionFixture(undefined, false, {
+      metadataCache: { getFirstLinkpathDest },
+    } as unknown as App);
+    await fixture.connect();
+    const respond = vi.fn();
+    fixture.deliver(
+      {
+        id: 31,
+        method: "item/tool/call",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          callId: "resolve-call",
+          namespace: "codex_panel",
+          tool: "resolve_wikilinks",
+          arguments: { sourcePath: "notes/source.md", wikilinks: ["[[Alpha#Heading|note]]"] },
+        },
+      },
+      { respond, reject: vi.fn() },
+    );
+    expect(respond).toHaveBeenCalledOnce();
+    expect(respond.mock.calls[0]?.[0]).toMatchObject({ success: true, contentItems: [{ type: "inputText" }] });
+    expect(JSON.parse(respond.mock.calls[0]?.[0].contentItems[0].text)).toMatchObject({
+      sourcePath: "notes/source.md",
+      results: [
+        {
+          query: "[[Alpha#Heading|note]]",
+          status: "resolved",
+          linkpath: "Alpha",
+          subpath: "#Heading",
+          displayText: "note",
+          resolvedPath: "topics/Alpha.md",
+        },
+      ],
+    });
+    expect(getFirstLinkpathDest).toHaveBeenCalledExactlyOnceWith("Alpha", "notes/source.md");
+    fixture.deactivate();
+  });
   it.each([
     { boundary: "reset", lifetime: false },
     { boundary: "exit", lifetime: false },
@@ -150,7 +191,7 @@ describe("session connection", () => {
   });
 });
 
-function sessionConnectionFixture(lease?: AppServerContextConnectionLease, ephemeral: boolean | "normal" = false) {
+function sessionConnectionFixture(lease?: AppServerContextConnectionLease, ephemeral: boolean | "normal" = false, app = {} as App) {
   let connected = false;
   let handlers: AppServerContextConnectionLeaseHandlers | null = null;
   const addSystemMessage = vi.fn();
@@ -172,7 +213,7 @@ function sessionConnectionFixture(lease?: AppServerContextConnectionLease, ephem
   );
   const host: SessionConnectionHost = {
     environment: {
-      obsidian: { app: {} as App },
+      obsidian: { app },
       plugin: {
         appServerQueries: {
           ensureAppServerMetadata: vi.fn().mockResolvedValue(undefined),
