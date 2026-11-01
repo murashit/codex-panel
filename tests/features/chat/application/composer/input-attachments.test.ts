@@ -131,8 +131,10 @@ describe("ComposerInput attachment lifetime", () => {
       text: "text",
     };
     const emphasis = { release: vi.fn(), setEnabled: vi.fn() };
+    const onAttachmentError = vi.fn();
     const { input, edit, select, insertFirstSuggestion, stateStore } = createInput({
       attachmentHandler: { saveFiles: () => saved.promise },
+      onAttachmentError,
       contextReferenceProvider: {
         ...contextProvider(() => ({ activeNote: null, selection })),
         retainSelectionEmphasis: () => emphasis,
@@ -156,6 +158,39 @@ describe("ComposerInput attachment lifetime", () => {
     expect(snapshot.attachments).toEqual(outcome === "saved" ? [attachmentFixture("first")] : []);
     expect(emphasis.release).toHaveBeenCalledTimes(outcome === "saved" ? 1 : 0);
     expect(input.draft).toBe(outcome === "saved" ? attachmentFixture("first").marker : draft);
+    expect(onAttachmentError.mock.calls).toEqual(outcome === "failed" ? [["Attachment save failed."]] : []);
+  });
+
+  it.each(["another-thread", "original-thread"])("ignores an earlier attachment rejection after navigation to %s", async (threadId) => {
+    const earlier = deferred<ComposerAttachmentSaveResult>();
+    const current = deferred<ComposerAttachmentSaveResult>();
+    const onAttachmentError = vi.fn();
+    const { input, stateStore } = createInput({
+      stateStore: createChatStateStore(chatStateFixture({ activeThread: { id: "original-thread" } })),
+      attachmentHandler: {
+        saveFiles: vi
+          .fn<ComposerAttachmentHandler["saveFiles"]>()
+          .mockReturnValueOnce(earlier.promise)
+          .mockReturnValueOnce(current.promise),
+      },
+      onAttachmentError,
+    });
+    input.setDraft("Original draft");
+    input.transferAttachments([new File(["old image"], "earlier.png")]);
+    resumeComposerThread(stateStore, "another-thread");
+    if (threadId === "original-thread") resumeComposerThread(stateStore, threadId);
+    input.setDraft("Current draft");
+    input.transferAttachments([new File(["current image"], "current.png")]);
+    current.resolve(attachmentSaveResult([attachmentFixture("current")]));
+    await vi.waitFor(() => expect(input.captureInputSnapshot().attachments).toEqual([attachmentFixture("current")]));
+
+    earlier.reject(new Error("Could not create attachment folder"));
+    await earlier.promise.catch(() => undefined);
+
+    expect(onAttachmentError).not.toHaveBeenCalled();
+    expect(input.draft).toBe("Current draft\n![[Codex Attachments/current.png]]");
+    expect(input.captureInputSnapshot().attachments).toEqual([attachmentFixture("current")]);
+    expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]);
   });
 
   it("inserts multiple transfers that began at the same draft anchor", async () => {
