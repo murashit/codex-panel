@@ -27,11 +27,11 @@ During implementation review, run and assess `npm run review:duplication` under 
 
 ## Verify the final change
 
-Use the independent final-review conditions in `AGENTS.md`, including its separate requirement for substantive guidance edits. Give the reviewer required outcomes, constraints, comparison base, final source, and validation evidence. Withhold preferred conclusions, simplification claims, and prior review verdicts until their initial assessment. A reviewer who did not participate in design must be free to question that design, trace production paths and contracts beyond the diff, and assess regressions and the combined test guarantees; do not narrow their task to checking compliance with the chosen plan.
+Use the independent final-review conditions in `AGENTS.md`, including its separate requirement for substantive guidance edits. Give the reviewer required outcomes, constraints, comparison base, final source, and validation evidence. Withhold preferred conclusions, simplification claims, and prior review verdicts until their initial assessment. Ask them to assess the complete behavior path's structure under [Review and Simplify a Change](../../../docs/development.md#review-and-simplify-a-change) and existing, added, and removed tests under [Write Tests That Survive Refactoring](../../../docs/development.md#write-tests-that-survive-refactoring), alongside behavior, contracts, and regressions. They must be free to question the design and trace relevant paths beyond the diff; do not narrow their task to checking compliance with the chosen plan.
 
 Resolve findings against evidence and reconsider the approach when needed. After edits that could alter a review judgment, have that part assessed again against the final head, with independence where required, and re-run affected validation. An earlier review or CI pass does not establish completion of the final change.
 
-Before the primary agent's completion decision under `AGENTS.md`, record the disposition of material findings and a short substantive reason for retaining or revising the resulting structure and tests, with remaining questions or blockers.
+Before the primary agent's completion decision under `AGENTS.md`, record the disposition of material findings and the main alternatives actually compared, explaining why the resulting structure and tests were retained or revised in light of that comparison, with remaining questions or blockers.
 
 ## Organize history and prepare the PR
 
