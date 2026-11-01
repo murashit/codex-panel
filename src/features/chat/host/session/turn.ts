@@ -105,7 +105,6 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
   });
   const referThread = appServer.threadReferences({
     resolveFileReference,
-    setStatus: status.set,
   });
   const turnSubmissionCommand = createTurnSubmissionCommand({
     forkReplacement: {

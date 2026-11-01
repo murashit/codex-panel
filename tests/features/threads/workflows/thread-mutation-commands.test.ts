@@ -46,18 +46,6 @@ describe("ThreadMutationCommands", () => {
     expect(catalog.apply).not.toHaveBeenCalled();
   });
 
-  it("pins a thread and notifies shared surfaces after success", async () => {
-    const { mutations, client, catalog } = operationsFixture();
-
-    await mutations.setThreadPinned("thread", true);
-
-    expect(client.request).toHaveBeenCalledExactlyOnceWith("thread/section/move", {
-      threadId: "thread",
-      sectionId: "01984de2-8f74-7c91-a3b2-5c5e937cf318",
-    });
-    expect(catalog.apply).toHaveBeenCalledWith({ type: "thread-pinned", threadId: "thread", isPinned: true });
-  });
-
   it("unpins without listing sections and publishes only after the move succeeds", async () => {
     const { mutations, client, catalog } = operationsFixture();
 

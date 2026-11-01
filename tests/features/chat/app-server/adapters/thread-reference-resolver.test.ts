@@ -36,7 +36,6 @@ describe("thread reference resolver", () => {
       nextCursor: "older-turns",
     });
     const client = { request } as unknown as AppServerClient;
-    const setStatus = vi.fn();
     const inputSnapshot = { ...emptyComposerInputSnapshot(), sourcePath: "snapshot.md" };
     const resolveFileReference = vi.fn((target: string) => (target === "Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null));
     const resolver = createChatAppServerGateway({
@@ -45,7 +44,6 @@ describe("thread reference resolver", () => {
       recordThreadSubscription: vi.fn(),
     }).threadReferences({
       resolveFileReference,
-      setStatus,
     });
 
     const result = await resolver(threadFixture(), "summarize [[Alpha]]", inputSnapshot);
@@ -84,14 +82,12 @@ describe("thread reference resolver", () => {
       },
     ]);
     expect(result?.text).toBe("[Other](codex://threads/019abcde-0000-7000-8000-000000000001)\n\nsummarize [[Alpha]]");
-    expect(setStatus).toHaveBeenCalledWith("Referencing 019abcde (1/20 turns).");
   });
 
   it("does not request history when the app-server client is unavailable", async () => {
     const resolver = createThreadReferenceResolver({
       currentClient: () => null,
       resolveFileReference: () => null,
-      setStatus: vi.fn(),
     });
 
     await expect(resolver(threadFixture(), "summarize", { sourcePath: "snapshot.md" } as never)).rejects.toThrow("not connected");
@@ -124,5 +120,5 @@ function threadFixture(): Thread {
 
 function resolverWithRequest(request: AppServerClient["request"]) {
   const client = { request } as unknown as AppServerClient;
-  return createThreadReferenceResolver({ currentClient: () => client, resolveFileReference: () => null, setStatus: vi.fn() });
+  return createThreadReferenceResolver({ currentClient: () => client, resolveFileReference: () => null });
 }

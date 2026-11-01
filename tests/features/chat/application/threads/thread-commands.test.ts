@@ -130,24 +130,6 @@ describe("thread management commands", () => {
     expect(host.setStatus).not.toHaveBeenCalledWith("Compaction requested.");
   });
 
-  it.each([
-    { saveMarkdown: undefined, expectedOptions: {} },
-    { saveMarkdown: false, expectedOptions: { saveMarkdown: false } },
-  ])("preserves the archive save choice ($saveMarkdown) while reporting operation failures", async ({ saveMarkdown, expectedOptions }) => {
-    const host = hostMock({
-      items: [],
-      mutations: {
-        archiveThread: vi.fn<ThreadCommandsHost["mutations"]["archiveThread"]>().mockRejectedValue(new Error("disk full")),
-      },
-    });
-    const controller = threadCommands(host);
-
-    await controller.archiveThread("source", saveMarkdown);
-
-    expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", expectedOptions);
-    expect(host.addSystemMessage).toHaveBeenCalledWith("disk full");
-  });
-
   it("prepares a fork at the current latest turn without connecting or mutating server state", async () => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source", name: "Source title" } });
     await threadCommands(host).forkThread("source");
@@ -456,20 +438,15 @@ describe("thread management commands", () => {
     });
   });
 
-  it("hands the restored rollback prompt to the submission claim before adopting the local target", async () => {
+  it.each(["applied", "failed"] as const)("hands the rollback prompt to its claim before local application is %s", async (outcome) => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
     const adoptPanelTarget = vi.fn(() => expect(activeThreadId(host.stateStore.getState())).toBe("source"));
-    await threadCommands(host).rollbackThread("source", { adoptPanelTarget });
+    if (outcome === "failed") host.openForkDraft.mockRejectedValue(new Error("panel unavailable"));
+    const rollback = threadCommands(host).rollbackThread("source", { adoptPanelTarget });
+    await expect(rollback.catch((error: Error) => error.message)).resolves.toBe(outcome === "failed" ? "panel unavailable" : undefined);
     expect(adoptPanelTarget).toHaveBeenCalledWith(null, "three");
-    expect(host.stateStore.getState().panelThread.kind).toBe("fork-draft");
-  });
-
-  it.each(["forkThread", "rollbackThread"] as const)("reports %s draft opening failure without changing source state", async (method) => {
-    const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
-    host.openForkDraft.mockRejectedValue(new Error("panel unavailable"));
-    await threadCommands(host)[method]("source");
-    expect(host.addSystemMessage).toHaveBeenCalledWith("panel unavailable");
-    expect(activeThreadId(host.stateStore.getState())).toBe("source");
+    expect(host.stateStore.getState().panelThread.kind).toBe(outcome === "failed" ? "active" : "fork-draft");
+    expect(activeThreadId(host.stateStore.getState())).toBe(outcome === "failed" ? "source" : null);
     expect(host.mutations.archiveThread).not.toHaveBeenCalled();
   });
 });

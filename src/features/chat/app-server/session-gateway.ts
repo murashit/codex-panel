@@ -6,7 +6,6 @@ export type ChatAppServerGatewayHost = Parameters<typeof createChatSessionAdapte
 
 interface ChatThreadReferenceResolverOptions {
   resolveFileReference: NoteCandidateProvider["resolveFileReference"];
-  setStatus(status: string): void;
 }
 
 export interface ChatAppServerGateway extends ChatSessionAdapters {

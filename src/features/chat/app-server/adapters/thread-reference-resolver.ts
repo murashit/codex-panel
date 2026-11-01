@@ -3,8 +3,6 @@ import { readReferencedThreadTranscriptPage } from "../../../../app-server/servi
 import { codexTextInputWithAttachments } from "../../../../domain/input/input";
 import { threadReferenceMarkdown } from "../../../../domain/threads/links";
 import type { Thread } from "../../../../domain/threads/model";
-import { shortThreadId } from "../../../../domain/threads/model";
-import { REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/transcript";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
 import type { NoteCandidateProvider } from "../../application/composer/note-context";
 import { type PreparedInput, prepareComposerInput } from "../../application/composer/prepared-input";
@@ -13,7 +11,6 @@ import { referencedThreadContext } from "../../domain/threads/reference-context"
 interface ThreadReferenceResolverHost {
   currentClient(): AppServerRequestClient | null;
   resolveFileReference: NoteCandidateProvider["resolveFileReference"];
-  setStatus(status: string): void;
 }
 
 export type ThreadReferenceResolver = (thread: Thread, message: string, snapshot: ComposerInputSnapshot) => Promise<PreparedInput>;
@@ -37,9 +34,6 @@ async function referencedThreadInput(
   const messageInput = prepareComposerInput(message, snapshot, host.resolveFileReference);
   const reference = referencedThreadContext(thread, transcript);
   const visibleText = `${threadReferenceMarkdown(thread)}\n\n${messageInput.text}`;
-  host.setStatus(
-    `Referencing ${shortThreadId(thread.id)} (${String(transcript.turns.length)}/${String(REFERENCED_THREAD_TURN_LIMIT)} turns).`,
-  );
   return {
     text: visibleText,
     input: codexTextInputWithAttachments(visibleText, [

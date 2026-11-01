@@ -11,19 +11,10 @@ export interface ChatComposerState {
 
 export type ComposerAction =
   | {
-      type: "composer/attachment-save-started";
-      saveId: number;
-      draft: string;
-    }
-  | {
-      type: "composer/attachment-save-settled";
-      saveId: number;
-      draft?: string;
-    }
-  | {
       type: "composer/draft-set";
       draft: string;
       clearSuggestions?: boolean;
+      pendingAttachmentSaveIds?: readonly number[];
     }
   | {
       type: "composer/input-set";
@@ -51,21 +42,10 @@ export function initialComposerState(): ChatComposerState {
 
 export function reduceComposerSlice(state: ChatComposerState, action: ComposerAction): ChatComposerState {
   switch (action.type) {
-    case "composer/attachment-save-started":
-      return patchObject(state, {
-        draft: action.draft,
-        pendingAttachmentSaveIds: [...state.pendingAttachmentSaveIds, action.saveId],
-        suggestions: [],
-        suggestSelected: 0,
-      });
-    case "composer/attachment-save-settled":
-      return patchObject(state, {
-        ...(action.draft === undefined ? {} : { draft: action.draft }),
-        pendingAttachmentSaveIds: state.pendingAttachmentSaveIds.filter((saveId) => saveId !== action.saveId),
-      });
     case "composer/draft-set":
       return patchObject(state, {
         draft: action.draft,
+        ...(action.pendingAttachmentSaveIds === undefined ? {} : { pendingAttachmentSaveIds: action.pendingAttachmentSaveIds }),
         ...(action.clearSuggestions ? { suggestions: [], suggestSelected: 0 } : {}),
       });
     case "composer/input-set":

@@ -23,6 +23,9 @@ export async function executeThreadSlashCommand(
   args: string,
   context: ThreadSlashCommandContext,
 ): Promise<SlashCommandExecutionResult | undefined> {
+  const reportFailure = (error: unknown): void => {
+    context.addSystemMessage(error instanceof Error ? error.message : String(error));
+  };
   const forkSourceThreadId = context.forkSourceThreadId ?? context.activeThreadId;
   switch (command) {
     case "clear":
@@ -56,7 +59,7 @@ export async function executeThreadSlashCommand(
         noActiveThread(context, "to fork");
         return;
       }
-      await context.threadCommands.forkThread(forkSourceThreadId);
+      await context.threadCommands.forkThread(forkSourceThreadId).catch(reportFailure);
       return;
     case "btw":
       if (!context.activeThreadId) {
@@ -75,7 +78,9 @@ export async function executeThreadSlashCommand(
         noActiveThread(context, "to roll back");
         return;
       }
-      await context.threadCommands.rollbackThread(forkSourceThreadId, { adoptPanelTarget: context.submission.adoptPanelTarget });
+      await context.threadCommands
+        .rollbackThread(forkSourceThreadId, { adoptPanelTarget: context.submission.adoptPanelTarget })
+        .catch(reportFailure);
       return;
     case "compact":
       if (!context.activeThreadId) {
@@ -95,15 +100,17 @@ export async function executeThreadSlashCommand(
         context.addSystemMessage(thread.message);
         return;
       }
-      await context.threadCommands.archiveThread(
-        thread.thread.id,
-        undefined,
-        thread.thread.id === context.activeThreadId
-          ? () => {
-              context.submission.adoptPanelTarget(null);
-            }
-          : undefined,
-      );
+      await context.threadCommands
+        .archiveThread(
+          thread.thread.id,
+          undefined,
+          thread.thread.id === context.activeThreadId
+            ? () => {
+                context.submission.adoptPanelTarget(null);
+              }
+            : undefined,
+        )
+        .catch(reportFailure);
       return;
     }
     case "rename": {
@@ -117,7 +124,7 @@ export async function executeThreadSlashCommand(
         context.addSystemMessage(thread.message);
         return;
       }
-      await context.threadCommands.renameThread(thread.thread.id, parsed.text);
+      await context.threadCommands.renameThread(thread.thread.id, parsed.text).catch(reportFailure);
       return;
     }
   }

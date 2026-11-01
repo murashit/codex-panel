@@ -18,7 +18,7 @@ interface ComposerAttachmentTransfersOptions {
 export class ComposerAttachmentTransfers {
   private readonly lifetime = new OwnerLifetime();
   private pendingSaveId = 0;
-  private readonly pendingSaves = new Map<number, PendingAttachmentSave>();
+  private readonly insertions = new Map<number, PendingAttachmentSave>();
 
   constructor(private readonly options: ComposerAttachmentTransfersOptions) {}
 
@@ -32,11 +32,29 @@ export class ComposerAttachmentTransfers {
 
   transfer(files: readonly File[]): void {
     if (files.length === 0) return;
+    const lifetime = this.lifetime.signal();
     const pending = this.startPendingSave(files);
-    this.pendingSaves.set(pending.id, pending);
-    void this.saveFiles(files, pending).finally(() => {
-      this.pendingSaves.delete(pending.id);
-    });
+    void this.saveFiles(files, pending, lifetime);
+  }
+
+  reconcileDraft(draft = this.state.composer.draft, options: { clearSuggestions?: boolean } = {}): void {
+    const ids = [...this.insertions.values()]
+      .filter((pending) => pendingAttachmentLinkRange(draft, pending.destination) !== null)
+      .map((pending) => pending.id);
+    const composer = this.state.composer;
+    if (
+      !options.clearSuggestions &&
+      draft === composer.draft &&
+      ids.length === composer.pendingAttachmentSaveIds.length &&
+      ids.every((id, index) => id === composer.pendingAttachmentSaveIds[index])
+    )
+      return;
+    this.dispatch({ type: "composer/draft-set", draft, pendingAttachmentSaveIds: ids, ...options });
+  }
+
+  reset(): void {
+    this.dispose();
+    this.lifetime.activate();
   }
 
   blocksSubmission(canInterrupt: boolean): boolean {
@@ -46,28 +64,23 @@ export class ComposerAttachmentTransfers {
 
   dispose(): void {
     this.lifetime.dispose();
-    for (const pending of this.pendingSaves.values()) this.settlePendingSave(pending);
-    this.pendingSaves.clear();
+    for (const pending of this.insertions.values()) this.settlePendingSave(pending, null);
   }
 
-  private async saveFiles(files: readonly File[], pending: PendingAttachmentSave): Promise<void> {
-    const lifetime = this.lifetime.signal();
+  private async saveFiles(files: readonly File[], pending: PendingAttachmentSave, lifetime: AbortSignal): Promise<void> {
     if (!this.lifetime.isCurrent(lifetime)) return;
     try {
       const result = await this.options.attachmentHandler.saveFiles(files);
       if (!this.lifetime.isCurrent(lifetime)) return;
-      const state = this.state;
-      const targetIsCurrent = state.panelTargetRevision === pending.panelTargetRevision;
-      this.completePendingSave(pending, result.attachments);
-      if (targetIsCurrent && result.failures.length > 0) {
+      this.settlePendingSave(pending, result.attachments);
+      if (result.failures.length > 0) {
         this.options.onError(
           `Could not save attachments:\n${result.failures.map((failure) => `${failure.name}: ${failure.message}`).join("\n")}`,
         );
       }
     } catch (error) {
       if (!this.lifetime.isCurrent(lifetime)) return;
-      this.settlePendingSave(pending);
-      if (this.state.panelTargetRevision !== pending.panelTargetRevision) return;
+      this.settlePendingSave(pending, null);
       this.options.onError(error instanceof Error ? error.message : String(error));
     }
   }
@@ -88,37 +101,28 @@ export class ComposerAttachmentTransfers {
       displacedText: selection ? draft.slice(selection.start, selection.end) : "",
       syntheticPrefix: insertion.insertedText.slice(0, placeholderOffset),
       syntheticSuffix: insertion.insertedText.slice(placeholderOffset + placeholder.length),
-      panelTargetRevision: this.state.panelTargetRevision,
     };
+    this.insertions.set(id, pending);
     this.options.setSelection(collapsedComposerSelection(insertion.value, insertion.cursor));
-    this.dispatch({ type: "composer/attachment-save-started", saveId: id, draft: insertion.value });
+    this.reconcileDraft(insertion.value, { clearSuggestions: true });
     this.options.focus();
     return pending;
   }
 
-  private completePendingSave(pending: PendingAttachmentSave, attachments: readonly ComposerAttachment[]): void {
-    const markers = attachments.map((attachment) => attachment.marker);
+  private settlePendingSave(pending: PendingAttachmentSave, savedAttachments: readonly ComposerAttachment[] | null): void {
+    this.insertions.delete(pending.id);
     const state = this.state;
-    if (state.panelTargetRevision !== pending.panelTargetRevision || !state.composer.pendingAttachmentSaveIds.includes(pending.id)) {
-      this.settlePendingSave(pending);
-      return;
-    }
-
-    const replacement =
-      markers.length === 0
-        ? replacePendingAttachmentWithOriginalText(state.composer.draft, pending)
-        : replacePendingAttachmentPlaceholder(state.composer.draft, pending, markers);
+    if (pendingAttachmentLinkRange(state.composer.draft, pending.destination) === null) return;
+    const replacement = savedAttachments?.length
+      ? replacePendingAttachmentPlaceholder(
+          state.composer.draft,
+          pending,
+          savedAttachments.map((attachment) => attachment.marker),
+        )
+      : replacePendingAttachmentWithOriginalText(state.composer.draft, pending);
     this.options.setSelection(adjustedComposerSelection(this.options.selection(), state.composer.draft, replacement));
-    this.options.onDraftReplaced(replacement.value, attachments);
-    this.dispatch({ type: "composer/attachment-save-settled", saveId: pending.id, draft: replacement.value });
-  }
-
-  private settlePendingSave(pending: PendingAttachmentSave): void {
-    const state = this.state;
-    if (!state.composer.pendingAttachmentSaveIds.includes(pending.id)) return;
-    const replacement = replacePendingAttachmentWithOriginalText(state.composer.draft, pending);
-    this.options.setSelection(adjustedComposerSelection(this.options.selection(), state.composer.draft, replacement));
-    this.dispatch({ type: "composer/attachment-save-settled", saveId: pending.id, draft: replacement.value });
+    if (savedAttachments !== null) this.options.onDraftReplaced(replacement.value, savedAttachments);
+    this.reconcileDraft(replacement.value);
   }
 }
 
@@ -128,7 +132,6 @@ interface PendingAttachmentSave {
   readonly displacedText: string;
   readonly syntheticPrefix: string;
   readonly syntheticSuffix: string;
-  readonly panelTargetRevision: number;
 }
 
 interface DraftReplacement {

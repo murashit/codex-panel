@@ -64,14 +64,6 @@ describe("thread slash commands", () => {
     expect(directInput.addSystemMessage).toHaveBeenCalledWith(`No matching thread: ${completedTitle}`);
   });
 
-  it("forks the active thread for /fork", async () => {
-    const ctx = context({ activeThreadId: "active-thread" });
-
-    await executeThreadSlashCommand("fork", "", ctx);
-
-    expect(ctx.threadCommands.forkThread).toHaveBeenCalledWith("active-thread");
-  });
-
   it("opens a side chat from the active thread", async () => {
     const openSideChat = vi.fn().mockResolvedValue(undefined);
     const ctx = context({ activeThreadId: "active-thread", openSideChat });

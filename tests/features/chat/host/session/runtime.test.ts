@@ -10,11 +10,13 @@ import type { ServerNotification } from "../../../../../src/app-server/connectio
 import type { ServerInitialization } from "../../../../../src/domain/runtime/metadata";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
+import { activeThreadId } from "../../../../../src/features/chat/application/state/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { selectChatPanelComposer } from "../../../../../src/features/chat/host/composer/view-projection";
 import type { ChatPanelEnvironment, CodexChatHost } from "../../../../../src/features/chat/host/contracts";
 import { createChatPanelSessionRuntime } from "../../../../../src/features/chat/host/session/runtime";
 import { createChatThreadStreamScrollBinding } from "../../../../../src/features/chat/host/thread-stream/scroll-binding";
+import type { ArchiveThreadResult } from "../../../../../src/features/threads/workflows/ports";
 import { createThreadAutoTitleWork } from "../../../../../src/features/threads/workflows/thread-auto-title-work";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../../src/settings/preferences";
 import { DeferredTask } from "../../../../../src/shared/async/deferred-task";
@@ -50,6 +52,76 @@ describe("chat panel session runtime", () => {
     vi.restoreAllMocks();
     document.body.replaceChildren();
   });
+
+  it.each(["pin", "archive-result", "slash-archive", "slash-rename", "fork", "slash-fork"] as const)(
+    "delivers delayed %s failures only to the initiating conversation",
+    async (operation) => {
+      const origin = threadFixture({ id: "source-with-history" });
+      for (const destination of ["current", "another", "returned"] as const) {
+        const pending = deferred<never>();
+        const archiveResult = deferred<ArchiveThreadResult>();
+        const mutation = vi.fn(() => pending.promise);
+        const archiveMutation = vi.fn<ChatPanelEnvironment["plugin"]["threadMutations"]["archiveThread"]>(() =>
+          operation === "archive-result" ? archiveResult.promise : pending.promise,
+        );
+        const client = { request: vi.fn().mockResolvedValue({}) } as unknown as AppServerClient;
+        const contextConnection = contextConnectionHarness({ currentClient: () => client });
+        const { runtime, stateStore } = sessionRuntimeFixture({
+          environment: {
+            plugin: {
+              appServerConnection: contextConnection.connection,
+              workspace: { openForkDraft: mutation },
+              threadCatalog: { activeThreadsSnapshot: () => [origin] },
+              threadMutations: threadMutationCommandsMock({
+                setThreadPinned: mutation,
+                archiveThread: archiveMutation,
+                renameThread: mutation,
+              }),
+            },
+          },
+        });
+        await runtime.connection.coordinator.ensureConnected();
+        stateStore.dispatch({
+          type: "active-thread/resumed",
+          ...threadActivationFixture(origin),
+          items: [{ id: "prompt", kind: "dialogue", dialogueKind: "user", role: "user", text: "Old prompt", turnId: "turn" }],
+        });
+        let submission: Promise<void> | undefined;
+        if (operation === "pin") runtime.shell.parts.toolbar.actions.threads.setPinned(origin.id, true);
+        else if (operation === "archive-result") runtime.shell.parts.toolbar.actions.threads.archive.confirm(origin.id, false);
+        else if (operation === "fork") runtime.shell.parts.threadStream.context.actions.forkThreadFromTurn(origin.id, "turn", false);
+        else {
+          runtime.composer.input.setDraft(
+            operation === "slash-archive" ? "/archive thread" : operation === "slash-fork" ? "/fork" : "/rename thread New name",
+          );
+          submission = runtime.turn.submissionCommands.composerSubmit.submit();
+        }
+        await waitForAsyncWork(() => expect(operation.includes("archive") ? archiveMutation : mutation).toHaveBeenCalledOnce());
+        if (destination !== "current") {
+          stateStore.dispatch({ type: "active-thread/resumed", ...threadActivationFixture(threadFixture({ id: "another" })) });
+          if (destination === "returned") {
+            stateStore.dispatch({ type: "active-thread/resumed", ...threadActivationFixture(origin) });
+          }
+        }
+        runtime.composer.input.setDraft("Keep this draft");
+        if (operation === "archive-result") archiveResult.resolve({ kind: "failed", message: "Storage unavailable", exportedPath: null });
+        else pending.reject(new Error("Storage unavailable"));
+        await submission;
+        if (operation !== "archive-result") await pending.promise.catch(() => undefined);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const text = stateStore
+          .getState()
+          .threadStream.stableItems.flatMap((item) => ("text" in item ? [item.text] : []))
+          .join("\n");
+        expect(text.includes("Storage unavailable"), `${operation}: ${destination}`).toBe(destination === "current");
+        expect(runtime.composer.input.draft).toBe("Keep this draft");
+        expect(activeThreadId(stateStore.getState())).toBe(destination === "another" ? "another" : origin.id);
+        expect(archiveMutation).toHaveBeenCalledTimes(operation.includes("archive") ? 1 : 0);
+        expect(archiveMutation.mock.calls[0]?.[1]?.saveMarkdown).toBe(operation === "archive-result" ? false : undefined);
+        await runtime.dispose(() => undefined);
+      }
+    },
+  );
 
   it("invalidates thread activation and history through the runtime action", async () => {
     const connecting = deferred<ServerInitialization>();
