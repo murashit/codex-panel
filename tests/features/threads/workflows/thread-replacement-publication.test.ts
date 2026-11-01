@@ -25,7 +25,7 @@ describe("thread replacement visibility", () => {
     replacement.attach(thread("replacement"));
     capture("pending");
 
-    replacement.finish(true);
+    replacement.finish(false);
 
     expect(frames).toEqual([
       { phase: "pending", visibleThreadId: "source" },

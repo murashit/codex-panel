@@ -2,7 +2,7 @@
 
 import { type App, type EventRef, TFile } from "obsidian";
 import * as dailyNotesInterface from "obsidian-daily-notes-interface";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import * as selectionEmphasis from "../../../../../src/shared/ui/editor-selection-emphasis.obsidian";
 
 const selectionEmphasisMock = {
@@ -56,7 +56,9 @@ describe("VaultNoteCandidateProvider", () => {
       fileToLinktext,
     });
 
-    expect(configuredDailyNoteReferences(app, "Projects/Codex.md")).toEqual([
+    const provider = new VaultNoteCandidateProvider(app);
+    onTestFinished(() => provider.dispose());
+    expect(provider.dailyNoteReferences("Projects/Codex.md")).toEqual([
       {
         keyword: "today",
         display: "Today",
@@ -209,7 +211,8 @@ describe("VaultNoteCandidateProvider", () => {
   });
 
   it("shares candidate caches and event subscriptions across panel providers", () => {
-    const getFiles = vi.fn(() => vaultFiles([{ basename: "Alpha", path: "Alpha.md", stat: { mtime: 1 } }]));
+    let files = vaultFiles([{ basename: "Alpha", path: "Alpha.md", stat: { mtime: 1 } }]);
+    const getFiles = vi.fn(() => files);
     const app = appFixture({ getFiles });
     const first = new VaultNoteCandidateProvider(app);
     const second = new VaultNoteCandidateProvider(app);
@@ -227,6 +230,16 @@ describe("VaultNoteCandidateProvider", () => {
     expect(app.registeredEventNames("vault")).toEqual([]);
     expect(app.registeredEventNames("metadata")).toEqual([]);
     expect(app.registeredEventNames("workspace")).toEqual([]);
+
+    const reopened = new VaultNoteCandidateProvider(app);
+    onTestFinished(() => reopened.dispose());
+    expect(reopened.candidates("Inbox.md").map((candidate) => candidate.path)).toEqual(["Alpha.md"]);
+    files = vaultFiles([
+      { basename: "Alpha", path: "Alpha.md", stat: { mtime: 1 } },
+      { basename: "Beta", path: "Beta.md", stat: { mtime: 2 } },
+    ]);
+    app.triggerVaultEvent("create");
+    expect(reopened.candidates("Inbox.md").map((candidate) => candidate.path)).toEqual(["Alpha.md", "Beta.md"]);
   });
 
   it("resolves wikilinks through metadata cache before direct path fallback", () => {

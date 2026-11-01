@@ -193,7 +193,8 @@ describe("CodexPanelPlugin runtime integration", () => {
     });
   });
 
-  it("applies known rename mutations to open chat surfaces", async () => {
+  it("applies rename and pin facts to cached catalogs and open chat surfaces", async () => {
+    contextConnectionClientMock.mockImplementation(() => threadListClient(async () => [thread("unrelated"), thread("thread-1")]));
     const firstLeaf = leaf();
     firstLeaf.view = chatView(CodexChatView, firstLeaf);
     const firstRenamed = vi.spyOn((firstLeaf.view as CodexChatView).surface, "applyThreadRenamed").mockImplementation(() => undefined);
@@ -203,8 +204,23 @@ describe("CodexPanelPlugin runtime integration", () => {
     const secondRenamed = vi.spyOn((secondLeaf.view as CodexChatView).surface, "applyThreadRenamed").mockImplementation(() => undefined);
     const secondRefresh = vi.spyOn((secondLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
+    const catalog = threadCatalog(plugin);
+    const archivedCatalog = plugin.runtime.settingTabHost().resources.threadCatalog;
+    await catalog.fetchActiveThreads();
+    await archivedCatalog.refreshArchivedThreads();
 
     threadFacts(plugin).apply({ type: "thread-renamed", threadId: "thread-1", name: "Renamed thread" });
+    threadFacts(plugin).apply({ type: "thread-pinned", threadId: "thread-1", isPinned: true });
+
+    for (const rows of [catalog.activeThreadsSnapshot(), archivedCatalog.archivedThreadsSnapshot()]) {
+      expect(rows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "thread-1", name: "Renamed thread", isPinned: true }),
+          expect.objectContaining({ id: "unrelated", name: null }),
+        ]),
+      );
+      expect(rows?.find((row) => row.id === "unrelated")?.isPinned).not.toBe(true);
+    }
 
     expect(firstRenamed).toHaveBeenCalledWith("thread-1", "Renamed thread");
     expect(secondRenamed).toHaveBeenCalledWith("thread-1", "Renamed thread");

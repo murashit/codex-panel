@@ -370,6 +370,13 @@ describe("ChatComposerController", () => {
       composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
     });
     await act(() => {
+      composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter", isComposing: true }));
+    });
+    expect(composer(parent).value).toBe("[[bet");
+    expect(composer(parent).selectionStart).toBe(5);
+    expect(parent.querySelector(".codex-panel__composer-suggestion")?.textContent).toContain("Beta Note");
+    expect(actions.submit).not.toHaveBeenCalled();
+    await act(() => {
       composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key }));
       expect(document.activeElement).toBe(composer(parent));
     });

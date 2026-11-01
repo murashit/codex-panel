@@ -11,7 +11,7 @@ describe("Obsidian wikilink resolution", () => {
 
     const result = resolveObsidianWikilinks(app, {
       sourcePath: "Daily/Today.md",
-      wikilinks: ["[[../Projects/Target#Milestone|project status]]", "[[Missing^block]]"],
+      wikilinks: ["[[../Projects/Target#Milestone|project status]]", "[[Missing#^block]]"],
     });
 
     expect(getFirstLinkpathDest).toHaveBeenNthCalledWith(1, "../Projects/Target", "Daily/Today.md");
@@ -30,10 +30,10 @@ describe("Obsidian wikilink resolution", () => {
           resolvedPath: "Projects/Target.md",
         },
         {
-          query: "[[Missing^block]]",
+          query: "[[Missing#^block]]",
           status: "resolved",
           linkpath: "Missing",
-          subpath: "^block",
+          subpath: "#^block",
           displayText: null,
           resolvedPath: "Projects/Target.md",
         },

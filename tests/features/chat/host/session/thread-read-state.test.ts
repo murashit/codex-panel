@@ -55,9 +55,15 @@ describe("session thread read state", () => {
     });
     const requests = f.stateStore.getState().requests;
     f.request.mockResolvedValue({ readState: receipt("read", false) });
+    f.owner.receive({ threadId: "other-thread", readState: receipt("foreign-revision") });
+    expect(f.stateStore.getState().threadReadReceipt).toBeNull();
+    expect(f.request).not.toHaveBeenCalledWith("thread/readState/update", expect.anything());
     f.notify("new");
     await flush();
-    expect(f.request).toHaveBeenLastCalledWith("thread/readState/update", expect.objectContaining({ expectedRevision: "new" }));
+    expect(f.request).toHaveBeenLastCalledWith(
+      "thread/readState/update",
+      expect.objectContaining({ threadId: "thread", expectedRevision: "new" }),
+    );
     expect(f.stateStore.getState().requests).toBe(requests);
   });
 
@@ -82,18 +88,18 @@ describe("session thread read state", () => {
     expect(f.stateStore.getState().threadReadReceipt?.revision).toBe("newest");
   });
 
-  it("refreshes after a conflict without retrying its fresh unread revision", async () => {
+  it.each(["r1", "r2"])("refreshes after an ACK failure without automatically retrying unread revision %s", async (revision) => {
     const f = await fixture();
     f.notify("r1");
-    f.request.mockRejectedValueOnce(new Error("read state changed")).mockResolvedValue({ readState: receipt("r2") });
+    f.request.mockRejectedValueOnce(new Error("read state changed")).mockResolvedValue({ readState: receipt(revision) });
     f.setForeground();
     await flush();
     expect(f.request.mock.calls.map(([method]) => method)).toEqual(["thread/read", "thread/readState/update", "thread/read"]);
-    expect(f.stateStore.getState().threadReadReceipt).toEqual({ revision: "r2", unread: true });
+    expect(f.stateStore.getState().threadReadReceipt).toEqual({ revision, unread: true });
     f.request.mockResolvedValue({ readState: receipt("r3", false) });
     f.owner.activate();
     await flush();
-    expect(f.request).toHaveBeenLastCalledWith("thread/readState/update", expect.objectContaining({ expectedRevision: "r2" }));
+    expect(f.request).toHaveBeenNthCalledWith(4, "thread/readState/update", expect.objectContaining({ expectedRevision: revision }));
   });
 
   it("refreshes on reconnect and rejects responses from a retired connection scope", async () => {

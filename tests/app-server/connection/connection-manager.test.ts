@@ -9,6 +9,7 @@ import {
 import type { RpcOutboundMessage, ServerNotification } from "../../../src/app-server/connection/rpc-messages";
 import type { AppServerTransport, AppServerTransportHandlers } from "../../../src/app-server/connection/transport";
 import type { InitializeParams } from "../../../src/generated/app-server/InitializeParams";
+import { commandApprovalRequestFixture } from "../../support/server-requests";
 
 const TEST_INITIALIZE_PARAMS: InitializeParams = {
   clientInfo: {
@@ -64,7 +65,7 @@ describe("ConnectionManager", () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
-  it("disconnects clients whose initialization fails", async () => {
+  it("allows a new connection after initialization fails", async () => {
     let transport!: SilentTransport;
     const manager = new ConnectionManager(
       "/bin/codex",
@@ -77,6 +78,11 @@ describe("ConnectionManager", () => {
 
     expect(transport.running).toBe(false);
     expect(manager.currentClient()).toBeNull();
+
+    const retry = manager.connect(silentConnectionHandlers());
+    transport.emitLine({ id: 1, result: { codexHome: "/tmp/retry" } });
+    await expect(retry).resolves.toMatchObject({ codexHome: "/tmp/retry" });
+    expect(manager.currentClient()).toBeInstanceOf(AppServerClient);
   });
 
   it("shares an in-flight connection attempt", async () => {
@@ -103,7 +109,11 @@ describe("ConnectionManager", () => {
       testClientFactory({ onTransport: (next) => (transport = next) }),
     );
 
-    const connecting = manager.connect({ ...silentConnectionHandlers(), onNotification });
+    const connecting = manager.connect({
+      ...silentConnectionHandlers(),
+      onNotification,
+      onServerRequest: (_request, responder) => responder.respond({ decision: "decline" }),
+    });
     transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex-a" } });
     await connecting;
     const notification = {
@@ -114,6 +124,8 @@ describe("ConnectionManager", () => {
     transport.emitLine(notification);
 
     expect(onNotification).toHaveBeenCalledWith(notification);
+    transport.emitLine(commandApprovalRequestFixture(46));
+    expect(transport.sent.at(-1)).toEqual({ id: 46, result: { decision: "decline" } });
   });
 
   it("transitions to disconnected when a connected client exits", async () => {

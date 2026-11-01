@@ -33,6 +33,7 @@ import {
   selectChatPanelToolbar,
 } from "../../../../../src/features/chat/host/toolbar/view-projection";
 import { GoalPanel } from "../../../../../src/features/chat/ui/goal/goal";
+import { textNode } from "../../../../../src/features/chat/ui/thread-stream/text.dom";
 import { Toolbar, type ToolbarActions } from "../../../../../src/features/chat/ui/toolbar/toolbar";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
@@ -53,6 +54,30 @@ const EXPECTED_EMPTY_CONTEXT_CELLS = [
 ];
 
 describe("chat panel projection integration", () => {
+  it("routes the rendered Implement plan action through the host projection", () => {
+    let state = chatStateFixture({ activeThread: { id: "thread-plan" } });
+    state = chatStateWith(state, { runtime: { pending: { collaborationMode: setCollaborationModeIntent("plan") } } });
+    state = withChatStateStableThreadStreamItems(state, [
+      {
+        id: "plan-item",
+        turnId: "plan-turn",
+        kind: "dialogue",
+        role: "assistant",
+        dialogueKind: "proposedPlan",
+        dialogueState: "completed",
+        text: "# Plan",
+      },
+    ]);
+    const dependencies = threadStreamDependenciesFixture();
+    const projection = projectThreadStream(selectChatPanelThreadStream(state), dependencies);
+    const block = projection.blocks.find((item) => item.kind === "text");
+    if (block?.kind !== "text") throw new Error("Expected a rendered plan");
+    const parent = document.createElement("div");
+    renderUiRoot(parent, textNode(block.view, projection.context));
+    clickLabeledButton(parent, "Implement plan");
+    expect(dependencies.actions.implementPlan).toHaveBeenCalledExactlyOnceWith("plan-item");
+    unmountUiRoot(parent);
+  });
   it("keeps the optimistic prompt visible before acknowledgement and through turn completion", () => {
     const { store, prompt, blocks } = optimisticThreadStream();
 
@@ -569,6 +594,7 @@ describe("chat panel projection integration", () => {
     const state = chatStateFixture({ activeThread: { id: "thread-current" } });
     const statuses: [string, string][] = [];
     const clears: string[] = [];
+    const edits: [string | null, string | null, number | null][] = [];
     const surface = {
       sendShortcut: () => "enter",
       actions: {
@@ -579,14 +605,17 @@ describe("chat panel projection integration", () => {
         clear: async (threadId) => {
           clears.push(threadId);
         },
-        startEditing: () => undefined,
+        startEditing: (threadId, objective, tokenBudget) => {
+          edits.push([threadId, objective, tokenBudget]);
+        },
         updateObjectiveDraft: () => undefined,
         setObjectiveExpanded: () => undefined,
         closeEditor: () => undefined,
       },
     } satisfies ChatPanelGoalDependencies;
 
-    const parent = renderGoal(state, goalFixture("thread-rendered"), surface);
+    const parent = renderGoal(state, { ...goalFixture("thread-rendered"), tokenBudget: 250 }, surface);
+    clickLabeledButton(parent, "Edit goal");
     clickLabeledButton(parent, "Pause goal");
     clickLabeledButton(parent, "Clear goal");
 
@@ -598,6 +627,7 @@ describe("chat panel projection integration", () => {
       ["thread-rendered", "active"],
     ]);
     expect(clears).toEqual(["thread-rendered"]);
+    expect(edits).toEqual([["thread-rendered", "Ship it", 250]]);
     unmountUiRoot(parent);
     unmountUiRoot(resumeParent);
   });

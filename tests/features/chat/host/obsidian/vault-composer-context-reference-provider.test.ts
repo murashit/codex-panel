@@ -18,7 +18,10 @@ describe("Composer selection context", () => {
   it("shows the transient selection after Panel focus before completion", () => {
     const highlights = installHighlights(document);
     const fixture = readingFixture();
+    const other = readingFixture();
+    vi.spyOn(fixture.app.workspace, "getLeavesOfType").mockReturnValue([{ view: other.view }, { view: fixture.view }] as never);
     fixture.select("not yet inserted");
+    expect(fixture.provider.contextReferences("").selection?.text).toBe("not yet inserted");
     fixture.setActive(null);
     fixture.panel.focus();
     document.getSelection()?.removeAllRanges();

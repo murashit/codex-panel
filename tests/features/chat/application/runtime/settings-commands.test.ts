@@ -580,7 +580,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
   });
 
-  it.each(["effort", "plan"] as const)("waits for model notification before its dependent %s update", async (following) => {
+  it.each(["effort", "plan"] as const)("waits for model notification before its dependent %s UI update", async (following) => {
     const store = createChatStateStore(
       chatStateWith(chatStateFixture(), {
         activeThread: { id: "thread" },
@@ -588,7 +588,9 @@ describe("createChatRuntimeSettingsCommands", () => {
       }),
     );
     const port = settingsPortFixture();
-    const commands = runtimeCommandsFixture(store, port, []);
+    const commands = runtimeCommandsFixture(store, port, [], {
+      availableModels: [modelFixture("gpt-old", "fast"), modelFixture("gpt-new", "fast")],
+    });
     let completed = false;
     const model = commands.requestModel("gpt-new").then((ok) => {
       completed = true;
@@ -598,7 +600,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     expect(completed).toBe(false);
     expect(store.getState().runtime.active.model).toBe("gpt-old");
     expect(store.getState().runtime.pending.model).toEqual({ kind: "set", value: "gpt-new" });
-    const dependent = following === "effort" ? commands.requestReasoningEffort("high") : commands.setCollaborationMode("plan");
+    const dependent = following === "effort" ? commands.requestReasoningEffortFromUi("high") : commands.toggleCollaborationMode();
     expect(port.updateThreadSettings).toHaveBeenCalledOnce();
     applySettingsNotification(store, { model: "gpt-new" });
     await expect(model).resolves.toBe(true);
@@ -612,7 +614,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
     expect(store.getState().runtime.active.model).toBe("gpt-new");
     applySettingsNotification(store, following === "effort" ? { reasoningEffort: "high" } : { collaborationMode: "plan" });
-    await expect(dependent).resolves.toBe(true);
+    await dependent;
     expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "unchanged" });
     expect(store.getState().runtime.pending.collaborationMode).toEqual({ kind: "unchanged" });
   });

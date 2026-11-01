@@ -468,6 +468,17 @@ describe("app-server query resources", () => {
     expect(cache.threadCatalog.archivedThreadsSnapshot()).toEqual([thread("archived", true)]);
     expect(fetchThreads).toHaveBeenNthCalledWith(1, cacheContext(), false);
     expect(fetchThreads).toHaveBeenNthCalledWith(2, cacheContext(), true);
+
+    const archivedResults = vi.fn();
+    const unsubscribe = cache.threadCatalog.observeArchivedThreadsResult(archivedResults);
+    try {
+      expect(archivedResults).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("archived", true)] }));
+      cache.threadCatalog.applyThreadCatalogChanges([{ kind: "remove", list: "archived", threadId: "archived" }]);
+      expect(archivedResults).toHaveBeenLastCalledWith(expect.objectContaining({ value: [] }));
+      expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("active")]);
+    } finally {
+      unsubscribe();
+    }
   });
 
   it("loads active thread history one page at a time", async () => {

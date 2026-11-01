@@ -77,17 +77,25 @@ describe("ComposerInput attachment lifetime", () => {
   });
 
   it("keeps a pending attachment at its placeholder while the draft is edited", async () => {
-    const { input, saved, edit, select, stateStore } = pendingAttachmentFixture();
+    const { input, saved, edit, select, stateStore, view } = pendingAttachmentFixture();
     input.setDraft("before after");
     select(6, 6);
     input.transferAttachments([new File(["image"], "first.png", { type: "image/png" })]);
 
     edit(`edited ${input.draft}`);
+    select(input.draft.length - 3);
     saved.resolve(attachmentSaveResult([attachmentFixture("first")]));
     await saved.promise;
     await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
 
-    expect(input.draft).toBe("edited before\n![[Codex Attachments/first.png]]\n after");
+    const expectedDraft = "edited before\n![[Codex Attachments/first.png]]\n after";
+    expect(input.draft).toBe(expectedDraft);
+    expect(view.setSelection).toHaveBeenLastCalledWith({
+      value: expectedDraft,
+      start: expectedDraft.length - 3,
+      end: expectedDraft.length - 3,
+      direction: "none",
+    });
     expect(input.captureInputSnapshot().attachments).toEqual([attachmentFixture("first")]);
   });
 

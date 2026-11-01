@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { visit } from "unist-util-visit";
 import { describe, expect, it } from "vitest";
@@ -171,5 +172,33 @@ describe("selection quotation labels", () => {
       { referenceActiveNoteOnSend: false },
     );
     expect(prepared.input).toEqual([{ type: "text", text }]);
+  });
+
+  it("keeps a fenced quotation literal after an earlier selection attachment", () => {
+    const plainPrefix = fc.string({ unit: fc.constantFrom("a", "あ", "😀"), maxLength: 80 });
+    fc.assert(
+      fc.property(plainPrefix, (prefix) => {
+        const visible = captureSelectionContext(reading("visible excerpt"), []);
+        const hidden = captureSelectionContext({ ...reading("hidden excerpt"), name: "Hidden", path: "Hidden.md", linktext: "Hidden" }, [
+          visible,
+        ]);
+        const fencedBlock = `\`\`\`text\n${hidden.marker}\n\`\`\``;
+        const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
+          `${prefix}${visible.marker}\n\n${fencedBlock}`,
+          () => null,
+          [],
+          { activeNote: null, selection: null, selectionSnapshots: [visible, hidden] },
+          { referenceActiveNoteOnSend: false },
+        );
+        expect(prepared.input.find((item) => item.type === "text")?.text).toContain(fencedBlock);
+        expect(prepared.input.filter((item) => item.type === "fileReference")).toEqual([
+          { type: "fileReference", name: "Note", path: "Note.md" },
+        ]);
+        const context = prepared.input.find((item) => item.type === "additionalContext");
+        expect(context?.value).toContain("visible excerpt");
+        expect(context?.value).not.toContain("hidden excerpt");
+      }),
+      { examples: [["Please compare "]] },
+    );
   });
 });

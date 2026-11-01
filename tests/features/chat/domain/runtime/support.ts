@@ -1,7 +1,7 @@
 import type { ModelMetadata } from "../../../../../src/domain/runtime/catalog";
 import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../../src/domain/runtime/settings";
-import { unchangedCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { RuntimeSnapshot } from "../../../../../src/features/chat/domain/runtime/snapshot";
+import { initialChatRuntimeState } from "../../../../../src/features/chat/domain/runtime/state";
 import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";
 
 interface RuntimeSnapshotPatch extends Partial<Omit<RuntimeSnapshot, "active" | "pending">> {
@@ -11,6 +11,7 @@ interface RuntimeSnapshotPatch extends Partial<Omit<RuntimeSnapshot, "active" | 
 
 export function runtimeSnapshot(overrides: RuntimeSnapshotPatch = {}): RuntimeSnapshot {
   const { active, pending, ...snapshotOverrides } = overrides;
+  const initial = initialChatRuntimeState();
   const snapshot: RuntimeSnapshot = {
     runtimeConfig: runtimeConfigFromAppServerFixture({
       model: "gpt-5.5",
@@ -19,28 +20,8 @@ export function runtimeSnapshot(overrides: RuntimeSnapshotPatch = {}): RuntimeSn
       model_context_window: 100_000,
     }),
     activeThreadId: null,
-    active: {
-      approvalPolicyKnown: false,
-      sandboxPolicyKnown: false,
-      permissionProfileKnown: false,
-      serviceTierKnown: false,
-      model: null,
-      reasoningEffort: null,
-      collaborationMode: null,
-      serviceTier: null,
-      approvalsReviewer: null,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-    },
-    pending: {
-      model: { kind: "unchanged" },
-      reasoningEffort: { kind: "unchanged" },
-      permissionProfile: { kind: "unchanged" },
-      approvalsReviewer: { kind: "unchanged" },
-      collaborationMode: unchangedCollaborationModeIntent(),
-      fastMode: { kind: "unchanged" },
-    },
+    active: initial.active,
+    pending: initial.pending,
     tokenUsage: null,
     rateLimit: null,
     hasThreadTurns: false,

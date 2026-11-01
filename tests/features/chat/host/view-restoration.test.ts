@@ -241,11 +241,19 @@ describe("CodexChatView workspace restoration", () => {
 
     await view.setState({ threadId: "thread-named" }, {} as never);
     await view.onOpen();
-    host.receiveActiveThreads([panelThread({ id: "thread-named", name: "Work notes" })]);
+    const unrelated = panelThread({ id: "other", name: "Unrelated" });
+    host.receiveActiveThreads([unrelated, panelThread({ id: "thread-named", name: "Work notes" })]);
     expect(view.getDisplayText()).toBe("Codex: Work notes");
+    await waitForAsyncWork(() => {
+      expect(view.contentEl.querySelector(".codex-panel__conversation-title")?.textContent).toBe("Work notes");
+    });
+    expect(view.getState()).toMatchObject({ threadTitle: "Work notes" });
 
-    host.receiveActiveThreads([panelThread({ id: "thread-named", name: null, preview: "Initial request" })]);
+    host.receiveActiveThreads([unrelated, panelThread({ id: "thread-named", name: null, preview: "Initial request" })]);
     expect(view.getDisplayText()).toBe("Codex: Initial request");
+    await waitForAsyncWork(() => {
+      expect(view.contentEl.querySelector(".codex-panel__conversation-title")?.textContent).toBe("Initial request");
+    });
 
     await view.setState({ threadId: "019e061e-0000-7000-8000-000000000001" }, {} as never);
     host.receiveActiveThreads([]);

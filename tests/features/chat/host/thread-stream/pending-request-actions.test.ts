@@ -58,6 +58,8 @@ describe("pending request actions", () => {
     expect(chatStateThreadStreamItems(stateStore.getState()).at(-1)).toMatchObject({
       kind: "approvalResult",
       executionState: action === "accept" ? "completed" : "failed",
+      text: expect.stringMatching(action === "accept" ? /^Allowed:/ : /^Denied:/),
+      approval: { status: action === "accept" ? "allowed" : "denied", scope: "turn" },
     });
     expect(focusComposer).toHaveBeenCalledOnce();
   });

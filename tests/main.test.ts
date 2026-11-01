@@ -25,9 +25,11 @@ describe("CodexPanelPlugin lifecycle", () => {
     const firstLeaf = leaf();
     const secondLeaf = leaf();
     const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
+    vi.spyOn(plugin, "loadData").mockResolvedValue({ showToolbar: false, sendShortcut: "mod-enter" });
 
     await plugin.onload();
 
+    expect(plugin.runtime.settingTabHost().settings).toMatchObject({ showToolbar: false, sendShortcut: "mod-enter" });
     expect(firstLeaf.loadIfDeferred).not.toHaveBeenCalled();
     expect(secondLeaf.loadIfDeferred).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(0);

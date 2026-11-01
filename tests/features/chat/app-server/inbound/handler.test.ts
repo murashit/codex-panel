@@ -119,6 +119,89 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([{ id: "a1", text: "hello" }]);
     });
 
+    it("accumulates command output from inbound notifications", () => {
+      const handler = handlerForState(chatStateFixture({ activeThread: { id: "thread-active" } }));
+      handler.handleNotification(
+        turnNotification("turn/started", "thread-active", {
+          id: "turn-active",
+          status: "inProgress",
+          itemsView: "full",
+          items: [],
+        }),
+      );
+      handler.handleNotification({
+        method: "item/started",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          startedAtMs: 1,
+          item: {
+            type: "commandExecution",
+            id: "command",
+            pluginId: null,
+            scriptPath: null,
+            command: "npm test",
+            cwd: "/vault",
+            processId: null,
+            source: "agent",
+            status: "inProgress",
+            commandActions: [],
+            aggregatedOutput: null,
+            exitCode: null,
+            durationMs: null,
+          },
+        },
+      });
+
+      for (const delta of ["first line\n", "second line\n"]) {
+        handler.handleNotification({
+          method: "item/commandExecution/outputDelta",
+          params: { threadId: "thread-active", turnId: "turn-active", itemId: "command", delta },
+        });
+      }
+
+      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
+        { id: "command", kind: "command", output: "first line\nsecond line\n" },
+      ]);
+    });
+
+    it("applies token usage only to its thread", () => {
+      const handler = handlerForState(activeRunningState());
+      const tokenUsage = {
+        total: {
+          totalTokens: 100,
+          inputTokens: 60,
+          cachedInputTokens: 20,
+          cacheWriteInputTokens: 5,
+          outputTokens: 40,
+          reasoningOutputTokens: 10,
+        },
+        last: {
+          totalTokens: 30,
+          inputTokens: 18,
+          cachedInputTokens: 4,
+          cacheWriteInputTokens: 2,
+          outputTokens: 12,
+          reasoningOutputTokens: 3,
+        },
+        modelContextWindow: 128000,
+      };
+      handler.handleNotification({
+        method: "thread/tokenUsage/updated",
+        params: { threadId: "thread-active", turnId: "turn-active", tokenUsage },
+      });
+      handler.handleNotification({
+        method: "thread/tokenUsage/updated",
+        params: { threadId: "foreign", turnId: "other", tokenUsage: { ...tokenUsage, modelContextWindow: 8000 } },
+      });
+
+      expect(activeThreadState(handler.currentState())?.tokenUsage).toEqual({
+        total: { totalTokens: 100, inputTokens: 60, cachedInputTokens: 20, outputTokens: 40, reasoningOutputTokens: 10 },
+        last: { totalTokens: 30, inputTokens: 18, cachedInputTokens: 4, outputTokens: 12, reasoningOutputTokens: 3 },
+        modelContextWindow: 128000,
+      });
+    });
+
     it("shows asynchronous agent messages without completing the active turn", () => {
       const handler = handlerForState(activeRunningState());
 
@@ -433,16 +516,32 @@ describe("ChatInboundHandler", () => {
         },
         activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } },
       });
-      const handler = handlerForState(state);
+      const respondToServerRequest = vi.fn();
+      const handler = handlerForState(state, { respondToServerRequest });
 
       handler.handleServerRequest(
         userInputRequestFixture(41, {
-          questions: [{ id: "scope", header: "Scope", question: "What should I do?", isOther: false, isSecret: false, options: null }],
+          questions: [
+            {
+              id: "scope",
+              header: "Scope",
+              question: "What should I do?",
+              isOther: false,
+              isSecret: false,
+              options: [
+                { label: "Investigate", description: "Find the cause" },
+                { label: "Fix", description: "Apply a correction" },
+              ],
+            },
+          ],
           isBlocking: true,
         }),
       );
 
       expect(handler.currentState().requests.pendingUserInputs).toHaveLength(1);
+      handler.pendingRequests.resolveUserInput(41);
+      expect(respondToServerRequest).toHaveBeenCalledExactlyOnceWith(41, { answers: { scope: { answers: ["Investigate"] } } });
+      expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
     });
 
     it("records the accepted URL in the MCP elicitation result item", () => {

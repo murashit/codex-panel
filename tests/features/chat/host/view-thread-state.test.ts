@@ -450,6 +450,7 @@ describe("CodexChatView thread state", () => {
     await view.onOpen();
     await view.surface.activateThread("thread-1");
     view.surface.setComposerText("keep this draft");
+    expect(view.surface.openPanelSnapshot().hasComposerDraft).toBe(true);
     const composer = composerElement(view);
     await waitForAsyncWork(() => {
       expect(composer.value).toBe("keep this draft");

@@ -118,20 +118,29 @@ describe("web context reader", () => {
   });
 
   it("discards the response when the import is cancelled", async () => {
-    const isCurrent = vi.fn().mockReturnValueOnce(true).mockReturnValue(false);
-
-    await expect(
-      readWebUrl(
-        {
-          resolveFileReference: () => null,
-          viewWindow: () => window,
-          isCurrent,
-        },
-        "https://example.com/article",
-        "",
-        emptyComposerInputSnapshot(),
-      ),
-    ).rejects.toThrow("Web import cancelled.");
+    const response = deferred<obsidian.RequestUrlResponse>();
+    requestUrl.mockReturnValue(
+      Object.assign(response.promise, {
+        arrayBuffer: response.promise.then((page) => page.arrayBuffer),
+        json: response.promise.then((page) => page.json),
+        text: response.promise.then((page) => page.text),
+      }),
+    );
+    let current = true;
+    const reading = readWebUrl(
+      {
+        resolveFileReference: () => null,
+        viewWindow: () => window,
+        isCurrent: () => current,
+      },
+      "https://example.com/article",
+      "",
+      emptyComposerInputSnapshot(),
+    );
+    expect(requestUrl).toHaveBeenCalledOnce();
+    current = false;
+    response.resolve({ headers: {}, json: {}, arrayBuffer: new ArrayBuffer(0), status: 200, text: "<article>Readable article</article>" });
+    await expect(reading).rejects.toThrow("Web import cancelled.");
 
     expect(htmlToMarkdown).not.toHaveBeenCalled();
   });
