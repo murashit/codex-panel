@@ -193,39 +193,75 @@ describe("CodexPanelPlugin runtime integration", () => {
     });
   });
 
-  it("applies rename and pin facts to cached catalogs and open chat surfaces", async () => {
-    contextConnectionClientMock.mockImplementation(() => threadListClient(async () => [thread("unrelated"), thread("thread-1")]));
+  it("publishes rename and delayed toolbar Pin results across catalogs and panels", async () => {
+    const moved = deferred<object>();
+    const move = vi.fn(() => moved.promise);
+    const listClient: { request(method: string, params: unknown): Promise<unknown> } = threadListClient(async () => [
+      thread("unrelated"),
+      thread("thread-1"),
+    ]);
+    const client = connectedClient({
+      "thread/list": vi.fn((params: unknown) => listClient.request("thread/list", params)),
+      "thread/section/move": move,
+      "thread/resume": vi.fn((params: unknown) => Promise.resolve(resumedThread((params as { threadId: string }).threadId))),
+    });
+    contextConnectionClientMock.mockReturnValue(client);
     const firstLeaf = leaf();
-    firstLeaf.view = chatView(CodexChatView, firstLeaf);
-    const firstRenamed = vi.spyOn((firstLeaf.view as CodexChatView).surface, "applyThreadRenamed").mockImplementation(() => undefined);
-    const firstRefresh = vi.spyOn((firstLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const secondLeaf = leaf();
-    secondLeaf.view = chatView(CodexChatView, secondLeaf);
-    const secondRenamed = vi.spyOn((secondLeaf.view as CodexChatView).surface, "applyThreadRenamed").mockImplementation(() => undefined);
-    const secondRefresh = vi.spyOn((secondLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
-    const catalog = threadCatalog(plugin);
-    const archivedCatalog = plugin.runtime.settingTabHost().resources.threadCatalog;
-    await catalog.fetchActiveThreads();
-    await archivedCatalog.refreshArchivedThreads();
+    const first = chatView(CodexChatView, firstLeaf, plugin.runtime);
+    const second = chatView(CodexChatView, secondLeaf, plugin.runtime);
+    firstLeaf.view = first;
+    secondLeaf.view = second;
+    try {
+      await first.onOpen();
+      await first.surface.activateThread("thread-1");
+      const catalog = threadCatalog(plugin);
+      const archivedCatalog = plugin.runtime.settingTabHost().resources.threadCatalog;
+      await catalog.fetchActiveThreads();
+      await archivedCatalog.refreshArchivedThreads();
+      const firstRenamed = vi.spyOn(first.surface, "applyThreadRenamed");
+      const secondRenamed = vi.spyOn(second.surface, "applyThreadRenamed");
+      const firstRefresh = vi.spyOn(first.surface, "refreshSharedThreads");
+      const secondRefresh = vi.spyOn(second.surface, "refreshSharedThreads");
+      threadFacts(plugin).apply({ type: "thread-renamed", threadId: "thread-1", name: "Renamed thread" });
 
-    threadFacts(plugin).apply({ type: "thread-renamed", threadId: "thread-1", name: "Renamed thread" });
-    threadFacts(plugin).apply({ type: "thread-pinned", threadId: "thread-1", isPinned: true });
-
-    for (const rows of [catalog.activeThreadsSnapshot(), archivedCatalog.archivedThreadsSnapshot()]) {
-      expect(rows).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ id: "thread-1", name: "Renamed thread", isPinned: true }),
-          expect.objectContaining({ id: "unrelated", name: null }),
-        ]),
+      first.containerEl.querySelector<HTMLButtonElement>('[aria-label="Show thread list"]')?.click();
+      const pinSelector = '.codex-panel__thread-row--selected [aria-label="Pin thread"]';
+      await vi.waitFor(() => expect(first.containerEl.querySelector(pinSelector)).not.toBeNull());
+      first.containerEl.querySelector<HTMLButtonElement>(pinSelector)?.click();
+      await waitForAsyncWork(() => expect(move).toHaveBeenCalledOnce());
+      expect(client.request).toHaveBeenCalledWith("thread/section/move", {
+        threadId: "thread-1",
+        sectionId: "01984de2-8f74-7c91-a3b2-5c5e937cf318",
+      });
+      await first.surface.activateThread("thread-2");
+      moved.resolve({});
+      await vi.waitFor(() =>
+        expect(catalog.activeThreadsSnapshot()?.find((row) => row.id === "thread-1")).toMatchObject({ isPinned: true }),
       );
-      expect(rows?.find((row) => row.id === "unrelated")?.isPinned).not.toBe(true);
-    }
 
-    expect(firstRenamed).toHaveBeenCalledWith("thread-1", "Renamed thread");
-    expect(secondRenamed).toHaveBeenCalledWith("thread-1", "Renamed thread");
-    expect(firstRefresh).not.toHaveBeenCalled();
-    expect(secondRefresh).not.toHaveBeenCalled();
+      for (const rows of [catalog.activeThreadsSnapshot(), archivedCatalog.archivedThreadsSnapshot()]) {
+        expect(rows).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: "thread-1", name: "Renamed thread", isPinned: true }),
+            expect.objectContaining({ id: "unrelated", name: null }),
+          ]),
+        );
+        expect(rows?.find((row) => row.id === "unrelated")?.isPinned).not.toBe(true);
+      }
+      expect(firstRenamed).toHaveBeenCalledWith("thread-1", "Renamed thread");
+      expect(secondRenamed).toHaveBeenCalledWith("thread-1", "Renamed thread");
+      expect(firstRefresh).not.toHaveBeenCalled();
+      expect(secondRefresh).not.toHaveBeenCalled();
+      expect(first.surface.openPanelSnapshot().threadId).toBe("thread-2");
+      first.containerEl.querySelector<HTMLButtonElement>('[aria-label="Show thread list"]')?.click();
+      await vi.waitFor(() => expect(first.containerEl.querySelector('[aria-label="Unpin thread"]')).not.toBeNull());
+    } finally {
+      await first.onClose();
+      await second.onClose();
+      plugin.runtime.reset();
+    }
   });
 
   it("keeps shared thread list refreshes separate across app-server cache contexts", async () => {

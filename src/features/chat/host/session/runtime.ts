@@ -8,6 +8,7 @@ import { activePanelOperationDecision } from "../../application/panel-operation-
 import { createChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
 import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
 import { activeThreadId, type ChatConnectionPhase } from "../../application/state/model";
+import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../application/state/panel-target";
 import type { ChatStateStore } from "../../application/state/store";
 import type { ForkDraftPreparation } from "../../application/threads/fork-draft";
 import { sideChatDraft } from "../../application/threads/fork-draft";
@@ -38,6 +39,7 @@ interface ChatPanelSessionStatus {
   set: (statusText: string, phase?: ChatConnectionPhase) => void;
   addSystemMessage: (text: string) => void;
   addStructuredSystemMessage: (text: string, details: ThreadStreamNoticeSection[]) => void;
+  captureFailureRecipient: () => (error: unknown) => void;
 }
 
 interface ChatPanelSessionRuntimeHost {
@@ -241,6 +243,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     sharedResources,
   });
   const toolbarActions = createToolbarUiActions({
+    captureFailureRecipient: status.captureFailureRecipient,
     connectionCoordinator,
     reconnectCommand: reconnect,
     threadCommands: threadCommands.commands,
@@ -293,9 +296,14 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     vaultPath: environment.plugin.appServerContext.vaultPath,
     loadOlderTurns: () => void threadFoundation.history.loadOlder(),
     actions: {
-      rollbackThread: (threadId) => void threadCommands.commands.rollbackThread(threadId),
-      forkThreadFromTurn: (threadId, turnId, archiveSource) =>
-        void threadCommands.commands.forkThreadFromTurn(threadId, turnId, archiveSource),
+      rollbackThread: (threadId) => {
+        const reportFailure = status.captureFailureRecipient();
+        void threadCommands.commands.rollbackThread(threadId).catch(reportFailure);
+      },
+      forkThreadFromTurn: (threadId, turnId, archiveSource) => {
+        const reportFailure = status.captureFailureRecipient();
+        void threadCommands.commands.forkThreadFromTurn(threadId, turnId, archiveSource).catch(reportFailure);
+      },
       implementPlan: (itemId) => void turn.submissionCommands.planImplementation.implement(itemId),
       openThreadInAvailableView: (threadId) => void environment.plugin.workspace.openThreadInAvailableView(threadId),
       openThreadInNewView: (threadId) => void environment.plugin.workspace.openThreadInNewView(threadId),
@@ -394,15 +402,24 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
 }
 
 function createSessionStatus(stateStore: ChatStateStore, localItemIds: LocalIdSource): ChatPanelSessionStatus {
+  const addSystemMessage = (text: string): void => {
+    stateStore.dispatch({
+      type: "thread-stream/system-item-added",
+      item: createSystemItem(localItemIds.next("system"), text),
+    });
+  };
   return {
     set: (statusText, phase) => {
       stateStore.dispatch({ type: "connection/status-set", statusText, ...(phase ? { phase } : {}) });
     },
-    addSystemMessage: (text) => {
-      stateStore.dispatch({
-        type: "thread-stream/system-item-added",
-        item: createSystemItem(localItemIds.next("system"), text),
-      });
+    addSystemMessage,
+    captureFailureRecipient: () => {
+      const target = capturePanelTargetLease(stateStore.getState());
+      return (error) => {
+        if (panelTargetLeaseIsCurrent(stateStore.getState(), target)) {
+          addSystemMessage(error instanceof Error ? error.message : String(error));
+        }
+      };
     },
     addStructuredSystemMessage: (text, details) => {
       stateStore.dispatch({

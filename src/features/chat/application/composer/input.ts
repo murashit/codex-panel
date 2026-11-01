@@ -94,6 +94,7 @@ export class ComposerInput {
     this.observedDraft = state.composer.draft;
     this.unsubscribeState = options.stateStore.subscribe(() => {
       this.reconcilePanelTarget();
+      this.attachmentTransfers.reconcileDraft();
     });
     this.unsubscribeSharedResources = options.sharedResources.subscribe(() => {
       if (options.view.selection()) this.updateSuggestions();
@@ -263,13 +264,12 @@ export class ComposerInput {
     if (adoption) {
       const { replacementDraft } = adoption;
       const adoptedDraft = replacementDraft === undefined ? carriedDraft : prependClaimedDraft(replacementDraft, carriedDraft);
-      this.setDraft(adoptedDraft, {
-        preserveContext: true,
-        threadCommandTarget: this.threadCommandTarget,
-      });
+      this.pruneThreadCommandTarget(adoptedDraft);
+      this.attachmentTransfers.reconcileDraft(adoptedDraft);
       return;
     }
 
+    this.attachmentTransfers.reset();
     this.attachments = [];
     this.activeNoteContextSnapshots = [];
     this.clearSelectionContexts();

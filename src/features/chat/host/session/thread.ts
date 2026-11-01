@@ -182,8 +182,7 @@ export function createSessionThreadCommands(host: SessionThreadHost, input: Sess
         const result = await foundation.threadMutations.archiveThread(threadId, options);
         if (result.exportedPath) new Notice(`Saved thread to ${result.exportedPath}.`);
         if (result.kind !== "archived") {
-          status.addSystemMessage(result.kind === "blocked" ? "Finish or interrupt the thread before archiving it." : result.message);
-          return false;
+          throw new Error(result.kind === "blocked" ? "Finish or interrupt the thread before archiving it." : result.message);
         }
         return true;
       },

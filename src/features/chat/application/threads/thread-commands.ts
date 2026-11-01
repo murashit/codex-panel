@@ -54,10 +54,10 @@ export function createThreadCommands(host: ThreadCommandsHost): ThreadCommands {
     compactActiveThread: () => compactActiveThread(host),
     compactThread: (threadId) => compactThread(host, threadId),
     archiveThread: (threadId, saveMarkdown, afterArchive) => archiveThread(host, threadId, saveMarkdown, afterArchive),
-    setThreadPinned: (threadId, isPinned) => setThreadPinned(host, threadId, isPinned),
+    setThreadPinned: (threadId, isPinned) => host.mutations.setThreadPinned(threadId, isPinned),
     forkThread: (threadId) => forkThread(host, threadId),
     forkThreadFromTurn: (threadId, turnId, archiveSource) => forkThreadFromTurn(host, threadId, turnId, archiveSource),
-    renameThread: (threadId, name) => renameThread(host, threadId, name),
+    renameThread: (threadId, name) => host.mutations.renameThread(threadId, name),
     rollbackThread: (threadId, options) => rollbackThread(host, threadId, options),
   };
 }
@@ -89,15 +89,11 @@ async function compactThread(host: ThreadCommandsHost, threadId: string): Promis
 }
 
 async function archiveThread(host: ThreadCommandsHost, threadId: string, saveMarkdown?: boolean, afterArchive?: () => void): Promise<void> {
-  try {
-    const options = {
-      ...(saveMarkdown === undefined ? {} : { saveMarkdown }),
-      ...(afterArchive ? { afterArchive } : {}),
-    };
-    await host.mutations.archiveThread(threadId, options);
-  } catch (error) {
-    host.addSystemMessage(error instanceof Error ? error.message : String(error));
-  }
+  const options = {
+    ...(saveMarkdown === undefined ? {} : { saveMarkdown }),
+    ...(afterArchive ? { afterArchive } : {}),
+  };
+  await host.mutations.archiveThread(threadId, options);
 }
 
 function forkThread(host: ThreadCommandsHost, threadId: string): Promise<void> {
@@ -159,31 +155,8 @@ async function prepareFork(
     runtime: forkDraftRuntime(state.runtime),
     display: captureForkDisplaySnapshot(stream, !boundary && previous ? { kind: "latest" } : selected),
   };
-  try {
-    if (archiveSource) adoption?.(null, composerText);
-    await host.openForkDraft(preparation, !archiveSource);
-  } catch (error) {
-    host.addSystemMessage(error instanceof Error ? error.message : String(error));
-  }
-}
-
-async function renameThread(host: ThreadCommandsHost, threadId: string, value: string): Promise<boolean> {
-  try {
-    const result = await host.mutations.renameThread(threadId, value);
-    if (!result) return false;
-    return true;
-  } catch (error) {
-    host.addSystemMessage(error instanceof Error ? error.message : String(error));
-    return false;
-  }
-}
-
-async function setThreadPinned(host: ThreadCommandsHost, threadId: string, isPinned: boolean): Promise<void> {
-  try {
-    await host.mutations.setThreadPinned(threadId, isPinned);
-  } catch (error) {
-    host.addSystemMessage(error instanceof Error ? error.message : String(error));
-  }
+  if (archiveSource) adoption?.(null, composerText);
+  await host.openForkDraft(preparation, !archiveSource);
 }
 
 async function rollbackThread(

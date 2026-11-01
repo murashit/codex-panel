@@ -510,7 +510,6 @@ describe("submitComposer", () => {
       const referThread = createThreadReferenceResolver({
         currentClient: () => ({ request }) as unknown as AppServerClient,
         resolveFileReference: host.resolveFileReference,
-        setStatus: host.status.setStatus,
       });
       execute.mockImplementation((_command, args, inputSnapshot, submission) =>
         executeContextSlashCommand("refer", args, {
