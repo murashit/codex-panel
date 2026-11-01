@@ -67,6 +67,7 @@ export class ComposerAttachmentTransfers {
     } catch (error) {
       if (!this.lifetime.isCurrent(lifetime)) return;
       this.settlePendingSave(pending);
+      if (this.state.panelTargetRevision !== pending.panelTargetRevision) return;
       this.options.onError(error instanceof Error ? error.message : String(error));
     }
   }
