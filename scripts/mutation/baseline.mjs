@@ -1,38 +1,13 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { globSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, matchesGlob, resolve } from "node:path";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import config from "../../stryker.config.mjs";
 
 const checkpoint = config.incrementalFile;
 const directory = dirname(checkpoint);
 const hash = (content) => createHash("sha256").update(content).digest("hex");
-
-// Stryker owns changes to mutated source and individual test files. Everything
-// else that can affect those tests must invalidate reuse, including removals.
-export function compatibility(cwd = process.cwd()) {
-  const files = globSync(["src/**/*", "tests/**/*", "scripts/**/*", "*", ".node-version", ".npmrc", ".github/workflows/mutation.yml"], {
-    cwd,
-  })
-    .filter((file) => statSync(resolve(cwd, file)).isFile())
-    .filter(
-      (file) =>
-        file.startsWith("src/") ||
-        file.startsWith("tests/") ||
-        file.startsWith("scripts/") ||
-        /(?:config\.|\.json$|\.jsonc$|^\.node-version$|^\.npmrc$|^\.github\/)/.test(file),
-    )
-    .filter((file) => !config.mutate.some((pattern) => matchesGlob(file, pattern)) && !/\.test\.[cm]?[jt]sx?$/.test(file))
-    .sort();
-  const versions = { node: process.version, platform: process.platform, arch: process.arch };
-  for (const name of ["@stryker-mutator/core", "@stryker-mutator/vitest-runner", "vitest"]) {
-    versions[name] = JSON.parse(readFileSync(resolve(cwd, "node_modules", name, "package.json"), "utf8")).version;
-  }
-  const environment = Object.fromEntries(["CI", "NODE_OPTIONS", "TZ", "LANG"].map((name) => [name, process.env[name] ?? null]));
-  const inputs = Object.fromEntries(files.map((file) => [file, hash(readFileSync(resolve(cwd, file)))]));
-  return { schemaVersion: 1, versions, environment, inputs, key: hash(JSON.stringify({ versions, environment, inputs })) };
-}
 
 function readCheckpoint(content) {
   const report = JSON.parse(content);
@@ -83,18 +58,18 @@ function validLocation(location, endOptional = false) {
   );
 }
 
-function readBaseline(metadataContent, checkpointContent, expected) {
+function readBaseline(metadataContent, checkpointContent) {
   const metadata = JSON.parse(metadataContent);
   readCheckpoint(checkpointContent);
-  if (metadata.schemaVersion !== 1 || metadata.compatibility.key !== expected.key || metadata.checkpointHash !== hash(checkpointContent)) {
-    throw new Error("Baseline compatibility or checkpoint hash mismatch");
+  if (metadata.schemaVersion !== 1 || metadata.checkpointHash !== hash(checkpointContent)) {
+    throw new Error("Baseline metadata or checkpoint hash mismatch");
   }
   return metadata;
 }
 
-export function loadBaseline(cwd, expected) {
+export function loadBaseline(cwd) {
   try {
-    return readBaseline(readFileSync(resolve(cwd, directory, "baseline.json"), "utf8"), readFileSync(resolve(cwd, checkpoint)), expected);
+    return readBaseline(readFileSync(resolve(cwd, directory, "baseline.json"), "utf8"), readFileSync(resolve(cwd, checkpoint)));
   } catch (error) {
     rmSync(resolve(cwd, checkpoint), { force: true });
     console.log(`Cold mutation run: ${error.message}`);
@@ -112,7 +87,6 @@ export function saveBaseline(cwd, metadata) {
       `${JSON.stringify(
         {
           schemaVersion: 1,
-          compatibility: metadata.compatibility,
           checkpointHash: hash(content),
           commit: metadata.commit,
           runId: metadata.runId,
@@ -178,7 +152,6 @@ with zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())) as z:
 
 async function restoreBaseline(cwd = process.cwd()) {
   rmSync(resolve(cwd, directory), { recursive: true, force: true });
-  const expected = compatibility(cwd);
   if (!process.env.GITHUB_TOKEN) throw new Error("Baseline restore requires GITHUB_TOKEN");
   const current = await api(`actions/runs/${process.env.GITHUB_RUN_ID}`);
   // Repository artifacts are newest first, including reruns of older runs.
@@ -200,7 +173,7 @@ async function restoreBaseline(cwd = process.cwd()) {
         if (artifact.size_in_bytes > 100 * 1024 * 1024) throw new Error("Oversized baseline archive");
         const files = readArchive(await api(`actions/artifacts/${artifact.id}/zip`));
         const content = files["stryker-incremental.json"];
-        const metadata = readBaseline(files["baseline.json"], content, expected);
+        const metadata = readBaseline(files["baseline.json"], content);
         if (
           metadata.commit !== run.head_sha ||
           String(metadata.runId) !== String(run.id) ||
@@ -219,7 +192,7 @@ async function restoreBaseline(cwd = process.cwd()) {
     }
     if (artifacts.length < 100) break;
   }
-  console.log("No compatible trusted baseline found; next mutation run will be cold.");
+  console.log("No valid trusted baseline found; next mutation run will be cold.");
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

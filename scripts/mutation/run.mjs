@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from "node:fs";
 import { resolve } from "node:path";
 import { stripVTControlCharacters } from "node:util";
-import { compatibility, loadBaseline, saveBaseline } from "./baseline.mjs";
+import { loadBaseline, saveBaseline } from "./baseline.mjs";
 
 const reportDirectory = "reports/mutation";
 const statuses = ["Killed", "Survived", "NoCoverage", "CompileError", "RuntimeError", "Timeout", "Ignored", "Pending"];
@@ -34,7 +34,6 @@ function initialMetadata(cwd) {
     runId: process.env.GITHUB_RUN_ID ?? null,
     runAttempt: process.env.GITHUB_RUN_ATTEMPT ?? null,
     versions,
-    compatibility: null,
     baseline: null,
     reuseEnabled: false,
     reusedMutants: null,
@@ -105,8 +104,7 @@ async function runMutation({ force = false } = {}) {
   let log;
   try {
     log = openSync(resolve(cwd, reportDirectory, "mutation.log"), "w");
-    metadata.compatibility = compatibility(cwd);
-    const baseline = loadBaseline(cwd, metadata.compatibility);
+    const baseline = loadBaseline(cwd);
     metadata.baseline = baseline
       ? {
           commit: baseline.commit,

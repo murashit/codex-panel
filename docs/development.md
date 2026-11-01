@@ -133,11 +133,13 @@ gh run download RUN_ID --pattern 'mutation-*' --dir /tmp/mutation-RUN_ID
 
 Check the execution step's outcome and `run.json` (`commit` and `completed`) before opening `mutation.html` or reading `mutation.json`. Completion requires successful execution and a final report. Finalization records available diagnostics and checkpoints even when execution is incomplete. Metadata also records the baseline source, whether reuse was enabled, and Stryker's reused-mutant count (unknown if interrupted before analysis).
 
-The workflow restores the newest compatible checkpoint from its completed runs on `main`, including timed-out runs. Stryker tracks changes to mutated source and tests; dependencies, configuration, runners, test helpers, fixtures, snapshots, and source outside the mutation scope invalidate reuse. Missing, expired, invalid, or incompatible baselines start a cold run; this includes the first run after changing the mutation globs.
+The workflow restores the newest valid checkpoint from its completed runs on `main`, including timed-out runs. Stryker decides which results to reuse from changes to mutated source, tests, and their coverage; expanding the mutation scope preserves eligible previous results. Missing, expired, or invalid checkpoints start a cold run.
+
+[Stryker's incremental analysis](https://stryker-mutator.io/docs/stryker-js/incremental/#limitations) compares mutant and test ranges, without inferring effects from shared setup, dependencies, or other configuration and environment changes. When those changes can affect results, use `-f force=true` for the workflow or `--force` locally.
 
 Result and `mutation-baseline-*` checkpoint artifacts are retained for 90 days, subject to repository limits. Execution is limited to 120 minutes plus 60 seconds of termination grace so Stryker can save partial progress. Failed runs retain available checkpoints, metadata, and full logs; forced termination or cancellation can prevent checkpoint saving or artifact upload.
 
-For occasional local runs on Linux with GNU `timeout`, `node scripts/mutation/run.mjs` uses a compatible local checkpoint; add `--force` to rerun every mutant. Use the native `npm run test:mutation -- <Stryker options>` command for focused diagnostics.
+For occasional local runs on Linux with GNU `timeout`, `node scripts/mutation/run.mjs` uses a valid local checkpoint; add `--force` to rerun every mutant. Use the native `npm run test:mutation -- <Stryker options>` command for focused diagnostics.
 
 ## Update API Compatibility
 

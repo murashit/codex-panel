@@ -48,7 +48,7 @@ jobs:
         run: npm ci
         timeout-minutes: 5
 
-      - name: Restore compatible mutation baseline
+      - name: Restore mutation baseline
         # Checkout is clean, so skipping restoration forces a cold run.
         if: ${{ !inputs.force }}
         continue-on-error: true
