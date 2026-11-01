@@ -3,15 +3,6 @@
 import { type App, type EventRef, TFile } from "obsidian";
 import * as dailyNotesInterface from "obsidian-daily-notes-interface";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
-import * as selectionEmphasis from "../../../../../src/shared/ui/editor-selection-emphasis.obsidian";
-
-const selectionEmphasisMock = {
-  release: vi.fn(),
-  retain: vi.fn(),
-  setVisible: vi.fn(),
-};
-
-import { VaultComposerContextReferenceProvider } from "../../../../../src/features/chat/host/obsidian/vault-composer-context-reference-provider.obsidian";
 import { configuredDailyNoteReferences } from "../../../../../src/features/chat/host/obsidian/vault-daily-note-references.obsidian";
 import { VaultNoteCandidateProvider } from "../../../../../src/features/chat/host/obsidian/vault-note-candidate-provider.obsidian";
 
@@ -19,12 +10,6 @@ describe("VaultNoteCandidateProvider", () => {
   beforeEach(() => {
     vi.spyOn(dailyNotesInterface, "appHasDailyNotesPluginLoaded").mockReturnValue(false);
     vi.spyOn(dailyNotesInterface, "getDailyNoteSettings").mockReturnValue({ format: "", folder: "", template: "" });
-    vi.spyOn(selectionEmphasis, "retainEditorSelectionEmphasis").mockImplementation(selectionEmphasisMock.retain);
-    selectionEmphasisMock.release.mockReset();
-    selectionEmphasisMock.setVisible.mockReset();
-    selectionEmphasisMock.retain
-      .mockReset()
-      .mockReturnValue({ release: selectionEmphasisMock.release, setVisible: selectionEmphasisMock.setVisible });
   });
 
   afterEach(() => {
@@ -281,188 +266,13 @@ describe("VaultNoteCandidateProvider", () => {
     });
     expect(getFirstLinkpathDest).toHaveBeenCalledWith("Bases/Projects.base", "Daily/Today.md");
   });
-
-  it("returns active file and selection references from the last markdown view", () => {
-    const file = tFile("notes/Alpha.md", "Alpha");
-    const app = appFixture({
-      activeView: markdownView(file, {
-        selection: "selected text",
-        from: { line: 2, ch: 4 },
-        to: { line: 3, ch: 1 },
-      }),
-      abstractFiles: new Map([["notes/Alpha.md", file]]),
-      linktexts: new Map([["notes/Alpha.md", "Alpha"]]),
-    });
-    const provider = new VaultComposerContextReferenceProvider(app, () => false);
-
-    expect(provider.contextReferences("Inbox.md")).toEqual({
-      activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
-      selection: {
-        name: "Alpha",
-        path: "notes/Alpha.md",
-        linktext: "Alpha",
-        range: { from: { line: 2, ch: 4 }, to: { line: 3, ch: 1 } },
-        text: "selected text",
-      },
-    });
-  });
-
-  it("shows the matching retained selection only while its owning panel is foreground", () => {
-    const { view, app } = retainedSelectionFixture();
-    let panelForeground = true;
-    const provider = new VaultComposerContextReferenceProvider(app, () => panelForeground);
-    const selection = provider.contextReferences("Inbox.md").selection;
-    if (!selection) throw new Error("Expected selection context.");
-
-    app.setActiveView(null);
-    app.triggerWorkspaceEvent("active-leaf-change");
-    const emphasis = provider.retainSelectionEmphasis(selection);
-
-    expect(selectionEmphasisMock.retain).toHaveBeenCalledWith(view.editor, selection.range);
-    expect(selectionEmphasisMock.setVisible).toHaveBeenLastCalledWith(true);
-
-    emphasis?.setEnabled(false);
-    expect(selectionEmphasisMock.setVisible).toHaveBeenLastCalledWith(false);
-
-    panelForeground = false;
-    app.setActiveView(view);
-    app.triggerWorkspaceEvent("active-leaf-change");
-    expect(selectionEmphasisMock.setVisible).toHaveBeenLastCalledWith(false);
-    expect(selectionEmphasisMock.release).not.toHaveBeenCalled();
-
-    panelForeground = true;
-    app.setActiveView(null);
-    app.triggerWorkspaceEvent("active-leaf-change");
-    expect(selectionEmphasisMock.setVisible).toHaveBeenLastCalledWith(false);
-
-    emphasis?.setEnabled(true);
-    expect(selectionEmphasisMock.setVisible).toHaveBeenLastCalledWith(true);
-
-    emphasis?.release();
-    expect(selectionEmphasisMock.release).toHaveBeenCalledOnce();
-
-    panelForeground = false;
-    app.triggerWorkspaceEvent("active-leaf-change");
-    expect(selectionEmphasisMock.setVisible).toHaveBeenCalledTimes(5);
-  });
-
-  it("retains the originating editor when the same note is active in another view", () => {
-    const alpha = tFile("notes/Alpha.md", "Alpha");
-    const selection = {
-      selection: "selected text",
-      from: { line: 2, ch: 4 },
-      to: { line: 3, ch: 1 },
-    };
-    const alphaView = markdownView(alpha, {
-      ...selection,
-    });
-    const otherAlphaView = markdownView(alpha, selection);
-    const app = appFixture({
-      activeView: alphaView,
-      abstractFiles: new Map([[alpha.path, alpha]]),
-      linktexts: new Map([[alpha.path, "Alpha"]]),
-    });
-    const provider = new VaultComposerContextReferenceProvider(app, () => true);
-    const reference = provider.contextReferences("Inbox.md").selection;
-    if (!reference) throw new Error("Expected selection context.");
-
-    app.setActiveView(otherAlphaView);
-    app.triggerWorkspaceEvent("active-leaf-change");
-    provider.retainSelectionEmphasis(reference);
-
-    expect(selectionEmphasisMock.retain).toHaveBeenCalledWith(alphaView.editor, reference.range);
-  });
-
-  it("rejects selections whose originating view or source range changed", () => {
-    const alpha = tFile("notes/Alpha.md", "Alpha");
-    const beta = tFile("notes/Beta.md", "Beta");
-    const source = {
-      selection: "selected text",
-      from: { line: 2, ch: 4 },
-      to: { line: 3, ch: 1 },
-    };
-    const view = markdownView(alpha, source);
-    const app = appFixture({
-      activeView: view,
-      abstractFiles: new Map([
-        [alpha.path, alpha],
-        [beta.path, beta],
-      ]),
-      linktexts: new Map([[alpha.path, "Alpha"]]),
-    });
-    const provider = new VaultComposerContextReferenceProvider(app, () => true);
-    const changedSourceSelection = provider.contextReferences("Inbox.md").selection;
-    if (!changedSourceSelection) throw new Error("Expected selection context.");
-    source.selection = "changed text";
-
-    expect(provider.retainSelectionEmphasis(changedSourceSelection)).toBeNull();
-
-    source.selection = "selected text";
-    const changedViewSelection = provider.contextReferences("Inbox.md").selection;
-    if (!changedViewSelection) throw new Error("Expected selection context.");
-
-    expect(provider.retainSelectionEmphasis({ ...changedViewSelection })).toBeNull();
-
-    view.file = beta;
-
-    expect(provider.retainSelectionEmphasis(changedViewSelection)).toBeNull();
-    expect(selectionEmphasisMock.retain).not.toHaveBeenCalled();
-  });
-
-  it("routes retained selection visibility independently between panel providers", () => {
-    const { app } = retainedSelectionFixture();
-    let firstForeground = true;
-    let secondForeground = false;
-    const first = new VaultComposerContextReferenceProvider(app, () => firstForeground);
-    const second = new VaultComposerContextReferenceProvider(app, () => secondForeground);
-    const selection = first.contextReferences("Inbox.md").selection;
-    if (!selection) throw new Error("Expected selection context.");
-    app.setActiveView(null);
-    app.triggerWorkspaceEvent("active-leaf-change");
-
-    const firstEmphasis = { release: vi.fn(), setVisible: vi.fn() };
-    const secondEmphasis = { release: vi.fn(), setVisible: vi.fn() };
-    selectionEmphasisMock.retain.mockReturnValueOnce(firstEmphasis).mockReturnValueOnce(secondEmphasis);
-    const retainedFirst = first.retainSelectionEmphasis(selection);
-    second.retainSelectionEmphasis(selection);
-
-    expect(firstEmphasis.setVisible).toHaveBeenLastCalledWith(true);
-    expect(secondEmphasis.setVisible).toHaveBeenLastCalledWith(false);
-
-    firstForeground = false;
-    secondForeground = true;
-    app.triggerWorkspaceEvent("active-leaf-change");
-    expect(firstEmphasis.setVisible).toHaveBeenLastCalledWith(false);
-    expect(secondEmphasis.setVisible).toHaveBeenLastCalledWith(true);
-
-    retainedFirst?.release();
-    second.dispose();
-    expect(firstEmphasis.release).toHaveBeenCalledOnce();
-    expect(secondEmphasis.release).toHaveBeenCalledOnce();
-    first.dispose();
-  });
-
-  it("shares active-view event tracking across panel context providers", () => {
-    const app = appFixture();
-    const first = new VaultComposerContextReferenceProvider(app, () => false);
-    const second = new VaultComposerContextReferenceProvider(app, () => false);
-
-    first.dispose();
-    expect(app.registeredEventNames("workspace")).toContain("file-open");
-    expect(app.registeredEventNames("workspace")).toContain("active-leaf-change");
-
-    second.dispose();
-    expect(app.registeredEventNames("workspace")).toEqual([]);
-  });
 });
 
 type AppFixtureEventSource = "vault" | "metadata" | "workspace";
 
 interface AppFixture extends App {
   registeredEventNames(source: AppFixtureEventSource): string[];
-  setActiveView(view: unknown): void;
   triggerVaultEvent(name: string): void;
-  triggerWorkspaceEvent(name: string): void;
 }
 
 function appFixture(
@@ -477,11 +287,8 @@ function appFixture(
     fileToLinktext?: (file: TFile, sourcePath: string, omitMdExtension?: boolean) => string;
     headings?: Map<string, { heading: string; level: number }[]>;
     tags?: Map<string, string[] | { inline?: string[]; frontmatter?: string[] }>;
-    activeFile?: TFile | null;
-    activeView?: unknown;
   } = {},
 ): AppFixture {
-  let activeView: unknown = options.activeView ?? null;
   const refs: { source: AppFixtureEventSource; name: string; callback: () => void; ref: EventRef }[] = [];
   const offref =
     (source: AppFixtureEventSource) =>
@@ -501,26 +308,15 @@ function appFixture(
     };
   return {
     registeredEventNames: (source: AppFixtureEventSource) => refs.filter((event) => event.source === source).map((event) => event.name),
-    setActiveView: (view: unknown) => {
-      activeView = view;
-    },
     triggerVaultEvent: (name: string) => {
       for (const event of refs.filter((ref) => ref.source === "vault" && ref.name === name)) {
-        event.callback();
-      }
-    },
-    triggerWorkspaceEvent: (name: string) => {
-      for (const event of refs.filter((ref) => ref.source === "workspace" && ref.name === name)) {
         event.callback();
       }
     },
     workspace: {
       on: on("workspace"),
       offref: offref("workspace"),
-      getActiveFile: () => options.activeFile ?? null,
-      getActiveViewOfType: () => activeView,
       getLastOpenFiles: () => options.lastOpenFiles ?? [],
-      getLeavesOfType: () => (activeView ? [{ view: activeView }] : []),
     },
     metadataCache: {
       on: on("metadata"),
@@ -545,36 +341,6 @@ function appFixture(
   } as unknown as AppFixture;
 }
 
-function markdownView(
-  file: TFile,
-  selection: { selection: string; from: { line: number; ch: number }; to: { line: number; ch: number } },
-): {
-  file: TFile;
-  containerEl: HTMLElement;
-  getMode(): "source";
-  previewMode: { containerEl: HTMLElement };
-  editor: {
-    getSelection(): string;
-    getCursor(kind: "from" | "to"): { line: number; ch: number };
-    getRange(from: { line: number; ch: number }, to: { line: number; ch: number }): string;
-  };
-} {
-  return {
-    file,
-    containerEl: document.createElement("div"),
-    getMode: () => "source",
-    previewMode: { containerEl: document.createElement("div") },
-    editor: {
-      getSelection: () => selection.selection,
-      getCursor: (kind: "from" | "to") => (kind === "from" ? selection.from : selection.to),
-      getRange: (from, to) =>
-        from.line === selection.from.line && from.ch === selection.from.ch && to.line === selection.to.line && to.ch === selection.to.ch
-          ? selection.selection
-          : "",
-    },
-  };
-}
-
 function tFile(path: string, basename: string): TFile {
   const name = path.split("/").pop() ?? path;
   const extensionStart = name.lastIndexOf(".");
@@ -593,19 +359,4 @@ function tagFixtureForPath(
 
 function vaultFiles(files: { basename: string; path: string; stat: { mtime: number } }[]): TFile[] {
   return files.map((file) => Object.assign(tFile(file.path, file.basename), { stat: file.stat }));
-}
-
-function retainedSelectionFixture() {
-  const file = tFile("notes/Alpha.md", "Alpha");
-  const view = markdownView(file, {
-    selection: "selected text",
-    from: { line: 2, ch: 4 },
-    to: { line: 3, ch: 1 },
-  });
-  const app = appFixture({
-    activeView: view,
-    abstractFiles: new Map([[file.path, file]]),
-    linktexts: new Map([[file.path, "Alpha"]]),
-  });
-  return { view, app };
 }

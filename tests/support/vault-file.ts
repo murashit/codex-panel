@@ -1,6 +1,7 @@
 import { TFile } from "obsidian";
 
 export function markdownFileFixture(path: string): TFile {
-  const basename = path.split("/").pop()?.replace(/\.md$/, "") ?? path;
-  return Object.assign(new TFile(), { path, basename });
+  const name = path.split("/").pop() ?? path;
+  const basename = name.replace(/\.md$/, "");
+  return Object.assign(new TFile(), { path, basename, name, extension: "md" });
 }

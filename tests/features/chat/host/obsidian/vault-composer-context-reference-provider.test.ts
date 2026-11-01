@@ -111,6 +111,7 @@ describe("Composer selection context", () => {
     fixture.cm.dispatch({ selection: { anchor: 0 } });
     expect(painting()).toEqual(["alpha"]);
     confirmed?.release();
+    expect(painting()).toEqual([]);
     fixture.setActive(fixture.view);
     fixture.cm.contentDOM.focus();
     fixture.cm.dispatch({ selection: { anchor: 0, head: 5 } });
@@ -137,9 +138,9 @@ describe("Composer selection context", () => {
   });
 
   it("captures the existing editor selection when the first Panel provider starts", () => {
-    const fixture = editorFixture();
+    const fixture = editorFixture("prefix\nalpha\nbeta");
     fixture.cm.contentDOM.focus();
-    fixture.cm.dispatch({ selection: { anchor: 6, head: 10 } });
+    fixture.cm.dispatch({ selection: { anchor: 9, head: 15 } });
     fixture.provider.dispose();
     expect(fixture.view.containerEl.querySelector(".codex-panel-selection-emphasis")).toBeNull();
     fixture.panel.focus();
@@ -149,7 +150,81 @@ describe("Composer selection context", () => {
     expect(fixture.view.containerEl.querySelector(".codex-panel-selection-emphasis")).toBeNull();
     foreground = true;
     fixture.setActive(null);
-    expect(fixture.view.containerEl.querySelector(".codex-panel-selection-emphasis")?.textContent).toBe("beta");
+    expect(provider.contextReferences("Inbox.md")).toEqual({
+      activeNote: { name: "Alpha", path: "Alpha.md", linktext: "Alpha" },
+      selection: {
+        name: "Alpha",
+        path: "Alpha.md",
+        linktext: "Alpha",
+        range: { from: { line: 1, ch: 2 }, to: { line: 2, ch: 2 } },
+        text: "pha\nbe",
+      },
+    });
+    expect([...fixture.view.containerEl.querySelectorAll(".codex-panel-selection-emphasis")].map((element) => element.textContent)).toEqual(
+      ["pha", "be"],
+    );
+  });
+
+  it("retains the originating editor when the same note is active in another view", () => {
+    const fixture = editorFixture();
+    const other = editorFixture();
+    other.view.file = fixture.view.file;
+    fixture.cm.dispatch({ selection: { anchor: 0, head: 5 } });
+    const reference = fixture.provider.contextReferences("").selection;
+    vi.spyOn(fixture.app.workspace, "getLeavesOfType").mockReturnValue([{ view: fixture.view }, { view: other.view }] as never);
+    fixture.setActive(other.view);
+    fixture.panel.focus();
+    fixture.setActive(null);
+
+    expect(fixture.provider.retainSelectionEmphasis(reference)).not.toBeNull();
+    expect(fixture.view.containerEl.querySelector(".codex-panel-selection-emphasis")?.textContent).toBe("alpha");
+    expect(other.view.containerEl.querySelector(".codex-panel-selection-emphasis")).toBeNull();
+  });
+
+  it("rejects captured editor references after source text or file changes, and copied references", () => {
+    const fixture = editorFixture();
+    fixture.cm.dispatch({ selection: { anchor: 0, head: 5 } });
+    const reference = fixture.provider.contextReferences("").selection;
+    if (!reference) throw new Error("Missing selection reference");
+    expect(fixture.provider.retainSelectionEmphasis({ ...reference })).toBeNull();
+    fixture.cm.dispatch({ changes: { from: 0, to: 5, insert: "other" } });
+    expect(fixture.provider.retainSelectionEmphasis(reference)).toBeNull();
+    fixture.cm.dispatch({ changes: { from: 0, to: 5, insert: "alpha" } });
+    expect(fixture.provider.retainSelectionEmphasis(reference)).not.toBeNull();
+    fixture.view.file = markdownFileFixture("Beta.md");
+    expect(fixture.provider.retainSelectionEmphasis(reference)).toBeNull();
+  });
+
+  it("routes retained editor selections independently between Panels and releases only the closing owner", () => {
+    const fixture = editorFixture();
+    let secondForeground = false;
+    const second = new VaultComposerContextReferenceProvider(fixture.app, () => secondForeground);
+    cleanups.push(() => second.dispose());
+    const painting = () =>
+      [...fixture.view.containerEl.querySelectorAll(".codex-panel-selection-emphasis")].map((element) => element.textContent);
+    fixture.cm.dispatch({ selection: { anchor: 0, head: 5 } });
+    const firstRetained = fixture.provider.retainSelectionEmphasis(fixture.provider.contextReferences("").selection);
+    fixture.cm.dispatch({ selection: { anchor: 6, head: 10 } });
+    const secondRetained = second.retainSelectionEmphasis(second.contextReferences("").selection);
+    expect(firstRetained).not.toBeNull();
+    expect(secondRetained).not.toBeNull();
+    fixture.panel.focus();
+    fixture.setActive(null);
+    expect(painting()).toEqual(["alpha"]);
+
+    secondForeground = true;
+    fixture.setOtherView();
+    expect(painting()).toEqual(["beta"]);
+    secondForeground = false;
+    fixture.setActive(null);
+    expect(painting()).toEqual(["alpha"]);
+    fixture.provider.dispose();
+    expect(painting()).toEqual([]);
+    secondForeground = true;
+    fixture.setOtherView();
+    expect(painting()).toEqual(["beta"]);
+    second.dispose();
+    expect(painting()).toEqual([]);
   });
 
   it.each(["mode", "file", "detach", "window-close", "dispose"])("drops an editor candidate on %s without recreation", (change) => {
@@ -436,10 +511,12 @@ describe("Composer selection context", () => {
     const second = new VaultComposerContextReferenceProvider(fixture.app, () => false);
     cleanups.push(() => second.dispose());
     fixture.provider.dispose();
+    expect(fixture.registeredEventNames()).toEqual(expect.arrayContaining(["file-open", "active-leaf-change"]));
     fixture.select("still tracked");
     expect(second.contextReferences("").selection?.text).toBe("still tracked");
     const remove = vi.spyOn(ownerDocument, "removeEventListener");
     second.dispose();
+    expect(fixture.registeredEventNames()).toEqual([]);
     expect(remove).toHaveBeenCalledWith("selectionchange", expect.any(Function), undefined);
   });
 });
@@ -490,6 +567,7 @@ function readingFixture(ownerDocument = document) {
     panel,
     provider,
     emit,
+    registeredEventNames: () => [...listeners].filter(([, callbacks]) => callbacks.size > 0).map(([name]) => name),
     getEditorSelection,
     setActive: (value: typeof view | null) => {
       active = value;
@@ -513,16 +591,21 @@ function readingFixture(ownerDocument = document) {
   };
 }
 
-function editorFixture() {
+function editorFixture(doc = "alpha beta") {
   const fixture = readingFixture();
   fixture.setMode("source");
-  const cm = new EditorView({ parent: fixture.view.containerEl, doc: "alpha beta", extensions: [editorSelectionEmphasisExtension] });
+  const cm = new EditorView({ parent: fixture.view.containerEl, doc, extensions: [editorSelectionEmphasisExtension] });
+  const offset = ({ line, ch }: { line: number; ch: number }) => cm.state.doc.line(line + 1).from + ch;
   fixture.getEditorSelection.mockImplementation(() => cm.state.sliceDoc(cm.state.selection.main.from, cm.state.selection.main.to));
   Object.assign(fixture.view.editor, {
     cm,
-    getCursor: (side: "from" | "to") => ({ line: 0, ch: cm.state.selection.main[side] }),
-    posToOffset: ({ ch }: { ch: number }) => ch,
-    getRange: (from: { ch: number }, to: { ch: number }) => cm.state.sliceDoc(from.ch, to.ch),
+    getCursor: (side: "from" | "to") => {
+      const position = cm.state.selection.main[side];
+      const line = cm.state.doc.lineAt(position);
+      return { line: line.number - 1, ch: position - line.from };
+    },
+    posToOffset: offset,
+    getRange: (from: { line: number; ch: number }, to: { line: number; ch: number }) => cm.state.sliceDoc(offset(from), offset(to)),
   });
   fixture.provider.contextReferences("");
   cleanups.push(() => {
