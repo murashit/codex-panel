@@ -16,9 +16,9 @@ Obsidian loads the generated `main.js` and `styles.css`, not the TypeScript or a
 
 ## Choose the Owner of a Change
 
-Before choosing an implementation, trace the required user behavior through existing owners, callers, boundary contracts, and tests, including relevant paths and fixtures outside the expected diff. Establish which guarantees the change needs and which existing mechanisms already provide them. Distinguish related design work from independent defects or additional guarantees that need their own justification; a real neighboring problem does not automatically become a condition of this fix.
+Trace the required behavior through existing owners, callers, boundary contracts, and tests, including relevant paths outside the diff. Establish which guarantees already exist and which the change needs; justify neighboring fixes separately.
 
-Compare keeping or repairing the current structure with concrete alternatives using existing boundaries or consolidating related responsibility. Weigh responsibilities, state, dependencies, coordination, duplication, and test guarantees added against what is removed or improved across the whole behavior path. Prefer the simplest total structure meeting the required behavior, whether that calls for a narrow repair or a broader reorganization. Before rejecting an alternative for cost or missing guarantees, check whether those are inherent to the problem or only to that formulation, including guarantees already supplied by existing owners. Use enough source tracing to make the comparison credible without fully designing every candidate. Revisit it when implementation evidence or review findings invalidate an assumption; use `AGENTS.md` and the change workflow for review roles and timing.
+Compare repairing the current structure with alternatives using existing boundaries or consolidating responsibility. Weigh the state, dependencies, coordination, duplication, and test guarantees each adds or removes across the behavior path. Choose the simplest structure that meets the requirements and revisit it when implementation or review invalidates an assumption. Use [AGENTS](../AGENTS.md#review-responsibilities) for review roles and the change workflow for handoffs.
 
 Keep feature-specific behavior with its feature. Extract shared values and rules, including the pure calculations they need, to root `domain/`, and reusable execution or UI support to `shared/`; neither should depend on a feature's implementation. Group those roots by responsibility and keep related types and helpers together, even when a directory contains only one cohesive module.
 
@@ -32,23 +32,23 @@ Source-policy diagnostics come from `biome.jsonc`, `eslint.config.mjs`, `scripts
 
 ## Design a UI Change
 
-Before proposing or changing UI, inspect the affected flow in the current components, styles, settings, and related actions. Establish what the user needs to understand or do, how existing controls and feedback serve that need, and what remains missing. Reuse or reshape those surfaces when appropriate; a new message, banner, or button needs a distinct purpose in the flow.
+Inspect the affected components, styles, settings, and actions to establish the user's task and what existing controls or feedback leave missing. Reuse or reshape them before adding a new surface. Check placement, accessible naming, narrow widths, keyboard access, and the resulting selection, input, and recovery state where relevant.
 
-Consider the complete interaction: placement among existing actions, icon and accessible name, visibility settings, narrow widths, keyboard access, and the resulting selection, input, and recovery state. Apply the relevant dimensions to the change rather than treating this as a checklist requiring new mechanisms. For failures, distinguish the operation's result from the resource's state and check existing feedback before adding another display.
-
-Prefer correcting behavior or state structure when that resolves the confusion. Add explanatory copy only when it supports a concrete user decision or action; describing an implementation detail does not itself justify product copy or a README addition. Use source inspection and automated checks first; live Obsidian validation is needed only for material integration behavior those checks cannot establish.
+For failures, distinguish the operation's result from the resource's state. Prefer correcting behavior or state when that resolves confusion; add copy only to support a concrete user decision or action. Use [live Obsidian validation](#validate-in-obsidian) for material integration behavior that source inspection and automated checks cannot establish.
 
 ## Review and Simplify a Change
 
-Review behavior, responsibility boundaries, implementation quality, and regression risk against the required outcome. Bound the review by that behavior and its related responsibilities, rather than the patch or unrelated repository-wide exploration. Select angles according to the behavior and risk; not every angle applies to every change. Look beyond the diff at paired or analogous paths, callers, boundary definitions, and configuration. Check unintended asymmetry, duplicated sources of truth, ineffective indirection, and changed defaults affecting untouched consumers. Verify consequential claims in the change description and tests against implementation, relevant history, or authoritative documentation for the actual dependency version.
+Review behavior, ownership, implementation quality, and regression risk across the affected path, including callers, analogous paths, contracts, configuration, tests, and documentation. Check duplicated sources of truth, unnecessary indirection, and changed defaults affecting other consumers. Verify consequential claims against implementation or authoritative contracts for the actual dependency version.
 
-Follow failures and interrupted or concurrent operations through state changes to what users can see and do: can an error become apparent success, lose useful context, leave inconsistent data, or allow a conflicting action? Check that validation exercises the real contract and isolates external side effects. Assess relevant performance risks using expected data size, call frequency, and measurements. Keep non-obvious intent and coupled assumptions discoverable through explicit dependencies and explanation where the rationale would otherwise be lost.
+Trace failures and interrupted or concurrent operations through state changes to what users can see and do. Check for apparent success after errors, lost context, inconsistent data, and conflicting actions. Verify that tests exercise the real contract and isolate external effects; assess performance concerns using expected data size, call frequency, and measurements.
 
-Before acting on a behavioral finding, establish the reachable user or lifecycle path, violated contract and owner, and material consequence. For structural findings, identify the concrete maintenance activity and cost. A synthetic reproduction proves only the exercised behavior; check its assumptions against real producers and supported use. Separate demonstrated problems from hypotheses and optional improvements, and explain why material findings are addressed, rejected, or unresolved.
+For a behavioral finding, establish the reachable path, violated contract, and material consequence; for a structural finding, identify the concrete maintenance cost. Check synthetic reproductions against real producers and supported use. Use findings to reconsider the responsible owner and compare shared corrections with local guards under [Choose the Owner of a Change](#choose-the-owner-of-a-change). Distinguish demonstrated problems from hypotheses and optional improvements, and record why material findings are addressed, rejected, or unresolved. Keep decision notes in the work discussion.
 
-Use findings to reconsider the shared assumption or ownership that allowed the problem. Trace other paths relying on it and compare a correction at its owner with local guards, including the state and coordination each would add. Resolving one reproduction does not establish that the affected paths were reviewed; investigate according to consequence and uncertainty rather than enumerating every imaginable edge case.
+### Edit Documentation and Agent Instructions
 
-During implementation and final review, reconsider the complete behavior path, including production code, tests, fixtures, documentation, and relevant pre-existing parts. Compare concrete alternatives meeting the same requirements at both responsibility boundaries and the level of functions, types, data flow, and repeated setup. A role for each piece, reviewer agreement, or passing checks does not establish the simplest coherent choice. Implementation and test line counts are prompts for investigation, not reduction targets. Implement worthwhile improvements, then review and validate the result; retain a structure when the comparison supports it.
+Read the existing guidance and identify the reader's task and the supported gap or overlap before editing; leave useful guidance alone when no gap is evident. Integrate, shorten, or remove text to fit the document's purpose. Keep rules within the scope of their evidence and rationale only where it helps a reader decide or act.
+
+Review the resulting section with its surroundings for necessity, scope, accuracy, and usability: can the reader find the required actions, their order, and conditions? Follow [AGENTS](../AGENTS.md#review-responsibilities) for independent review and resolve findings before handoff.
 
 ### Investigate Duplication
 
@@ -103,11 +103,11 @@ Use focused Codex Panel-owned selectors found in the relevant implementation or 
 
 ### Write Tests That Survive Refactoring
 
-Prefer tests that exercise real production code and its ordinary dependencies. Avoid test doubles, including internal module replacements and reimplementations of available libraries. Use minimal doubles only where a real external effect or meaningful failure, timing, or ordering cannot be exercised reliably at reasonable cost. Explain the protected regression, why the real alternative is unsuitable, and the remaining verification limits in the change discussion. Self-authored responses do not establish API compatibility.
+Exercise production code and its ordinary dependencies. Use minimal doubles for external effects or meaningful failure, timing, or ordering that cannot be exercised reliably at reasonable cost; explain the protected regression and verification limits in the change discussion.
 
-Tie each case to a reachable user action, external boundary, or distinct state transition. Read existing and changed cases together and identify the concrete production failure each would detect: would its setup reach that failure and would its assertion fail? For timing or captured-state claims, vary the relevant value across the actual capture or wait boundary and observe the consequential result. Assess independent failure signals alongside the maintenance cost of fixtures, setup, and implementation coupling. Prefer strengthening an existing case or parameterizing a shared flow to adding another setup. Remove cases that only check test doubles, impossible configurations, or internal structure without a durable contract, or repeat a covered outcome without a distinct failure signal. Extracting code, passing tests, and increased coverage alone do not justify a suite.
+Tie cases to reachable user actions, external boundaries, or distinct state transitions. Read existing and changed tests together and identify the production failure each would detect. For timing or captured-state claims, vary the value across the actual capture or wait boundary and observe the consequential result. Strengthen or parameterize an existing flow when possible. Remove cases that only test doubles, impossible configurations, or internal details without a durable contract, and repeated outcomes without a distinct failure signal.
 
-Do not add permanent tests for development scripts by default. Validate changes with real tools and representative inputs. Add or retain a suite only when an independent check protects a concrete product or source-policy risk that direct change validation would miss, and its value justifies ongoing maintenance.
+Validate development scripts with real tools and representative inputs. Keep permanent tests when they protect a concrete product or source-policy risk that direct validation would miss.
 
 Vitest reuses workers with `isolate: false`. Restore boundary spies, timers, globals, and DOM overrides after each test. Shared setup modules that register hooks must export an installer called by each test file, because importing a cached module does not register its hooks again.
 
@@ -143,7 +143,7 @@ For occasional local runs on Linux with GNU `timeout`, `node scripts/mutation/ru
 
 ## Update API Compatibility
 
-Run `npm run api:baseline` after changing compatibility metadata and keep the README Compatibility table aligned. This checks recorded metadata; it does not prove runtime compatibility or replace regenerating bindings.
+Keep the README Compatibility table aligned with compatibility metadata. Follow the procedures below when changing either baseline.
 
 ### Obsidian
 
@@ -167,16 +167,14 @@ Review protocol changes in their affected adapters and runtime paths, then compl
 
 The Codex CLI update workflow checks upstream stable releases every four hours and can be dispatched on main. It proposes only a newer major/minor series, using the latest stable patch, with the marker `<!-- codex-cli-update: X.Y -->` and branch `automation/codex-cli-X.Y`. Generated bindings and metadata are a starting point for compatibility review, not runtime verification; follow the normal review and validation above. Existing PRs and branches are never overwritten. If a run pushed a branch but could not create its PR, inspect the branch and create the PR manually or remove the branch before retrying. Acquisition or generation failures leave no branch and can be retried.
 
-To enable update PR creation, install the dedicated GitHub App only on this repository with Contents and Pull requests write and Issues read. Store its client ID and private key in Actions secrets `CODEX_PANEL_APP_CLIENT_ID` and `CODEX_PANEL_APP_PRIVATE_KEY`. The workflow requires both; it does not fall back to `GITHUB_TOKEN`. After setup, dispatch it on main when a newer series is available and verify the generated PR and its automatically started checks. No App setup, runtime compatibility, or end-to-end PR creation is verified by merging the workflow alone.
+To enable update PR creation, install the dedicated GitHub App only on this repository with Contents and Pull requests write and Issues read. Store its client ID and private key in Actions secrets `CODEX_PANEL_APP_CLIENT_ID` and `CODEX_PANEL_APP_PRIVATE_KEY`. The workflow requires both; it does not fall back to `GITHUB_TOKEN`. After setup, dispatch it on main when a newer series is available and verify the generated PR and its automatically started checks.
 
 ## Record the Change
 
 Use [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/), for example `feat(composer): add daily note context suggestions`. Scopes are optional; mark disruptive changes with `!` or a `BREAKING CHANGE:` footer.
 
-Make each final commit a coherent review unit with an honest description. Normally fold corrective follow-ups into the concern they complete, split mixed changes, and keep follow-ups separate only when meaningful on their own.
-
-Prefer a concise subject. Add a brief body only when future maintainers need rationale, constraints, or tradeoffs that are not evident from the diff. Keep routine check results, test counts, and work logs in the task or pull request report, not the commit message.
+Keep each final commit a coherent review unit: fold corrective follow-ups into the concern they complete and split mixed changes. Use a concise subject and add a body only for rationale or constraints the diff does not explain. Put validation results and work logs in the PR or task report.
 
 CI validates introduced commit messages on pull requests and pushes. Check a range locally with `npm run commitlint -- --from <base> --to <head> --verbose`. Follow [Release](release.md) when preparing a version for publication.
 
-Write PR descriptions for reviewers from the final diff. Explain purpose, changes, validation, and limitations accurately and concisely, following repository guidance and recent PRs for language and level of detail. Include Issue or PR references when needed to understand the change or its dependencies. Compare the final diff and body before publication for accurate scope, expected language, and unnecessary references; conversation and work reports are not substitutes for that explanation.
+Write the PR description from the final diff for a reviewer who has not seen the conversation. Explain the purpose, resulting behavior, validation, and material limitations concisely, following recent PRs for language and detail. Include Issue or PR references needed to understand the change. Check the body against the final diff before publication.
