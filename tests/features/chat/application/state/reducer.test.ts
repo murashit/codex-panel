@@ -528,7 +528,7 @@ describe("chatReducer", () => {
   });
 
   it("ignores stale turn start failures after the turn is already running", () => {
-    let state = chatStateFixture();
+    let state = chatStateFixture({ activeThread: { id: "thread" } });
     state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn" } } });
     state = withChatStateStableThreadStreamItems(state, [dialogueItem("existing")]);
 
@@ -619,7 +619,7 @@ describe("chatReducer", () => {
   });
 
   it("ignores turn start acknowledgements after the turn has already gone idle", () => {
-    let state = chatStateFixture();
+    let state = chatStateFixture({ activeThread: { id: "thread" } });
     state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "idle" } } });
 
     const next = chatReducer(state, {

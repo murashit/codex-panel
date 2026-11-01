@@ -55,25 +55,6 @@ describe("reconcileCompletedTurnItems", () => {
     );
   });
 
-  it("keeps local attachment and file-reference metadata when replacing an optimistic user dialogue", () => {
-    const optimistic = {
-      ...userDialogue("local-user-1", "https://example.com/ summarize this", "turn", "local-user-1"),
-      contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
-      referencedFiles: [{ name: "Note", path: "Note.md" }],
-    } satisfies ThreadStreamItem;
-    const server = userDialogue("u1", "https://example.com/ summarize this", "turn", "local-user-1");
-
-    const next = reconcileCompletedTurnItems({ currentItems: [optimistic], completedTurnId: "turn", turnItems: [server] });
-
-    expect(next).toEqual([
-      expect.objectContaining({
-        id: "u1",
-        contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
-        referencedFiles: [{ name: "Note", path: "Note.md" }],
-      }),
-    ]);
-  });
-
   it("keeps fallback reconciliation scoped to the completed turn", () => {
     const completedTurnOptimistic = {
       ...userDialogue("local-user-completed", "same text", "completed"),

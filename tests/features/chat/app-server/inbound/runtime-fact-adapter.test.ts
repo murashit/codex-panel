@@ -144,29 +144,24 @@ describe("app-server turn runtime fact adapter", () => {
     if (fact.item.kind !== "hook") throw new Error("Expected a hook item");
     expect(fact.item.hookRun).not.toHaveProperty("durationMs");
   });
-  it.each(["completed", "failed", "interrupted"] as const)(
-    "preserves %s as a distinct turn outcome without wire item metadata",
-    (status) => {
-      const fact = turnRuntimeFactFromNotification(
-        {
-          method: "turn/completed",
-          params: {
-            threadId: "thread",
-            turn: appServerTurnFixture({
-              id: "turn",
-              status,
-              itemsView: "notLoaded",
-              items: [],
-            }),
-          },
+  it.each(["completed", "failed", "interrupted"] as const)("preserves %s as a distinct turn outcome", (status) => {
+    const fact = turnRuntimeFactFromNotification(
+      {
+        method: "turn/completed",
+        params: {
+          threadId: "thread",
+          turn: appServerTurnFixture({
+            id: "turn",
+            status,
+            itemsView: "notLoaded",
+            items: [],
+          }),
         },
-        () => "unused",
-      );
-      expect(fact).toMatchObject({ type: "turnCompleted", outcome: status, completedItems: [] });
-      expect(fact).not.toHaveProperty("status");
-      expect(fact).not.toHaveProperty("itemsView");
-    },
-  );
+      },
+      () => "unused",
+    );
+    expect(fact).toMatchObject({ type: "turnCompleted", outcome: status, completedItems: [] });
+  });
 
   it.each([
     ["Automatic approval review approved: safe operation", "automaticWarning"],

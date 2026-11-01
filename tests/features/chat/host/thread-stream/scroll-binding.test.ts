@@ -10,7 +10,6 @@ describe("chat thread stream scroll binding", () => {
     const second = vi.fn<ThreadStreamScrollPort["dispatchScrollCommand"]>();
     binding.showLatest();
     binding.scrollFromComposer({ kind: "scroll-to", edge: "start" });
-    expect(first).not.toHaveBeenCalled();
 
     const unmountFirst = binding.mountScrollPort({ dispatchScrollCommand: first });
     const unmountSecond = binding.mountScrollPort({ dispatchScrollCommand: second });

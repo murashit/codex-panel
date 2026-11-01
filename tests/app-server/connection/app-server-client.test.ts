@@ -720,11 +720,11 @@ describe("AppServerClient", () => {
     });
   });
 
-  it("rejects malformed RPC error responses without constructing an RPC error", async () => {
+  it("rejects RPC errors with a non-string message", async () => {
     const { client, transport } = await connectedClient();
 
     const listing = listModels(client);
-    transport.emitLine({ id: 2, error: { code: "invalid", message: 42 } });
+    transport.emitLine({ id: 2, error: { code: -32603, message: 42 } });
 
     await expect(listing).rejects.toThrow("Codex app-server returned an invalid error response for model/list.");
   });

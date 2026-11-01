@@ -565,12 +565,16 @@ describe("CodexPanelPlugin runtime integration", () => {
 
   it("cancels selection rewrites before publishing a new app-server context", async () => {
     const plugin = await pluginWithLeaves([]);
-    const closeAll = vi.fn();
+    const pathsAtClose: string[] = [];
+    const closeAll = vi.fn(() => {
+      pathsAtClose.push(plugin.settings.codexPath);
+    });
     plugin.runtime.setSelectionRewriteController({ closeAll });
 
     await publishCodexPath(plugin, "codex-next");
 
-    expect(closeAll).toHaveBeenCalledOnce();
+    expect(pathsAtClose).toEqual(["codex"]);
+    expect(currentChatHost(plugin).appServerContext.codexPath).toBe("codex-next");
   });
 
   it.each(["showToolbar", "newConversationsEphemeral"] as const)("refreshes only chat settings when %s changes", async (key) => {

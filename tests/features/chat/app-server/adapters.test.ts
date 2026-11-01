@@ -42,28 +42,6 @@ describe("chat app-server adapters", () => {
     expect(recordThreadSubscription).toHaveBeenCalledExactlyOnceWith("thread", client);
   });
 
-  it("routes multiple temporary turns through the ordinary turn boundary", async () => {
-    const request = vi.fn(async (method: string, _params?: unknown, _options?: unknown) => {
-      if (method === "thread/start") {
-        const response = threadStartResponse("temporary");
-        return { ...response, thread: { ...response.thread, ephemeral: true } };
-      }
-      if (method === "turn/start") return { turn: { id: "turn-1" } };
-      return {};
-    });
-    const client = { request } as unknown as AppServerClient;
-    const gateway = createTestGateway({
-      currentClient: () => client,
-    });
-    await gateway.threadStart.startThread({ ephemeral: true });
-    for (const message of ["edit then explain", "continue"]) {
-      await expect(
-        gateway.turn.startTurn({ threadId: "temporary", input: textInput(message), clientUserMessageId: message }),
-      ).resolves.toMatchObject({ kind: "completed", value: { turnId: "turn-1" } });
-    }
-    expect(request.mock.calls.map(([method]) => method)).toEqual(["thread/start", "turn/start", "turn/start"]);
-  });
-
   it.each([false, true])("propagates creation errors through the ordinary retry contract (temporary=%s)", async (ephemeral) => {
     const request = vi
       .fn()

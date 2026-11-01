@@ -19,10 +19,10 @@ describe("threadPickerSuggestions", () => {
     expect((await modal.getSuggestions("target")).map((item) => item.thread.id)).toEqual(["recent"]);
   });
 
-  it.each([false, true])("loads complete history only for search and retries failures (initial failure: %s)", async (failFirst) => {
+  it("loads complete history only for search, coalesces requests, and retries a failed load", async () => {
     const host = threadPickerHost([thread({ id: "recent" })], [thread({ id: "recent" }), thread({ id: "older-target", name: "Needle" })]);
     const load = vi.spyOn(host.threadCatalog, "fetchActiveThreadSearchInventory");
-    if (failFirst) load.mockRejectedValueOnce(new Error("Search unavailable"));
+    load.mockRejectedValueOnce(new Error("Search unavailable"));
     const modal = await openedThreadPicker(host);
 
     expect((await modal.getSuggestions("")).map((item) => item.thread.id)).toEqual(["recent"]);
@@ -30,13 +30,12 @@ describe("threadPickerSuggestions", () => {
     expect(host.sharedRefreshes).toBe(0);
 
     const previousNotices = notices.length;
-    const failedSuggestions = failFirst ? await modal.getSuggestions("needle") : null;
-    expect(failedSuggestions).toEqual(failFirst ? [] : null);
-    expect(notices.slice(previousNotices)).toEqual(failFirst ? ["Search unavailable"] : []);
+    expect(await modal.getSuggestions("needle")).toEqual([]);
+    expect(notices.slice(previousNotices)).toEqual(["Search unavailable"]);
     const [needleSuggestions] = await Promise.all([modal.getSuggestions("needle"), modal.getSuggestions("target")]);
     expect(needleSuggestions.map((item) => item.thread.id)).toEqual(["older-target"]);
     await expect(modal.getSuggestions("needle")).resolves.toEqual(needleSuggestions);
-    expect(load).toHaveBeenCalledTimes(failFirst ? 2 : 1);
+    expect(load).toHaveBeenCalledTimes(2);
     expect(host.completeHistoryLoads).toBe(1);
   });
 

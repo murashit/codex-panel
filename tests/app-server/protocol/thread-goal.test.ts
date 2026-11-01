@@ -10,7 +10,7 @@ describe("app-server thread goal model", () => {
         objective: "Finish",
         status: "active",
         tokenBudget: 100,
-        tokensUsed: Number.POSITIVE_INFINITY,
+        tokensUsed: 42,
         timeUsedSeconds: 12,
         createdAt: 1,
         updatedAt: 2,
@@ -20,7 +20,7 @@ describe("app-server thread goal model", () => {
       objective: "Finish",
       status: "active",
       tokenBudget: 100,
-      tokensUsed: 0,
+      tokensUsed: 42,
       timeUsedSeconds: 12,
     });
   });

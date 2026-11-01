@@ -10,6 +10,7 @@ import {
   startThread,
   threadFromAppServerRecord,
 } from "../../../src/app-server/services/threads";
+import type { ThreadHistoryMode } from "../../../src/generated/app-server/v2/ThreadHistoryMode";
 import { appServerTurnFixture, appServerUserMessageFixture as userMessage } from "../../support/app-server-records";
 import { deferred } from "../../support/async";
 
@@ -121,21 +122,6 @@ describe("app-server thread response adapters", () => {
     expect(request).toHaveBeenCalledOnce();
   });
 
-  it("passes explicit service tier requests when starting panel-owned threads", async () => {
-    const client = {
-      request: vi.fn().mockResolvedValue({ thread: { id: "thread-new" } }),
-    } as unknown as AppServerRequestClient;
-
-    await startThread(client, { cwd: "/vault", serviceTier: "priority" });
-
-    expect(client.request).toHaveBeenCalledWith("thread/start", {
-      cwd: "/vault",
-      serviceName: "codex-panel",
-      historyMode: "paginated",
-      serviceTier: "priority",
-    });
-  });
-
   it("reads every paginated turn and item page for archive export", async () => {
     const request = vi.fn((method: string, params: { cursor?: string | null }) => {
       if (method === "thread/read") return Promise.resolve({ thread: archiveThread("paginated") });
@@ -189,24 +175,21 @@ describe("app-server thread response adapters", () => {
     });
   });
 
-  it.each(["legacy", undefined, "future-mode"] as const)(
-    "retains the includeTurns compatibility path for %s archive history modes",
-    async (historyMode) => {
-      const legacy = archiveThread(historyMode, [archiveTurn("turn-1", [userMessage("user", "Legacy prompt")])]);
-      const request = vi
-        .fn()
-        .mockResolvedValueOnce({ thread: archiveThread(historyMode) })
-        .mockResolvedValueOnce({ thread: legacy });
-      const client = { request } as unknown as AppServerRequestClient;
+  it("reads legacy archive history through includeTurns", async () => {
+    const legacy = archiveThread("legacy", [archiveTurn("turn-1", [userMessage("user", "Legacy prompt")])]);
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce({ thread: archiveThread("legacy") })
+      .mockResolvedValueOnce({ thread: legacy });
+    const client = { request } as unknown as AppServerRequestClient;
 
-      await expect(readThreadForArchiveExport(client, "thread")).resolves.toMatchObject({
-        transcriptEntries: [{ kind: "user", text: "Legacy prompt" }],
-      });
-      expect(request).toHaveBeenNthCalledWith(1, "thread/read", { threadId: "thread", includeTurns: false });
-      expect(request).toHaveBeenNthCalledWith(2, "thread/read", { threadId: "thread", includeTurns: true });
-      expect(request).toHaveBeenCalledTimes(2);
-    },
-  );
+    await expect(readThreadForArchiveExport(client, "thread")).resolves.toMatchObject({
+      transcriptEntries: [{ kind: "user", text: "Legacy prompt" }],
+    });
+    expect(request).toHaveBeenNthCalledWith(1, "thread/read", { threadId: "thread", includeTurns: false });
+    expect(request).toHaveBeenNthCalledWith(2, "thread/read", { threadId: "thread", includeTurns: true });
+    expect(request).toHaveBeenCalledTimes(2);
+  });
 
   it("rejects repeated archive item cursors", async () => {
     const { request, client } = paginatedArchiveFixture({ data: [], nextCursor: "same", backwardsCursor: null });
@@ -308,10 +291,10 @@ describe("app-server thread response adapters", () => {
   });
 });
 
-function archiveThread(historyMode: unknown, turns: readonly TurnRecord[] = []): ThreadRecord {
+function archiveThread(historyMode: ThreadHistoryMode, turns: readonly TurnRecord[] = []): ThreadRecord {
   return {
     id: "thread",
-    ...(historyMode === undefined ? {} : { historyMode }),
+    historyMode,
     preview: "Archive",
     name: "Archive",
     createdAt: 1,

@@ -102,14 +102,13 @@ describe("ComposerInput", () => {
 
   it("captures completed thread identity across message edits and drops it when the title token changes", () => {
     const stateStore = createChatStateStore();
-    const preview = `Long preview ${"x".repeat(120)}`;
-    const completedTitle = `${preview.slice(0, 93)}...`;
-    const threads = [panelThreadFixture({ id: "target-thread", preview })];
+    const completedTitle = "Target thread";
+    const threads = [panelThreadFixture({ id: "target-thread", name: completedTitle })];
     const { input, edit, insertFirstSuggestion } = createInput({
       stateStore,
       sharedResources: sharedResourcesFixture({ threads }),
     });
-    edit("/refer long");
+    edit("/refer target");
     insertFirstSuggestion();
 
     expect(input.draft).toBe(`/refer "${completedTitle}" `);

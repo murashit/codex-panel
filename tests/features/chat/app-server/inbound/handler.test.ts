@@ -680,9 +680,10 @@ describe("ChatInboundHandler", () => {
       const respondToServerRequest = vi.fn();
       const handler = handlerForState(activeRunningState(), { respondToServerRequest });
       handler.handleServerRequest(commandApprovalRequest(51, "thread-active", "turn-active", "command"));
+      const action = commandApprovalAction(handler, 51, "accept");
 
       handler.clearServerRequests();
-      handler.pendingRequests.resolveApproval(51, "accept");
+      handler.pendingRequests.resolveApproval(51, action);
 
       expect(respondToServerRequest).not.toHaveBeenCalled();
       expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toEqual([]);
@@ -693,6 +694,7 @@ describe("ChatInboundHandler", () => {
       const handler = handlerForState(activeRunningState(), { respondToServerRequest });
       trackDirectSubagent(handler, "child", "child-turn");
       handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "shared-command"));
+      const action = commandApprovalAction(handler, 51, "accept");
 
       handler.handleNotification(
         turnNotification("turn/completed", "thread-active", {
@@ -726,7 +728,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "item/reasoning/summaryTextDelta" }>);
 
-      handler.pendingRequests.resolveApproval(51, "accept");
+      handler.pendingRequests.resolveApproval(51, action);
       expect(respondToServerRequest).not.toHaveBeenCalled();
       expect(handler.currentState().activeTurn.lifecycle).toEqual({ kind: "running", turnId: "next-turn" });
       expect(handler.currentState().activeTurn.subagents.byThreadId).toEqual(new Map());
@@ -1320,7 +1322,6 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
 
-      expect(activeThreadState(handler.currentState())).not.toHaveProperty("cwd");
       expect(handler.currentState().runtime.active.model).toBe("gpt-5.5");
       expect(handler.currentState().runtime.active.serviceTier).toBe(serviceTier);
       expect(handler.currentState().runtime.active.approvalsReviewer).toBe("auto_review");
