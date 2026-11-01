@@ -407,6 +407,7 @@ function archivedThread(): ThreadRecord {
     name: "Archived Thread",
     status: "idle",
     gitInfo: null,
+    historyMode: "legacy",
     turns: [],
   };
 }

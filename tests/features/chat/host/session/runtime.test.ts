@@ -393,18 +393,9 @@ describe("chat panel session runtime", () => {
       const reopened = sessionRuntimeFixture({ environment });
       await reopened.runtime.connection.coordinator.ensureConnected();
       reopened.stateStore.dispatch({ ...threadActivationFixture(threadFixture()), type: "active-thread/resumed" });
-      request.mockImplementation(async (method, params) => {
-        if (method !== "thread/settings/update") return {};
-        reopened.stateStore.dispatch({
-          type: "active-thread/settings-applied",
-          ...reopened.stateStore.getState().runtime.active,
-          model: (params as { model: string }).model,
-          collaborationMode: "default",
-        });
-        return {};
-      });
+      request.mockResolvedValue({});
       selectModel(reopened, "new");
-      await vi.waitFor(() => expect(reopened.stateStore.getState().runtime.active.model).toBe("new"));
+      await vi.waitFor(() => expect(settingsCalls()).toHaveLength(2));
       if (outcome === "success") update.resolve({});
       else update.reject(new Error("old failure"));
       await update.promise.catch(() => undefined);

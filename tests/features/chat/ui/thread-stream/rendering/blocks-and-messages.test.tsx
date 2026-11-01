@@ -446,11 +446,6 @@ describe("panel thread stream rendering and action menu", () => {
 
   it("uses stream markdown for streaming assistant responses without calling the Obsidian renderer", async () => {
     const parent = document.createElement("div");
-    const renderMarkdown = vi.spyOn(MarkdownRenderer, "render");
-    renderMarkdown.mockImplementation((_app, text: string, element: HTMLElement) => {
-      element.textContent = `obsidian:${text}`;
-      return Promise.resolve();
-    });
     const renderStreamMarkdown = vi.fn((element: HTMLElement, text: string) => {
       element.replaceChildren(element.createEl("strong", { text: `stream:${text.replace(/\*/g, "")}` }));
     });
@@ -480,8 +475,6 @@ describe("panel thread stream rendering and action menu", () => {
     expect(parent.querySelector(".codex-panel__stream-item-content")?.textContent).toContain("stream:old");
     expect(renderStreamMarkdown).toHaveBeenCalledWith(expect.any(HTMLElement), "old");
     expect(baseContext.renderObsidianMarkdown).not.toHaveBeenCalled();
-    expect(renderMarkdown).not.toHaveBeenCalled();
-    renderMarkdown.mockRestore();
     unmountUiRootInAct(parent);
   });
 

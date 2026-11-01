@@ -33,11 +33,10 @@ describe("Codex thread deep links", () => {
     expect(codexThreadIdFromHref(`codex://threads/${"x".repeat(161)}`)).toBeNull();
   });
 
-  it("writes a bounded, escaped title as an ordinary Markdown link", () => {
-    const title = `[Plan] ${"long ".repeat(30)}`;
-    const truncated = `${title.slice(0, 93).trimEnd()}...`.replace(/[\\[\]]/g, "\\$&");
-
-    expect(threadReferenceMarkdown(thread({ id: "thread-1", name: title }))).toBe(`[${truncated}](codex://threads/thread-1)`);
+  it("escapes a title as an ordinary Markdown link", () => {
+    expect(threadReferenceMarkdown(thread({ id: "thread-1", name: "[Plan] \\ Notes" }))).toBe(
+      "[\\[Plan\\] \\\\ Notes](codex://threads/thread-1)",
+    );
   });
 
   it("does not split an emoji at the title boundary", () => {

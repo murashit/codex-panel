@@ -87,9 +87,8 @@ describe("rollout token usage recovery", () => {
 
     await expect(recoverRolloutTokenUsage("/tmp/rollout.jsonl", vi.fn().mockRejectedValue(new Error("missing")))).resolves.toBeNull();
     await expect(recoverRolloutTokenUsage("/tmp/rollout.jsonl", vi.fn().mockResolvedValue("%%%"))).resolves.toBeNull();
-    await expect(
-      recoverRolloutTokenUsage("/tmp/rollout.jsonl", vi.fn().mockResolvedValue("a".repeat(12 * 1024 * 1024 + 1))),
-    ).resolves.toBeNull();
+    const oversized = btoa(`${tokenCountLine({ input: 42, total: 50, context: 1000 })}\n`.repeat(32_000));
+    await expect(recoverRolloutTokenUsage("/tmp/rollout.jsonl", vi.fn().mockResolvedValue(oversized))).resolves.toBeNull();
   });
 });
 

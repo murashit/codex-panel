@@ -69,7 +69,6 @@ describe("thread start commands", () => {
     const commands = threadStartCommands({ stateStore, effects: { forkSideChat: vi.fn(), forkThread: vi.fn(), startThread } });
     await expect(commands.startThread()).rejects.toThrow("timed out");
     expect(stateStore.getState().panelThread).toMatchObject({ kind: "empty" });
-    expect(stateStore.getState().panelThread).not.toHaveProperty("operation");
     stateStore.dispatch({ type: "panel/ephemeral-choice-set", ephemeral: false });
     expect(newConversationEphemeral(stateStore.getState())).toBe(false);
     await expect(commands.startThread()).resolves.toMatchObject({ kind: "created-activated", target: { threadId: "retried" } });

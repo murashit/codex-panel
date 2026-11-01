@@ -5,7 +5,7 @@ import {
 } from "../../../../../src/features/chat/application/connection/connection-coordinator";
 import { createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { deferred } from "../../../../support/async";
+import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 
 type ChatConnectionPort = ChatConnectionCoordinatorHost["connection"];
@@ -160,14 +160,31 @@ describe("ChatConnectionCoordinator", () => {
   });
 
   it("does not skip active thread refresh while connection hydration is pending", async () => {
-    const { coordinator, host } = createCoordinatorHarness();
+    const { coordinator, ensureAppServerMetadata, host } = createCoordinatorHarness();
+    const metadata = deferred<void>();
+    ensureAppServerMetadata.mockReturnValueOnce(metadata.promise);
+    let hydrated = false;
+    const hydration = coordinator.ensureHydrated().then(() => {
+      hydrated = true;
+    });
 
     await coordinator.ensureConnected();
+    expect(ensureAppServerMetadata).toHaveBeenCalledOnce();
+    expect(hydrated).toBe(false);
     vi.mocked(host.refreshTabHeader).mockClear();
 
-    await coordinator.refreshStatusPanel();
+    let refreshed = false;
+    const refreshing = coordinator.refreshStatusPanel().then(() => {
+      refreshed = true;
+    });
+    await waitForAsyncWork(() => expect(refreshed).toBe(true));
 
+    expect(host.refreshSharedThreads).toHaveBeenCalledOnce();
     expect(host.refreshTabHeader).toHaveBeenCalledOnce();
+    expect(hydrated).toBe(false);
+
+    metadata.resolve(undefined);
+    await Promise.all([hydration, refreshing]);
   });
 
   it.each([

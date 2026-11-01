@@ -48,16 +48,20 @@ describe("vault composer attachments", () => {
     ]);
   });
 
-  it("keeps known filenames and starts numeric collision suffixes at 2", async () => {
+  it("preserves file bytes while keeping known filenames and avoiding collisions", async () => {
     const vault = vaultFixture(["Files/Paper.pdf"]);
     const handler = createVaultComposerAttachmentHandler({
       app: { vault } as never,
       attachmentFolder: () => "Files",
     });
 
-    const { attachments, failures } = await handler.saveFiles([new File(["pdf"], "Paper.pdf", { type: "application/pdf" })]);
+    const { attachments, failures } = await handler.saveFiles([
+      new File([new Uint8Array([0, 127, 128, 255])], "Paper.pdf", { type: "application/pdf" }),
+    ]);
 
-    expect(vault.createBinary).toHaveBeenCalledWith("Files/Paper 2.pdf", expect.any(ArrayBuffer));
+    expect(vault.createBinary.mock.calls.map(([path, data]) => ({ path, bytes: [...new Uint8Array(data)] }))).toEqual([
+      { path: "Files/Paper 2.pdf", bytes: [0, 127, 128, 255] },
+    ]);
     expect(failures).toEqual([]);
     expect(attachments).toEqual([
       {
@@ -88,7 +92,7 @@ function vaultFixture(existingPaths: readonly string[] = []) {
     createFolder: vi.fn(async (path: string) => {
       existing.add(path);
     }),
-    createBinary: vi.fn(async (path: string) => {
+    createBinary: vi.fn(async (path: string, _data: ArrayBuffer) => {
       existing.add(path);
     }),
   };

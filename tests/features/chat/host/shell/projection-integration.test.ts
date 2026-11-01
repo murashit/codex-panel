@@ -566,8 +566,7 @@ describe("chat panel projection integration", () => {
   });
 
   it("routes goal status actions to the rendered goal thread", () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread-rendered" } });
+    const state = chatStateFixture({ activeThread: { id: "thread-current" } });
     const statuses: [string, string][] = [];
     const clears: string[] = [];
     const surface = {
@@ -588,7 +587,6 @@ describe("chat panel projection integration", () => {
     } satisfies ChatPanelGoalDependencies;
 
     const parent = renderGoal(state, goalFixture("thread-rendered"), surface);
-    state = chatStateWith(state, { activeThread: { id: "thread-current" } });
     clickLabeledButton(parent, "Pause goal");
     clickLabeledButton(parent, "Clear goal");
 

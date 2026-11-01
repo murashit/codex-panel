@@ -438,11 +438,10 @@ describe("CodexChatView connection lifecycle", () => {
     expectRequestTimes(nextClient, "thread/fork", 0);
   });
 
-  it("does not read unsupported goals for side chats", async () => {
+  it("does not request saved goals for side chats", async () => {
     const client = connectedClient({
       "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
       "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("ephemeral-a") }),
-      "thread/goal/get": vi.fn().mockRejectedValue(new Error("ephemeral goals are unsupported")),
     });
     const view = await openedChatView(client);
 

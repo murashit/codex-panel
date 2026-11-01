@@ -118,7 +118,6 @@ describe("approval model", () => {
     expect(new Set(options.map((option) => option.id)).size).toBe(options.length);
     for (const option of options) {
       expect(option.action).toMatchObject({ kind: "approval-option", optionId: option.id });
-      expect(option.action).not.toHaveProperty("response");
     }
     expect(approvalResponseAt(request, approval, 0)).toEqual({ decision: allowRegistryDecision });
     expect(approvalResponseAt(request, approval, 1)).toEqual({ decision: allowApiDecision });

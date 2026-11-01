@@ -177,7 +177,7 @@ describe("runEphemeralStructuredTurn", () => {
     });
   });
 
-  it("isolates the ephemeral thread from configured tools and capabilities", async () => {
+  it("requests an ephemeral thread with configured tools and capabilities disabled", async () => {
     const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
       fake.effectiveConfig = {
         mcp_servers: {
@@ -328,6 +328,7 @@ describe("runEphemeralStructuredTurn", () => {
     );
     await vi.waitFor(() => expect(reached).toHaveBeenCalledOnce());
 
+    expect(timers.setTimeout).toHaveBeenCalledExactlyOnceWith(expect.any(Function), 10_000);
     timers.fireTimeout();
 
     await expect(running).rejects.toThrow("Structured test timed out.");

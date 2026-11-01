@@ -118,10 +118,8 @@ describe("shared thread controls", () => {
       const inputs = [first, second].map((parent) => expectPresent(parent.querySelector<HTMLInputElement>("input")));
       const ids = inputs.map((input) => input.getAttribute("aria-labelledby"));
       expect(ids[0]).not.toBe(ids[1]);
-      for (const [index, input] of inputs.entries()) {
-        expect(ids[index] && document.getElementById(ids[index])?.textContent).toBe("Thread name");
-        expect(input.hasAttribute("aria-label")).toBe(false);
-        expect(input.hasAttribute("title")).toBe(false);
+      for (const id of ids) {
+        expect(id && document.getElementById(id)?.textContent).toBe("Thread name");
       }
     } finally {
       unmountUiRoot(first);

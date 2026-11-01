@@ -588,10 +588,13 @@ describe("CodexChatView thread state", () => {
     const client = connectedClient({
       "thread/resume": vi.fn((params: unknown) => Promise.resolve(resumedThread((params as { threadId: string }).threadId))),
       "thread/turns/list": vi.fn((params: unknown) =>
-        (params as { threadId: string }).threadId === "thread-1" ? firstHistory.promise : Promise.resolve({ data: [], nextCursor: null }),
+        (params as { threadId: string }).threadId === "thread-1"
+          ? firstHistory.promise
+          : Promise.resolve({ data: [turnWithUserMessage("second prompt")], nextCursor: null }),
       ),
     });
     const view = await chatViewForClient(client);
+    await view.onOpen();
 
     const firstOpen = view.surface.activateThread("thread-1");
     await waitForAsyncWork(() => {
@@ -608,12 +611,17 @@ describe("CodexChatView thread state", () => {
       );
     });
 
+    await secondOpen;
+    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("second prompt"));
+
     firstHistory.resolve({ data: [turnWithUserMessage("first prompt")], nextCursor: null });
     await firstOpen;
-    await secondOpen;
 
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-2", threadTitle: "Restored thread" });
-    expect(view.containerEl.textContent).not.toContain("first prompt");
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.textContent).toContain("second prompt");
+      expect(view.containerEl.textContent).not.toContain("first prompt");
+    });
   });
 });
 

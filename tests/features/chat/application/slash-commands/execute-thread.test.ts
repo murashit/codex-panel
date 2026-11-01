@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { executeThreadSlashCommand } from "../../../../../src/features/chat/application/slash-commands/execute-thread";
+import { deferred } from "../../../../support/async";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { slashSubmissionFixture, slashThreadCommandsFixture } from "../../support/slash-command-ports";
 
@@ -120,9 +121,8 @@ describe("thread slash commands", () => {
   });
 
   it("adopts the panel target only when archiving the active thread is published", async () => {
-    const archiveThread = vi.fn(async (_threadId, _saveMarkdown, afterArchive) => {
-      afterArchive?.();
-    });
+    const archived = deferred<void>();
+    const archiveThread = vi.fn<ThreadContext["threadCommands"]["archiveThread"]>(() => archived.promise);
     const ctx = context({
       threadCommands: {
         ...context().threadCommands,
@@ -130,10 +130,17 @@ describe("thread slash commands", () => {
       },
     });
 
-    await executeThreadSlashCommand("archive", '"Current"', ctx);
+    const archiving = executeThreadSlashCommand("archive", '"Current"', ctx);
 
     expect(archiveThread).toHaveBeenCalledWith("thread-1", undefined, expect.any(Function));
-    expect(ctx.submission.adoptPanelTarget).toHaveBeenCalledOnce();
+    expect(ctx.submission.adoptPanelTarget).not.toHaveBeenCalled();
+    const afterArchive = archiveThread.mock.calls[0]?.[2];
+    if (!afterArchive) throw new Error("Expected archive publication callback");
+    afterArchive();
+    expect(ctx.submission.adoptPanelTarget).toHaveBeenCalledExactlyOnceWith(null);
+    archived.resolve(undefined);
+    await archiving;
+    expect(ctx.submission.adoptPanelTarget).toHaveBeenCalledExactlyOnceWith(null);
   });
 
   it("trims /rename names before saving", async () => {

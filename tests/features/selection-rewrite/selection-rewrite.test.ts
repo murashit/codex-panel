@@ -160,7 +160,7 @@ describe("selection rewrite diff", () => {
     expect(diff).toContain("\n-old line\n+new line\n shared middle\n");
   });
 
-  it("bounds high-edit-distance selection diffs with a linear prefix and suffix fallback", () => {
+  it("preserves both complete texts in high-edit-distance selection previews", () => {
     const originalText = [
       "same start",
       ...Array.from({ length: 160 }, (_unused, index) => `old before ${String(index)}`),
@@ -176,16 +176,20 @@ describe("selection rewrite diff", () => {
       "same end",
     ].join("\n");
 
-    const diff = buildSelectionDiffLines(originalText, replacementText)
-      .map((line) => line.text)
-      .join("\n");
+    const diff = buildSelectionDiffLines(originalText, replacementText);
 
-    expect(diff.startsWith(" same start\n")).toBe(true);
-    expect(diff).toContain("\n-old before 0\n");
-    expect(diff).toContain("\n-shared middle\n");
-    expect(diff).toContain("\n+shared middle\n");
-    expect(diff.endsWith("\n same end")).toBe(true);
-    expect(diff).not.toContain("\n shared middle\n");
+    expect(
+      diff
+        .filter((line) => line.kind !== "added")
+        .map((line) => line.text.slice(1))
+        .join("\n"),
+    ).toBe(originalText);
+    expect(
+      diff
+        .filter((line) => line.kind !== "removed")
+        .map((line) => line.text.slice(1))
+        .join("\n"),
+    ).toBe(replacementText);
   });
 
   it("renders additions and deletions", () => {
@@ -516,6 +520,7 @@ describe("selection rewrite popover", () => {
     });
 
     expect(selectionRewriteGenerate).toHaveBeenCalledTimes(2);
+    expect(selectionRewriteGenerate.mock.calls[1]?.[0].prompt).toContain("Try another version.");
     expect(document.querySelector(".codex-panel-selection-rewrite__diff")?.textContent).toContain("Second rewrite.");
     closePopover(popover);
   });

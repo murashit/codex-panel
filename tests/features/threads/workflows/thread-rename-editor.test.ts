@@ -115,10 +115,10 @@ describe("thread rename editor", () => {
     editor.start("second");
 
     expect(signal?.aborted).toBe(true);
-    expect(states.has("first")).toBe(false);
-    expect(states.get("second")?.kind).toBe("editing");
     generated.resolve("Stale title");
     await generation;
+    expect(states.has("first")).toBe(false);
+    expect(states.get("second")?.kind).toBe("editing");
   });
 
   it("does not replace an active title generation", async () => {

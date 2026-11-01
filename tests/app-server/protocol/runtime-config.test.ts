@@ -76,16 +76,20 @@ describe("runtime config protocol mapping", () => {
     });
   });
 
-  it.each([false, true])("preserves legacy workspace sandbox flags set to %s when no permission profile is reported", (enabled) => {
+  it.each([
+    { networkAccess: true, excludeTmpdirEnvVar: false, excludeSlashTmp: false },
+    { networkAccess: false, excludeTmpdirEnvVar: true, excludeSlashTmp: false },
+    { networkAccess: false, excludeTmpdirEnvVar: false, excludeSlashTmp: true },
+  ])("preserves distinct legacy workspace sandbox flags: %j", ({ networkAccess, excludeTmpdirEnvVar, excludeSlashTmp }) => {
     expect(
       runtimeConfigFromAppServerFixture({
         approval_policy: "on-request",
         sandbox_mode: "workspace-write",
         sandbox_workspace_write: {
           writable_roots: ["/vault"],
-          network_access: enabled,
-          exclude_tmpdir_env_var: enabled,
-          exclude_slash_tmp: enabled,
+          network_access: networkAccess,
+          exclude_tmpdir_env_var: excludeTmpdirEnvVar,
+          exclude_slash_tmp: excludeSlashTmp,
         },
       }),
     ).toMatchObject({
@@ -95,9 +99,9 @@ describe("runtime config protocol mapping", () => {
         sandboxPolicy: {
           type: "workspaceWrite",
           writableRoots: ["/vault"],
-          networkAccess: enabled,
-          excludeTmpdirEnvVar: enabled,
-          excludeSlashTmp: enabled,
+          networkAccess,
+          excludeTmpdirEnvVar,
+          excludeSlashTmp,
         },
       },
     });
@@ -119,24 +123,24 @@ describe("runtime config protocol mapping", () => {
 
   it.each([
     {
-      name: "mixed booleans",
+      name: "sandbox, request, and MCP approvals",
       granular: {
         sandbox_approval: true,
         rules: false,
-        skill_approval: true,
-        request_permissions: false,
+        skill_approval: false,
+        request_permissions: true,
         mcp_elicitations: true,
       },
       expected: {
         sandbox_approval: true,
         rules: false,
-        skill_approval: true,
-        request_permissions: false,
+        skill_approval: false,
+        request_permissions: true,
         mcp_elicitations: true,
       },
     },
     {
-      name: "inverse booleans",
+      name: "rules and request approvals",
       granular: {
         sandbox_approval: false,
         rules: true,
@@ -150,6 +154,23 @@ describe("runtime config protocol mapping", () => {
         skill_approval: false,
         request_permissions: true,
         mcp_elicitations: false,
+      },
+    },
+    {
+      name: "skill and MCP approvals",
+      granular: {
+        sandbox_approval: false,
+        rules: false,
+        skill_approval: true,
+        request_permissions: false,
+        mcp_elicitations: true,
+      },
+      expected: {
+        sandbox_approval: false,
+        rules: false,
+        skill_approval: true,
+        request_permissions: false,
+        mcp_elicitations: true,
       },
     },
     {
