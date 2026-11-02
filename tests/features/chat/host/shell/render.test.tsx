@@ -445,6 +445,10 @@ describe("ChatPanelShell", () => {
     store.dispatch({ type: "ui/panel-set", panel: "history" });
     const parts = shellParts();
     parts.toolbar.actions.threads.rename.start = vi.fn(() => false);
+    parts.toolbar.actions.primary.toggleHistory = createToolbarPanelActions({
+      stateStore: store,
+      threadCommands: {} as never,
+    }).toggleHistory;
     const container = document.body.appendChild(document.createElement("div"));
     try {
       await act(async () => {
@@ -456,7 +460,8 @@ describe("ChatPanelShell", () => {
         await settleShellEffects();
       });
       expect(parts.toolbar.actions.threads.rename.start).toHaveBeenCalledWith("thread");
-      expect(parts.toolbar.actions.primary.toggleHistory).not.toHaveBeenCalled();
+      expect(container.querySelector('[data-codex-panel-toolbar-panel="history"]')).not.toBeNull();
+      expect(store.getState().ui.toolbarPanel).toBe("history");
     } finally {
       await act(async () => unmountChatPanelShell(container));
       container.remove();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Thread, threadRecencyAt } from "../../../src/domain/threads/model";
+import type { Thread } from "../../../src/domain/threads/model";
 import { threadDisplayTitle, threadMeaningfulTitle, threadRenameDraftTitle, threadWindowTitle } from "../../../src/domain/threads/title";
 import { panelThreadFixture } from "../../support/panel-thread";
 
@@ -36,14 +36,6 @@ describe("thread helpers", () => {
     expect(threadWindowTitle("thread", [], "  Restored   title  ")).toBe("Codex: Restored title");
     expect(threadWindowTitle(uuid, [thread({ id: uuid, name: null, preview: "" })])).toBe("Codex: 019e0182");
     expect(threadWindowTitle(uuid, [], null)).toBe("Codex: 019e0182");
-  });
-
-  it("uses recency timestamps when present and falls back to updated time", () => {
-    const recent = thread({ updatedAt: 10, recencyAt: 30 });
-    const cleared = thread({ updatedAt: 20, recencyAt: null });
-
-    expect(threadRecencyAt(recent)).toBe(30);
-    expect(threadRecencyAt(cleared)).toBe(20);
   });
 });
 

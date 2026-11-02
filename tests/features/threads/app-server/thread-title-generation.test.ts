@@ -16,11 +16,12 @@ describe("thread title", () => {
           type: "agentMessage",
           id: "a1",
           text: '{"title":"Codex Panelの自動命名"}',
-          phase: "final_answer",
+          phase: null,
           memoryCitation: null,
           delivery: null,
           questions: null,
         },
+        { type: "plan", id: "plan", text: "A plan is not the structured response." },
       ]),
     );
 
@@ -59,14 +60,6 @@ describe("thread title", () => {
     const runner: EphemeralStructuredTurnRunner = async () => turn([agentMessage(text)]);
     await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), { runner })).resolves.toBe(
       expected,
-    );
-  });
-
-  it("reads an agent response with unknown phase and ignores plan items", async () => {
-    const runner: EphemeralStructuredTurnRunner = async () =>
-      turn([agentMessage('{"title":"Naming"}'), { type: "plan", id: "plan", text: "A plan is not the structured response." }]);
-    await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), { runner })).resolves.toBe(
-      "Naming",
     );
   });
 

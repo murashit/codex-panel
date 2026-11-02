@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
 import { h } from "preact";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { ComposerMetaViewModel, ComposerShellProps } from "../../../../../src/features/chat/ui/composer/composer";
 import { ComposerShell, scrollComposerSuggestionIntoView } from "../../../../../src/features/chat/ui/composer/composer";
 import { syncComposerHeight } from "../../../../../src/features/chat/ui/composer/height";
-import { renderUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { waitForAsyncWork } from "../../../../support/async";
 import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomShims } from "../../../../support/dom";
 import { composerCallbacks, composerMetaFixture, composerPropsFixture } from "../../support/composer-shell";
@@ -18,6 +18,10 @@ function mountComposerShell(
   overrides: Partial<Omit<ComposerShellProps, "onComposer">> = {},
 ): { composer: HTMLTextAreaElement } {
   const elements: { composer: HTMLTextAreaElement | null } = { composer: null };
+  onTestFinished(() => {
+    unmountUiRoot(parent);
+    parent.remove();
+  });
   renderUiRoot(
     parent,
     h(
@@ -268,15 +272,13 @@ describe("ComposerShell decisions", () => {
     expect(parent.querySelector(".codex-panel__composer-action.codex-panel__send")).not.toBeNull();
   });
 
-  it("renders composer suggestions inside the composer root", () => {
+  it("routes composer suggestions and clears their accessibility state when they close", () => {
     const parent = document.createElement("div");
-    const onSuggestionInsert = vi.fn();
+    const callbacks = composerCallbacks();
+    const onSuggestionInsert = callbacks.onSuggestionInsert;
     const { composer } = mountComposerShell(parent, {
       suggestions: [{ display: "/help", detail: "Show help", replacement: "/help", start: 0 }],
-      callbacks: {
-        ...composerCallbacks(),
-        onSuggestionInsert,
-      },
+      callbacks,
     });
 
     const suggestions = parent.querySelector<HTMLElement>(".codex-panel__composer-suggestions");
@@ -291,21 +293,11 @@ describe("ComposerShell decisions", () => {
       .querySelector<HTMLElement>(".codex-panel__composer-suggestion")
       ?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     expect(onSuggestionInsert).toHaveBeenCalled();
-  });
-
-  it("clears composer suggestion accessibility state on rerender", () => {
-    const parent = document.createElement("div");
-    const callbacks = composerCallbacks();
-    const { composer } = mountComposerShell(parent, {
-      suggestions: [{ display: "/help", detail: "Show help", replacement: "/help", start: 0 }],
-      callbacks,
-    });
 
     mountComposerShell(parent, { callbacks });
 
-    const suggestions = parent.querySelector<HTMLElement>(".codex-panel__composer-suggestions");
     expect(composer.hasAttribute("aria-activedescendant")).toBe(false);
-    expect(suggestions?.hidden).toBe(true);
+    expect(suggestions.hidden).toBe(true);
   });
 
   it("reports composer draft changes from the controlled input", () => {
@@ -320,6 +312,7 @@ describe("ComposerShell decisions", () => {
 
   it("grows on input and shrinks when the controlled draft clears after send", () => {
     const parent = document.createElement("div");
+    onTestFinished(() => unmountUiRoot(parent));
     const callbacks = composerCallbacks();
     // Keep this callback stable so clearing the draft must trigger its own height update.
     const onComposer = vi.fn();
@@ -346,43 +339,16 @@ describe("ComposerShell decisions", () => {
     expect(composer.style.height).toBe("56px");
   });
 
-  it("scrolls the selected composer suggestion fully into view below the viewport", () => {
-    const { container, option } = composerSuggestionScrollFixture({
-      clientHeight: 100,
-      optionHeight: 32,
-      optionTop: 92,
-      scrollTop: 0,
-    });
+  it.each([
+    { position: "below", optionTop: 92, scrollTop: 0, expected: 24 },
+    { position: "above", optionTop: 48, scrollTop: 64, expected: 48 },
+    { position: "inside", optionTop: 72, scrollTop: 48, expected: 48 },
+  ])("keeps the selected composer suggestion visible when $position the viewport", ({ optionTop, scrollTop, expected }) => {
+    const { container, option } = composerSuggestionScrollFixture({ clientHeight: 100, optionHeight: 32, optionTop, scrollTop });
 
     scrollComposerSuggestionIntoView(container, option);
 
-    expect(container.scrollTop).toBe(24);
-  });
-
-  it("scrolls the selected composer suggestion fully into view above the viewport", () => {
-    const { container, option } = composerSuggestionScrollFixture({
-      clientHeight: 100,
-      optionHeight: 32,
-      optionTop: 48,
-      scrollTop: 64,
-    });
-
-    scrollComposerSuggestionIntoView(container, option);
-
-    expect(container.scrollTop).toBe(48);
-  });
-
-  it("keeps composer suggestion scroll position when the selected item is already visible", () => {
-    const { container, option } = composerSuggestionScrollFixture({
-      clientHeight: 100,
-      optionHeight: 32,
-      optionTop: 72,
-      scrollTop: 48,
-    });
-
-    scrollComposerSuggestionIntoView(container, option);
-
-    expect(container.scrollTop).toBe(48);
+    expect(container.scrollTop).toBe(expected);
   });
 
   it("renders the supplied interrupt and steer actions", () => {

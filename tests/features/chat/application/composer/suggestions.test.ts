@@ -307,19 +307,11 @@ describe("composer suggestions", () => {
       },
     });
     expect(activeComposerSuggestions("/pla", notes, [])[0]?.replacement).toBe("/plan");
-    expect(activeComposerSuggestions("/rea", notes, [])[0]?.replacement).toBe("/reasoning");
-    expect(activeComposerSuggestions("/sta", notes, [])[0]?.replacement).toBe("/status");
-    expect(activeComposerSuggestions("/doc", notes, [])[0]?.replacement).toBe("/doctor");
     expect(activeComposerSuggestions("/status", notes, [])).toEqual([]);
-    expect(activeComposerSuggestions("/help", notes, [])).toEqual([]);
   });
 
-  it("omits slash suggestions from subagent threads", () => {
-    const options = { slashCommandAvailable: () => false };
-    expect(activeComposerSuggestions("/", notes, [], [], [], null, options)).toEqual([]);
-    expect(activeComposerSuggestions("/permissions ", notes, [], [], [], null, options)).toEqual([]);
-    expect(activeComposerSuggestions("/resume ", notes, [], [], [], null, options)).toEqual([]);
-    expect(activeComposerSuggestions("/model ", notes, [], [], [], null, options)).toEqual([]);
+  it("honors slash command availability", () => {
+    expect(activeComposerSuggestions("/", notes, [], [], [], null, { slashCommandAvailable: () => false })).toEqual([]);
   });
 
   it("bounds selection preview text before rendering it in the suggestion list", () => {

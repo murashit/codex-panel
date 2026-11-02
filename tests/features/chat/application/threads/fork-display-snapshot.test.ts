@@ -89,42 +89,6 @@ describe("fork display snapshots", () => {
     expect(reconciled.map((item) => item.id)).toEqual(["u1", terminal.id]);
   });
 
-  it("retains Panel-owned user context metadata while accepting hydrated user history", () => {
-    const displayUser = {
-      id: "local-user",
-      kind: "dialogue",
-      dialogueKind: "user",
-      role: "user",
-      text: "Read [[Note]]",
-      copyText: "Read [[Note]]",
-      turnId: "turn",
-      clientId: "submission",
-      contextAttachments: [{ label: "Obsidian context", detail: "Note" }],
-      referencedFiles: [{ name: "Note", path: "Note.md" }],
-      provenance: { source: "localUser", channel: "optimistic", interaction: "prompt", sourceId: "submission" },
-    } satisfies ThreadStreamItem;
-    const historyUser = {
-      id: "server-user",
-      kind: "dialogue",
-      dialogueKind: "user",
-      role: "user",
-      text: "Read [[Note]]",
-      copyText: "Read [[Note]]",
-      turnId: "turn",
-      clientId: "submission",
-    } satisfies ThreadStreamItem;
-
-    const reconciled = reconcileForkDisplayItems([displayUser], [historyUser]);
-
-    expect(reconciled).toEqual([
-      expect.objectContaining({
-        id: "server-user",
-        contextAttachments: displayUser.contextAttachments,
-        referencedFiles: displayUser.referencedFiles,
-      }),
-    ]);
-  });
-
   it("keeps the complete display payload for an already-hydrated user item", () => {
     const displayUser = {
       id: "server-user",

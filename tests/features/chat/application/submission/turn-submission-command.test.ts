@@ -210,18 +210,29 @@ describe("TurnSubmissionCommand", () => {
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
-  it("starts a thread when needed and acknowledges the optimistic turn", async () => {
-    const { host, startTurn, stateStore } = createHost();
-    const commands = claimedCommand(host);
+  it("creates a thread, applies pending settings, and submits prepared input with optimistic history", async () => {
+    const settings = deferred<boolean>();
+    const { host, startTurn, stateStore } = createHost({ applyPendingThreadSettings: vi.fn(() => settings.promise) });
+    const text = 'fix [[notes/Alpha]] `"selected text"`';
+    const input = [
+      { type: "text" as const, text },
+      { type: "fileReference" as const, name: "Alpha", path: "notes/Alpha.md" },
+      { type: "additionalContext" as const, key: "codex_panel_obsidian_context", kind: "untrusted" as const, value: "selected text" },
+    ];
+    const submitting = claimedCommand(host).sendTurnText({ preparedInput: { text, input } });
+    await vi.waitFor(() => expect(host.applyPendingThreadSettings).toHaveBeenCalledOnce());
 
-    const submitted = await commands.sendTurnText({ preparedInput: preparedText("hello") });
+    expect(host.startThread).toHaveBeenCalledWith(text, {});
+    expect(activeThreadId(stateStore.getState())).toBe("thread");
+    expect(startTurn).not.toHaveBeenCalled();
+    settings.resolve(true);
+    await expect(submitting).resolves.toBe(true);
 
-    expect(submitted).toBe(true);
-    expect(host.startThread).toHaveBeenCalledWith("hello", {});
-    expect(startTurn).toHaveBeenCalledWith({
-      threadId: "thread",
-      input: textInput("hello"),
-      clientUserMessageId: expect.any(String),
+    expect(startTurn).toHaveBeenCalledWith({ threadId: "thread", input, clientUserMessageId: expect.any(String) });
+    expect(chatStateThreadStreamItems(stateStore.getState())[0]).toMatchObject({
+      kind: "dialogue",
+      text,
+      referencedFiles: [{ name: "Alpha", path: "notes/Alpha.md" }],
     });
     expect(stateStore.getState().activeTurn.lifecycle).toEqual({ kind: "running", turnId: "turn" });
     expect(stateStore.getState().connection.statusText).toBe("Turn running...");
@@ -460,67 +471,24 @@ describe("TurnSubmissionCommand", () => {
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
-  it("applies reserved runtime settings after creating a thread and before starting the turn", async () => {
-    const { host, startTurn, stateStore } = createHost();
-    const applyPendingThreadSettings = vi.fn().mockImplementation(async () => {
-      expect(activeThreadId(stateStore.getState())).toBe("thread");
-      return true;
-    });
-    host.applyPendingThreadSettings = applyPendingThreadSettings;
-    const commands = claimedCommand(host);
-
-    await commands.sendTurnText({ preparedInput: preparedText("hello") });
-
-    expect(applyPendingThreadSettings).toHaveBeenCalledOnce();
-    expect(vi.mocked(host.startThread).mock.invocationCallOrder[0]).toBeLessThan(
-      applyPendingThreadSettings.mock.invocationCallOrder[0] ?? 0,
-    );
-    expect(applyPendingThreadSettings.mock.invocationCallOrder[0]).toBeLessThan(startTurn.mock.invocationCallOrder[0] ?? 0);
-  });
-
-  it("uses prepared visible text for optimistic history and app-server input", async () => {
+  it("keeps the new draft and suppresses stale turn-start errors after navigation", async () => {
+    const accepted = deferred<EffectOutcome<{ turnId: string }>>();
     const { host, startTurn, stateStore } = createHost();
     resumeThread(stateStore);
-    const commands = claimedCommand(host);
-    await commands.sendTurnText({
-      submissionClaim: new SubmissionInput("fix @selection", emptyComposerInputSnapshot(), stateStore.getState, () => {}),
-      preparedInput: {
-        text: "fix [[notes/Alpha]] (L42:C5-L47:C1)",
-        input: [
-          { type: "text", text: "fix [[notes/Alpha]] (L42:C5-L47:C1)" },
-          { type: "fileReference", name: "Alpha", path: "notes/Alpha.md" },
-          { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "selected text" },
-        ],
-      },
-    });
+    const { input } = createInput({ stateStore });
+    input.setDraft("first message");
+    const claim = input.claimSubmission();
+    if (!claim) throw new Error("Expected a submission claim");
+    startTurn.mockReturnValue(accepted.promise);
+    const submitting = claimedCommand(host).sendTurnText({ preparedInput: preparedText(claim.text), submissionClaim: claim });
+    await vi.waitFor(() => expect(startTurn).toHaveBeenCalledOnce());
+    resumeThread(stateStore, false, "other");
+    input.setDraft("other draft");
+    accepted.reject(new Error("offline"));
 
-    expect(startTurn).toHaveBeenCalledWith({
-      threadId: "thread",
-      input: [
-        { type: "text", text: "fix [[notes/Alpha]] (L42:C5-L47:C1)" },
-        { type: "fileReference", name: "Alpha", path: "notes/Alpha.md" },
-        { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "selected text" },
-      ],
-      clientUserMessageId: expect.any(String),
-    });
-    expect(chatStateThreadStreamItems(stateStore.getState())[0]).toMatchObject({
-      kind: "dialogue",
-      text: "fix [[notes/Alpha]] (L42:C5-L47:C1)",
-      referencedFiles: [{ name: "Alpha", path: "notes/Alpha.md" }],
-    });
-  });
-
-  it("does not restore stale drafts or report stale start failures after the active thread changes", async () => {
-    const { host, startTurn, stateStore } = createHost();
-    resumeThread(stateStore);
-    startTurn.mockImplementation(async () => {
-      stateStore.dispatch({ type: "active-thread/cleared" });
-      throw new Error("offline");
-    });
-    const commands = claimedCommand(host);
-
-    await commands.sendTurnText({ preparedInput: preparedText("hello") });
-
+    await expect(submitting).resolves.toBe(false);
+    expect(input.draft).toBe("other draft");
+    expect(input.isSubmissionPreparing()).toBe(false);
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 

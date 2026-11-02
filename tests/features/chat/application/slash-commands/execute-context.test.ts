@@ -225,16 +225,6 @@ describe("context slash commands", () => {
     );
   });
 
-  it("delegates setting an objective and input adoption to the goal workflow", async () => {
-    const ctx = context({ activeThreadId: null });
-
-    await executeContextSlashCommand("goal", "set Ship this", ctx);
-
-    expect(ctx.submission.adoptPanelTarget).not.toHaveBeenCalled();
-    expect(ctx.goals.setObjective).toHaveBeenCalledWith("Ship this", null, ctx.submission);
-    expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("No active thread for goal management.");
-  });
-
   it("rejects non-set goal mutation without an active thread", async () => {
     const ctx = context({ activeThreadId: null });
 

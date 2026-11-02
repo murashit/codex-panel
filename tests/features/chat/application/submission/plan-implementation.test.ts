@@ -6,7 +6,6 @@ import { installComposerInputFixtures } from "../../support/composer-input-fixtu
 const createInput = installComposerInputFixtures();
 
 import { implementPlan, type PlanImplementationHost } from "../../../../../src/features/chat/application/submission/plan-implementation";
-import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred } from "../../../../support/async";
 import { panelThreadFixture } from "../../../../support/panel-thread";
@@ -56,12 +55,7 @@ function createPlanImplementationHost() {
   const { input } = createInput({ stateStore });
   const ensureConnected = vi.fn().mockResolvedValue(true);
   const sendTurnText = vi.fn().mockResolvedValue(undefined);
-  const requestDefaultCollaborationModeForNextTurn = vi.fn(() => {
-    stateStore.dispatch({
-      type: "runtime/pending-intent-patched",
-      patch: { collaborationMode: { kind: "set", value: "default" } },
-    });
-  });
+  const requestDefaultCollaborationModeForNextTurn = vi.fn();
   const host: PlanImplementationHost = {
     stateStore,
     ensureConnected,
@@ -93,17 +87,6 @@ describe("implementPlan", () => {
     expect(sendTurnText).not.toHaveBeenCalled();
     claim?.settle("failed");
     expect(input.draft).toBe("existing draft");
-  });
-
-  it.each(["", "edit first"])("implements the latest completed plan without consuming draft %j", async (draft) => {
-    const { host, sendTurnText, stateStore } = createPlanImplementationHost();
-    resumeThread(stateStore, [planItem("first"), planItem("latest")]);
-    stateStore.dispatch({ type: "composer/draft-set", draft });
-
-    await implementPlan(host, "latest");
-
-    expect(sendTurnText).toHaveBeenCalledWith(expect.objectContaining({ text: "Please implement this plan." }));
-    expect(stateStore.getState().composer.draft).toBe(draft);
   });
 
   it("does not implement a plan when the pending intent leaves Plan mode", async () => {
@@ -150,24 +133,32 @@ describe("implementPlan", () => {
     expect(sendTurnText).toHaveBeenCalledWith(expect.objectContaining({ text: "Please implement this plan." }));
   });
 
-  it.each(["persistent", "ephemeral"] as const)("implements the offered plan in a %s chat after leaving Plan mode", async (kind) => {
-    const { host, ensureConnected, requestDefaultCollaborationModeForNextTurn, sendTurnText, stateStore } = createPlanImplementationHost();
-    const plan = planItem("plan");
-    resumeThread(
-      stateStore,
-      [plan],
-      kind === "persistent" ? { kind } : { kind, mode: "side-chat" as const, sourceThreadId: "source", sourceThreadTitle: "Source" },
-    );
-    stateStore.dispatch({ type: "ui/panel-set", panel: "status-panel" });
+  it.each(["persistent", "ephemeral"] as const)(
+    "requests default mode and implements the latest plan without consuming the draft in a %s chat",
+    async (kind) => {
+      const { host, ensureConnected, requestDefaultCollaborationModeForNextTurn, sendTurnText, stateStore } =
+        createPlanImplementationHost();
+      const plan = planItem("plan");
+      resumeThread(
+        stateStore,
+        [planItem("first"), plan],
+        kind === "persistent" ? { kind } : { kind, mode: "side-chat" as const, sourceThreadId: "source", sourceThreadTitle: "Source" },
+      );
+      stateStore.dispatch({ type: "ui/panel-set", panel: "status-panel" });
+      stateStore.dispatch({ type: "composer/draft-set", draft: "edit first" });
 
-    await implementPlan(host, plan.id);
+      await implementPlan(host, "first");
+      expect(ensureConnected).not.toHaveBeenCalled();
+      expect(sendTurnText).not.toHaveBeenCalled();
+      await implementPlan(host, plan.id);
 
-    expect(ensureConnected).toHaveBeenCalledOnce();
-    expect(requestDefaultCollaborationModeForNextTurn).toHaveBeenCalledOnce();
-    expect(stateStore.getState().runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("default"));
-    expect(stateStore.getState().ui.toolbarPanel).toBeNull();
-    expect(sendTurnText).toHaveBeenCalledWith(expect.objectContaining({ text: "Please implement this plan." }));
-  });
+      expect(ensureConnected).toHaveBeenCalledOnce();
+      expect(requestDefaultCollaborationModeForNextTurn).toHaveBeenCalledOnce();
+      expect(stateStore.getState().ui.toolbarPanel).toBeNull();
+      expect(stateStore.getState().composer.draft).toBe("edit first");
+      expect(sendTurnText).toHaveBeenCalledWith(expect.objectContaining({ text: "Please implement this plan." }));
+    },
+  );
 
   it.each(["source", "another fork"])("does not implement a shared plan after switching to %s while connecting", async (destination) => {
     const { host, ensureConnected, requestDefaultCollaborationModeForNextTurn, sendTurnText, stateStore } = createPlanImplementationHost();
@@ -189,17 +180,5 @@ describe("implementPlan", () => {
     expect(requestDefaultCollaborationModeForNextTurn).not.toHaveBeenCalled();
     expect(sendTurnText).not.toHaveBeenCalled();
     expect(stateStore.getState().runtime.active.collaborationMode).toBe("plan");
-  });
-
-  it("ignores stale plan items", async () => {
-    const { host, ensureConnected, sendTurnText, stateStore } = createPlanImplementationHost();
-    const first = planItem("first");
-    const latest = planItem("latest");
-    resumeThread(stateStore, [first, latest]);
-
-    await implementPlan(host, first.id);
-
-    expect(ensureConnected).not.toHaveBeenCalled();
-    expect(sendTurnText).not.toHaveBeenCalled();
   });
 });

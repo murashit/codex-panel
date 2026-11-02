@@ -261,6 +261,7 @@ describe("approval model", () => {
           permissions: {
             network: null,
             fileSystem: {
+              globScanMaxDepth: 4,
               read: null,
               write: null,
               entries: [
@@ -277,6 +278,7 @@ describe("approval model", () => {
       ),
     );
 
+    expect(approval.details).toContainEqual({ key: "glob depth", value: "4" });
     expect(approval.details).toContainEqual({
       key: "filesystem",
       value:

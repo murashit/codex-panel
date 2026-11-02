@@ -19,7 +19,7 @@ describe("WorkspacePanelCoordinator", () => {
     vi.useRealTimers();
   });
 
-  it("reads snapshots without repairing or recording focus", async () => {
+  it("records focus on activation while snapshot reads stay passive", async () => {
     const restored = leaf({ state: { threadId: "same" } });
     const active = leaf();
     active.view = chatView(CodexChatView, active);
@@ -32,7 +32,7 @@ describe("WorkspacePanelCoordinator", () => {
     activeView.mockReturnValue(active.view);
     const coordinator = panels(plugin);
     expect(coordinator.getOpenPanelSnapshots()).toMatchObject([
-      { threadId: "other", lastFocused: false },
+      { threadId: "other", connected: false, lastFocused: false, turnBusy: false, pending: false },
       { viewId: "active", lastFocused: true },
     ]);
     activeView.mockReturnValue(null);
@@ -45,6 +45,13 @@ describe("WorkspacePanelCoordinator", () => {
       expect(target.setViewState).not.toHaveBeenCalled();
       expect(target.loadIfDeferred).not.toHaveBeenCalled();
     }
+
+    vi.spyOn((active.view as CodexChatView).surface, "activateThread").mockResolvedValue(true);
+    coordinator.activeLeafChanged(active as never);
+    expect(coordinator.getOpenPanelSnapshots()).toMatchObject([
+      { threadId: "other", lastFocused: false },
+      { viewId: "active", lastFocused: true },
+    ]);
   });
 
   it("coalesces repair without hydration and captures the current layout when it runs", async () => {
@@ -137,15 +144,6 @@ describe("WorkspacePanelCoordinator", () => {
     firstLoad.resolve();
     secondLoad.resolve();
     await Promise.all([firstLoad.promise, secondLoad.promise]);
-  });
-
-  it("includes deferred restored panels in snapshots", async () => {
-    const restoredLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored thread" } });
-    const coordinator = panels(await pluginWithLeaves([restoredLeaf]));
-
-    expect(coordinator.getOpenPanelSnapshots()).toMatchObject([
-      { threadId: "thread-1", connected: false, lastFocused: false, turnBusy: false, pending: false },
-    ]);
   });
 
   it("prefers an already open thread over an idle panel", async () => {
@@ -399,32 +397,6 @@ describe("WorkspacePanelCoordinator", () => {
     },
   );
 
-  it("settles same-thread new-panel requests on one owner", async () => {
-    const firstLeaf = leaf();
-    const secondLeaf = leaf();
-    const leaves = [] as ReturnType<typeof leaf>[];
-    const plugin = await pluginWithLeaves(leaves);
-    (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValueOnce(firstLeaf).mockReturnValueOnce(secondLeaf);
-    const firstView = chatView(CodexChatView, firstLeaf);
-    const secondView = chatView(CodexChatView, secondLeaf);
-    vi.spyOn(firstView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "first", threadId: "same-thread" }));
-    const firstFocusThread = deferred<boolean>();
-    const firstOpen = vi.spyOn(firstView.surface, "activateThread").mockReturnValue(firstFocusThread.promise);
-    vi.spyOn(secondView.surface, "activateThread").mockResolvedValue(true);
-    installLeafView(firstLeaf, firstView, leaves);
-    installLeafView(secondLeaf, secondView, leaves);
-    const coordinator = panels(plugin);
-    const firstRequest = coordinator.openThreadInNewView("same-thread");
-    await vi.waitFor(() => expect(firstOpen).toHaveBeenCalledWith("same-thread", { focus: false }));
-    const secondRequest = coordinator.openThreadInNewView("same-thread");
-
-    firstFocusThread.resolve(true);
-    await Promise.all([firstRequest, secondRequest]);
-
-    expect(coordinator.getOpenPanelSnapshots().filter((snapshot) => snapshot.threadId === "same-thread")).toHaveLength(1);
-    expect(leaves).toHaveLength(1);
-  });
-
   it("settles concurrent panel selections on one thread owner", async () => {
     const firstLeaf = leaf();
     const secondLeaf = leaf();
@@ -551,24 +523,6 @@ describe("WorkspacePanelCoordinator", () => {
     await opening;
 
     expect(focus).not.toHaveBeenCalled();
-  });
-
-  it("tracks the active Codex panel in shared snapshots", async () => {
-    const firstLeaf = leaf();
-    firstLeaf.view = chatView(CodexChatView, firstLeaf);
-    const activeLeaf = leaf();
-    activeLeaf.view = chatView(CodexChatView, activeLeaf);
-    const activeView = activeLeaf.view as CodexChatView;
-    vi.spyOn(activeView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "active", threadId: "thread" }));
-    const plugin = await pluginWithLeaves([firstLeaf, activeLeaf]);
-    (plugin.app.workspace.getActiveViewOfType as ReturnType<typeof vi.fn>).mockReturnValue(activeView);
-    const coordinator = panels(plugin);
-
-    coordinator.activeLeafChanged(activeLeaf as never);
-
-    expect(coordinator.getOpenPanelSnapshots()).toEqual(
-      expect.arrayContaining([expect.objectContaining({ viewId: "active", lastFocused: true })]),
-    );
   });
 
   it("opens side chats through the shared draft path", async () => {

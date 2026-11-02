@@ -8,10 +8,10 @@ import {
 
 import { MarkdownRenderer } from "obsidian";
 import { h } from "preact";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
-import { type ChatAction, chatReducer } from "../../../../../src/features/chat/application/state/reducer";
+import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { createChatThreadStreamDependencies } from "../../../../../src/features/chat/host/thread-stream/context.obsidian";
@@ -26,7 +26,7 @@ import {
   selectChatPanelThreadStream,
 } from "../../../../../src/features/chat/host/thread-stream/view-projection";
 import { ThreadStreamViewport } from "../../../../../src/features/chat/ui/thread-stream/stream-blocks";
-import { renderUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { chatStateFixture, chatStateWith } from "../../support/state";
@@ -41,6 +41,10 @@ function renderThreadStreamSurface(
   scrollPortBinding: ChatThreadStreamScrollBinding,
   state: ChatState,
 ): void {
+  onTestFinished(() => {
+    unmountUiRoot(parent);
+    parent.remove();
+  });
   const projection = projectThreadStream(selectChatPanelThreadStream(state), context);
   renderUiRoot(
     parent,
@@ -73,13 +77,7 @@ describe("thread stream surface", () => {
     let state = chatStateFixture();
     state = withChatStateStableThreadStreamItems(state, [{ id: "system", kind: "system", role: "system", text: "Waiting for approval." }]);
     state = chatStateWith(state, { requests: { approvals: [pendingApproval()] } });
-    const projection = projectThreadStream(
-      selectChatPanelThreadStream(state),
-      testThreadStreamSurfaceContext({
-        vaultPath: "/vault",
-        dispatch: () => undefined,
-      }),
-    );
+    const projection = projectThreadStream(selectChatPanelThreadStream(state), threadStreamDependenciesFixture({ vaultPath: "/vault" }));
 
     const pendingBlock = projection.blocks.find((block) => block.kind === "pendingRequests");
     expect(pendingBlock).toMatchObject({ kind: "pendingRequests", key: "pending-requests" });
@@ -120,7 +118,7 @@ describe("thread stream surface", () => {
 
     const projection = projectThreadStream(
       selectChatPanelThreadStream(store.getState()),
-      testThreadStreamSurfaceContext({ vaultPath: "/vault", dispatch: () => undefined }),
+      threadStreamDependenciesFixture({ vaultPath: "/vault" }),
     );
 
     expect(projection.blocks.map((block) => block.key)).toContain(`item:${pending.id}`);
@@ -156,30 +154,9 @@ describe("thread stream surface", () => {
       },
     });
 
-    const projection = projectThreadStream(
-      selectChatPanelThreadStream(state),
-      testThreadStreamSurfaceContext({ vaultPath: "/vault", dispatch: () => undefined }),
-    );
+    const projection = projectThreadStream(selectChatPanelThreadStream(state), threadStreamDependenciesFixture({ vaultPath: "/vault" }));
 
     expect(projection.blocks.map((block) => block.key)).toEqual(["item:prompt", "item:assistant", "item:turn:local-steer"]);
-  });
-
-  it("normalizes rendered internal links that point at absolute vault paths", async () => {
-    const openLinkText = vi.fn();
-    const context = markdownLinkContext(openLinkText, "/Users/example/Vault", ["docs/Guide.md"]);
-    const { link, cleanup } = await renderedInternalLink(context, {
-      cls: "internal-link",
-      text: "Guide.md",
-      attr: {
-        "data-href": "/Users/example/Vault/docs/Guide.md",
-        href: "/Users/example/Vault/docs/Guide.md",
-      },
-    });
-
-    link.click();
-
-    expect(openLinkText).toHaveBeenCalledWith("docs/Guide.md", "Inbox.md", false);
-    cleanup();
   });
 
   it("normalizes rendered internal links for missing files inside the vault", async () => {
@@ -356,21 +333,6 @@ describe("thread stream surface", () => {
     expect(viewport.scrollTop).toBe(140);
   });
 });
-
-function testThreadStreamSurfaceContext(options: {
-  vaultPath: string;
-  dispatch: (action: ChatAction) => void;
-}): ChatThreadStreamDependencies {
-  return threadStreamDependenciesFixture({
-    vaultPath: options.vaultPath,
-    setDisclosureOpen: (bucket, id, open) => {
-      options.dispatch({ type: "ui/disclosure-set", bucket, id, open });
-    },
-    setForkMenuItem: (itemId) => {
-      options.dispatch({ type: "ui/thread-stream-fork-menu-set", itemId });
-    },
-  });
-}
 
 function markdownLinkContext(openLinkText = vi.fn(), vaultPath = "/vault", vaultFiles: string[] = []) {
   const files = new Map(vaultFiles.map((path) => [path, tFile(path)]));

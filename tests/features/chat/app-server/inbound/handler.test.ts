@@ -1307,6 +1307,7 @@ describe("ChatInboundHandler", () => {
           dialogueKind: "user",
           role: "user",
           text: "steer",
+          contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
           turnId: "turn-active",
         },
       });
@@ -1358,7 +1359,12 @@ describe("ChatInboundHandler", () => {
         expect.arrayContaining([
           expect.objectContaining({ id: "local-user-1", text: "start" }),
           expect.objectContaining({ id: "a1", text: "first partial" }),
-          expect.objectContaining({ id: "server-steer", clientId: "local-steer-1", text: "steer" }),
+          expect.objectContaining({
+            id: "server-steer",
+            clientId: "local-steer-1",
+            text: "steer",
+            contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
+          }),
           expect.objectContaining({ id: "a2", text: "second done" }),
         ]),
       );
@@ -1368,6 +1374,15 @@ describe("ChatInboundHandler", () => {
       const state = activeRunningState();
       const maybeNameThread = vi.fn();
       const handler = handlerForState(state, { maybeNameThread });
+      handler.handleNotification(
+        turnNotification("turn/started", "thread-active", {
+          id: "turn-active",
+          status: "inProgress",
+          itemsView: "full",
+          items: [],
+        }),
+      );
+      expect(maybeNameThread).not.toHaveBeenCalled();
       const turn = appServerTurnFixture({
         id: "turn-active",
         status: "completed",
@@ -1383,7 +1398,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(maybeNameThread).toHaveBeenCalledWith("thread-active", "turn-active", {
+      expect(maybeNameThread).toHaveBeenCalledExactlyOnceWith("thread-active", "turn-active", {
         userText: "hello",
         assistantText: "done",
       });
@@ -1580,6 +1595,15 @@ describe("ChatInboundHandler", () => {
           action: { type: "command", source: "shell", command: "npm test", cwd: "/vault" },
         },
       } satisfies Extract<ServerNotification, { method: "item/autoApprovalReview/started" }>);
+      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
+        {
+          id: "review-review-1",
+          kind: "reviewResult",
+          text: "Auto-review started: npm test",
+          executionState: "running",
+          review: { auditFacts: expect.arrayContaining([{ key: "status", value: "inProgress" }]) },
+        },
+      ]);
       handler.handleNotification(completedAutoReviewFixture());
 
       expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(1);

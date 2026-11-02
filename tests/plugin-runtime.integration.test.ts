@@ -286,6 +286,8 @@ describe("CodexPanelPlugin runtime integration", () => {
     await flushMicrotasks();
 
     expect(contextConnectionClientMock).toHaveBeenCalledTimes(2);
+    expect(contextConnectionClientMock).toHaveBeenNthCalledWith(1, "codex-a", "/vault");
+    expect(contextConnectionClientMock).toHaveBeenNthCalledWith(2, "codex-b", "/vault");
     await second;
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("second")]);
 
@@ -294,17 +296,6 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("second")]);
     await publishCodexPath(plugin, "codex-a");
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toBeNull();
-  });
-
-  it("runs shared queries through the runtime-owned context connection", async () => {
-    contextConnectionClientMock.mockImplementation(() => threadListClient(() => Promise.resolve([thread("matching-context")])));
-    const plugin = await pluginWithLeaves([]);
-    await publishCodexPath(plugin, "codex-b");
-
-    await threadCatalog(plugin).refreshActiveThreads();
-
-    expect(contextConnectionClientMock).toHaveBeenCalledWith("codex-b", "/vault");
-    expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("matching-context")]);
   });
 
   it("persists the new context before restarting its runtime", async () => {

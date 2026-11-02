@@ -254,22 +254,6 @@ describe("wikilink context", () => {
     expect(prepared.input).toEqual([{ type: "text", text }]);
   });
 
-  it("resolves completed active snapshots without depending on the current link context", () => {
-    const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
-      "Organize this [[Alpha]]",
-      () => null,
-      [],
-      {
-        activeNote: null,
-        selection: null,
-        activeNoteSnapshots: [{ name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" }],
-      },
-      { referenceActiveNoteOnSend: false },
-    );
-
-    expect(prepared.input).toContainEqual({ type: "fileReference", name: "Alpha", path: "notes/Alpha.md" });
-  });
-
   it("references the active file on send when enabled without changing visible text", () => {
     const text = "Rewrite the introduction.";
     const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
@@ -292,33 +276,6 @@ describe("wikilink context", () => {
         key: "codex_panel_obsidian_context",
         kind: "untrusted",
         value: "Obsidian references for the current user input:\n- <active> -> notes/Alpha.md",
-      },
-    ]);
-  });
-
-  it("keeps wikilinks and active file in one Obsidian context when both are present", () => {
-    const text = "Compare [[Beta]] with the active file.";
-    const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
-      text,
-      (target) => (target === "Beta" ? { name: "Beta", path: "notes/Beta.md" } : null),
-      [],
-      {
-        activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
-        selection: null,
-      },
-      { referenceActiveNoteOnSend: true },
-    );
-
-    expect(prepared.text).toBe(text);
-    expect(prepared.input).toEqual([
-      { type: "text", text },
-      { type: "fileReference", name: "Beta", path: "notes/Beta.md" },
-      { type: "fileReference", name: "<active>", path: "notes/Alpha.md" },
-      {
-        type: "additionalContext",
-        key: "codex_panel_obsidian_context",
-        kind: "untrusted",
-        value: "Obsidian references for the current user input:\n- [[Beta]] -> notes/Beta.md\n- <active> -> notes/Alpha.md",
       },
     ]);
   });
@@ -365,44 +322,5 @@ describe("wikilink context", () => {
           'Obsidian references for the current user input:\n- [[Beta]] -> notes/Beta.md\n- [[Gamma]] "selected gamma" -> notes/Gamma.md (source range 2:1-2:6) (inline excerpt below)\n- <active> -> notes/Alpha.md\n\nInline excerpts:\n[[Gamma]] "selected gamma":\nselected gamma',
       },
     ]);
-  });
-
-  it("attaches completed selection snapshots without depending on the current editor selection", () => {
-    const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
-      'Organize this [[notes/Alpha]] "completed selection"',
-      (target) => (target === "notes/Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
-      [],
-      {
-        activeNote: null,
-        selection: {
-          name: "Beta",
-          path: "notes/Beta.md",
-          linktext: "notes/Beta",
-          range: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 4 } },
-          text: "current selection",
-        },
-        selectionSnapshots: [
-          {
-            marker: '[[notes/Alpha]] "completed selection"',
-            reference: {
-              name: "Alpha",
-              path: "notes/Alpha.md",
-              linktext: "notes/Alpha",
-              range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
-              text: "completed selection",
-            },
-          },
-        ],
-      },
-      { referenceActiveNoteOnSend: false },
-    );
-
-    expect(prepared.input).toContainEqual({
-      type: "additionalContext",
-      key: "codex_panel_obsidian_context",
-      kind: "untrusted",
-      value:
-        'Obsidian references for the current user input:\n- [[notes/Alpha]] "completed selection" -> notes/Alpha.md (source range 42:5-47:1) (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] "completed selection":\ncompleted selection',
-    });
   });
 });

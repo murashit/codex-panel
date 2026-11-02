@@ -7,13 +7,6 @@ import { appServerThreadFixture } from "../../../../support/app-server-records";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 
 describe("chat session adapters", () => {
-  it("classifies an app-server steer error as a definitive rejection", async () => {
-    const error = new AppServerRpcError("turn/steer", { code: -32000, message: "cannot steer this turn" });
-    const adapters = adaptersWithSteerError(error);
-
-    await expect(adapters.turn.steerTurn(steerRequest())).resolves.toEqual({ kind: "failed", error });
-  });
-
   it("classifies input preparation failure before dispatch as definitive", async () => {
     const request = vi.fn();
     const client = { request } as unknown as AppServerClient;

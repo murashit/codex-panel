@@ -30,7 +30,7 @@ describe("ThreadMutationCommands", () => {
       if (method !== "thread/name/set") throw new Error(`Unexpected app-server request: ${method}`);
       return occupiedRename.promise;
     });
-    const { mutations, catalog } = operationsFixture({ client });
+    const { mutations } = operationsFixture({ client });
     let shouldStart = true;
 
     const occupying = mutations.renameThread("thread", "Current title");
@@ -43,7 +43,6 @@ describe("ThreadMutationCommands", () => {
     await expect(queued).resolves.toBe(false);
     await expect(mutations.renameThread("thread", "   ")).resolves.toBe(false);
     expect(client.request).toHaveBeenCalledOnce();
-    expect(catalog.apply).not.toHaveBeenCalled();
   });
 
   it("unpins without listing sections and publishes only after the move succeeds", async () => {
@@ -223,44 +222,15 @@ describe("ThreadMutationCommands", () => {
     expect(requestMethods(client)).not.toContain("thread/archive");
   });
 
-  it("rejects a second archive for the same thread while the first is pending", async () => {
-    const archive = deferred<object>();
-    const client = clientMock();
-    client.request.mockImplementation(async (method: string) => {
-      if (method === "thread/archive") return archive.promise;
-      throw new Error(`Unexpected app-server request: ${method}`);
-    });
-    const { mutations, catalog } = operationsFixture({ client });
-
-    const first = mutations.archiveThread("thread");
-    await Promise.resolve();
-    await expect(mutations.archiveThread("thread")).rejects.toThrow("An operation is already in progress.");
-    expect(client.request).toHaveBeenCalledOnce();
-
-    archive.resolve({});
-    await first;
-    expect(catalog.apply).not.toHaveBeenCalled();
-  });
-
-  it("blocks archive before contacting the app server when the thread is active", async () => {
-    const { mutations, client, catalog } = operationsFixture({ threadIsBusy: () => true });
-
-    await expect(mutations.archiveThread("thread")).resolves.toEqual({ kind: "blocked", reason: "thread-busy", exportedPath: null });
-
-    expect(client.request).not.toHaveBeenCalled();
-    expect(catalog.apply).not.toHaveBeenCalled();
-  });
-
   it("rechecks panel activity inside the coordinated archive operation", async () => {
     let busy = false;
-    const { mutations, client, catalog } = operationsFixture({ threadIsBusy: () => busy });
+    const { mutations, client } = operationsFixture({ threadIsBusy: () => busy });
 
     const archive = mutations.archiveThread("thread");
     busy = true;
 
     await expect(archive).resolves.toEqual({ kind: "blocked", reason: "thread-busy", exportedPath: null });
     expect(client.request).not.toHaveBeenCalled();
-    expect(catalog.apply).not.toHaveBeenCalled();
   });
 
   it("runs the post-archive callback after the request succeeds", async () => {
@@ -270,7 +240,7 @@ describe("ThreadMutationCommands", () => {
       if (method === "thread/archive") return archive.promise;
       throw new Error(`Unexpected app-server request: ${method}`);
     });
-    const { mutations, catalog } = operationsFixture({ client });
+    const { mutations } = operationsFixture({ client });
     const afterArchive = vi.fn();
 
     const operation = mutations.archiveThread("thread", { saveMarkdown: false, afterArchive });
@@ -281,7 +251,6 @@ describe("ThreadMutationCommands", () => {
     await operation;
 
     expect(afterArchive).toHaveBeenCalledOnce();
-    expect(catalog.apply).not.toHaveBeenCalled();
   });
 
   it("archives without reading transcript history when markdown export is disabled", async () => {

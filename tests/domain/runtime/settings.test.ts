@@ -1,8 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { runtimeConfigOrDefault } from "../../../src/domain/runtime/settings";
+import { approvalsReviewerOrNull, parseServiceTier, runtimeConfigOrDefault } from "../../../src/domain/runtime/settings";
 import { runtimeConfigFixture } from "../../support/runtime-config";
 
 describe("runtime config", () => {
+  it.each([
+    ["user", "user"],
+    ["auto_review", "auto_review"],
+    ["guardian_subagent", "guardian_subagent"],
+    ["unknown", null],
+  ])("recognizes approvals reviewer %s", (value, expected) => {
+    expect(approvalsReviewerOrNull(value)).toBe(expected);
+  });
+
+  it("preserves opaque service tier names and rejects absent values", () => {
+    expect(parseServiceTier("catalog-tier")).toBe("catalog-tier");
+    expect(parseServiceTier("default")).toBe("default");
+    expect(parseServiceTier("")).toBeNull();
+    expect(parseServiceTier(null)).toBeNull();
+  });
+
   it("isolates permission snapshots from later source mutations", () => {
     const config = {
       ...runtimeConfigFixture(),

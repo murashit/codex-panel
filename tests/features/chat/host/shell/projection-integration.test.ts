@@ -13,6 +13,7 @@ import type { ChatState } from "../../../../../src/features/chat/application/sta
 import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { localUserDialogueItemFromInput } from "../../../../../src/features/chat/application/submission/local-user-dialogue";
+import { createGoalCommands } from "../../../../../src/features/chat/application/threads/goal-commands";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ChatPanelComposerRuntimeActions } from "../../../../../src/features/chat/host/composer/view-projection";
 import {
@@ -36,7 +37,7 @@ import { GoalPanel } from "../../../../../src/features/chat/ui/goal/goal";
 import { textNode } from "../../../../../src/features/chat/ui/thread-stream/text.dom";
 import { Toolbar, type ToolbarActions } from "../../../../../src/features/chat/ui/toolbar/toolbar";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
-import { installObsidianDomShims } from "../../../../support/dom";
+import { changeInputValue, installObsidianDomShims } from "../../../../support/dom";
 import { modelMetadataFixture } from "../../../../support/model-metadata";
 import { chatComposerSharedValuesFixture, chatToolbarSharedValuesFixture } from "../../support/shared-display-values";
 import { chatStateFixture, chatStateWith } from "../../support/state";
@@ -431,6 +432,8 @@ describe("chat panel projection integration", () => {
     const projection = projectChatPanelToolbar(selectChatPanelToolbar(state, shared), toolbarSurfaceFixture(), 1_799_991_600_000);
 
     expect(projection.rateLimit?.rows).toEqual([expect.objectContaining({ label: "5h", value: "72%", resetLabel: "reset in 2h 20m" })]);
+    const later = projectChatPanelToolbar(selectChatPanelToolbar(state, shared), toolbarSurfaceFixture(), 1_799_995_200_000);
+    expect(later.rateLimit?.rows).toEqual([expect.objectContaining({ resetLabel: "reset in 1h 20m" })]);
   });
 
   it("builds composer meta from context and runtime state", () => {
@@ -686,27 +689,56 @@ describe("chat panel projection integration", () => {
     expect(composerProjectionFromState(composerProjectionActionsFixture(), writableSubagentState, shared).placeholder).toBe("Ask Codex...");
   });
 
-  it("saves the open goal draft without inheriting a refreshed goal budget", () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread-1" } });
-    state = chatStateWith(state, {
-      ui: { goalEditor: { kind: "editing", threadId: "thread-1", objectiveDraft: "Draft goal", tokenBudgetDraft: null } },
+  it("edits and saves a goal through its real owner without inheriting a refreshed budget", async () => {
+    const stateStore = createChatStateStore(chatStateFixture({ activeThread: { id: "thread-1" } }));
+    let currentGoal = goalFixture("thread-1");
+    const setThreadGoal = vi.fn(async () => ({ kind: "completed" as const, value: undefined }));
+    const commands = createGoalCommands({
+      stateStore,
+      effects: { setThreadGoal, clearThreadGoal: vi.fn() },
+      goalQueries: { snapshot: () => currentGoal },
+      ensureConnected: async () => true,
+      ensureRestoredThreadLoaded: async () => true,
+      startThread: vi.fn(),
+      addSystemMessage: vi.fn(),
     });
-    const dependencies = goalSurfaceFixture();
-    dependencies.actions.saveObjective = vi.fn(async () => true);
-    const parent = renderGoal(
-      state,
-      {
-        ...goalFixture("thread-1"),
-        tokenBudget: 1234,
-      },
-      dependencies,
-    );
+    const dependencies: ChatPanelGoalDependencies = { sendShortcut: () => "enter", actions: commands };
+    const parent = document.body.appendChild(document.createElement("div"));
+    const render = () =>
+      renderUiRoot(parent, h(GoalPanel, projectChatPanelGoal(selectChatPanelGoal(stateStore.getState(), currentGoal), dependencies)));
+    try {
+      render();
+      clickLabeledButton(parent, "Edit goal");
+      currentGoal = { ...currentGoal, tokenBudget: 1234 };
+      render();
+      const textarea = parent.querySelector<HTMLTextAreaElement>("textarea");
+      if (!textarea) throw new Error("Expected goal editor");
+      expect(document.activeElement).toBe(textarea);
+      expect(textarea.value).toBe("Ship it");
+      changeInputValue(textarea, "Draft goal");
+      render();
+      expect(parent.querySelector<HTMLTextAreaElement>("textarea")?.value).toBe("Draft goal");
+      clickLabeledButton(parent, "Save goal");
+      await vi.waitFor(() => expect(stateStore.getState().ui.goalEditor.kind).toBe("closed"));
+      expect(setThreadGoal).toHaveBeenCalledExactlyOnceWith("thread-1", { objective: "Draft goal", status: "active", tokenBudget: null });
+      render();
+      expect(parent.querySelector("textarea")).toBeNull();
 
-    expect(parent.querySelector<HTMLTextAreaElement>(".codex-panel__goal-objective-input")?.value).toBe("Draft goal");
-    clickLabeledButton(parent, "Save goal");
-    expect(dependencies.actions.saveObjective).toHaveBeenCalledWith("Draft goal", null);
-    unmountUiRoot(parent);
+      clickLabeledButton(parent, "Edit goal");
+      render();
+      const reopened = parent.querySelector<HTMLTextAreaElement>("textarea");
+      if (!reopened) throw new Error("Expected reopened goal editor");
+      changeInputValue(reopened, "Discard this draft");
+      render();
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      render();
+      expect(parent.querySelector("textarea")).toBeNull();
+      expect(parent.textContent).toContain("Ship it");
+      expect(setThreadGoal).toHaveBeenCalledOnce();
+    } finally {
+      unmountUiRoot(parent);
+      parent.remove();
+    }
   });
 });
 

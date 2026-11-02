@@ -29,12 +29,10 @@ describe("app-server request input", () => {
       [{ key: "codex_panel_obsidian_context", kind: "untrusted", value: "- [[Note]] -> Note.md" }],
     );
 
-    expect(input).toContainEqual({ type: "fileReference", name: "Note", path: "Note.md" });
     const expectedInput = [
       { type: "text", text: "Use [[Note]]", text_elements: [] },
       { type: "skill", name: "Review", path: ".codex/skills/review/SKILL.md" },
     ];
-    expect(toAppServerUserInput(input)).toEqual(expectedInput);
     const prepared = appServerTurnInputFromCodexInput(input, "local-user");
     expect(prepared.input).toEqual(expectedInput);
     expect(prepared.additionalContext).toEqual({
@@ -78,40 +76,13 @@ describe("app-server request input", () => {
 
     const entries = Object.entries(prepared.additionalContext ?? {});
     expect(entries).toHaveLength(ADDITIONAL_CONTEXT_MAX_PARTS);
+    expect(entries[0]?.[1].value).toContain("見出し\n\n本文です。");
     expect(entries.map(([key]) => key)).toEqual([...entries.map(([key]) => key)].sort());
     expect(entries.every(([, entry]) => utf8ByteLength(entry.value) < 4_000)).toBe(true);
     expect(entries.every(([, entry]) => entry.value.includes("Codex Panel context part"))).toBe(true);
     expect(entries.at(-1)?.[1].value).toContain("[Context truncated by Codex Panel: remaining content omitted.]");
 
     expect(prepared.input).toEqual([{ type: "text", text: "要約して", text_elements: [] }]);
-  });
-
-  it("keeps Obsidian reference metadata ahead of a truncated inline excerpt", () => {
-    const reference = "[[Note]] (L2:C1-L3:C1) -> Note.md";
-    const value = [
-      "Obsidian references for the current user input:",
-      `- ${reference} (inline excerpt below)`,
-      "",
-      "Inline excerpts:",
-      "[[Note]] (L2:C1-L3:C1):",
-      "本文".repeat(20_000),
-    ].join("\n");
-    const prepared = appServerTurnInputFromCodexInput(
-      [
-        { type: "text", text: "review it" },
-        {
-          type: "additionalContext",
-          key: "codex_panel_obsidian_context",
-          kind: "untrusted",
-          value,
-        },
-      ],
-      PANEL_SUBMISSION_ID,
-    );
-
-    const firstPart = Object.values(prepared.additionalContext ?? {})[0];
-    expect(firstPart?.value).toContain(reference);
-    expect(prepared.input).toEqual([{ type: "text", text: "review it", text_elements: [] }]);
   });
 
   it("namespaces identical explicit context by submission", () => {

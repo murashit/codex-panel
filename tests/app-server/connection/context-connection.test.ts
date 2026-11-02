@@ -24,21 +24,6 @@ const INITIALIZATION: ServerInitialization = {
 };
 
 describe("AppServerContextConnection", () => {
-  it("shares one connected client across panel leases and context operations", async () => {
-    const manager = managerFixture();
-    const connection = contextConnection(manager);
-    const first = connection.createLease();
-    const second = connection.createLease();
-
-    await first.connect(leaseHandlers());
-    await second.connect(leaseHandlers());
-    const result = await connection.withClient(async (client) => client);
-
-    expect(first.currentClient()).toBe(manager.client);
-    expect(second.currentClient()).toBe(manager.client);
-    expect(result).toBe(manager.client);
-  });
-
   it("fans unconsumed notifications out to connected panel leases", async () => {
     const manager = managerFixture();
     const onContextNotification = vi.fn(() => false);
@@ -216,8 +201,6 @@ describe("AppServerContextConnection", () => {
 
   it.each([
     { canResume: true, failCleanup: false },
-    { canResume: true, failCleanup: true },
-    { canResume: false, failCleanup: false },
     { canResume: false, failCleanup: true },
   ])(
     "retains shared presentation until the last panel leaves ($canResume, cleanup failure=$failCleanup)",

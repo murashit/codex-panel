@@ -67,6 +67,7 @@ describe("activeSlashCommandSuggestions", () => {
     expect(suggestions("please\n/model gpt", { models: [model("gpt-5.5", ["medium"])] })).toEqual([]);
     expect(suggestions("please\n/reasoning h", { models: [model("gpt-5.5", ["high"])], currentModel: "gpt-5.5" })).toEqual([]);
     expect(suggestions("/", { available: () => false })).toEqual([]);
+    expect(suggestions("/model gpt-5", { models: [model("gpt-5.5", [])], available: () => false })).toEqual([]);
     expect(suggestions("/status")).toEqual([]);
   });
 

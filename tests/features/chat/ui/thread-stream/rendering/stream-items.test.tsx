@@ -157,29 +157,10 @@ describe("panel thread stream item rendering", () => {
 
     renderThreadStreamBlocksInAct(parent, projectedThreadStream({ ...baseContext, workspaceRoot: "/vault/project" }));
     expect(parent.querySelector(".codex-panel__stream-summary")?.textContent).toBe("assets/image.png");
+
+    renderThreadStreamBlocksInAct(parent, projectedThreadStream({ ...baseContext, workspaceRoot: "/other" }));
+    expect(parent.querySelector(".codex-panel__stream-summary")?.textContent).toBe("/vault/project/assets/image.png");
     unmountUiRootInAct(parent);
-  });
-
-  it("keeps path summary tools absolute outside the workspace root", () => {
-    const { blocks, context } = projectedThreadStream({
-      activeTurnId: "turn",
-      workspaceRoot: "/vault/project",
-      items: [
-        {
-          id: "tool-path",
-          kind: "tool",
-          role: "tool",
-          text: "/tmp/image.png",
-          toolName: "imageView",
-          primaryTarget: { kind: "path", path: "/tmp/image.png" },
-          turnId: "turn",
-        },
-      ],
-    });
-
-    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
-
-    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("/tmp/image.png");
   });
 
   it("does not treat generic tool summaries as paths without an explicit marker", () => {
@@ -201,43 +182,6 @@ describe("panel thread stream item rendering", () => {
     const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("/vault/project");
-  });
-
-  it("renders hook metadata as rows inside one details block", () => {
-    const { blocks, context } = projectedThreadStream({
-      activeTurnId: "turn",
-      items: [
-        {
-          id: "hook-1",
-          kind: "hook",
-          role: "tool",
-          text: "postToolUse: Formatted 1 file.",
-          toolName: "hook",
-          turnId: "turn",
-          statusLabel: "Completed",
-          executionState: "completed",
-          hookRun: {
-            eventName: "postToolUse",
-            statusMessage: "Formatted 1 file.",
-            durationMs: "1ms",
-            entries: [{ kind: "feedback", text: "ok" }],
-          },
-        },
-      ],
-    });
-
-    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
-
-    expect(topLevelDetailsSummaries(element)).toEqual(["hook"]);
-    expect(element.classList.contains("codex-panel__execution--completed")).toBe(true);
-    expect(textContents(element, "details summary")).toEqual(["hook"]);
-    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
-    expect(element.textContent).not.toContain("Details");
-    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statusCompleted");
-    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("eventpostToolUse");
-    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("messageFormatted 1 file.");
-    expect(textContents(element, ".codex-panel__output-title")).toEqual(["Hook output"]);
-    expect(element.querySelector(".codex-panel__output pre")?.textContent).toBe("feedback: ok");
   });
 
   it("renders hook metadata when the hook is inside a completed-turn activity group", () => {
@@ -279,6 +223,13 @@ describe("panel thread stream item rendering", () => {
 
     expect(element.querySelector(":scope > summary")?.textContent).toBe("Work details");
     expect(element.querySelector(".codex-panel__detail-item")?.classList.contains("codex-panel__execution--completed")).toBe(true);
+    const hook = expectPresent(element.querySelector<HTMLElement>(".codex-panel__detail-item"));
+    expect(topLevelDetailsSummaries(hook)).toEqual(["hook"]);
+    expect(textContents(hook, "details summary")).toEqual(["hook"]);
+    expect(hook.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statusCompleted");
+    expect(hook.querySelector(".codex-panel__meta-grid")?.textContent).toContain("eventpostToolUse");
+    expect(hook.querySelector(".codex-panel__meta-grid")?.textContent).toContain("messageFormatted 1 file.");
+    expect(textContents(hook, ".codex-panel__output-title")).toEqual(["Hook output"]);
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
     expect(element.querySelector(".codex-panel__output pre")?.textContent).toBe("feedback: ok");
   });
@@ -521,11 +472,8 @@ describe("panel thread stream item rendering", () => {
     expect(running.querySelector(".codex-panel__stream-item-role")?.textContent).toBe("context");
     expect(running.querySelector(".codex-panel__stream-summary")?.textContent).toBe("Compacting context...");
     expect(running.classList.contains("codex-panel__execution--running")).toBe(true);
-    unmountUiRootInAct(runningParent);
-
-    const completedParent = document.createElement("div");
     renderThreadStreamBlocksInAct(
-      completedParent,
+      runningParent,
       projectedThreadStream({
         items: [item],
         renderMarkdown: (element, text) => element.createDiv({ text }),
@@ -533,11 +481,11 @@ describe("panel thread stream item rendering", () => {
     );
 
     const completed = expectPresent(
-      completedParent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:compact-1"] .codex-panel__context-compaction'),
+      runningParent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:compact-1"] .codex-panel__context-compaction'),
     );
     expect(completed.querySelector(".codex-panel__stream-summary")?.textContent).toBe("Context compacted");
     expect(completed.classList.contains("codex-panel__execution--completed")).toBe(true);
-    unmountUiRootInAct(completedParent);
+    unmountUiRootInAct(runningParent);
   });
 
   it("marks the live agent summary failed when any subagent fails", () => {

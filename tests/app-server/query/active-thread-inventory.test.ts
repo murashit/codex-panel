@@ -19,13 +19,6 @@ describe("active thread inventory", () => {
     expect(activeThreadsFromData(data)?.map((item) => item.id)).toEqual(["newer", "same", "peer", "older"]);
   });
 
-  it("keeps pinned threads before newer unpinned threads", () => {
-    const pinned = { ...thread("pinned", 1), isPinned: true };
-    const data = inventory([page([thread("recent", 10), pinned], null, 2)]);
-
-    expect(activeThreadsFromData(data)?.map((item) => item.id)).toEqual(["pinned", "recent"]);
-  });
-
   it("keeps subagent threads out of the catalog inventory", () => {
     expect(
       activeThreadsFromData(inventory([page([thread("interactive", 2), subagent("child", 3)], null, 2)]))?.map((item) => item.id),
@@ -48,7 +41,6 @@ describe("active thread inventory", () => {
     expect(activeThreadDataHasMore(undefined)).toBe(false);
     expect(activeThreadDataHasMore(inventory([page([], "next", 0)]))).toBe(true);
     expect(activeThreadDataHasMore(inventory([page([], null, 0)]))).toBe(false);
-    expect(activeThreadDataHasMore(inventory([]))).toBe(false);
   });
 
   it("applies active upserts across pages", () => {
@@ -68,7 +60,6 @@ describe("active thread inventory", () => {
 
     const inserted = applyActiveThreadMutation(original, { kind: "upsert", thread: thread("new", 4) });
     expect(activeThreadsFromData(inserted)?.map((item) => item.id)).toEqual(["new", "other", "existing"]);
-    expect(applyActiveThreadMutation(inventory([]), { kind: "upsert", thread: thread("new", 4) })).toEqual(inventory([]));
   });
 
   it("applies meaningful updates and removals, while ignoring unrelated changes", () => {

@@ -193,15 +193,15 @@ describe("panel pending request rendering", () => {
   });
 
   it("selects the other Plan mode answer from controlled drafts", () => {
-    const { parent, actions, render } = controlledOtherInput();
+    const { parent, drafts, render } = controlledOtherInput();
 
     render();
     actEvent(() => {
       changeInputValue(expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")), "Custom scope");
     });
 
-    expect(actions.setUserInputDraft).toHaveBeenCalledWith(99, "99:scope:other", "Custom scope");
-    expect(actions.setUserInputDraft).toHaveBeenCalledWith(99, "99:scope", "Custom scope");
+    expect(drafts().get("99:scope:other")).toBe("Custom scope");
+    expect(drafts().get("99:scope")).toBe("Custom scope");
 
     render();
     const radios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
@@ -209,7 +209,7 @@ describe("panel pending request rendering", () => {
   });
 
   it("keeps an empty other Plan mode answer selected and updates its tab order", () => {
-    const { parent, actions, render } = controlledOtherInput();
+    const { parent, drafts, render } = controlledOtherInput();
 
     render();
     const radios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
@@ -220,7 +220,7 @@ describe("panel pending request rendering", () => {
       expectPresent(radios.at(1)).click();
     });
 
-    expect(actions.setUserInputDraft).toHaveBeenCalledWith(99, "99:scope", "");
+    expect(drafts().get("99:scope")).toBe("");
 
     render();
     const rerenderedRadios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
@@ -249,8 +249,8 @@ describe("panel pending request rendering", () => {
       });
       render();
       expect(otherInput.value).toBe("にほん");
-      expect(drafts.get("99:scope:other")).toBeUndefined();
-      expect(drafts.get("99:scope")).toBe("");
+      expect(drafts().get("99:scope:other")).toBeUndefined();
+      expect(drafts().get("99:scope")).toBe("");
       expect(parent.querySelector<HTMLInputElement>('.codex-panel__user-input-radio[value="__other__"]')?.checked).toBe(true);
 
       actEvent(() => {
@@ -259,8 +259,8 @@ describe("panel pending request rendering", () => {
       });
       render();
       expect(otherInput.value).toBe("日本");
-      expect(drafts.get("99:scope:other")).toBe("日本");
-      expect(drafts.get("99:scope")).toBe("日本");
+      expect(drafts().get("99:scope:other")).toBe("日本");
+      expect(drafts().get("99:scope")).toBe("日本");
 
       actEvent(() => {
         otherInput.value = "日本!";
@@ -268,8 +268,8 @@ describe("panel pending request rendering", () => {
       });
       render();
       expect(otherInput.value).toBe("日本!");
-      expect(drafts.get("99:scope:other")).toBe("日本!");
-      expect(drafts.get("99:scope")).toBe("日本!");
+      expect(drafts().get("99:scope:other")).toBe("日本!");
+      expect(drafts().get("99:scope")).toBe("日本!");
     } finally {
       unmountUiRootInAct(parent);
       parent.remove();
@@ -862,17 +862,14 @@ function pendingMcpMultiSelectElicitation(): PendingRequestBlockSnapshot["pendin
 }
 
 function controlledOtherInput(parent = document.createElement("div")) {
-  const input = pendingOtherUserInput();
-  const drafts = new Map<string, string>();
-  const actions = pendingRequestActions({
-    setUserInputDraft: vi.fn((_requestId, key: string, value: string) => {
-      drafts.set(key, value);
-    }),
-  });
+  const { stateStore, pendingRequests } = pendingRequestFixture();
+  stateStore.dispatch({ type: "request/user-input-queued", input: pendingOtherUserInput() });
+  const drafts = () => stateStore.getState().requests.userInputDrafts;
   const render = () => {
-    renderPendingRequestNode(parent, [], [input], drafts, new Set(), actions);
+    const state = stateStore.getState().requests;
+    renderPendingRequestNode(parent, [], state.pendingUserInputs, drafts(), new Set(), pendingRequests.actions);
   };
-  return { parent, actions, drafts, render };
+  return { parent, drafts, render };
 }
 
 function renderMcpRequest(

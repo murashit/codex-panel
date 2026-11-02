@@ -77,6 +77,7 @@ describe("executePanelSlashCommand", () => {
       const { commands: activation, resumeThread: loadSavedThread } = createThreadActivationFixture({ stateStore });
       const ensureConnected = vi.fn(async () => command === "resume");
       const draft = command === "resume" ? "/resume Other" : `/${command}`;
+      const adoptPanelTarget = vi.fn();
       await submitComposer({
         stateStore,
         localItemIds: createLocalIdSource(),
@@ -96,7 +97,7 @@ describe("executePanelSlashCommand", () => {
               attachments: [],
             },
             isCurrent: () => true,
-            adoptPanelTarget: vi.fn(),
+            adoptPanelTarget,
             settle: vi.fn(),
           }),
           isSubmissionPreparing: () => false,
@@ -112,6 +113,7 @@ describe("executePanelSlashCommand", () => {
         scroll: { showLatest: vi.fn() },
       });
 
+      expect(adoptPanelTarget.mock.calls).toEqual(command === "clear" ? [[null]] : command === "resume" ? [["other"]] : []);
       expect(loadSavedThread).not.toHaveBeenCalled();
       expect(ensureConnected).toHaveBeenCalledTimes(command === "resume" ? 1 : 0);
       expect(vi.mocked(host.resumeThread).mock.calls).toEqual(command === "resume" ? [["other"]] : []);
@@ -128,21 +130,6 @@ describe("executePanelSlashCommand", () => {
       expect(vi.mocked(host.addStructuredSystemMessage).mock.calls).toEqual(expectedMessages[command]);
     },
   );
-
-  it("executes slash commands against the current chat state", async () => {
-    const { host } = createHost();
-    const adoptPanelTarget = vi.fn();
-    host.startNewThread = vi.fn().mockResolvedValue(undefined);
-
-    const result = await executePanelSlashCommand(host, "clear", "", undefined, {
-      isCurrent: () => true,
-      adoptPanelTarget,
-    });
-
-    expect(adoptPanelTarget).toHaveBeenCalledOnce();
-    expect(host.startNewThread).toHaveBeenCalledOnce();
-    expect(result).toBeUndefined();
-  });
 
   it("routes compact through the shared thread action port before a client is connected", async () => {
     const { compactThread, host, stateStore } = createHost({ connectionAvailable: () => false });

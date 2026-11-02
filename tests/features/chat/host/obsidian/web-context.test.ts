@@ -85,37 +85,15 @@ describe("web context reader", () => {
     await expect(readArticle()).rejects.toThrow("No readable web content found for https://example.com/article");
   });
 
-  it("rejects non-HTTP URLs before fetching", async () => {
-    await expect(
-      readWebUrl(
-        {
-          resolveFileReference: () => null,
-          viewWindow: () => window,
-        },
-        "file:///tmp/article.html",
-        "",
-        emptyComposerInputSnapshot(),
-      ),
-    ).rejects.toThrow("Unsupported web URL: file:///tmp/article.html");
-
-    expect(requestUrl).not.toHaveBeenCalled();
-  });
-
-  it("rejects URLs containing credentials before fetching", async () => {
-    await expect(
-      readWebUrl(
-        {
-          resolveFileReference: () => null,
-          viewWindow: () => window,
-        },
-        "https://user:secret@example.com/article",
-        "",
-        emptyComposerInputSnapshot(),
-      ),
-    ).rejects.toThrow("Unsupported web URL: https://user:secret@example.com/article");
-
-    expect(requestUrl).not.toHaveBeenCalled();
-  });
+  it.each(["file:///tmp/article.html", "https://user:secret@example.com/article"])(
+    "rejects unsupported URL %s before fetching",
+    async (url) => {
+      await expect(
+        readWebUrl({ resolveFileReference: () => null, viewWindow: () => window }, url, "", emptyComposerInputSnapshot()),
+      ).rejects.toThrow(`Unsupported web URL: ${url}`);
+      expect(requestUrl).not.toHaveBeenCalled();
+    },
+  );
 
   it("discards the response when the import is cancelled", async () => {
     const response = deferred<obsidian.RequestUrlResponse>();

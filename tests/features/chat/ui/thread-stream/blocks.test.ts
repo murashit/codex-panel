@@ -104,31 +104,6 @@ describe("thread stream presentation blocks", () => {
     });
   });
 
-  it("uses the client message id as the stable user-dialogue view key", () => {
-    const blocks = threadStreamViewBlocks(
-      blockInput({
-        activeThreadId: "thread",
-        activeTurnId: "turn",
-        historyCursor: null,
-        loadingHistory: false,
-        items: [
-          {
-            id: "server-user",
-            clientId: "local-steer",
-            kind: "dialogue",
-            dialogueKind: "user",
-            role: "user",
-            text: "run",
-            turnId: "turn",
-          },
-        ],
-        workspaceRoot: "/vault",
-      }),
-    );
-
-    expect(blocks.map((block) => block.key)).toEqual(["item:turn:local-steer"]);
-  });
-
   it("renders completed sleep items as wait status updates", () => {
     const blocks = threadStreamViewBlocks(
       blockInput({

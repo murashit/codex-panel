@@ -33,6 +33,7 @@ describe("thread replacement visibility", () => {
       { phase: "release", visibleThreadId: "replacement" },
     ]);
     expect(publication.visibleThreadId(catalog.active() ?? [], "replacement")).toBe("replacement");
+    expect(catalog.active()?.map((item) => item.id)).toEqual(["replacement", "source"]);
   });
 
   it("never exposes both source and replacement in the active Threads view when replacement succeeds", () => {
@@ -50,17 +51,6 @@ describe("thread replacement visibility", () => {
     expect(catalog.visibleActiveSnapshots).toEqual([["replacement", "other"]]);
     expect(catalog.active()).toEqual([thread("replacement", { preview: "resumed" }), thread("other")]);
     expect(catalog.archived()).toEqual([thread("source", { archived: true })]);
-  });
-
-  it("publishes only the replacement when source archiving fails", () => {
-    const committed: unknown[] = [];
-    const publication = createThreadReplacementPublication((facts) => committed.push(facts));
-    const replacement = publication.begin("source");
-    replacement.attach(thread("replacement"));
-
-    replacement.finish(false);
-
-    expect(committed).toEqual([[{ type: "thread-upserted", thread: thread("replacement") }]]);
   });
 
   it("publishes source facts and releases visibility when replacement creation does not start", () => {

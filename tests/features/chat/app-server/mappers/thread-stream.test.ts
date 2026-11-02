@@ -3,7 +3,6 @@ import type { TurnItem, TurnRecord } from "../../../../../src/app-server/protoco
 import { agentThreadStreamItem } from "../../../../../src/features/chat/app-server/mappers/thread-stream/agent-items";
 import { collabAgentStateExecutionState } from "../../../../../src/features/chat/app-server/mappers/thread-stream/execution-state";
 import { hookRunThreadStreamItem } from "../../../../../src/features/chat/app-server/mappers/thread-stream/hook-run-items";
-import { permissionRows } from "../../../../../src/features/chat/app-server/mappers/thread-stream/permission-rows";
 import {
   createAutoReviewResultItem,
   createReviewResultItem,
@@ -14,47 +13,30 @@ import {
   threadStreamItemsFromTurns,
 } from "../../../../../src/features/chat/app-server/mappers/thread-stream/turn-items";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import { appServerCompletedTurnFixture as completedTurn } from "../../../../support/app-server-records";
 
 describe("turn item conversion preserves app-server semantics", () => {
-  it.each(["commentary", "partial_answer", "final_answer", null] as const)(
-    "preserves %s assistant text in live and restored turns",
-    (phase) => {
-      const item: TurnItem = {
-        type: "agentMessage",
-        id: "answer",
-        text: "Answer text",
-        phase,
-        memoryCitation: null,
-        delivery: null,
-        questions: null,
-      };
-      const expected = {
-        id: "answer",
-        turnId: "t1",
-        kind: "dialogue",
-        role: "assistant",
-        text: "Answer text",
-        copyText: "Answer text",
-        dialogueState: "completed",
-      };
-      expect(threadStreamItemFromTurnItem(item, "t1")).toMatchObject(expected);
-      expect(
-        threadStreamItemsFromTurns([
-          {
-            id: "t1",
-            rootTurnId: "root-turn",
-            items: [item],
-            itemsView: "full",
-            status: "completed",
-            error: null,
-            startedAt: 1,
-            completedAt: 2,
-            durationMs: 1,
-          },
-        ]),
-      ).toMatchObject([expected]);
-    },
-  );
+  it.each(["commentary", "partial_answer", "final_answer", null] as const)("preserves %s assistant text in restored turns", (phase) => {
+    const item: TurnItem = {
+      type: "agentMessage",
+      id: "answer",
+      text: "Answer text",
+      phase,
+      memoryCitation: null,
+      delivery: null,
+      questions: null,
+    };
+    const expected = {
+      id: "answer",
+      turnId: "t1",
+      kind: "dialogue",
+      role: "assistant",
+      text: "Answer text",
+      copyText: "Answer text",
+      dialogueState: "completed",
+    };
+    expect(threadStreamItemsFromTurns([completedTurn([item], { id: "t1" })])).toMatchObject([expected]);
+  });
 
   it.each(["failed", "interrupted"] as const)("restores a %s turn's error reason from history", (status) => {
     const turn: TurnRecord = {
@@ -247,7 +229,7 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it.each(["started", "interacted", "interrupted", "completed"] as const)(
-    "preserves v2 %s activity and canonical agent identity in live and restored turns",
+    "preserves v2 %s activity and canonical agent identity in restored turns",
     (kind) => {
       const item: TurnItem = {
         model: kind === "started" ? "gpt-5.5" : null,
@@ -274,23 +256,9 @@ describe("turn item conversion preserves app-server semantics", () => {
         turnId: "t1",
       };
 
-      expect(threadStreamItemFromTurnItem(item, "t1")).toMatchObject(expected);
-      expect(
-        threadStreamItemsFromTurns([
-          {
-            rootTurnId: null,
-            id: "t1",
-            items: [item],
-            itemsView: "full",
-            status: "completed",
-            error: null,
-            startedAt: 1,
-            completedAt: 2,
-            durationMs: 1,
-          },
-        ]),
-      ).toMatchObject([expected]);
-      expect(threadStreamItemFromTurnItem(item, "t1")).not.toHaveProperty("executionState");
+      const restored = threadStreamItemsFromTurns([completedTurn([item], { id: "t1" })]);
+      expect(restored).toMatchObject([expected]);
+      expect(restored[0]).not.toHaveProperty("executionState");
     },
   );
 
@@ -317,19 +285,7 @@ describe("turn item conversion preserves app-server semantics", () => {
     };
 
     expect(
-      threadStreamItemsFromTurns([
-        {
-          rootTurnId: null,
-          id: "t1",
-          items: [dynamic, activity],
-          itemsView: "full",
-          status: "completed",
-          error: null,
-          startedAt: 1,
-          completedAt: 2,
-          durationMs: 1,
-        },
-      ]).map((item) => [item.id, item.sourceItemId]),
+      threadStreamItemsFromTurns([completedTurn([dynamic, activity], { id: "t1" })]).map((item) => [item.id, item.sourceItemId]),
     ).toEqual([
       ["spawn-call", "spawn-call"],
       ["subagent-activity:spawn-call", "subagent-activity:spawn-call"],
@@ -997,28 +953,14 @@ describe("turn item conversion preserves app-server semantics", () => {
         { key: "filesystem", value: "project_roots/src (read)" },
       ],
     },
-  ] as const)("preserves $name audit history from start through completion", ({ action, summary, auditFacts }) => {
-    const base = {
+  ] as const)("preserves $name metadata in completed audit history", ({ action, summary, auditFacts }) => {
+    const completed = createAutoReviewResultItem({
       threadId: "thread",
       turnId: "turn",
       startedAtMs: 1,
       reviewId: "review-1",
       targetItemId: null,
       action,
-    };
-
-    const started = createAutoReviewResultItem({
-      ...base,
-      review: { status: "inProgress", riskLevel: null, userAuthorization: null, rationale: null },
-    });
-    expect(started).toMatchObject({
-      text: `Auto-review started: ${summary}`,
-      executionState: "running",
-    });
-    expect(started.review?.auditFacts).toEqual([{ key: "status", value: "inProgress" }, ...auditFacts]);
-
-    const completed = createAutoReviewResultItem({
-      ...base,
       completedAtMs: 2,
       decisionSource: "agent",
       review: { status: "approved", riskLevel: null, userAuthorization: null, rationale: null },
@@ -1028,34 +970,6 @@ describe("turn item conversion preserves app-server semantics", () => {
       executionState: "completed",
     });
     expect(completed.review?.auditFacts).toEqual([{ key: "status", value: "approved" }, { key: "source", value: "agent" }, ...auditFacts]);
-  });
-});
-
-describe("auto-review permission detail rows", () => {
-  it("formats app-server permission paths without exposing raw payloads", () => {
-    expect(
-      permissionRows({
-        network: { enabled: true },
-        fileSystem: {
-          entries: [
-            { path: { type: "path", path: "/vault/notes.md" }, access: "read" },
-            { path: { type: "glob_pattern", pattern: "/vault/**/*.md" }, access: "write" },
-            { path: { type: "special", value: { kind: "project_roots", subpath: " src " } }, access: "read" },
-            { path: { type: "special", value: { kind: "unknown", path: " custom ", subpath: " cache " } }, access: "write" },
-          ],
-          read: [],
-          write: null,
-          globScanMaxDepth: 4,
-        },
-      }),
-    ).toEqual([
-      { key: "network", value: "enabled" },
-      {
-        key: "filesystem",
-        value: "/vault/notes.md (read)\n/vault/**/*.md (write)\nproject_roots/ src  (read)\n custom / cache  (write)",
-      },
-      { key: "glob depth", value: "4" },
-    ]);
   });
 });
 
@@ -1078,9 +992,7 @@ describe("execution state uses typed status adapters before rendered text", () =
         { step: "Patch code", status: "completed" },
       ]),
     ).toMatchObject({ executionState: "running" });
-    expect(autoReviewItem("approved")).toMatchObject({ executionState: "completed" });
     expect(autoReviewItem("timedOut")).toMatchObject({ executionState: "failed" });
-    expect(hookRunThreadStreamItem(hookRun(), "turn", "completed")).toMatchObject({ executionState: "completed" });
     expect(hookRunThreadStreamItem(hookRun(), "turn", "stopped")).toMatchObject({
       executionState: "failed",
       statusLabel: "Stopped",

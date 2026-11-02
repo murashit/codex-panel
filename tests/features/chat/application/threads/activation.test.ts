@@ -153,7 +153,7 @@ describe("ThreadActivation", () => {
     expect(readHistoryPage).not.toHaveBeenCalled();
   });
 
-  it("hydrates a fork from app-server history without dropping inherited display artifacts", async () => {
+  it.each([false, true])("hydrates fork display artifacts and user context (initial page: %s)", async (initial) => {
     const displayUser = {
       id: "local-user",
       kind: "dialogue",
@@ -164,6 +164,7 @@ describe("ThreadActivation", () => {
       turnId: "turn",
       clientId: "submission",
       contextAttachments: [{ label: "Obsidian context", detail: "Note" }],
+      referencedFiles: [{ name: "Note", path: "Note.md" }],
       provenance: { source: "localUser", channel: "optimistic", interaction: "prompt", sourceId: "submission" },
     } satisfies ThreadStreamItem;
     const serverUser = {
@@ -177,8 +178,10 @@ describe("ThreadActivation", () => {
       clientId: "submission",
     } satisfies ThreadStreamItem;
     const progress = taskProgress("turn");
-    const response = activation("thread", { initialHistoryPage: historyPage([serverUser, message("answer", "Done", "assistant")], null) });
-    const { commands, stateStore } = createActions(response);
+    const page = historyPage([serverUser, message("answer", "Done", "assistant")], null);
+    const response = activation("thread", { initialHistoryPage: initial ? page : null });
+    const { commands, stateStore, readHistoryPage } = createActions(response);
+    if (!initial) readHistoryPage.mockResolvedValue(page);
 
     const resumed = await commands.resumeThread("thread", {
       items: [displayUser, progress],
@@ -186,9 +189,14 @@ describe("ThreadActivation", () => {
     });
     await resumed?.hydrate();
 
+    expect(readHistoryPage.mock.calls).toEqual(initial ? [] : [["thread", null, 20]]);
     const state = stateStore.getState();
     expect(state.threadStream.stableItems).toEqual([
-      expect.objectContaining({ id: "server-user", contextAttachments: displayUser.contextAttachments }),
+      expect.objectContaining({
+        id: "server-user",
+        contextAttachments: displayUser.contextAttachments,
+        referencedFiles: displayUser.referencedFiles,
+      }),
       progress,
       expect.objectContaining({ id: "answer", text: "Done" }),
     ]);

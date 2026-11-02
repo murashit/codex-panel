@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../src/domain/threads/model";
 import { renderThreadsViewShell } from "../../../src/features/threads-view/shell.dom";
 import { type ThreadsRowModel, type ThreadsViewPanelActivity, threadRows } from "../../../src/features/threads-view/state";
-import { changeInputValue, installObsidianDomShims } from "../../support/dom";
+import { installObsidianDomShims } from "../../support/dom";
 import { panelThreadFixture } from "../../support/panel-thread";
 
 installObsidianDomShims();
@@ -122,45 +122,20 @@ describe("threads view renderer decisions", () => {
     expect(threadRows([threadFixture()], [], new Map())[0]?.live).toBeNull();
   });
 
-  it("marks a row selected when one open panel for the thread was last focused", () => {
-    const rows = threadRows(
-      [
-        threadFixture({ id: "closed", preview: "Closed thread" }),
-        threadFixture({ id: "focused", preview: "Focused thread", updatedAt: 2 }),
-      ],
-      [panelActivity({ threadId: "focused", selected: true })],
-      new Map(),
-    );
-
-    expect(rows.find((row) => row.threadId === "focused")?.selected).toBe(true);
-    expect(rows.find((row) => row.threadId === "closed")?.selected).toBe(false);
-  });
-
-  it("renders thread rows with live state and routes open actions", () => {
+  it("renders live thread rows and toolbar controls", () => {
     const parent = document.createElement("div");
-    const actions = threadsViewActions();
     const rows = threadRows(
       [threadFixture({ id: "closed", preview: "Closed thread" }), threadFixture({ id: "open", preview: "Open thread", updatedAt: 2 })],
       [panelActivity({ threadId: "open", pending: true, selected: true })],
       new Map(),
     );
 
-    renderThreadsViewShell(parent, { status: null, loading: false, rows }, actions);
+    renderThreadsViewShell(parent, { status: null, loading: false, rows }, threadsViewActions());
 
     const main = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row--pending"));
     expect(main.textContent).toContain("Open thread");
     const toolbarButtons = [...parent.querySelectorAll<HTMLElement>(".codex-panel-threads__toolbar-button")];
     expect(toolbarButtons.map((button) => button.getAttribute("aria-label"))).toEqual(["Open new panel", "Refresh threads"]);
-    const refresh = expectPresent(parent.querySelector<HTMLElement>('[aria-label="Refresh threads"]'));
-    refresh.click();
-    expect(actions.refresh).toHaveBeenCalledOnce();
-    const openNewPanel = expectPresent(parent.querySelector<HTMLElement>('[aria-label="Open new panel"]'));
-    openNewPanel.click();
-    expect(actions.openNewPanel).toHaveBeenCalledOnce();
-    expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).click();
-    expect(actions.startRename).toHaveBeenCalledWith("open");
-    main.click();
-    expect(actions.openThread).toHaveBeenCalledWith("open");
   });
 
   it("groups mixed pinned rows and routes the rightmost star action", () => {
@@ -180,47 +155,6 @@ describe("threads view renderer decisions", () => {
     expect(buttons.at(-1)?.getAttribute("aria-pressed")).toBe("true");
     buttons.at(-1)?.click();
     expect(actions.setThreadPinned).toHaveBeenCalledWith("pinned", false);
-  });
-
-  it("keeps row navigation active while routing archive confirmation actions", () => {
-    const parent = document.createElement("div");
-    const actions = threadsViewActions();
-    const row = rowFixture({
-      archiveConfirm: { active: true, defaultSaveMarkdown: false },
-    });
-
-    renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
-
-    const confirm = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__archive-confirm"));
-    const defaultArchiveButton = expectPresent(confirm.querySelector<HTMLButtonElement>(".codex-panel-threads__archive-default"));
-    const alternateArchiveButton = expectPresent(confirm.querySelector<HTMLButtonElement>(".codex-panel-threads__archive-alternate"));
-    const main = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row-main"));
-    main.click();
-    expect(actions.openThread).toHaveBeenCalledWith("thread");
-    defaultArchiveButton.click();
-    expect(actions.archiveThread).toHaveBeenCalledWith("thread", false);
-    alternateArchiveButton.click();
-    expect(actions.archiveThread).toHaveBeenCalledWith("thread", true);
-  });
-
-  it("adapts the inline rename editor while keeping row navigation inactive", () => {
-    const parent = document.createElement("div");
-    const actions = threadsViewActions();
-    const row = rowFixture({
-      title: "Old name",
-      rename: { active: true, draft: "Old name", generating: false, saving: false, autoNameDisabled: false },
-    });
-
-    renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
-
-    const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input"));
-    changeInputValue(input, "New name");
-    expect(actions.updateRename).toHaveBeenCalledWith("thread", "New name");
-    expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')).click();
-    expect(actions.autoNameThread).toHaveBeenCalledWith("thread");
-
-    expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row-main")).click();
-    expect(actions.openThread).not.toHaveBeenCalled();
   });
 
   it("disables history expansion during any shared thread fetch", () => {

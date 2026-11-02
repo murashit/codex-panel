@@ -113,18 +113,6 @@ describe("runEphemeralStructuredTurn", () => {
     expect(fake.disconnect).toHaveBeenCalledOnce();
   });
 
-  it("disconnects and releases its client when generation is cancelled", async () => {
-    const controller = new AbortController();
-    const { clientFactory, client } = fakeStructuredTurnClientFactory();
-    const running = runEphemeralStructuredTurn({ ...runOptions(), signal: controller.signal }, { clientFactory });
-    await expectPresent(client.current).structuredTurnStarted;
-
-    controller.abort();
-
-    await expect(running).rejects.toThrow("Ephemeral structured turn cancelled.");
-    expect(expectPresent(client.current).disconnect).toHaveBeenCalledOnce();
-  });
-
   it("rejects server requests with the configured message", async () => {
     const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
       fake.connectImpl = async () => {

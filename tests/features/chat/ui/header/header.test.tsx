@@ -21,8 +21,7 @@ describe("conversation header", () => {
         expect(button?.getAttribute("aria-label")).toBe(ephemeral ? "Use regular conversation" : "Use temporary conversation");
         expect(button?.hasAttribute("aria-pressed")).toBe(false);
         expect(button?.type).toBe("button");
-        expect(button?.parentElement?.firstElementChild).toBe(button);
-        expect(button?.nextElementSibling?.textContent).toBe("New chat");
+        expect(parent.textContent).toBe("New chat");
         expect(button?.dataset["icon"]).toBe(ephemeral ? "message-square-dashed" : "message-square");
         button?.click();
       }
@@ -53,8 +52,6 @@ describe("conversation header", () => {
       expect(parent.textContent).toBe(title);
       expect(parent.querySelector("button, [tabindex], [title]")).toBeNull();
       const indicator = parent.querySelector(".codex-panel__conversation-persistence");
-      expect(indicator?.parentElement?.firstElementChild).toBe(indicator);
-      expect(indicator?.nextElementSibling?.textContent).toBe(title);
       expect(indicator?.getAttribute("aria-hidden")).toBe(ephemeral === null ? "true" : null);
       expect(indicator?.getAttribute("aria-label")).toBe(
         ephemeral === null ? null : ephemeral ? "Temporary conversation" : "Regular conversation",

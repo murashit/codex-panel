@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
 import { h } from "preact";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import type { ToolbarThreadRow, ToolbarViewModel } from "../../../../../src/features/chat/ui/toolbar/model";
 import { Toolbar, type ToolbarActions } from "../../../../../src/features/chat/ui/toolbar/toolbar";
-import { renderUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { changeInputValue, installObsidianDomShims } from "../../../../support/dom";
 import { toolbarActionsFixture } from "../../support/toolbar-actions";
 
@@ -16,6 +16,10 @@ function expectPresent<T>(value: T | null | undefined): T {
 }
 
 function mountToolbar(parent: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
+  onTestFinished(() => {
+    unmountUiRoot(parent);
+    parent.remove();
+  });
   renderUiRoot(parent, h(Toolbar, { model, actions }));
 }
 
@@ -193,6 +197,12 @@ describe("Toolbar decisions", () => {
             selected: false,
             rename: { draft: "Draft title", generating: false, saving: false, autoNameDisabled: false },
           }),
+          toolbarThreadRowFixture({
+            title: "Generating",
+            threadId: "generating",
+            selected: false,
+            rename: { draft: "Generated title", generating: true, saving: false, autoNameDisabled: false },
+          }),
         ],
       }),
       actions,
@@ -215,6 +225,10 @@ describe("Toolbar decisions", () => {
     expect(actions.threads.rename.cancel).toHaveBeenCalledWith("editing");
     parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
     expect(actions.threads.rename.autoName).toHaveBeenCalledWith("editing");
+    const cancelAutoNameButton = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]'));
+    expect(cancelAutoNameButton.closest(".codex-panel__thread-row--auto-name-running")).not.toBeNull();
+    cancelAutoNameButton.click();
+    expect(actions.threads.rename.cancelAutoName).toHaveBeenCalledWith("generating");
   });
 
   it("groups mixed pinned threads and routes the rightmost star action", () => {
@@ -249,32 +263,6 @@ describe("Toolbar decisions", () => {
     expect(rowActions.at(-1)?.getAttribute("aria-pressed")).toBe("true");
     rowActions.at(-1)?.click();
     expect(actions.threads.setPinned).toHaveBeenCalledWith("pinned", false);
-  });
-
-  it("adapts auto-name cancellation while loading", () => {
-    const parent = document.createElement("div");
-    const actions = toolbarActionsFixture();
-
-    mountToolbar(
-      parent,
-      toolbarModel({
-        openPanel: "history",
-        threads: [
-          toolbarThreadRowFixture({
-            title: "Editing",
-            threadId: "editing",
-            selected: false,
-            rename: { draft: "Draft title", generating: true, saving: false, autoNameDisabled: false },
-          }),
-        ],
-      }),
-      actions,
-    );
-
-    const cancelAutoNameButton = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]'));
-    expect(cancelAutoNameButton.closest(".codex-panel__thread-row--auto-name-running")).not.toBeNull();
-    cancelAutoNameButton.click();
-    expect(actions.threads.rename.cancelAutoName).toHaveBeenCalledWith("editing");
   });
 
   it("keeps chat navigation active while adapting archive confirmation", () => {

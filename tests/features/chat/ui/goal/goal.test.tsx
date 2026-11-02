@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 
-import { useState } from "preact/hooks";
 import { act } from "preact/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { SendShortcut } from "../../../../../src/domain/input/send-shortcut";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import { GoalPanel, type GoalPanelActions, type GoalPanelEditorState } from "../../../../../src/features/chat/ui/goal/goal";
@@ -69,9 +68,11 @@ describe("GoalPanel", () => {
     const parent = document.createElement("div");
     document.body.appendChild(parent);
 
+    const callbacks = actions();
+    const currentGoal = goal({ objective: "line 1\nline 2\nline 3\nline 4" });
     await withGoalObjectiveScrollHeight(100, async () => {
       await act(async () => {
-        renderGoal(parent, goal({ objective: "line 1\nline 2\nline 3\nline 4" }), actions());
+        renderGoal(parent, currentGoal, callbacks);
       });
 
       const content = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__goal-objective"));
@@ -85,14 +86,19 @@ describe("GoalPanel", () => {
         details.open = true;
         details.dispatchEvent(new Event("toggle"));
       });
+      expect(callbacks.onObjectiveExpandedChange).toHaveBeenCalledWith(true);
+      await act(async () => renderGoal(parent, currentGoal, callbacks, "enter", null, true));
       expect(content.classList.contains("codex-panel__goal-objective--collapsed")).toBe(false);
       expect(details.hidden).toBe(true);
 
       await outsidePointerDown();
+      expect(callbacks.onObjectiveExpandedChange).toHaveBeenLastCalledWith(false);
+      await act(async () => renderGoal(parent, currentGoal, callbacks));
       expect(content.classList.contains("codex-panel__goal-objective--collapsed")).toBe(true);
       expect(details.hidden).toBe(false);
     });
 
+    unmountUiRoot(parent);
     parent.remove();
   });
 
@@ -131,61 +137,35 @@ describe("GoalPanel", () => {
     });
   });
 
-  it("saves inline edits from the editor frame icon while preserving the existing token budget", async () => {
+  it("requests cancellation from Escape and an outside pointer", async () => {
     const parent = document.createElement("div");
     document.body.appendChild(parent);
     const callbacks = actions();
+    try {
+      await act(async () => {
+        renderGoal(parent, goal(), callbacks, "enter", { objectiveDraft: "Changed", tokenBudgetDraft: null });
+      });
 
-    await act(async () => {
-      renderGoal(parent, goal({ tokenBudget: 250 }), callbacks);
-    });
-    await click(parent, '[aria-label="Edit goal"]');
-    expect(document.activeElement).toBe(parent.querySelector("textarea"));
-    await input(parent, "textarea", "Updated objective");
-    await click(parent, '[aria-label="Save goal"]');
-
-    expect(parent.querySelector("textarea")).toBeNull();
-    expect(parent.querySelector('[aria-label="Save goal"]')).toBeNull();
-    expect(callbacks.onSave).toHaveBeenCalledWith("Updated objective", 250);
-    parent.remove();
-  });
-
-  it("cancels inline edits from Escape or an outside pointer", async () => {
-    const parent = document.createElement("div");
-    document.body.appendChild(parent);
-    const callbacks = actions();
-
-    await act(async () => {
-      renderGoal(parent, goal({ objective: "Original" }), callbacks);
-    });
-    await click(parent, '[aria-label="Edit goal"]');
-    await input(parent, "textarea", "Changed");
-    await documentKeydown(parent, "Escape");
-
-    expect(callbacks.onSave).not.toHaveBeenCalled();
-    expect(parent.querySelector("textarea")).toBeNull();
-    expect(parent.textContent).toContain("Original");
-
-    await click(parent, '[aria-label="Edit goal"]');
-    await input(parent, "textarea", "Changed again");
-    await outsidePointerDown();
-
-    expect(callbacks.onSave).not.toHaveBeenCalled();
-    expect(parent.querySelector("textarea")).toBeNull();
-    expect(parent.textContent).toContain("Original");
-    parent.remove();
+      await documentKeydown(parent, "Escape");
+      expect(callbacks.onCancelEditing).toHaveBeenCalledOnce();
+      await outsidePointerDown();
+      expect(callbacks.onCancelEditing).toHaveBeenCalledTimes(2);
+      expect(callbacks.onSave).not.toHaveBeenCalled();
+    } finally {
+      unmountUiRoot(parent);
+      parent.remove();
+    }
   });
 
   it("resizes the objective editor for supplied measurements and saves with the configured shortcut", async () => {
     const measuredHeight = vi.spyOn(HTMLTextAreaElement.prototype, "scrollHeight", "get").mockReturnValue(90);
+    const parent = document.createElement("div");
     try {
-      const parent = document.createElement("div");
       const callbacks = actions();
 
       await act(async () => {
-        renderGoal(parent, goal(), callbacks, "enter");
+        renderGoal(parent, goal(), callbacks, "enter", { objectiveDraft: "Draft", tokenBudgetDraft: null });
       });
-      await click(parent, '[aria-label="Edit goal"]');
       const textarea = expectPresent(parent.querySelector<HTMLTextAreaElement>("textarea"));
       await input(parent, "textarea", "line 1\nline 2\nline 3");
 
@@ -202,43 +182,25 @@ describe("GoalPanel", () => {
       expect(textarea.style.height).toBe("90px");
       expect(textarea.style.overflowY).toBe("hidden");
 
+      expect(callbacks.onObjectiveDraftChange).toHaveBeenLastCalledWith("line 1\nline 2\nline 3");
+      await act(async () => {
+        renderGoal(parent, goal(), callbacks, "enter", { objectiveDraft: "line 1\nline 2\nline 3", tokenBudgetDraft: null });
+      });
       await textareaKeydown(parent, { key: "Enter" });
       expect(callbacks.onSave).toHaveBeenCalledWith("line 1\nline 2\nline 3", null);
-      expect(parent.querySelector("textarea")).toBeNull();
 
       const modCallbacks = actions();
       await act(async () => {
-        renderGoal(parent, goal({ objective: "Saved objective" }), modCallbacks, "mod-enter");
+        renderGoal(parent, goal(), modCallbacks, "mod-enter", { objectiveDraft: "mod save", tokenBudgetDraft: null });
       });
-      await click(parent, '[aria-label="Edit goal"]');
-      await input(parent, "textarea", "mod save");
       await textareaKeydown(parent, { key: "Enter" });
       expect(modCallbacks.onSave).not.toHaveBeenCalled();
       await textareaKeydown(parent, { key: "Enter", metaKey: true });
       expect(modCallbacks.onSave).toHaveBeenCalledWith("mod save", null);
     } finally {
+      unmountUiRoot(parent);
       measuredHeight.mockRestore();
     }
-  });
-
-  it("routes pause, resume, and clear actions", async () => {
-    const parent = document.createElement("div");
-    const callbacks = actions();
-
-    await act(async () => {
-      renderGoal(parent, goal({ status: "active" }), callbacks);
-    });
-    await click(parent, '[aria-label="Pause goal"]');
-    expect(callbacks.onPause).toHaveBeenCalledOnce();
-
-    await act(async () => {
-      renderGoal(parent, goal({ status: "paused" }), callbacks);
-    });
-    await click(parent, '[aria-label="Resume goal"]');
-    expect(callbacks.onResume).toHaveBeenCalledOnce();
-
-    await click(parent, '[aria-label="Clear goal"]');
-    expect(callbacks.onClear).toHaveBeenCalledOnce();
   });
 
   it("does not show pause or resume for terminal statuses", async () => {
@@ -259,62 +221,23 @@ function renderGoal(
   currentGoal: ThreadGoal | null,
   callbacks: GoalPanelActions = actions(),
   sendShortcut: SendShortcut = "enter",
-  initialEditor?: GoalPanelEditorState,
+  editor: GoalPanelEditorState | null = null,
+  objectiveExpanded = false,
 ): void {
-  const harnessProps = {
-    goal: currentGoal,
-    actions: callbacks,
-    sendShortcut,
-    ...(initialEditor ? { initialEditor } : {}),
-  };
-  renderUiRoot(parent, <GoalPanelHarness {...harnessProps} />);
-}
-
-function GoalPanelHarness({
-  goal,
-  actions: callbacks,
-  sendShortcut,
-  initialEditor,
-}: {
-  goal: ThreadGoal | null;
-  actions: GoalPanelActions;
-  sendShortcut: SendShortcut;
-  initialEditor?: GoalPanelEditorState;
-}) {
-  const [editor, setEditor] = useState<GoalPanelEditorState | null>(initialEditor ?? null);
-  const [objectiveExpanded, setObjectiveExpanded] = useState(false);
-  const actions: GoalPanelActions = {
-    ...callbacks,
-    onStartEditing: () => {
-      callbacks.onStartEditing();
-      setEditor({ objectiveDraft: goal?.objective ?? "", tokenBudgetDraft: goal?.tokenBudget ?? null });
-    },
-    onCancelEditing: () => {
-      callbacks.onCancelEditing();
-      setEditor(null);
-    },
-    onObjectiveDraftChange: (objective) => {
-      callbacks.onObjectiveDraftChange(objective);
-      setEditor((current) => (current ? { ...current, objectiveDraft: objective } : null));
-    },
-    onSave: (objective, tokenBudget) => {
-      callbacks.onSave(objective, tokenBudget);
-      setEditor(null);
-    },
-    onObjectiveExpandedChange: (expanded) => {
-      callbacks.onObjectiveExpandedChange(expanded);
-      setObjectiveExpanded(expanded);
-    },
-  };
-  return (
+  onTestFinished(() => {
+    unmountUiRoot(parent);
+    parent.remove();
+  });
+  renderUiRoot(
+    parent,
     <GoalPanel
-      goal={goal}
-      actions={actions}
+      goal={currentGoal}
+      actions={callbacks}
       sendShortcut={sendShortcut}
       readOnly={false}
       editor={editor}
       objectiveExpanded={objectiveExpanded}
-    />
+    />,
   );
 }
 
@@ -341,14 +264,6 @@ function goal(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
     timeUsedSeconds: 0,
     ...overrides,
   };
-}
-
-async function click(parent: HTMLElement, selector: string): Promise<void> {
-  const element = parent.querySelector<HTMLElement>(selector);
-  if (!element) throw new Error(`Missing ${selector}`);
-  await act(async () => {
-    element.click();
-  });
 }
 
 async function input(parent: HTMLElement, selector: string, value: string): Promise<void> {

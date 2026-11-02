@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  SelectionRewriteOutputError,
-  type SelectionRewritePort,
-  type SelectionRewritePortRequest,
-} from "../../../src/features/selection-rewrite/port";
+import type { SelectionRewritePort, SelectionRewritePortRequest } from "../../../src/features/selection-rewrite/port";
 import { SelectionRewriteSession, type SelectionRewriteSessionRenderHooks } from "../../../src/features/selection-rewrite/session";
 import { deferred } from "../../support/async";
 
@@ -44,33 +40,6 @@ describe("SelectionRewriteSession", () => {
 
     await expect(first).resolves.toBe("started");
     expect(session.state).toMatchObject({ status: "generating", streamText: "" });
-  });
-
-  it("discards a failed partial replacement and allows a successful retry", async () => {
-    const generate = vi
-      .fn<SelectionRewritePort["generate"]>()
-      .mockImplementationOnce(async (request) => {
-        request.onPreview("partial");
-        throw new SelectionRewriteOutputError("Invalid replacement", "malformed output");
-      })
-      .mockResolvedValueOnce({ replacementText: "recovered" });
-    const session = createSession(generate);
-    const renderHooks = hooks();
-
-    await session.generate(renderHooks);
-
-    expect(session.state).toMatchObject({ status: "failed", debugText: "malformed output" });
-    expect(session.status).toEqual({ text: "Invalid replacement", active: false });
-    expect(session.isGenerating).toBe(false);
-    expect(renderHooks.focusApplyButton).not.toHaveBeenCalled();
-
-    await session.generate(renderHooks);
-
-    expect(generate).toHaveBeenCalledTimes(2);
-    expect(session.state).toMatchObject({ status: "preview", replacementText: "recovered" });
-    expect(session.status).toEqual({ text: "", active: false });
-    expect(session.isGenerating).toBe(false);
-    expect(renderHooks.focusApplyButton).toHaveBeenCalledOnce();
   });
 
   it("publishes activity and streaming preview before committing the final replacement", async () => {

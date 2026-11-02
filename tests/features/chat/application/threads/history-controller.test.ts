@@ -144,21 +144,6 @@ describe("HistoryController", () => {
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([expect.objectContaining({ id: "recovered", text: "Recovered" })]);
   });
 
-  it("applies an already returned latest turns page without requesting history", () => {
-    const readHistoryPage = vi.fn<HistoryPageReader>();
-    const { loader, stateStore, showLatestPageAtBottom } = historyFixture({ readHistoryPage });
-
-    const applied = loader.applyInitialPage("thread", historyPage([message("assistant", "Ready")], "older"));
-
-    expect(applied).toBe(true);
-    expect(readHistoryPage).not.toHaveBeenCalled();
-    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
-      expect.objectContaining({ id: "assistant", text: "Ready", turnId: "turn" }),
-    ]);
-    expect(stateStore.getState().threadStream.historyCursor).toBe("older");
-    expect(showLatestPageAtBottom).toHaveBeenCalledOnce();
-  });
-
   it("reconciles hydrated history with an operation-local fork display snapshot", () => {
     const readHistoryPage = vi.fn<HistoryPageReader>();
     const { loader, stateStore } = historyFixture({ readHistoryPage });

@@ -28,6 +28,7 @@ import {
 } from "../../../../support/app-server-records";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { modelMetadataFixture } from "../../../../support/model-metadata";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { createServerDiagnostics } from "../../../../support/runtime-diagnostics";
@@ -425,22 +426,14 @@ describe("chat panel session runtime", () => {
   it("preserves composer runtime choices as intents for the next conversation", async () => {
     const config = runtimeConfigFixture({ model: "gpt-known", reasoningEffort: "low", approvalsReviewer: "user", serviceTier: null });
     const models = [
-      {
-        id: "gpt-known",
-        model: "gpt-known",
-        displayName: "Known model",
-        description: "",
-        hidden: false,
+      modelMetadataFixture("gpt-known", {
         supportedReasoningEfforts: [
-          { reasoningEffort: "low" as const, description: "" },
-          { reasoningEffort: "high" as const, description: "" },
+          { reasoningEffort: "low", description: "" },
+          { reasoningEffort: "high", description: "" },
         ],
-        defaultReasoningEffort: "low" as const,
-        inputModalities: [],
+        defaultReasoningEffort: "low",
         serviceTiers: [{ id: "priority", name: "Fast" }],
-        defaultServiceTier: null,
-        isDefault: true,
-      },
+      }),
     ];
     const client = { request: vi.fn().mockResolvedValue({}) } as unknown as AppServerClient;
     const context = contextConnectionHarness({ currentClient: () => client });
@@ -490,19 +483,7 @@ describe("chat panel session runtime", () => {
       await first.runtime.connection.coordinator.ensureConnected();
       first.stateStore.dispatch({ ...threadActivationFixture(threadFixture()), type: "active-thread/resumed" });
       const selectModel = (panel: typeof first, model: string) => {
-        const availableModels = ["old", "queued", "new"].map((id) => ({
-          id,
-          model: id,
-          displayName: id,
-          description: "",
-          hidden: false,
-          supportedReasoningEfforts: [],
-          defaultReasoningEffort: null,
-          inputModalities: [],
-          serviceTiers: [],
-          defaultServiceTier: null,
-          isDefault: false,
-        }));
+        const availableModels = ["old", "queued", "new"].map((id) => modelMetadataFixture(id));
         const presentation = panel.runtime.composer.controller.renderState(
           selectChatPanelComposer(panel.stateStore.getState(), chatComposerSharedValuesFixture({ models: availableModels })),
           { submit: vi.fn() },

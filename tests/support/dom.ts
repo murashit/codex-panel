@@ -21,10 +21,6 @@ export function textContents(element: ParentNode, selector: string): (string | n
   return [...element.querySelectorAll(selector)].map((node) => node.textContent);
 }
 
-export function attributeValues(element: ParentNode, selector: string, attribute: string): (string | null)[] {
-  return [...element.querySelectorAll<HTMLElement>(selector)].map((node) => node.getAttribute(attribute));
-}
-
 export function changeInputValue(input: HTMLInputElement | HTMLTextAreaElement, value: string): void {
   const prototype = input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   const valueDescriptor = Object.getOwnPropertyDescriptor(prototype, "value");

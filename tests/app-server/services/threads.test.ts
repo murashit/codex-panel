@@ -19,12 +19,12 @@ describe("app-server thread response adapters", () => {
     const request = vi.fn().mockResolvedValue({});
     const client = { request } as unknown as AppServerRequestClient;
 
-    await setThreadGoal(client, "thread", { objective: "Draft without sending", status: "active", tokenBudget: null });
+    await setThreadGoal(client, "thread", { objective: "Draft without sending", tokenBudget: null });
     await setThreadGoal(client, "thread", { status: "paused" });
     await clearThreadGoal(client, "thread");
 
     expect(request.mock.calls).toEqual([
-      ["thread/goal/set", { threadId: "thread", origin: "user", objective: "Draft without sending", status: "active", tokenBudget: null }],
+      ["thread/goal/set", { threadId: "thread", origin: "user", objective: "Draft without sending", tokenBudget: null }],
       ["thread/goal/set", { threadId: "thread", origin: "user", status: "paused" }],
       ["thread/goal/clear", { threadId: "thread", origin: "user" }],
     ]);

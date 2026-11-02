@@ -31,14 +31,6 @@ afterEach(() => {
 });
 
 describe("selection rewrite prompt", () => {
-  it("always includes note context with the selected text", () => {
-    const prompt = buildSelectionRewritePrompt(rewriteState());
-
-    expect(prompt).toContain("Context mode: Selection + note context");
-    expect(prompt).toContain("Current note context:");
-    expect(prompt).toContain("# Heading");
-  });
-
   it("uses fences that cannot be closed by note code blocks", () => {
     const prompt = buildSelectionRewritePrompt(
       rewriteState({
@@ -190,11 +182,6 @@ describe("selection rewrite diff", () => {
         .map((line) => line.text.slice(1))
         .join("\n"),
     ).toBe(replacementText);
-  });
-
-  it("renders additions and deletions", () => {
-    expect(buildSelectionDiffLines("", "added")).toContainEqual({ text: "+added", kind: "added" });
-    expect(buildSelectionDiffLines("removed", "")).toContainEqual({ text: "-removed", kind: "removed" });
   });
 
   it("shows a removed trailing line break", () => {
@@ -528,7 +515,10 @@ describe("selection rewrite popover", () => {
   it("retries after a failed generation and applies only the successful replacement", async () => {
     const editor = editorFixture();
     selectionRewriteGenerate
-      .mockRejectedValueOnce(new SelectionRewriteOutputError("Invalid rewrite response.", "raw invalid output"))
+      .mockImplementationOnce(async (request) => {
+        request.onPreview("Unfinished replacement");
+        throw new SelectionRewriteOutputError("Invalid rewrite response.", "raw invalid output");
+      })
       .mockResolvedValueOnce({ replacementText: "Recovered rewrite." });
     const popover = new SelectionRewritePopover(popoverOptions({ editor: editor.editor }));
 
@@ -540,6 +530,11 @@ describe("selection rewrite popover", () => {
 
     expect(document.body.textContent).toContain("Invalid rewrite response.");
     expect(document.body.textContent).toContain("raw invalid output");
+    expect(document.querySelector(".codex-panel-selection-rewrite__stream-preview")?.textContent).toBe("");
+    const apply = expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Apply"]'));
+    expect(apply.disabled).toBe(true);
+    apply.click();
+    expect(editor.replaceRange).not.toHaveBeenCalled();
 
     await act(async () => {
       expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]')).click();

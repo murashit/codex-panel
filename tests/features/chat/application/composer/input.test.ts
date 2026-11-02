@@ -315,7 +315,12 @@ describe("ComposerInput", () => {
     expect(freshEmphasis.release).not.toHaveBeenCalled();
   });
   it("keeps a captured selection after its provider and editable draft change", () => {
-    let selection = { ...editorReference("initial selection", 41), path: "notes/Alpha.md", linktext: "notes/Alpha" };
+    let selection = {
+      ...editorReference("initial\nselection", 41),
+      range: { from: { line: 41, ch: 0 }, to: { line: 42, ch: 9 } },
+      path: "notes/Alpha.md",
+      linktext: "notes/Alpha",
+    };
     const { input, edit, insertFirstSuggestion, prepareInput } = createInput({
       noteCandidateProvider: noteProvider({ resolveFileReference: () => ({ name: "Alpha", path: "notes/Alpha.md" }) }),
       contextReferenceProvider: contextProvider(() => ({ activeNote: null, selection })),
@@ -333,7 +338,7 @@ describe("ComposerInput", () => {
       expect.objectContaining({
         type: "additionalContext",
         kind: "untrusted",
-        value: expect.stringContaining('[[notes/Alpha]] "initial selection" -> notes/Alpha.md (source range 42:1-42:18)'),
+        value: expect.stringContaining('[[notes/Alpha]] "initial selection" -> notes/Alpha.md (source range 42:1-43:10)'),
       }),
     );
     expect(prepared.input).not.toContainEqual(expect.objectContaining({ value: expect.stringContaining("changed selection") }));
