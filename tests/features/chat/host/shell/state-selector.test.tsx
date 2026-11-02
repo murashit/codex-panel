@@ -58,21 +58,6 @@ describe("useChatSelector", () => {
     unmountUiRoot(parent);
   });
 
-  it("unsubscribes on unmount", async () => {
-    const store = controllableStore(chatStateFixture());
-    const parent = document.createElement("div");
-
-    await act(async () => {
-      renderUiRoot(parent, <ComposerValue store={store} />);
-    });
-    expect(store.listenerCount()).toBe(1);
-
-    await act(async () => {
-      unmountUiRoot(parent);
-    });
-    expect(store.listenerCount()).toBe(0);
-  });
-
   it("moves the subscription when the store is replaced", async () => {
     const first = controllableStore(chatStateWith(chatStateFixture(), { composer: { draft: "first" } }));
     const second = controllableStore(chatStateWith(chatStateFixture(), { composer: { draft: "second" } }));
@@ -92,7 +77,8 @@ describe("useChatSelector", () => {
       second.replace(chatStateWith(second.getState(), { composer: { draft: "current" } }));
     });
     expect(parent.textContent).toBe("current");
-    unmountUiRoot(parent);
+    await act(async () => unmountUiRoot(parent));
+    expect(second.listenerCount()).toBe(0);
   });
 });
 

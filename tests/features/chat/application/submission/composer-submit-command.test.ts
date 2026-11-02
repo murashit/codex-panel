@@ -252,13 +252,6 @@ describe("submitComposer", () => {
     expect(host.status.addSystemMessage).toHaveBeenCalledExactlyOnceWith("turn failed");
   });
 
-  it("passes prepared slash input through to the turn without preparing it again", async () => {
-    const { host, execute, startTurn } = createHost("/refer Other [[Note]]");
-    execute.mockResolvedValue({ sendInput: { text: "[[Note]]", input: [{ type: "text", text: "referenced input" }] } });
-    await submitComposer(host);
-    expect(startTurn).toHaveBeenCalledWith(expect.objectContaining({ input: [{ type: "text", text: "referenced input" }] }));
-  });
-
   it("restores the original slash draft when prepared web input cannot start a turn", async () => {
     const { host, input, execute, startTurn, stateStore } = createHost("/web https://example.com [[Note]]");
     const prepared = [

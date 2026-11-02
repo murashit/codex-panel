@@ -3,13 +3,12 @@
 import { h, type ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { THREAD_STREAM_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/thread-stream/content-rendered-event.dom";
 import {
-  ThreadStreamFlowFrame,
-  type ThreadStreamScrollCommand,
-  type ThreadStreamScrollPort,
-  type ThreadStreamScrollPortBinding,
-} from "../../../../../src/features/chat/ui/thread-stream/flow-scroll";
+  type ChatThreadStreamScrollBinding,
+  createChatThreadStreamScrollBinding,
+} from "../../../../../src/features/chat/host/thread-stream/scroll-binding";
+import { THREAD_STREAM_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/thread-stream/content-rendered-event.dom";
+import { ThreadStreamFlowFrame } from "../../../../../src/features/chat/ui/thread-stream/flow-scroll";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
 
@@ -40,7 +39,7 @@ describe("thread stream flow scrolling", () => {
     const scrollCalls = installScrollToCapture(scrollViewport);
 
     void act(() => {
-      controller.dispatch({ kind: "show-latest" });
+      controller.showLatest();
     });
     expect(scrollViewport.scrollTop).toBe(200);
     expect(scrollCalls).toEqual([]);
@@ -54,7 +53,7 @@ describe("thread stream flow scrolling", () => {
   it("keeps the current reading position when content is appended after the user scrolls away", () => {
     const { controller, scrollViewport, render } = renderFlowThreadStream(["first"], { first: 300 });
     void act(() => {
-      controller.dispatch({ kind: "show-latest" });
+      controller.showLatest();
     });
     scrollViewport.scrollTop = 80;
     scrollViewport.dispatchEvent(new Event("scroll"));
@@ -160,7 +159,7 @@ describe("thread stream flow scrolling", () => {
   it("returns to the DOM scroll end after delayed stream content renders while pinned", () => {
     const { controller, scrollViewport, blockElement, setHeights } = renderFlowThreadStream(["item"], { item: 300 });
     void act(() => {
-      controller.dispatch({ kind: "show-latest" });
+      controller.showLatest();
     });
     expect(scrollViewport.scrollTop).toBe(200);
 
@@ -180,13 +179,13 @@ describe("thread stream flow scrolling", () => {
     scrollViewport.dispatchEvent(new Event("scroll"));
 
     void act(() => {
-      controller.dispatch({ kind: "scroll-by", amount: "text-lines", direction: -1 });
+      controller.scrollFromComposer({ kind: "scroll-by", amount: "text-lines", direction: -1 });
     });
     expect(scrollViewport.scrollTop).toBe(160);
     expect(scrollCalls).toEqual([{ top: 160, behavior: "smooth" }]);
 
     void act(() => {
-      controller.dispatch({ kind: "scroll-by", amount: "page", direction: 1 });
+      controller.scrollFromComposer({ kind: "scroll-by", amount: "page", direction: 1 });
     });
     expect(scrollViewport.scrollTop).toBe(240);
     expect(scrollCalls).toEqual([
@@ -223,7 +222,7 @@ describe("thread stream flow scrolling", () => {
     scrollViewport.dispatchEvent(new Event("scroll"));
 
     void act(() => {
-      controller.dispatch(command);
+      controller.scrollFromComposer(command);
     });
 
     expect(scrollViewport.scrollTop).toBe(expectedTop);
@@ -237,13 +236,13 @@ describe("thread stream flow scrolling", () => {
     scrollViewport.dispatchEvent(new Event("scroll"));
 
     void act(() => {
-      controller.dispatch({ kind: "scroll-to", edge: "start" });
+      controller.scrollFromComposer({ kind: "scroll-to", edge: "start" });
     });
     expect(scrollViewport.scrollTop).toBe(0);
     expect(scrollCalls).toEqual([{ top: 0, behavior: "smooth" }]);
 
     void act(() => {
-      controller.dispatch({ kind: "scroll-to", edge: "end" });
+      controller.scrollFromComposer({ kind: "scroll-to", edge: "end" });
     });
     expect(scrollViewport.scrollTop).toBe(500);
     expect(scrollCalls).toEqual([
@@ -258,25 +257,6 @@ interface CapturedScrollToOptions {
   behavior: ScrollBehavior | undefined;
 }
 
-interface TestThreadStreamScrollPortBinding extends ThreadStreamScrollPortBinding {
-  dispatch(command: ThreadStreamScrollCommand): void;
-}
-
-function createTestThreadStreamScrollPortBinding(): TestThreadStreamScrollPortBinding {
-  let port: ThreadStreamScrollPort | null = null;
-  return {
-    mountScrollPort(nextPort) {
-      port = nextPort;
-      return () => {
-        if (port === nextPort) port = null;
-      };
-    },
-    dispatch(command) {
-      port?.dispatchScrollCommand(command);
-    },
-  };
-}
-
 const mountedRoots: HTMLElement[] = [];
 
 function renderFlowThreadStream(
@@ -287,7 +267,7 @@ function renderFlowThreadStream(
     viewport?: { width: number; height: number };
   } = {},
 ): {
-  controller: TestThreadStreamScrollPortBinding;
+  controller: ChatThreadStreamScrollBinding;
   scrollViewport: HTMLElement;
   render: (nextKeys: readonly string[], nextHeights: Record<string, number>) => void;
   setHeights: (nextHeights: Record<string, number>) => void;
@@ -297,7 +277,7 @@ function renderFlowThreadStream(
   const parent = document.createElement("div");
   document.body.append(parent);
   mountedRoots.push(parent);
-  const controller = createTestThreadStreamScrollPortBinding();
+  const controller = createChatThreadStreamScrollBinding();
   let currentHeights = heights;
   let currentKeys = keys;
   let viewport = options.viewport ?? { width: 240, height: 100 };

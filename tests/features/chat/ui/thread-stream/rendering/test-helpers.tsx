@@ -1,6 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
-import { vi } from "vitest";
+import { onTestFinished, vi } from "vitest";
 import type { PendingApproval, PendingUserInput } from "../../../../../../src/features/chat/domain/pending-requests/model";
 import type { ThreadStreamItem } from "../../../../../../src/features/chat/domain/thread-stream/items";
 import { threadStreamViewBlocks } from "../../../../../../src/features/chat/ui/thread-stream/blocks";
@@ -151,18 +151,16 @@ export function renderThreadStreamBlocksInAct(parent: HTMLElement, { blocks, con
   parent.addClass("codex-panel__thread-stream");
   installThreadStreamViewportMetrics(parent);
   if (!parent.isConnected) document.body.appendChild(parent);
-  void act(() => {
-    renderUiRoot(
-      parent,
-      <ThreadStreamViewport
-        state={{
-          blocks,
-          context,
-          scrollPortBinding: noOpThreadStreamScrollPortBinding,
-        }}
-      />,
-    );
-  });
+  renderUiRootInAct(
+    parent,
+    <ThreadStreamViewport
+      state={{
+        blocks,
+        context,
+        scrollPortBinding: noOpThreadStreamScrollPortBinding,
+      }}
+    />,
+  );
 }
 
 const noOpThreadStreamScrollPortBinding: ThreadStreamScrollPortBinding = {
@@ -188,6 +186,10 @@ function installThreadStreamViewportMetrics(
 }
 
 function renderUiRootInAct(parent: HTMLElement, node: UiNode): void {
+  onTestFinished(() => {
+    unmountUiRootInAct(parent);
+    parent.remove();
+  });
   void act(() => {
     renderUiRoot(parent, node);
   });

@@ -111,21 +111,34 @@ describe("settings tab", () => {
     expect(saveSettings).toHaveBeenNthCalledWith(2, expect.objectContaining({ threadNamingEffort: "extreme" }));
   });
 
-  it("normalizes and publishes a representative declarative archive text field", async () => {
+  it.each([
+    {
+      name: "Saved note filename",
+      key: "archiveExportFilenameTemplate",
+      inputValue: "  {{date}} {{title}}.md  ",
+      value: "{{date}} {{title}}.md",
+    },
+    {
+      name: "Saved note folder",
+      key: "archiveExportFolderTemplate",
+      inputValue: "   ",
+      value: DEFAULT_SETTINGS.archiveExportFolderTemplate,
+    },
+  ])("normalizes and publishes the declarative $name field", async ({ name, key, inputValue, value }) => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     useContextClients(settingsClient());
     const tab = newSettingsTab({ saveSettings });
-    const filename = declarativeDefinitionByName(tab.getSettingDefinitions(), "Saved note filename");
-    const container = renderDeclarativeDefinition(filename, "Saved note filename");
+    const definition = declarativeDefinitionByName(tab.getSettingDefinitions(), name);
+    const container = renderDeclarativeDefinition(definition, name);
     const input = container.querySelector("input");
-    if (!input) throw new Error("Missing declarative archive filename input");
+    if (!input) throw new Error(`Missing declarative ${name} input`);
 
-    input.value = "  {{date}} {{title}}.md  ";
+    input.value = inputValue;
     input.dispatchEvent(new Event("blur"));
     await flushPromises();
 
-    expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ archiveExportFilenameTemplate: "{{date}} {{title}}.md" }));
-    expect(input.value).toBe("{{date}} {{title}}.md");
+    expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ [key]: value }));
+    expect(input.value).toBe(value);
   });
 
   it("restores a thread through the declarative archived threads callback", async () => {
@@ -354,31 +367,6 @@ describe("settings tab", () => {
       await flushPromises();
       tab.hide();
     }
-  });
-
-  it("restores default archive export templates when cleared", async () => {
-    useContextClients(settingsClient());
-    const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const tab = newSettingsTab({ saveSettings });
-
-    tab.display();
-
-    const folder = inputForSetting(tab, "Saved note folder");
-    if (!folder) throw new Error("Missing archive export folder input");
-    folder.value = "   ";
-    folder.dispatchEvent(new Event("blur"));
-    await flushPromises();
-
-    expect(inputForSetting(tab, "Saved note folder")?.value).toBe(DEFAULT_SETTINGS.archiveExportFolderTemplate);
-
-    const filename = inputForSetting(tab, "Saved note filename");
-    if (!filename) throw new Error("Missing archive export filename input");
-    filename.value = "   ";
-    filename.dispatchEvent(new Event("blur"));
-    await flushPromises();
-
-    expect(inputForSetting(tab, "Saved note filename")?.value).toBe(DEFAULT_SETTINGS.archiveExportFilenameTemplate);
-    expect(saveSettings).toHaveBeenCalledTimes(2);
   });
 
   it("refreshes models, hooks, and archived threads from the global refresh button", async () => {

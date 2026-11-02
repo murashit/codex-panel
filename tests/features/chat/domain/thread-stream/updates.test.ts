@@ -27,26 +27,19 @@ describe("thread stream item updates", () => {
           }
         },
       ),
+      {
+        examples: [
+          [[1], 1, "partial output", ""],
+          [[1], 1, "partial", "complete"],
+        ],
+      },
     );
   });
 
-  it("does not overwrite streamed output with an empty completed item", () => {
-    const streamed = { ...commandItem("c1", "Running"), output: "partial output" } satisfies ThreadStreamItem;
-    const completed = { ...commandItem("c1", "Completed"), output: "" } satisfies ThreadStreamItem;
-
-    expect(upsertThreadStreamItemById([streamed], completed)[0]).toMatchObject({
-      output: "partial output",
-      statusLabel: "Completed",
-    });
-  });
-
-  it("uses non-empty replacement output and preserves streamed file changes when completion omits them", () => {
-    const streamedCommand = { ...commandItem("c1", "Running"), output: "partial" } satisfies ThreadStreamItem;
-    const completedCommand = { ...commandItem("c1", "Completed"), output: "complete" } satisfies ThreadStreamItem;
+  it("preserves streamed file changes when completion omits them and adopts final changes", () => {
     const streamedChange = fileChangeItem("f1", "Running", [{ kind: "update", path: "src/a.ts", diff: "@@ streamed" }]);
     const completedChange = fileChangeItem("f1", "Completed", []);
 
-    expect(upsertThreadStreamItemById([streamedCommand], completedCommand)[0]).toMatchObject({ output: "complete" });
     expect(upsertThreadStreamItemById([streamedChange], completedChange)[0]).toMatchObject({
       statusLabel: "Completed",
       changes: streamedChange.changes,

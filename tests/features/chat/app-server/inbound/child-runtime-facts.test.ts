@@ -1,17 +1,30 @@
 import { describe, expect, it } from "vitest";
 import type { ServerNotification } from "../../../../../src/app-server/connection/rpc-messages";
+import type { TurnItem } from "../../../../../src/app-server/protocol/turn";
 import { planChatInboundNotification } from "../../../../../src/features/chat/app-server/inbound/notification-plan";
-import {
-  type RuntimeFactSource,
-  turnRuntimeFactFromNotification,
-} from "../../../../../src/features/chat/app-server/inbound/runtime-fact-adapter";
+import type { RuntimeFactSource } from "../../../../../src/features/chat/app-server/inbound/runtime-fact-adapter";
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
 import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
-import { appServerTurnFixture } from "../../../../support/app-server-records";
+import { appServerAgentMessageFixture, appServerTurnFixture, appServerUserMessageFixture } from "../../../../support/app-server-records";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
 describe("normalized child runtime facts", () => {
+  it("keeps child auth recovery visible through completion until normal child activity resumes", () => {
+    const params = { ...childScope, provider: "aws", message: "Refreshing AWS authentication." };
+    let state = receive(trackedParent(), { method: "modelProvider/authRecoveryStarted", params });
+    expect(state.activeTurn.subagents.byThreadId.get("child")?.statusPreview).toBe("Refreshing AWS authentication.");
+
+    state = receive(state, {
+      method: "modelProvider/authRecoveryCompleted",
+      params: { ...params, message: "Authentication refreshed." },
+    });
+    expect(state.activeTurn.subagents.byThreadId.get("child")?.statusPreview).toBe("Authentication refreshed.");
+    state = receive(state, assistantDelta("continuing"));
+    expect(state.activeTurn.subagents.byThreadId.get("child")?.statusPreview).toBeNull();
+    expect(preview(state)).toMatchObject({ id: "continuing", text: "Current work" });
+  });
+
   it("preserves summary/body delta sources and suppresses only child body deltas", () => {
     const summary = {
       method: "item/reasoning/summaryTextDelta",
@@ -26,14 +39,11 @@ describe("normalized child runtime facts", () => {
       params: { ...childScope, itemId: "reasoning", summaryIndex: 0 },
     } satisfies RuntimeFactSource;
 
-    expect(fact(summary)).toMatchObject({ type: "textDelta", source: "summary", delta: "Summary" });
-    expect(fact(body)).toMatchObject({ type: "textDelta", source: "body", delta: "Body" });
-    expect(fact(part)).toMatchObject({ type: "textDelta", source: "summary", delta: "" });
-
     let child = receive(trackedParent(), part);
     expect(preview(child)).toMatchObject({ id: "reasoning", kind: "reasoning" });
     child = receive(child, summary);
-    expect(preview(child)).toMatchObject({ text: "reasoning: Summary" });
+    child = receive(child, { ...summary, params: { ...summary.params, delta: " continuation" } });
+    expect(preview(child)).toMatchObject({ text: "reasoning: Summary continuation" });
     expect(receive(child, body).activeTurn.subagents).toBe(child.activeTurn.subagents);
 
     let parent = receive(runningParent(), { ...summary, params: { ...summary.params, ...parentScope } });
@@ -57,9 +67,6 @@ describe("normalized child runtime facts", () => {
       method: "turn/plan/updated",
       params: { ...childScope, explanation: "Review", plan: [{ step: "Check changes", status: "inProgress" }] },
     } satisfies RuntimeFactSource;
-    expect(fact(started)).toMatchObject({ type: "itemStarted" });
-    expect(fact(patch)).toMatchObject({ type: "itemContentUpdated" });
-    expect(fact(task)).toMatchObject({ type: "taskProgressUpdated" });
 
     let state = receive(trackedParent(), started);
     state = receive(state, patch);
@@ -121,24 +128,36 @@ describe("normalized child runtime facts", () => {
     expect(preview(state)).toMatchObject({ id: "hook-hook-1-1", kind: "hook", turnId: "child-turn", executionState: "completed" });
   });
 
-  it("does not advance a newer preview for old item completion, but uses canonical turn completion", () => {
-    let state = receive(trackedParent(), assistantDelta("newer"));
-    state = receive(state, completedReasoning("older"));
-    expect(preview(state)).toMatchObject({ id: "newer" });
-    state = receive(state, {
-      method: "turn/completed",
-      params: {
-        threadId: "child",
-        turn: {
-          ...childTurn,
-          status: "completed",
-          items: [{ type: "reasoning", id: "reasoning", summary: ["Canonical summary"], content: ["Canonical body"] }],
-        },
-      },
-    });
-    expect(preview(state)).toMatchObject({ id: "reasoning", text: "Canonical summary\n\nCanonical body" });
-    expect(state.activeTurn.subagents.byThreadId.get("child")).toMatchObject({ liveness: "stopped", outcome: "completed" });
-  });
+  it.each([
+    {
+      name: "reasoning-only",
+      items: [{ type: "reasoning", id: "reasoning", summary: ["Canonical summary"], content: ["Canonical body"] }],
+      expected: { id: "reasoning", text: "Canonical summary\n\nCanonical body" },
+    },
+    {
+      name: "mixed",
+      items: [
+        appServerUserMessageFixture("request", "User request"),
+        { type: "reasoning", id: "reasoning", summary: ["Canonical summary"], content: ["Canonical body"] },
+        appServerAgentMessageFixture("answer", "Canonical answer"),
+        appServerUserMessageFixture("follow-up", "User follow-up"),
+      ],
+      expected: { id: "answer", text: "Canonical answer" },
+    },
+  ] satisfies { name: string; items: TurnItem[]; expected: { id: string; text: string } }[])(
+    "uses $name canonical completion without advancing the preview for old item completion",
+    ({ items, expected }) => {
+      let state = receive(trackedParent(), assistantDelta("newer"));
+      state = receive(state, completedReasoning("older"));
+      expect(preview(state)).toMatchObject({ id: "newer" });
+      state = receive(state, {
+        method: "turn/completed",
+        params: { threadId: "child", turn: { ...childTurn, status: "completed", items } },
+      });
+      expect(preview(state)).toMatchObject(expected);
+      expect(state.activeTurn.subagents.byThreadId.get("child")).toMatchObject({ liveness: "stopped", outcome: "completed" });
+    },
+  );
 
   it("ignores older child turn updates, including completed canonical items", () => {
     let state = receive(trackedParent(), { method: "turn/started", params: { threadId: "child", turn: { ...childTurn, id: "new-turn" } } });
@@ -155,7 +174,7 @@ describe("normalized child runtime facts", () => {
     expect(planChatInboundNotification(runningParent(), notification, localId).actions).toEqual([]);
     let state = trackedParent();
     const plan = planChatInboundNotification(state, notification, localId);
-    expect(plan.actions).toEqual([{ type: "subagent-activity/runtime-fact", threadId: "child", fact: fact(notification) }]);
+    expect(preview(receive(state, notification))).toMatchObject({ id: "child-answer", text: "Current work" });
 
     const idle = chatStateWith(state, { activeTurn: { lifecycle: { kind: "idle" } } });
     expect(plan.actions.reduce(chatReducer, idle).activeTurn.subagents).toBe(idle.activeTurn.subagents);
@@ -196,9 +215,6 @@ function trackedParent(): ChatState {
 
 function localId(prefix: string): string {
   return prefix;
-}
-function fact(notification: RuntimeFactSource) {
-  return turnRuntimeFactFromNotification(notification, localId);
 }
 function receive(state: ChatState, notification: ServerNotification): ChatState {
   return planChatInboundNotification(state, notification, localId).actions.reduce(chatReducer, state);

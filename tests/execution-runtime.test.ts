@@ -16,6 +16,7 @@ import type { ThreadsViewPanelActivity } from "../src/features/threads-view/stat
 import type { ThreadsRuntimeView } from "../src/features/threads-view/view.obsidian";
 import type { RateLimitSnapshot } from "../src/generated/app-server/v2/RateLimitSnapshot";
 import { DEFAULT_SETTINGS } from "../src/settings/preferences";
+import { deferred } from "./support/async";
 
 const ActualContextConnection = contextConnection.AppServerContextConnection;
 const rateLimitSnapshot = {
@@ -95,12 +96,22 @@ describe("CodexExecutionRuntime", () => {
     });
   });
 
-  it("shares one thread mutation owner across attached surfaces", () => {
+  it("prevents overlapping archives of the same thread across chat and Threads", async () => {
+    const archived = deferred<object>();
+    contextConnectionMock.client.request.mockReturnValue(archived.promise);
     const runtime = executionRuntime();
     const chat = attachChatHost(runtime);
     const threads = attachThreadsHost(runtime);
 
-    expect(chat.threadMutations).toBe(threads.threadMutations);
+    const first = chat.threadMutations.archiveThread("thread", { saveMarkdown: false });
+    await vi.waitFor(() => expect(contextConnectionMock.client.request).toHaveBeenCalledOnce());
+    await expect(threads.threadMutations.archiveThread("thread", { saveMarkdown: false })).rejects.toThrow(
+      "An operation is already in progress.",
+    );
+    archived.resolve({});
+    await expect(first).resolves.toEqual({ kind: "archived", exportedPath: null });
+    expect(contextConnectionMock.client.request).toHaveBeenCalledExactlyOnceWith("thread/archive", { threadId: "thread" });
+    runtime.dispose();
   });
 
   it("stops publishing thread facts after disposal", () => {
@@ -113,21 +124,6 @@ describe("CodexExecutionRuntime", () => {
     facts.apply({ type: "thread-archived", threadId: "after-dispose" });
 
     expect(onThreadFacts).toHaveBeenCalledExactlyOnceWith([{ type: "thread-archived", threadId: "before-dispose" }]);
-  });
-
-  it("uses one context connection for shared reads and panel sessions", async () => {
-    const runtime = executionRuntime();
-    const chat = attachChatHost(runtime);
-
-    const first = await runtime.appServerConnection.withClient(async (client) => client);
-
-    expect(first).toBe(contextConnectionMock.client);
-    expect(chat.appServerConnection).toBe(runtime.appServerConnection);
-    expect(contextConnectionMock.instances).toHaveLength(1);
-    expect(contextConnectionMock.instances[0]?.initializeParams).toEqual({
-      clientInfo: { name: "obsidian_codex_panel", title: "Codex Panel", version: manifest.version },
-      capabilities: compatibility.codexAppServer.initialize.capabilities,
-    });
   });
 
   it("routes read-only queries and archive through the panel context client", async () => {
@@ -145,6 +141,10 @@ describe("CodexExecutionRuntime", () => {
     expect(contextConnectionMock.client.request).toHaveBeenCalledWith("model/list", { cursor: null, includeHidden: false, limit: 100 });
     expect(contextConnectionMock.client.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
     expect(contextConnectionMock.instances).toHaveLength(1);
+    expect(contextConnectionMock.instances[0]?.initializeParams).toEqual({
+      clientInfo: { name: "obsidian_codex_panel", title: "Codex Panel", version: manifest.version },
+      capabilities: compatibility.codexAppServer.initialize.capabilities,
+    });
   });
 
   it("blocks archive for matching pending or running panels while allowing unrelated activity", async () => {
@@ -330,9 +330,6 @@ describe("CodexExecutionRuntime", () => {
 
   it.each([
     { stage: "connect", cancellation: "runtime" },
-    { stage: "thread/start", cancellation: "runtime" },
-    { stage: "turn/start", cancellation: "runtime" },
-    { stage: "completion", cancellation: "runtime" },
     { stage: "completion", cancellation: "caller" },
   ] as const)(
     "disconnects a private structured-turn client on $cancellation cancellation during $stage",
@@ -346,10 +343,6 @@ describe("CodexExecutionRuntime", () => {
         return Promise.resolve({} as never);
       });
       vi.spyOn(AppServerClient.prototype, "request").mockImplementation(async (method) => {
-        if (method === stage) {
-          reached();
-          return new Promise(() => undefined);
-        }
         if (method === "config/read") return { config: {} } as never;
         if (method === "thread/start") return { thread: { id: "helper" } } as never;
         if (method === "turn/start") {

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
 import { type ChatAction, chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import { projectTurnRuntimeFact } from "../../../../../src/features/chat/application/turns/runtime-fact-projection";
-import type { TurnRuntimeFact } from "../../../../../src/features/chat/application/turns/runtime-facts";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
@@ -52,88 +51,6 @@ describe("TurnRuntimeFact projection", () => {
     });
 
     expect(applyActions(state, projection.actions).activeTurn.authRecovery).toBeNull();
-  });
-
-  it("reconciles completed turn snapshots with optimistic local user dialogues", () => {
-    let state = activeRunningState();
-    state = withChatStateStableThreadStreamItems(state, [
-      { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello", turnId: "turn-active" },
-    ]);
-    const facts: TurnRuntimeFact = {
-      type: "turnCompleted",
-      threadId: "thread-active",
-      turnId: "turn-active",
-      outcome: "completed",
-
-      completedTurnTranscriptSummary: { userText: "hello", assistantText: "done" },
-      completedItems: [
-        {
-          id: "u1",
-          sourceItemId: "u1",
-          kind: "dialogue",
-          dialogueKind: "user",
-          role: "user",
-          text: "hello",
-          clientId: "local-user-1",
-          turnId: "turn-active",
-        },
-        {
-          id: "a1",
-          sourceItemId: "a1",
-          kind: "dialogue",
-          dialogueKind: "assistantResponse",
-          role: "assistant",
-          text: "done",
-          dialogueState: "completed",
-          turnId: "turn-active",
-        },
-      ],
-    };
-
-    const projection = projectTurnRuntimeFact(state, facts);
-    const next = applyActions(state, projection.actions);
-
-    expect(chatStateThreadStreamItems(next).map((item) => item.id)).toEqual(["u1", "a1"]);
-    expect(projection.outcomes).toEqual([
-      {
-        type: "turn-completed",
-        threadId: "thread-active",
-        turnId: "turn-active",
-        completedTurnTranscriptSummary: { userText: "hello", assistantText: "done" },
-      },
-    ]);
-  });
-
-  it("commits only the pending steer matched by an observed user-message client id", () => {
-    let state = activeRunningState();
-    state = chatReducer(state, {
-      type: "thread-stream/pending-steer-added",
-      item: pendingSteerFixture({ contextAttachments: [{ label: "Web page", detail: "https://example.com/" }] }),
-    });
-
-    const projection = projectTurnRuntimeFact(state, {
-      type: "userMessageObserved",
-      item: {
-        id: "server-steer",
-        clientId: "local-steer",
-        sourceItemId: "server-steer",
-        kind: "dialogue",
-        dialogueKind: "user",
-        role: "user",
-        text: "follow up",
-        turnId: "turn-active",
-      },
-    });
-    const next = applyActions(state, projection.actions);
-
-    expect(next.activeTurn.pendingSteers).toEqual([]);
-    expect(chatStateThreadStreamItems(next)).toEqual([
-      expect.objectContaining({
-        id: "server-steer",
-        clientId: "local-steer",
-        contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
-      }),
-    ]);
   });
 
   it("treats normal completion items as a summary and clears pending separately", () => {

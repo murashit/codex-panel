@@ -99,8 +99,10 @@ describe("createReconnectPanelCommand", () => {
       provenance: thread.provenance,
     });
 
-    await expect(reconnect()).resolves.toBe(true);
+    const beforeTargetReset = vi.fn();
+    await expect(reconnect({ beforeTargetReset })).resolves.toBe(true);
 
+    expect(beforeTargetReset).not.toHaveBeenCalled();
     expect(host.resumeThread).toHaveBeenCalledWith(thread.id);
     expect(activeThreadId(stateStore.getState())).toBe(thread.id);
   });
@@ -115,15 +117,6 @@ describe("createReconnectPanelCommand", () => {
     expect(host.resumeThread).not.toHaveBeenCalled();
     expect(beforeTargetReset).toHaveBeenCalledOnce();
     expect(stateStore.getState().panelThread).toEqual({ kind: "empty" });
-  });
-
-  it("does not announce a target reset when reconnecting a persistent thread", async () => {
-    const { reconnect } = createHost();
-    const beforeTargetReset = vi.fn();
-
-    await reconnect({ beforeTargetReset });
-
-    expect(beforeTargetReset).not.toHaveBeenCalled();
   });
 
   it("reports resume failures after reconnecting", async () => {

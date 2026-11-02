@@ -8,7 +8,6 @@ import { createChatStateStore } from "../../../../../src/features/chat/applicati
 import {
   createThreadCommands,
   type ThreadCommandEffects,
-  type ThreadCommands,
   type ThreadCommandsHost,
 } from "../../../../../src/features/chat/application/threads/thread-commands";
 import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
@@ -44,7 +43,7 @@ describe("thread management commands", () => {
       activeThread: { id: "source" },
       ensureConnected: vi.fn(() => connection.promise),
     });
-    const compacting = threadCommands(host).compactThread("source");
+    const compacting = createThreadCommands(host).compactThread("source");
     await waitForAsyncWork(() => expect(host.ensureConnected).toHaveBeenCalledOnce());
 
     host.stateStore.dispatch({
@@ -70,7 +69,7 @@ describe("thread management commands", () => {
           : {}),
       },
     });
-    const controller = threadCommands(host);
+    const controller = createThreadCommands(host);
 
     await controller.compactThread("source");
 
@@ -81,7 +80,7 @@ describe("thread management commands", () => {
 
   it("reports compacting without an active thread", async () => {
     const host = hostMock({ items: [] });
-    const controller = threadCommands(host);
+    const controller = createThreadCommands(host);
 
     await controller.compactActiveThread();
 
@@ -97,7 +96,7 @@ describe("thread management commands", () => {
       ...threadActivationFixture(panelThread("source")),
       type: "active-thread/resumed",
     });
-    const controller = threadCommands(host);
+    const controller = createThreadCommands(host);
 
     const pendingCompact = controller.compactThread("source");
     await waitForAsyncWork(() => {
@@ -121,7 +120,7 @@ describe("thread management commands", () => {
         compactThread: vi.fn<ThreadCommandEffects["compactThread"]>().mockResolvedValue({ kind: "not-started" }),
       },
     });
-    const controller = threadCommands(host);
+    const controller = createThreadCommands(host);
 
     await controller.compactThread("source");
 
@@ -132,7 +131,7 @@ describe("thread management commands", () => {
 
   it("prepares a fork at the current latest turn without connecting or mutating server state", async () => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source", name: "Source title" } });
-    await threadCommands(host).forkThread("source");
+    await createThreadCommands(host).forkThread("source");
     expect(host.openForkDraft).toHaveBeenCalledExactlyOnceWith(
       {
         draft: {
@@ -155,7 +154,7 @@ describe("thread management commands", () => {
     const host = hostMock({ items, activeThread: { id: "source" } });
     host.stateStore.dispatch({ type: "thread-stream/turn-diff-updated", turnId: "turn-1", diff: "diff one" });
     host.stateStore.dispatch({ type: "thread-stream/turn-diff-updated", turnId: "turn-2", diff: "diff two" });
-    await threadCommands(host).forkThreadFromTurn("source", "turn-1", false);
+    await createThreadCommands(host).forkThreadFromTurn("source", "turn-1", false);
     expect(host.openForkDraft).toHaveBeenCalledWith(
       expect.objectContaining({
         draft: expect.objectContaining({ boundary: { kind: "through-turn", turnId: "turn-1" } }),
@@ -167,7 +166,7 @@ describe("thread management commands", () => {
 
   it("prepares fork-and-archive in the current panel without archiving its source", async () => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
-    await threadCommands(host).forkThreadFromTurn("source", "turn-2", true);
+    await createThreadCommands(host).forkThreadFromTurn("source", "turn-2", true);
     expect(host.openForkDraft).toHaveBeenCalledWith(
       expect.objectContaining({
         draft: expect.objectContaining({
@@ -186,14 +185,14 @@ describe("thread management commands", () => {
     { case: "a missing turn in the loaded stream", items: turnItems() },
   ])("does not create a draft without a valid loaded boundary in $case", async ({ items }) => {
     const host = hostMock({ items, activeThread: { id: "source" } });
-    await threadCommands(host).forkThreadFromTurn("source", "missing", false);
+    await createThreadCommands(host).forkThreadFromTurn("source", "missing", false);
     expect(host.openForkDraft).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("Could not find a completed turn to fork.");
   });
 
   it("does not fork a thread other than the panel source", async () => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
-    await threadCommands(host).forkThread("other");
+    await createThreadCommands(host).forkThread("other");
     expect(host.openForkDraft).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("Open the source thread before forking it.");
   });
@@ -206,7 +205,7 @@ describe("thread management commands", () => {
         lifetime: { kind: "ephemeral", mode: "side-chat", sourceThreadId: "source", sourceThreadTitle: "Source" },
       },
     });
-    await threadCommands(host)[method]("side");
+    await createThreadCommands(host)[method]("side");
     expect(host.openForkDraft).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith(
       method === "forkThread" ? "Side chats cannot be forked." : "Side chats cannot be rolled back.",
@@ -224,10 +223,10 @@ describe("thread management commands", () => {
         },
       },
     });
-    await threadCommands(host).forkThread("agent");
+    await createThreadCommands(host).forkThread("agent");
     expect(host.openForkDraft).toHaveBeenCalledOnce();
     host.openForkDraft.mockClear();
-    await threadCommands(host).rollbackThread("agent");
+    await createThreadCommands(host).rollbackThread("agent");
     expect(host.openForkDraft).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("Agent threads cannot be rolled back.");
   });
@@ -235,14 +234,14 @@ describe("thread management commands", () => {
   it.each(["forkThread", "rollbackThread"] as const)("blocks %s while a turn is busy", async (method) => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
     host.stateStore.dispatch({ type: "turn/started", threadId: "source", turnId: "running" });
-    await threadCommands(host)[method]("source");
+    await createThreadCommands(host)[method]("source");
     expect(host.openForkDraft).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalled();
   });
 
   it("rolls back locally before the latest turn and restores its prompt", async () => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
-    await threadCommands(host).rollbackThread("source");
+    await createThreadCommands(host).rollbackThread("source");
     expect(host.openForkDraft).toHaveBeenCalledWith(
       expect.objectContaining({
         draft: expect.objectContaining({
@@ -260,7 +259,7 @@ describe("thread management commands", () => {
 
   it("flattens repeated rollbacks onto the original source and its original latest turn", async () => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
-    const commands = threadCommands(host);
+    const commands = createThreadCommands(host);
     await commands.rollbackThread("source");
     await commands.rollbackThread("source");
     expect(host.openForkDraft).toHaveBeenLastCalledWith(
@@ -280,7 +279,7 @@ describe("thread management commands", () => {
 
   it("does not turn an independent draft into a source replacement when rolling back", async () => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
-    const commands = threadCommands(host);
+    const commands = createThreadCommands(host);
     await commands.forkThread("source");
     const preparation = host.openForkDraft.mock.calls[0]?.[0];
     if (!preparation) throw new Error("Fork draft was not opened");
@@ -301,7 +300,7 @@ describe("thread management commands", () => {
 
   it("retains the displayed prefix when forking an unsubmitted rollback", async () => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
-    const commands = threadCommands(host);
+    const commands = createThreadCommands(host);
     await commands.rollbackThread("source");
     await commands.forkThread("source");
     expect(host.openForkDraft).toHaveBeenLastCalledWith(
@@ -318,7 +317,7 @@ describe("thread management commands", () => {
 
   it("rolls back the first turn to an empty local prefix", async () => {
     const host = hostMock({ items: turnItems().slice(0, 2), activeThread: { id: "source" } });
-    await threadCommands(host).rollbackThread("source");
+    await createThreadCommands(host).rollbackThread("source");
     expect(host.openForkDraft).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
         draft: expect.objectContaining({ boundary: { kind: "before-turn", turnId: "turn-1" }, initialPrompt: "one" }),
@@ -326,7 +325,7 @@ describe("thread management commands", () => {
       }),
       false,
     );
-    await threadCommands(host).rollbackThread("source");
+    await createThreadCommands(host).rollbackThread("source");
     expect(host.openForkDraft).toHaveBeenCalledOnce();
     expect(host.addSystemMessage).toHaveBeenCalledWith("No completed turn to roll back.");
   });
@@ -381,7 +380,7 @@ describe("thread management commands", () => {
     const shared = { runtimeConfigSnapshot: () => config, rateLimitsSnapshot: () => null, modelsSnapshot: () => [] };
     const snapshot = () => runtimeSnapshotForChatState(host.stateStore.getState(), shared);
     const source = resolveRuntimeControls(snapshot(), config);
-    await threadCommands(host).rollbackThread("source");
+    await createThreadCommands(host).rollbackThread("source");
     const draft = resolveRuntimeControls(snapshot(), config);
     for (const field of [
       "model",
@@ -442,7 +441,7 @@ describe("thread management commands", () => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
     const adoptPanelTarget = vi.fn(() => expect(activeThreadId(host.stateStore.getState())).toBe("source"));
     if (outcome === "failed") host.openForkDraft.mockRejectedValue(new Error("panel unavailable"));
-    const rollback = threadCommands(host).rollbackThread("source", { adoptPanelTarget });
+    const rollback = createThreadCommands(host).rollbackThread("source", { adoptPanelTarget });
     await expect(rollback.catch((error: Error) => error.message)).resolves.toBe(outcome === "failed" ? "panel unavailable" : undefined);
     expect(adoptPanelTarget).toHaveBeenCalledWith(null, "three");
     expect(host.stateStore.getState().panelThread.kind).toBe(outcome === "failed" ? "active" : "fork-draft");
@@ -484,10 +483,6 @@ function turnItems(): ThreadStreamItem[] {
       dialogueState: "completed",
     },
   ];
-}
-
-function threadCommands(host: ThreadCommandsHost): ThreadCommands {
-  return createThreadCommands(host);
 }
 
 function hostMock({

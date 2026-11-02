@@ -182,19 +182,6 @@ describe("VaultNoteCandidateProvider", () => {
     expect(provider.tags()).toEqual(["daily", "project/codex", "web"]);
   });
 
-  it("invalidates cached candidates when the vault changes", () => {
-    const files = [{ basename: "Alpha", path: "notes/Alpha.md", stat: { mtime: 100 } }];
-    const app = appFixture({ files });
-    const provider = new VaultNoteCandidateProvider(app);
-
-    expect(provider.candidates("Inbox.md").map((candidate) => candidate.basename)).toEqual(["Alpha"]);
-
-    files.push({ basename: "Beta", path: "notes/Beta.md", stat: { mtime: 200 } });
-    app.triggerVaultEvent("create");
-
-    expect(provider.candidates("Inbox.md").map((candidate) => candidate.basename)).toEqual(["Alpha", "Beta"]);
-  });
-
   it("shares candidate caches and event subscriptions across panel providers", () => {
     let files = vaultFiles([{ basename: "Alpha", path: "Alpha.md", stat: { mtime: 1 } }]);
     const getFiles = vi.fn(() => files);

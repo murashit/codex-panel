@@ -41,22 +41,10 @@ describe("composer attachment input", () => {
           expect(result.filter((item) => item.type === "fileReference").map((item) => item.path)).toEqual(expectedFiles);
           expect(result.filter((item) => item.type === "localImage").map((item) => item.path)).toEqual(expectedImages);
           expect(result[0]).toEqual({ type: "text", text });
+          expect(result).toEqual(expect.arrayContaining(input.slice(1)));
         },
       ),
+      { examples: [[[{ path: 1, kind: "image", active: true }], [1], []]] },
     );
-  });
-
-  it("adds image data without duplicating a file already resolved from its wikilink", () => {
-    const path = "Attachments/diagram.png";
-    const text = `Explain ![[${path}]]`;
-    const reference = { type: "fileReference" as const, name: "diagram", path };
-
-    expect(
-      codexInputWithComposerAttachments(
-        text,
-        [{ type: "text", text }, reference],
-        [{ kind: "image", name: "diagram", path, marker: `![[${path}]]` }],
-      ),
-    ).toEqual([{ type: "text", text }, reference, { type: "localImage", path }]);
   });
 });

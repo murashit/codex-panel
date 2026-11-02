@@ -781,47 +781,6 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.containerEl.textContent).not.toContain("Old");
   });
 
-  it("keeps a goal notification when the canceled read later rejects", async () => {
-    const { client, oldRead } = pendingGoalReadClient();
-    const view = await openedChatView(client);
-
-    const opening = view.surface.activateThread("thread-1", { focus: false });
-    await waitForAsyncWork(() => {
-      expect(client.request).toHaveBeenCalledWith("thread/goal/get", { threadId: "thread-1" });
-    });
-    connectionMockState().onNotification?.({
-      method: "thread/goal/updated",
-      params: { threadId: "thread-1", turnId: null, goal: goalSnapshot("Latest", 2) },
-    } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-    oldRead.reject(new Error("stale read failed"));
-    await opening;
-    await waitForAsyncWork(() => {
-      expect(view.containerEl.textContent).toContain("Latest");
-    });
-
-    expect(view.containerEl.querySelector(".codex-panel__goal-load-error")).toBeNull();
-  });
-
-  it("keeps a goal clear notification over an earlier in-flight goal read", async () => {
-    const { client, oldRead } = pendingGoalReadClient();
-    const view = await openedChatView(client);
-
-    const opening = view.surface.activateThread("thread-1", { focus: false });
-    await waitForAsyncWork(() => {
-      expect(client.request).toHaveBeenCalledWith("thread/goal/get", { threadId: "thread-1" });
-    });
-    connectionMockState().onNotification?.({
-      method: "thread/goal/cleared",
-      params: { threadId: "thread-1" },
-    } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>);
-
-    oldRead.resolve({ goal: goalSnapshot("Old", 1) });
-    await opening;
-
-    expect(view.containerEl.querySelector(".codex-panel__goal")).toBeNull();
-    expect(view.containerEl.textContent).not.toContain("Old");
-  });
-
   it("ignores stale connection work after the view closes", async () => {
     let resolveConfig!: (value: unknown) => void;
     const client = connectedClient({

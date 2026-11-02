@@ -6,7 +6,7 @@ import { resolveObsidianWikilinks } from "../../../../../src/features/chat/host/
 describe("Obsidian wikilink resolution", () => {
   it("resolves aliases and subpaths relative to the supplied source note", () => {
     const destination = { path: "Projects/Target.md" } as TFile;
-    const getFirstLinkpathDest = vi.fn(() => destination);
+    const getFirstLinkpathDest = vi.fn((linkpath: string) => (linkpath === "Missing" ? null : destination));
     const app = appWithResolver(getFirstLinkpathDest);
 
     const result = resolveObsidianWikilinks(app, {
@@ -31,35 +31,14 @@ describe("Obsidian wikilink resolution", () => {
         },
         {
           query: "[[Missing#^block]]",
-          status: "resolved",
+          status: "unresolved",
           linkpath: "Missing",
           subpath: "#^block",
           displayText: null,
-          resolvedPath: "Projects/Target.md",
+          resolvedPath: null,
         },
       ],
     });
-  });
-
-  it("reports unresolved links as normal per-item results", () => {
-    const result = resolveObsidianWikilinks(
-      appWithResolver(() => null),
-      {
-        sourcePath: "Source.md",
-        wikilinks: ["[[Unknown|label]]"],
-      },
-    );
-
-    expect(result.results).toEqual([
-      {
-        query: "[[Unknown|label]]",
-        status: "unresolved",
-        linkpath: "Unknown",
-        subpath: "",
-        displayText: "label",
-        resolvedPath: null,
-      },
-    ]);
   });
 
   it("resolves without note context when sourcePath is omitted", () => {

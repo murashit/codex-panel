@@ -32,17 +32,6 @@ import {
 describe("CodexChatView thread state", () => {
   setupViewConnectionHarness();
 
-  it("requests a workspace layout save after resuming a thread", async () => {
-    const requestSaveLayout = vi.fn();
-    const client = connectedClient();
-    const view = await chatViewForClient(client, { requestSaveLayout });
-
-    await view.surface.activateThread("thread-1");
-
-    expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
-    expect(requestSaveLayout).toHaveBeenCalledTimes(1);
-  });
-
   it("does not persist a subagent target before or after disconnection", async () => {
     const client = connectedClient({
       "thread/resume": vi.fn().mockResolvedValue(resumedThread("child", { parentThreadId: "parent", threadSource: "subAgentThreadSpawn" })),
@@ -364,19 +353,23 @@ describe("CodexChatView thread state", () => {
     shared.connection.dispose();
   });
 
-  it("resets to an unstarted empty chat without starting a thread", async () => {
+  it.each(["new-chat", "archived"] as const)("persists resumed identity and clears it after %s", async (action) => {
     const requestSaveLayout = vi.fn();
     const client = connectedClient();
     const view = await chatViewForClient(client, { requestSaveLayout });
-
-    await view.surface.activateThread("thread-1");
     const updateHeader = vi.fn();
     Object.assign(view.leaf, { updateHeader });
-    await view.surface.startNewThread();
+
+    await view.surface.activateThread("thread-1");
+    expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
+    expect(requestSaveLayout).toHaveBeenCalledOnce();
+    updateHeader.mockClear();
+
+    if (action === "new-chat") await view.surface.startNewThread();
+    else view.surface.applyThreadUnavailable("thread-1");
 
     expect(updateHeader).toHaveBeenCalled();
     expect(view.getDisplayText()).toBe("Codex");
-
     expect(requestMethods(client)).not.toContain("thread/start");
     expect(view.getState()).toEqual({ version: 1 });
     expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, turnBusy: false, hasComposerDraft: false });
@@ -388,26 +381,17 @@ describe("CodexChatView thread state", () => {
     const view = await chatViewForClient(client);
 
     await view.onOpen();
-    const focus = vi.spyOn(HTMLTextAreaElement.prototype, "focus").mockImplementation(() => undefined);
-
-    await view.surface.activateThread("thread-1");
-    await view.surface.activateThread("thread-1");
-    await view.surface.startNewThread();
-
-    expect(focus).toHaveBeenCalledTimes(3);
-    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
-  });
-
-  it("clears the active thread when another view archives it", async () => {
-    const requestSaveLayout = vi.fn();
-    const client = connectedClient();
-    const view = await chatViewForClient(client, { requestSaveLayout });
-
-    await view.surface.activateThread("thread-1");
-    view.surface.applyThreadUnavailable("thread-1");
-
-    expect(view.getState()).toEqual({ version: 1 });
-    expect(requestSaveLayout).toHaveBeenCalledTimes(2);
+    const composer = composerElement(view);
+    for (const action of [
+      () => view.surface.activateThread("thread-1"),
+      () => view.surface.activateThread("thread-1"),
+      () => view.surface.startNewThread(),
+    ]) {
+      composer.blur();
+      expect(document.activeElement).not.toBe(composer);
+      await action();
+      expect(document.activeElement).toBe(composer);
+    }
   });
 
   it("updates restored panel title from shared rename notifications", async () => {

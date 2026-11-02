@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../../src/app-server/protocol/runtime-config";
 
@@ -121,82 +122,34 @@ describe("runtime config protocol mapping", () => {
     expect(runtimeConfigFromAppServerFixture({ approval_policy: approvalPolicy }).startupPermissions.approvalPolicy).toBeNull();
   });
 
-  it.each([
-    {
-      name: "sandbox, request, and MCP approvals",
-      granular: {
-        sandbox_approval: true,
-        rules: false,
-        skill_approval: false,
-        request_permissions: true,
-        mcp_elicitations: true,
-      },
-      expected: {
-        sandbox_approval: true,
-        rules: false,
-        skill_approval: false,
-        request_permissions: true,
-        mcp_elicitations: true,
-      },
-    },
-    {
-      name: "rules and request approvals",
-      granular: {
-        sandbox_approval: false,
-        rules: true,
-        skill_approval: false,
-        request_permissions: true,
-        mcp_elicitations: false,
-      },
-      expected: {
-        sandbox_approval: false,
-        rules: true,
-        skill_approval: false,
-        request_permissions: true,
-        mcp_elicitations: false,
-      },
-    },
-    {
-      name: "skill and MCP approvals",
-      granular: {
-        sandbox_approval: false,
-        rules: false,
-        skill_approval: true,
-        request_permissions: false,
-        mcp_elicitations: true,
-      },
-      expected: {
-        sandbox_approval: false,
-        rules: false,
-        skill_approval: true,
-        request_permissions: false,
-        mcp_elicitations: true,
-      },
-    },
-    {
-      name: "invalid values",
-      granular: {
-        sandbox_approval: 1,
-        rules: "true",
-        skill_approval: null,
-        request_permissions: {},
-        mcp_elicitations: [],
-      },
-      expected: {
-        sandbox_approval: false,
-        rules: false,
-        skill_approval: false,
-        request_permissions: false,
-        mcp_elicitations: false,
-      },
-    },
-  ])("normalizes every granular approval policy flag for $name", ({ granular, expected }) => {
+  it("preserves independently chosen boolean granular approval flags", () => {
+    fc.assert(
+      fc.property(
+        fc.record({
+          sandbox_approval: fc.boolean(),
+          rules: fc.boolean(),
+          skill_approval: fc.boolean(),
+          request_permissions: fc.boolean(),
+          mcp_elicitations: fc.boolean(),
+        }),
+        (granular) => {
+          expect(runtimeConfigFromAppServerFixture({ approval_policy: { granular } }).startupPermissions.approvalPolicy).toEqual({
+            granular,
+          });
+        },
+      ),
+    );
+  });
+
+  it("does not grant granular approval flags from truthy non-booleans", () => {
     expect(
       runtimeConfigFromAppServerFixture({
-        approval_policy: { granular },
+        approval_policy: {
+          granular: { sandbox_approval: 1, rules: "true", skill_approval: null, request_permissions: {}, mcp_elicitations: [] },
+        },
       }).startupPermissions.approvalPolicy,
     ).toEqual({
-      granular: expected,
+      granular: { sandbox_approval: false, rules: false, skill_approval: false, request_permissions: false, mcp_elicitations: false },
     });
   });
 });

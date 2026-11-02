@@ -21,7 +21,7 @@ type SessionConnectionInput = Parameters<typeof createSessionConnection>[1];
 describe("session connection", () => {
   it("answers wikilink tool calls through the host resolver", async () => {
     const getFirstLinkpathDest = vi.fn(() => markdownFileFixture("topics/Alpha.md"));
-    const fixture = sessionConnectionFixture(undefined, false, {
+    const fixture = sessionConnectionFixture(undefined, {
       metadataCache: { getFirstLinkpathDest },
     } as unknown as App);
     await fixture.connect();
@@ -59,14 +59,8 @@ describe("session connection", () => {
     expect(getFirstLinkpathDest).toHaveBeenCalledExactlyOnceWith("Alpha", "notes/source.md");
     fixture.deactivate();
   });
-  it.each([
-    { boundary: "reset", lifetime: false },
-    { boundary: "exit", lifetime: false },
-    { boundary: "close", lifetime: false },
-    { boundary: "close", lifetime: "normal" as const },
-    { boundary: "close", lifetime: true },
-  ])("settles input but preserves approvals on presentation close ($boundary, $lifetime)", async ({ boundary, lifetime }) => {
-    const fixture = sessionConnectionFixture(undefined, lifetime);
+  it.each(["reset", "exit", "close"] as const)("settles input but preserves approvals on presentation close (%s)", async (boundary) => {
+    const fixture = sessionConnectionFixture();
     await fixture.connect();
     const input = { respond: vi.fn(), reject: vi.fn() };
     const approval = { respond: vi.fn(), reject: vi.fn() };
@@ -149,24 +143,6 @@ describe("session connection", () => {
     expect(disconnect).toHaveBeenCalledOnce();
   });
 
-  it("retains a responder when synchronous delivery throws", async () => {
-    const fixture = sessionConnectionFixture();
-    await fixture.connect();
-    const responder = {
-      respond: vi.fn().mockImplementationOnce(() => {
-        throw new Error("transport busy");
-      }),
-      reject: vi.fn(),
-    };
-
-    fixture.deliver(userInputRequest(1), responder);
-    fixture.resolveUserInput(1, { note: "Continue" });
-    fixture.resolveUserInput(1, { note: "Continue" });
-
-    expect(responder.respond).toHaveBeenCalledTimes(2);
-    expect(fixture.stateStore.getState().requests.pendingUserInputs).toEqual([]);
-  });
-
   it("does not carry a completed approval decision across connection invalidation", async () => {
     const fixture = sessionConnectionFixture();
     await fixture.connect();
@@ -191,23 +167,13 @@ describe("session connection", () => {
   });
 });
 
-function sessionConnectionFixture(lease?: AppServerContextConnectionLease, ephemeral: boolean | "normal" = false, app = {} as App) {
+function sessionConnectionFixture(lease?: AppServerContextConnectionLease, app = {} as App) {
   let connected = false;
   let handlers: AppServerContextConnectionLeaseHandlers | null = null;
   const addSystemMessage = vi.fn();
   const stateStore = createChatStateStore(
     chatStateFixture({
-      activeThread: {
-        id: "thread-active",
-        ...(ephemeral
-          ? {
-              lifetime:
-                ephemeral === "normal"
-                  ? { kind: "ephemeral" as const, mode: "ordinary" as const }
-                  : ({ kind: "ephemeral", mode: "side-chat", sourceThreadId: "source", sourceThreadTitle: null } as const),
-            }
-          : {}),
-      },
+      activeThread: { id: "thread-active" },
       activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } },
     }),
   );

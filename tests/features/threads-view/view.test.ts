@@ -340,42 +340,24 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.querySelector(".codex-panel-threads__row--selected")?.textContent).toContain("Replacement");
   });
 
-  it("keeps the rename editor locked until a save finishes", async () => {
-    const saved = deferred<boolean>();
-    const renameThreadRequest = vi.fn<ThreadsViewHost["threadMutations"]["renameThread"]>(() => saved.promise);
-    const view = await threadsView(threadsHost({ threadMutations: threadMutationCommandsMock({ renameThread: renameThreadRequest }) }));
-
-    await openRenameEditor(view);
-    const firstInput = renameInput(view);
-    changeInputValue(firstInput, "  Saved   title  ");
-    firstInput.dispatchEvent(new FocusEvent("blur"));
-    await waitForAsyncWork(() => {
-      expect(renameThreadRequest).toHaveBeenCalledWith("thread", "  Saved   title  ", { shouldStart: expect.any(Function) });
-    });
-
-    firstInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.disabled).toBe(true);
-    expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).toBeNull();
-
-    saved.resolve(true);
-
-    await waitForAsyncWork(() => expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")).toBeNull());
-  });
-
-  it("restores the same editor when a locked rename save fails", async () => {
+  it("locks a rename save, restores its draft on failure, and closes after a successful retry", async () => {
     const saved = deferred<boolean>();
     const renameThreadRequest = vi
       .fn<ThreadsViewHost["threadMutations"]["renameThread"]>()
       .mockReturnValueOnce(saved.promise)
       .mockResolvedValueOnce(true);
-    const view = await threadsView(threadsHost({ threadMutations: threadMutationCommandsMock({ renameThread: renameThreadRequest }) }));
+    const host = threadsHost({ threadMutations: threadMutationCommandsMock({ renameThread: renameThreadRequest }) });
+    const view = await threadsView(host);
 
     await openRenameEditor(view);
     const firstInput = renameInput(view);
-    changeInputValue(firstInput, "Saved title");
+    firstInput.click();
+    expect(host.openThreadInAvailableView).not.toHaveBeenCalled();
+    changeInputValue(firstInput, "  Saved   title  ");
     firstInput.dispatchEvent(new FocusEvent("blur"));
-    await waitForAsyncWork(() => expect(renameThreadRequest).toHaveBeenCalledOnce());
+    await waitForAsyncWork(() =>
+      expect(renameThreadRequest).toHaveBeenCalledExactlyOnceWith("thread", "  Saved   title  ", { shouldStart: expect.any(Function) }),
+    );
 
     firstInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
@@ -384,14 +366,14 @@ describe("CodexThreadsView", () => {
     saved.reject(new Error("Rename failed."));
     for (let index = 0; index < 10; index += 1) await Promise.resolve();
 
-    expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Saved title");
+    expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("  Saved   title  ");
     expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.disabled).toBe(false);
     expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
     expect(notices).toContain("Rename failed.");
 
     renameInput(view).dispatchEvent(new FocusEvent("blur"));
     await waitForAsyncWork(() => expect(renameThreadRequest).toHaveBeenCalledTimes(2));
-    expect(renameThreadRequest).toHaveBeenLastCalledWith("thread", "Saved title", { shouldStart: expect.any(Function) });
+    expect(renameThreadRequest).toHaveBeenLastCalledWith("thread", "  Saved   title  ", { shouldStart: expect.any(Function) });
     await waitForAsyncWork(() => expect(view.containerEl.querySelector(".codex-panel-threads__rename-input")).toBeNull());
   });
 

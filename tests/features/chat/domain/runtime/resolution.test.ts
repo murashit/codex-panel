@@ -5,7 +5,6 @@ import {
   setRuntimeIntentValue,
 } from "../../../../../src/features/chat/domain/runtime/intent";
 import { resolveRuntimeControls } from "../../../../../src/features/chat/domain/runtime/resolution";
-import { serviceTierRequestForThreadStart } from "../../../../../src/features/chat/domain/runtime/thread-settings-patch";
 import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";
 import { modelFixture, runtimeSnapshot, snapshotConfig } from "./support";
 
@@ -178,24 +177,6 @@ describe("runtime control resolution", () => {
     expect(resolveRuntimeControls(activeGuardian, snapshotConfig(activeGuardian)).autoReview.active).toBe(true);
   });
 
-  it("uses effective model, effort, and fast mode config values", () => {
-    const snapshot = runtimeSnapshot({
-      runtimeConfig: runtimeConfigFromAppServerFixture({
-        model: "gpt-profile",
-        model_reasoning_effort: "high",
-        service_tier: "fast",
-      }),
-    });
-
-    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
-
-    expect(resolution.model.effective).toBe("gpt-profile");
-    expect(resolution.reasoningEffort.effective).toBe("high");
-    expect(resolution.serviceTier.effective).toBe("fast");
-    expect(resolution.fastMode.active).toBe(false);
-    expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBe("fast");
-  });
-
   it.each([
     { name: "catalog Fast tier id", reportedTier: "priority", expectedTier: "priority", expectedFast: true },
     { name: "reported default tier after clearing Fast", reportedTier: "default", expectedTier: "default", expectedFast: false },
@@ -298,6 +279,7 @@ describe("runtime control resolution", () => {
       approvalPolicy: { effective: "on-request", source: "config" },
       approvalsReviewer: { effective: "auto_review", source: "config" },
       serviceTier: { effective: "fast", source: "config" },
+      fastMode: { available: false, active: false },
     });
     expect(resolveRuntimeControls(active, snapshotConfig(active))).toMatchObject({
       model: { effective: "gpt-active", source: "active-thread" },

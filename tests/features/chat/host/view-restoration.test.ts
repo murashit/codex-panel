@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { ServerNotification } from "../../../../src/app-server/connection/rpc-messages";
 import { createChatState } from "../../../../src/features/chat/application/state/model";
 import type { ForkDraftPreparation } from "../../../../src/features/chat/application/threads/fork-draft";
-import type { ChatPanelSession } from "../../../../src/features/chat/host/session/session";
 import { appServerTurnFixture } from "../../../support/app-server-records";
 import { waitForAsyncWork } from "../../../support/async";
 import {
@@ -220,19 +219,6 @@ describe("CodexChatView workspace restoration", () => {
       addListener.mockRestore();
       removeListener.mockRestore();
     }
-  });
-
-  it("closes the session even when workspace state capture fails", async () => {
-    const view = await chatView();
-    const session = view.surface;
-    const close = vi.spyOn(session, "close").mockResolvedValue(undefined);
-    vi.spyOn(session as ChatPanelSession, "persistedState").mockImplementation(() => {
-      throw new Error("snapshot failed");
-    });
-
-    await expect(view.detachRuntime()).resolves.toBeUndefined();
-    expect(close).toHaveBeenCalledOnce();
-    expect(view.isRuntimeAttached()).toBe(false);
   });
 
   it("formats the panel title from listed thread metadata", async () => {

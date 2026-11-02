@@ -155,13 +155,8 @@ describe("selection quotation labels", () => {
     expect(prepared.text).toBe(text);
   });
 
-  it.each(
-    [
-      { mode: "Reading", reference: reading("selected") },
-      { mode: "editor", reference: editor("selected", 0) },
-    ].flatMap(({ mode, reference }) => ["    ", "`", "```text\n"].map((prefix) => ({ mode, reference, prefix }))),
-  )("keeps $mode quotations inside surrounding Markdown code opaque ($prefix)", ({ reference, prefix }) => {
-    const snapshot = captureSelectionContext(reference, []);
+  it.each(["    ", "`", "```text\n"])("keeps quotations inside surrounding Markdown code opaque (%s)", (prefix) => {
+    const snapshot = captureSelectionContext(reading("selected"), []);
     const suffix = prefix === "`" ? "`" : prefix.startsWith("```") ? "\n```" : "";
     const text = prefix + snapshot.marker + suffix;
     const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(

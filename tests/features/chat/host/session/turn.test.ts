@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createMetadataResourceDiagnostics } from "../../../../../src/domain/runtime/diagnostics";
 import type { ToolInventorySnapshot } from "../../../../../src/domain/runtime/tool-inventory";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import { createChatPanelRuntimeNotices } from "../../../../../src/features/chat/host/runtime/notices";
 import { createSessionTurn } from "../../../../../src/features/chat/host/session/turn";
 import { deferred } from "../../../../support/async";
 import { panelThreadFixture } from "../../../../support/panel-thread";
@@ -13,21 +15,7 @@ const createInput = installComposerInputFixtures();
 afterEach(() => vi.restoreAllMocks());
 
 describe("createSessionTurn", () => {
-  it("sends only plan text without composer context when implementing a plan", async () => {
-    const stateStore = createChatStateStore();
-    resumeThread(stateStore, [
-      { id: "plan", kind: "dialogue", role: "assistant", text: "Plan", dialogueKind: "proposedPlan", dialogueState: "completed" },
-    ]);
-    const fixture = sessionTurnFixture({ stateStore });
-    await fixture.turn.submissionCommands.planImplementation.implement("plan");
-    expect(fixture.startTurn).toHaveBeenCalledWith({
-      threadId: "thread",
-      input: [{ type: "text", text: "Please implement this plan." }],
-      clientUserMessageId: expect.any(String),
-    });
-  });
-
-  it("prevents a direct send from overtaking a plan submission waiting for connection", async () => {
+  it("sends only plan text and prevents a direct send from overtaking it while connecting", async () => {
     const stateStore = createChatStateStore();
     resumeThread(stateStore, [
       { id: "plan", kind: "dialogue", role: "assistant", text: "Plan", dialogueKind: "proposedPlan", dialogueState: "completed" },
@@ -45,9 +33,11 @@ describe("createSessionTurn", () => {
     expect(fixture.composer.draft).toBe("Another send");
     connection.resolve(true);
     await plan;
-    expect(fixture.startTurn).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ input: [{ type: "text", text: "Please implement this plan." }] }),
-    );
+    expect(fixture.startTurn).toHaveBeenCalledExactlyOnceWith({
+      threadId: "thread",
+      input: [{ type: "text", text: "Please implement this plan." }],
+      clientUserMessageId: expect.any(String),
+    });
   });
 
   it.each(["connection", "turn"])("preserves the editable draft when implementing a plan fails at %s", async (failure) => {
@@ -78,14 +68,27 @@ describe("createSessionTurn", () => {
     expect(fixture.runtimeProjection.toolInventoryDetails).not.toHaveBeenCalled();
     expect(fixture.status.addStructuredSystemMessage).not.toHaveBeenCalled();
 
-    inventory.resolve(toolInventory());
+    inventory.resolve({
+      ...toolInventory(),
+      mcpServers: [
+        {
+          name: "codex_apps",
+          authStatus: "oAuth",
+          toolCount: 2,
+          toolDiscoveryFailed: false,
+          connectionStatus: "connected",
+          codexAppIds: ["github", "gmail"],
+        },
+      ],
+    });
     await submission;
 
     expect(fixture.ensureToolInventory).toHaveBeenCalledOnce();
     expect(fixture.runtimeProjection.toolInventoryDetails).toHaveBeenCalledOnce();
-    expect(fixture.status.addStructuredSystemMessage).toHaveBeenCalledWith("Codex capabilities", [
-      { title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "github, gmail" }] },
-    ]);
+    expect(fixture.status.addStructuredSystemMessage).toHaveBeenCalledWith(
+      "Codex capabilities",
+      expect.arrayContaining([{ title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "github, gmail" }] }]),
+    );
   });
 
   it("routes reference preparation failures through the session turn", async () => {
@@ -123,7 +126,7 @@ function sessionTurnFixture(
     referThread?: ReturnType<typeof vi.fn>;
     threads?: readonly import("../../../../../src/domain/threads/model").Thread[];
     toolInventory?: ToolInventorySnapshot | null;
-    ensureToolInventory?: ReturnType<typeof vi.fn>;
+    ensureToolInventory?: () => Promise<ToolInventorySnapshot>;
   } = {},
 ) {
   const stateStore = options.stateStore ?? createChatStateStore();
@@ -134,15 +137,8 @@ function sessionTurnFixture(
     addSystemMessage: vi.fn(),
     addStructuredSystemMessage: vi.fn(),
   };
-  const runtimeProjection = {
-    connectionDiagnosticDetails: vi.fn(() => []),
-    modelStatusDetails: vi.fn(() => []),
-    effortStatusDetails: vi.fn(() => []),
-    statusDetails: vi.fn(() => []),
-    permissionDetails: vi.fn(() => []),
-    toolInventoryDetails: vi.fn(() => [{ title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "github, gmail" }] }]),
-  };
   const ensureToolInventory = options.ensureToolInventory ?? vi.fn().mockResolvedValue(toolInventory());
+  let inventorySnapshot = options.toolInventory ?? null;
   const startTurn = vi.fn().mockResolvedValue({ kind: "completed", value: { turnId: "turn" } });
   const sharedResources = {
     runtimeConfigSnapshot: () => null,
@@ -150,11 +146,23 @@ function sessionTurnFixture(
     modelsSnapshot: () => null,
     skillsSnapshot: () => [],
     permissionProfilesSnapshot: () => [],
+    metadataDiagnosticsSnapshot: createMetadataResourceDiagnostics,
     activeThreadsSnapshot: () => options.threads ?? null,
     subscribe: () => () => {},
-    toolInventorySnapshot: () => options.toolInventory ?? null,
-    ensureToolInventory,
+    toolInventorySnapshot: () => inventorySnapshot,
+    ensureToolInventory: async () => {
+      inventorySnapshot = await ensureToolInventory();
+      return inventorySnapshot;
+    },
   };
+  const runtimeProjection = createChatPanelRuntimeNotices({
+    state: () => stateStore.getState(),
+    connected: () => true,
+    configuredCommand: () => "codex",
+    vaultPath: () => "/vault",
+    sharedResources,
+  });
+  vi.spyOn(runtimeProjection, "toolInventoryDetails");
   const { input: composer } = createInput({
     stateStore,
     sharedResources,

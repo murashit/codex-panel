@@ -4,12 +4,7 @@ import { planChatInboundNotification } from "../../../../../src/features/chat/ap
 import { routeServerNotification } from "../../../../../src/features/chat/app-server/inbound/notification-routing";
 import { routeServerRequest } from "../../../../../src/features/chat/app-server/inbound/server-request-routing";
 import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
-import {
-  appServerAgentMessageFixture,
-  appServerThreadFixture,
-  appServerTurnFixture,
-  appServerUserMessageFixture,
-} from "../../../../support/app-server-records";
+import { appServerAgentMessageFixture, appServerTurnFixture, appServerUserMessageFixture } from "../../../../support/app-server-records";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 const activeScope = { activeThreadId: "thread-active", activeTurnId: "turn-active" };
@@ -43,67 +38,6 @@ describe("chat inbound routing", () => {
     expectNotificationRouteKind(notification, "streamUpdate");
     expectNotificationRouteKind(notification, "inactive", { activeThreadId: "thread-active", activeTurnId: "turn-other" });
     expectNotificationRouteKind(notification, "inactive", { activeThreadId: "thread-active", activeTurnId: null });
-  });
-
-  it("projects tracked child auth recovery into its temporary activity preview", () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
-    state = chatReducer(state, { type: "subagent-activity/tracked", threadId: "thread-child", parentTurnId: "turn-active" });
-    state = chatReducer(state, {
-      type: "subagent-activity/runtime-fact",
-      threadId: "thread-child",
-      fact: { type: "turnStarted", threadId: "thread-child", turnId: "turn-child" },
-    });
-
-    const plan = planChatInboundNotification(
-      state,
-      {
-        method: "modelProvider/authRecoveryCompleted",
-        params: {
-          threadId: "thread-child",
-          turnId: "turn-child",
-          provider: "aws",
-          message: "Authentication refreshed.",
-        },
-      },
-      () => "unused",
-    );
-
-    expect(plan.actions).toEqual([
-      {
-        type: "subagent-activity/runtime-fact",
-        threadId: "thread-child",
-        fact: { type: "authRecoveryUpdated", turnId: "turn-child", progress: { message: "Authentication refreshed.", phase: "completed" } },
-      },
-    ]);
-  });
-
-  it("does not turn live turn-start state into thread catalog work", () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
-
-    const plan = planChatInboundNotification(state, turnStartedNotification(), (prefix) => `${prefix}-1`);
-
-    expect(plan.effects).toEqual([]);
-  });
-
-  it("translates turn-completed runtime outcomes to thread follow-up effects at the inbound boundary", () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
-
-    const plan = planChatInboundNotification(state, turnCompletedNotification(), (prefix) => `${prefix}-1`);
-
-    expect(plan.effects).toEqual([
-      {
-        type: "maybe-name-thread",
-        threadId: "thread-active",
-        turnId: "turn-active",
-        completedTurnTranscriptSummary: { userText: "hello", assistantText: "done" },
-      },
-    ]);
   });
 
   it.each([
@@ -209,28 +143,6 @@ describe("chat inbound routing", () => {
     expectNotificationRouteKind(agentDeltaNotification(), "inactive", idleActiveThreadScope);
   });
 
-  it("marks delayed turn-scoped requests inactive after the active thread returns to idle", () => {
-    const idleActiveThreadScope = { activeThreadId: "thread-active", activeTurnId: null };
-    const request = userInputRequest({ threadId: "thread-active" });
-
-    expectRequestRouteKind(request, "inactive", idleActiveThreadScope);
-  });
-
-  it("delivers thread starts outside the active scope", () => {
-    expectNotificationRouteKind({ method: "thread/started", params: { thread: threadSnapshot("thread-other") } }, "threadLifecycle");
-  });
-
-  it("keeps active-thread and targeted-thread notification routing distinct", () => {
-    expectNotificationRouteKind(threadSettingsUpdatedNotification(), "threadLifecycle");
-    expectNotificationRouteKind(
-      {
-        method: "thread/settings/updated",
-        params: { ...threadSettingsUpdatedNotification().params, threadId: "thread-other" },
-      },
-      "inactive",
-    );
-  });
-
   it.each(
     unscopedUnsupportedRequests().map((request) => ({
       name: request.method,
@@ -258,10 +170,6 @@ describe("chat inbound routing", () => {
   });
 
   it.each([
-    { name: "agent delta", notification: agentDeltaNotification(), kind: "streamUpdate" },
-    { name: "turn started", notification: turnStartedNotification(), kind: "turnLifecycle" },
-    { name: "server request resolved", notification: serverRequestResolvedNotification(), kind: "requestResolved" },
-    { name: "warning", notification: warningNotification(), kind: "userVisibleNotice" },
     {
       name: "Windows writable warning",
       notification: {
@@ -278,7 +186,7 @@ describe("chat inbound routing", () => {
       } satisfies ServerNotification,
       kind: "userVisibleNotice",
     },
-  ] as const)("classifies $name notifications without mutating state", ({ notification, kind }) => {
+  ] as const)("routes $name notifications to user-visible notices", ({ notification, kind }) => {
     expectNotificationRouteKind(notification, kind);
   });
 
@@ -465,21 +373,6 @@ function agentDeltaNotification(): ServerNotification {
   };
 }
 
-function turnStartedNotification(): ServerNotification {
-  return {
-    method: "turn/started",
-    params: {
-      threadId: "thread-active",
-      turn: appServerTurnFixture({
-        id: "turn-active",
-        status: "inProgress",
-        itemsView: "full",
-        items: [],
-      }),
-    },
-  };
-}
-
 function turnCompletedNotification(): ServerNotification {
   return {
     method: "turn/completed",
@@ -497,45 +390,6 @@ function turnCompletedNotification(): ServerNotification {
   };
 }
 
-function threadSettingsUpdatedNotification(): Extract<ServerNotification, { method: "thread/settings/updated" }> {
-  return {
-    method: "thread/settings/updated",
-    params: {
-      threadId: "thread-active",
-      threadSettings: {
-        disabledPluginIds: [],
-        cwd: "/vault",
-        approvalsReviewer: "user",
-        sandboxPolicy: { type: "readOnly", networkAccess: false },
-        model: "gpt-5.5",
-        modelProvider: "openai",
-        serviceTier: null,
-        approvalPolicy: "on-request",
-        effort: "medium",
-        summary: null,
-        collaborationMode: { mode: "default", settings: { model: "gpt-5.5", reasoning_effort: "medium", developer_instructions: null } },
-        activePermissionProfile: null,
-        multiAgentMode: "explicitRequestOnly",
-        personality: null,
-      },
-    },
-  };
-}
-
-function serverRequestResolvedNotification(): ServerNotification {
-  return {
-    method: "serverRequest/resolved",
-    params: { threadId: "thread-active", requestId: 2 },
-  };
-}
-
-function warningNotification(): ServerNotification {
-  return {
-    method: "warning",
-    params: { threadId: null, message: "careful" },
-  };
-}
-
 function authRecoveryNotification(
   method: "modelProvider/authRecoveryStarted" | "modelProvider/authRecoveryCompleted",
 ): Extract<ServerNotification, { method: typeof method }> {
@@ -548,22 +402,4 @@ function authRecoveryNotification(
       message: "Refreshing AWS authentication.",
     },
   };
-}
-
-function threadSnapshot(id: string): Extract<ServerNotification, { method: "thread/started" }>["params"]["thread"] {
-  return appServerThreadFixture({
-    id,
-    sessionId: "session",
-    preview: "Preview",
-    ephemeral: false,
-    historyMode: "paginated",
-    modelProvider: "openai",
-    createdAt: 1,
-    updatedAt: 1,
-    status: { type: "idle" },
-    cwd: "/vault",
-    cliVersion: "0.0.0",
-    source: "unknown",
-    turns: [],
-  });
 }

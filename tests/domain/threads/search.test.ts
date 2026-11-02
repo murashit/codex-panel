@@ -64,10 +64,14 @@ describe("thread search", () => {
   it("uses recency for empty searches", () => {
     expect(
       threadSearchMatches(
-        [thread({ id: "updated-newer", updatedAt: 20, recencyAt: 10 }), thread({ id: "recent", updatedAt: 10, recencyAt: 30 })],
+        [
+          thread({ id: "updated-newer", updatedAt: 20, recencyAt: 10 }),
+          thread({ id: "recent", updatedAt: 10, recencyAt: 30 }),
+          thread({ id: "updated-only", updatedAt: 25, recencyAt: null }),
+        ],
         "",
       ).map((match) => match.thread.id),
-    ).toEqual(["recent", "updated-newer"]);
+    ).toEqual(["recent", "updated-only", "updated-newer"]);
   });
 
   it("normalizes padded queries and returns a normalized query when nothing matches", () => {

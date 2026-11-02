@@ -98,10 +98,12 @@ describe("ChatConnectionCoordinator", () => {
     expect(stateStore.getState().connection.initializeResponse?.codexHome).toBe("/current");
   });
 
-  it("connects once and publishes startup metadata", async () => {
+  it.each(["metadata", "threads"] as const)("starts independent hydration without waiting for %s", async (resource) => {
     const { connect, coordinator, ensureAppServerMetadata, host, stateStore } = createCoordinatorHarness();
+    const pending = deferred<void>();
+    vi.mocked(resource === "metadata" ? ensureAppServerMetadata : host.ensureSharedThreads).mockReturnValueOnce(pending.promise);
 
-    await coordinator.ensureHydrated();
+    await coordinator.ensureConnected();
 
     expect(connect).toHaveBeenCalledOnce();
     expect(stateStore.getState().connection.initializeResponse).toEqual({
@@ -110,19 +112,6 @@ describe("ChatConnectionCoordinator", () => {
       platformOs: "macos",
       userAgent: "test",
     });
-    expect(ensureAppServerMetadata).toHaveBeenCalledOnce();
-    expect(host.ensureSharedThreads).toHaveBeenCalledOnce();
-    expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
-  });
-
-  it.each(["metadata", "threads"] as const)("starts independent hydration without waiting for %s", async (resource) => {
-    const { coordinator, ensureAppServerMetadata, host, stateStore } = createCoordinatorHarness();
-    const pending = deferred<void>();
-    vi.mocked(resource === "metadata" ? ensureAppServerMetadata : host.ensureSharedThreads).mockReturnValueOnce(pending.promise);
-
-    await coordinator.ensureConnected();
-
-    expect(stateStore.getState().connection.initializeResponse).toMatchObject({ codexHome: "/codex" });
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
     expect(ensureAppServerMetadata).toHaveBeenCalledOnce();
     expect(host.ensureSharedThreads).toHaveBeenCalledOnce();

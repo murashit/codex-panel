@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { isVaultConfigPath, pathRelativeToRoot, vaultRelativePath } from "../../../src/domain/files/paths";
-import { parseFileHref, vaultRelativeFileHref } from "../../../src/domain/files/vault-links";
+import { parseFileHref, vaultRelativeFileHref, vaultRelativeFileLinkTarget } from "../../../src/domain/files/vault-links";
 
 describe("file path helpers", () => {
   it("keeps nested paths inside POSIX and Windows vaults and rejects traversal beyond them", () => {
@@ -28,6 +28,9 @@ describe("file path helpers", () => {
       path: "docs/Guide Book.md",
       subpath: "#Heading 1",
     });
+    expect(vaultRelativeFileLinkTarget("/Vault", ".obsidian", "/Vault/docs/Missing%20Note.md:12#Heading%201")).toBe(
+      "docs/Missing Note.md#Heading 1",
+    );
   });
 
   it("keeps external hrefs out of file path handling", () => {

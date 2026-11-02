@@ -43,7 +43,7 @@ describe("app-server query resources", () => {
   it("publishes exact goal notification transitions once", () => {
     const cache = cacheWithRequestHandlers({});
     const current = threadGoalFixture({ objective: "Current" });
-    const next = threadGoalFixture({ objective: "Next" });
+    const next = threadGoalFixture({ objective: "Next", status: "paused", tokenBudget: 100, tokensUsed: 42, timeUsedSeconds: 12 });
     cache.threadGoalQueries.applyNotification({
       method: "thread/goal/updated",
       params: { threadId: "thread", turnId: null, goal: { ...current, createdAt: 1, updatedAt: 1 } },
@@ -72,6 +72,39 @@ describe("app-server query resources", () => {
     expect(firstPanelChanges).not.toHaveBeenCalled();
     expect(secondPanelChanges).toHaveBeenCalledExactlyOnceWith("thread", next, null);
   });
+
+  it.each([
+    { notification: "updated", staleRead: "resolves" },
+    { notification: "updated", staleRead: "rejects" },
+    { notification: "cleared", staleRead: "resolves" },
+  ] as const)(
+    "keeps a goal $notification notification authoritative when its pending read $staleRead",
+    async ({ notification, staleRead }) => {
+      const pending = deferred<{ goal: ThreadGoal | null }>();
+      const reads = vi.fn(() => pending.promise);
+      const cache = cacheWithRequestHandlers({ "thread/goal/get": reads });
+      const listener = vi.fn();
+      const unsubscribe = cache.threadGoalQueries.observe("thread", listener);
+      await vi.waitFor(() => expect(reads).toHaveBeenCalledOnce());
+      const current = threadGoalFixture({ objective: "Current notification" });
+      cache.threadGoalQueries.applyNotification(
+        notification === "updated"
+          ? {
+              method: "thread/goal/updated",
+              params: { threadId: "thread", turnId: null, goal: { ...current, createdAt: 1, updatedAt: 1 } },
+            }
+          : { method: "thread/goal/cleared", params: { threadId: "thread" } },
+      );
+      if (staleRead === "rejects") pending.reject(new Error("stale goal unavailable"));
+      else pending.resolve({ goal: threadGoalFixture({ objective: "Stale read" }) });
+      await flushMicrotasks();
+
+      expect(cache.threadGoalQueries.snapshot("thread")).toEqual(notification === "updated" ? current : null);
+      expect(listener).toHaveBeenLastCalledWith(notification === "updated" ? current : null, null);
+      unsubscribe();
+      cache.scope.dispose();
+    },
+  );
 
   it("unsubscribes one goal observer without interrupting another", () => {
     const cache = cacheWithRequestHandlers({});
@@ -351,17 +384,8 @@ describe("app-server query resources", () => {
     expect(listener).not.toHaveBeenCalled();
   });
 
-  it("stores successful empty thread list snapshots as shared cache truth", async () => {
+  it("reuses a successful empty active thread query for reads and new observers", async () => {
     const fetchThreads = vi.fn().mockResolvedValue([]);
-    const cache = cacheWithThreads(fetchThreads);
-
-    await cache.threadCatalog.refreshActiveThreads();
-    expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([]);
-    expect(fetchThreads).toHaveBeenCalledOnce();
-  });
-
-  it("reuses a successful active thread query until it is explicitly invalidated", async () => {
-    const fetchThreads = vi.fn().mockResolvedValue([thread("cached")]);
     const cache = cacheWithThreads(fetchThreads);
 
     await cache.threadCatalog.fetchActiveThreads();
@@ -369,7 +393,7 @@ describe("app-server query resources", () => {
     const unsubscribe = cache.threadCatalog.observeActiveThreadsResult(listener);
     try {
       expect(listener).toHaveBeenCalledExactlyOnceWith({
-        value: [thread("cached")],
+        value: [],
         error: null,
         isFetching: false,
         hasMore: false,
@@ -378,7 +402,7 @@ describe("app-server query resources", () => {
     } finally {
       unsubscribe();
     }
-    await expect(cache.threadCatalog.fetchActiveThreads()).resolves.toEqual([thread("cached")]);
+    await expect(cache.threadCatalog.fetchActiveThreads()).resolves.toEqual([]);
 
     expect(fetchThreads).toHaveBeenCalledOnce();
   });
@@ -518,7 +542,10 @@ describe("app-server query resources", () => {
       }
       if (request.cursor === "page-2") return Promise.resolve({ data: [thread("older")], nextCursor: null });
       return Promise.resolve({
-        data: [{ ...thread("pinned"), section: { id: BUILT_IN_PINNED_THREAD_SECTION_ID, name: "Pinned" } }, thread("recent")],
+        data: [
+          { ...thread("pinned"), section: { id: BUILT_IN_PINNED_THREAD_SECTION_ID, name: "Pinned" } },
+          { ...thread("recent"), recencyAt: 10 },
+        ],
         nextCursor: "page-2",
       });
     });

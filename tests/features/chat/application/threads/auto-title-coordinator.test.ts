@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../../../src/domain/threads/model";
 
 import { createAutoTitleCoordinator } from "../../../../../src/features/chat/application/threads/auto-title-coordinator";
+import { completedTurnTitleContext } from "../../../../../src/features/chat/application/threads/title-context";
 
 describe("AutoTitleCoordinator", () => {
   it("does not submit a title when the thread already has one", () => {
@@ -76,8 +77,7 @@ function catalogThreadById(name: string | null = null) {
 function autoTitleFixture() {
   const submitTitleWork = vi.fn();
   const coordinator = createAutoTitleCoordinator({
-    completedTurnTitleContext: (_turnId, summary) =>
-      summary?.userText && summary.assistantText ? { userRequest: summary.userText, assistantResponse: summary.assistantText } : null,
+    completedTurnTitleContext: (turnId, summary) => completedTurnTitleContext(turnId, [], summary),
     submitTitleWork,
     threadById: catalogThreadById(),
   });
