@@ -10,7 +10,8 @@ export function composerBoundaryScrollActionFromElement(
   if (!composer || event.isComposing || event.metaKey || event.altKey || event.shiftKey) return null;
   const action = composerBoundaryScrollKeyAction(event);
   if (!action) return null;
-  if (action.kind === "scroll-to" || action.amount === "page") return action;
+  if (action.kind === "scroll-to") return composer.value.length === 0 ? action : null;
+  if (action.amount === "page") return action;
   if (composer.selectionStart !== composer.selectionEnd) return null;
   const cursorAtTextBoundary =
     action.direction === -1

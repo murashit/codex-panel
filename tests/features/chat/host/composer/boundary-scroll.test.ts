@@ -41,12 +41,6 @@ describe("composer boundary scroll shortcuts", () => {
     });
   });
 
-  it("scrolls to stream edges from any composer line for Home and End", () => {
-    expect(direction("Home", "first\nsecond", 9)).toEqual({ kind: "scroll-to", edge: "start" });
-    expect(direction("End", "first\nsecond", 3)).toEqual({ kind: "scroll-to", edge: "end" });
-    expect(direction("End", "first\nsecond", 3, { cursorEnd: 8 })).toEqual({ kind: "scroll-to", edge: "end" });
-  });
-
   it("keeps normal cursor movement away from composer edges", () => {
     expect(direction("ArrowUp", "first\nsecond", 8)).toBeNull();
     expect(direction("ArrowDown", "first\nsecond", 3)).toBeNull();
@@ -57,11 +51,16 @@ describe("composer boundary scroll shortcuts", () => {
     expect(direction("ArrowDown", "wrapped last line", 8, { wrapped: true })).toBeNull();
   });
 
-  it("ignores selections, composition, and modified arrow keys", () => {
+  it("keeps arrow-key selections", () => {
     expect(direction("ArrowUp", "first\nsecond", 3, { cursorEnd: 4 })).toBeNull();
-    expect(direction("ArrowUp", "first\nsecond", 3, { isComposing: true })).toBeNull();
-    expect(direction("ArrowUp", "first\nsecond", 3, { shiftKey: true })).toBeNull();
-    expect(direction("ArrowUp", "first\nsecond", 3, { altKey: true })).toBeNull();
+  });
+
+  it.each(["Home", "End"])("ignores composition and modified %s keys", (key) => {
+    expect(direction(key, "", 0, { isComposing: true })).toBeNull();
+    expect(direction(key, "", 0, { ctrlKey: true })).toBeNull();
+    expect(direction(key, "", 0, { metaKey: true })).toBeNull();
+    expect(direction(key, "", 0, { shiftKey: true })).toBeNull();
+    expect(direction(key, "", 0, { altKey: true })).toBeNull();
   });
 });
 
