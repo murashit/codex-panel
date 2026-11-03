@@ -3,7 +3,6 @@ import type {
   ComposerAttachmentHandler,
   ComposerAttachmentSaveResult,
 } from "../../../../../src/features/chat/application/composer/attachments";
-import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { deferred } from "../../../../support/async";
 import { panelThreadFixture } from "../../../../support/panel-thread";
@@ -13,6 +12,7 @@ import {
   attachmentSaveResult,
   contextProvider,
   installComposerInputFixtures,
+  resumeComposerThread,
 } from "../../support/composer-input-fixture";
 import { chatStateFixture } from "../../support/state";
 
@@ -256,13 +256,6 @@ describe("ComposerInput attachment lifetime", () => {
     claim?.settle("accepted");
   });
 });
-function resumeComposerThread(stateStore: ChatStateStore, threadId: string, created = false): void {
-  stateStore.dispatch({
-    ...threadActivationFixture(panelThreadFixture({ id: threadId })),
-    type: created ? "active-thread/created" : "active-thread/resumed",
-  });
-}
-
 function pendingAttachmentFixture(
   overrides: Partial<import("../../../../../src/features/chat/application/composer/input").ComposerInputOptions> = {},
 ) {

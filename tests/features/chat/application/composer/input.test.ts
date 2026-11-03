@@ -1,15 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
-import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { panelThreadFixture } from "../../../../support/panel-thread";
-import { threadActivationFixture } from "../../../../support/thread-activation";
 import {
   contextProvider,
   editorReference,
   installComposerInputFixtures,
   noteProvider,
   readingReference,
+  resumeComposerThread,
   sharedResourcesFixture,
 } from "../../support/composer-input-fixture";
 import { chatStateFixture } from "../../support/state";
@@ -411,13 +410,6 @@ describe("ComposerInput", () => {
     expect(input.captureInputSnapshot().selectionSnapshots).toEqual([]);
   });
 });
-function resumeComposerThread(stateStore: ChatStateStore, threadId: string, created = false): void {
-  stateStore.dispatch({
-    ...threadActivationFixture(panelThreadFixture({ id: threadId })),
-    type: created ? "active-thread/created" : "active-thread/resumed",
-  });
-}
-
 function expectPresent<T>(value: T | null | undefined): T {
   expect(value).not.toBeNull();
   expect(value).not.toBeUndefined();
