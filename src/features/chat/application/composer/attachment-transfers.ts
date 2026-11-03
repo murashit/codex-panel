@@ -111,16 +111,13 @@ export class ComposerAttachmentTransfers {
 
   private settlePendingSave(pending: PendingAttachmentSave, savedAttachments: readonly ComposerAttachment[] | null): void {
     this.insertions.delete(pending.id);
-    const state = this.state;
-    if (pendingAttachmentLinkRange(state.composer.draft, pending.destination) === null) return;
+    const draft = this.state.composer.draft;
+    const range = pendingAttachmentLinkRange(draft, pending.destination);
+    if (!range) return;
     const replacement = savedAttachments?.length
-      ? replacePendingAttachmentPlaceholder(
-          state.composer.draft,
-          pending,
-          savedAttachments.map((attachment) => attachment.marker),
-        )
-      : replacePendingAttachmentWithOriginalText(state.composer.draft, pending);
-    this.options.setSelection(adjustedComposerSelection(this.options.selection(), state.composer.draft, replacement));
+      ? replaceDraftRange(draft, range.start, range.end, savedAttachments.map((attachment) => attachment.marker).join("\n"))
+      : replacePendingAttachmentWithOriginalText(draft, pending, range);
+    this.options.setSelection(adjustedComposerSelection(this.options.selection(), draft, replacement));
     if (savedAttachments !== null) this.options.onDraftReplaced(replacement.value, savedAttachments);
     this.reconcileDraft(replacement.value);
   }
@@ -150,14 +147,11 @@ function pendingAttachmentDestination(id: number): string {
   return `codex-panel-pending-attachment:${String(id)}`;
 }
 
-function replacePendingAttachmentPlaceholder(draft: string, pending: PendingAttachmentSave, markers: readonly string[]): DraftReplacement {
-  const range = pendingAttachmentLinkRange(draft, pending.destination);
-  return range ? replaceDraftRange(draft, range.start, range.end, markers.join("\n")) : unchangedDraftReplacement(draft);
-}
-
-function replacePendingAttachmentWithOriginalText(draft: string, pending: PendingAttachmentSave): DraftReplacement {
-  const range = pendingAttachmentLinkRange(draft, pending.destination);
-  if (!range) return unchangedDraftReplacement(draft);
+function replacePendingAttachmentWithOriginalText(
+  draft: string,
+  pending: PendingAttachmentSave,
+  range: { start: number; end: number },
+): DraftReplacement {
   const prefixStart = range.start - pending.syntheticPrefix.length;
   const start = prefixStart >= 0 && draft.slice(prefixStart, range.start) === pending.syntheticPrefix ? prefixStart : range.start;
   const suffixEnd = range.end + pending.syntheticSuffix.length;
@@ -218,8 +212,4 @@ function replaceDraftRange(draft: string, start: number, end: number, replacemen
     end,
     replacementLength: replacement.length,
   };
-}
-
-function unchangedDraftReplacement(draft: string): DraftReplacement {
-  return { value: draft, start: draft.length, end: draft.length, replacementLength: 0 };
 }

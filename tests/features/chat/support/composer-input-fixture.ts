@@ -10,7 +10,9 @@ import { ComposerInput, type ComposerInputOptions } from "../../../../src/featur
 import type { NoteCandidateProvider } from "../../../../src/features/chat/application/composer/note-context";
 import { prepareComposerInput } from "../../../../src/features/chat/application/composer/prepared-input";
 import type { ComposerSelection } from "../../../../src/features/chat/application/composer/selection";
-import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
+import { type ChatStateStore, createChatStateStore } from "../../../../src/features/chat/application/state/store";
+import { panelThreadFixture } from "../../../support/panel-thread";
+import { threadActivationFixture } from "../../../support/thread-activation";
 import { substringMatcher } from "../application/composer/fuzzy-matcher.test-support";
 
 // These providers stand in for Obsidian and shared app-server queries. The input,
@@ -102,6 +104,13 @@ export function sharedResourcesFixture(
     activeThreadsSnapshot: () => options.threads ?? null,
     subscribe: () => () => {},
   };
+}
+
+export function resumeComposerThread(stateStore: ChatStateStore, threadId: string, created = false): void {
+  stateStore.dispatch({
+    ...threadActivationFixture(panelThreadFixture({ id: threadId })),
+    type: created ? "active-thread/created" : "active-thread/resumed",
+  });
 }
 
 export function noteProvider(overrides: Partial<NoteCandidateProvider> = {}): NoteCandidateProvider {

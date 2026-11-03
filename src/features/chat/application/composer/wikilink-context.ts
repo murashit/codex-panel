@@ -21,7 +21,6 @@ interface ParsedWikiLink {
   raw: string;
   target: string;
   subpath: string;
-  display: string;
 }
 
 interface ObsidianReference {
@@ -235,14 +234,13 @@ function parseWikiLink(raw: string): ParsedWikiLink | null {
 
   const separator = trimmed.indexOf("|");
   const linktext = (separator === -1 ? trimmed : trimmed.slice(0, separator)).trim();
-  const display = separator === -1 ? "" : trimmed.slice(separator + 1).trim();
   if (!linktext) return null;
 
   const parsed = parseWikiLinkTarget(linktext);
   const target = parsed.path.trim();
   const subpath = parsed.subpath.trim();
   if (!target) return null;
-  return { raw, target, subpath, display };
+  return { raw, target, subpath };
 }
 
 function parseWikiLinkTarget(linktext: string): { path: string; subpath: string } {
