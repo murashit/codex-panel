@@ -101,14 +101,18 @@ describe("thread slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("No active thread to roll back.");
   });
 
-  it("archives a selected thread by quoted title", async () => {
+  it.each([
+    { otherTitle: "Alpha", archiveCalls: [["thread-beta", undefined, undefined]], messages: [] },
+    { otherTitle: "Beta thread", archiveCalls: [], messages: [expect.stringContaining("Multiple matching threads:")] },
+  ])("archives a quoted title only when it is unambiguous (other title=$otherTitle)", async ({ otherTitle, archiveCalls, messages }) => {
     const ctx = context({
-      listedThreads: [thread({ id: "thread-alpha", name: "Alpha" }), thread({ id: "thread-beta", name: "Beta thread" })],
+      listedThreads: [thread({ id: "thread-alpha", name: otherTitle }), thread({ id: "thread-beta", name: "Beta thread" })],
     });
 
     await executeThreadSlashCommand("archive", '"Beta thread"', ctx);
 
-    expect(ctx.threadCommands.archiveThread).toHaveBeenCalledWith("thread-beta", undefined, undefined);
+    expect(vi.mocked(ctx.threadCommands.archiveThread).mock.calls).toEqual(archiveCalls);
+    expect(vi.mocked(ctx.addSystemMessage).mock.calls.flat()).toEqual(messages);
     expect(ctx.submission.adoptPanelTarget).not.toHaveBeenCalled();
   });
 

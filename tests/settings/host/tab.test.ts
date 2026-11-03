@@ -646,6 +646,47 @@ describe("settings tab", () => {
     tab.containerEl.remove();
   });
 
+  it("retries a rejected hook toggle and refreshes its controls after enabling and disabling", async () => {
+    const hooks = [hook({ enabled: false })];
+    const client = settingsClient({ hooks });
+    useContextClients(client);
+    const tab = newSettingsTab();
+    tab.display();
+    await flushPromises();
+    const write = client.requestHandlers["config/batchWrite"];
+    if (!write) throw new Error("Missing hook write handler");
+    const hookButton = () => {
+      const button = tab.containerEl.querySelector<HTMLButtonElement>(".codex-panel-settings__hook-row button");
+      if (!button) throw new Error("Missing hook toggle");
+      return button;
+    };
+    write.mockRejectedValueOnce(new Error("config is read-only"));
+
+    hookButton().click();
+    await flushPromises();
+
+    expect(notices).toEqual(["Could not update hook: config is read-only"]);
+    expect(hookButton().textContent).toBe("Enable");
+    expect(hookButton().disabled).toBe(false);
+
+    hooks[0] = hook({ enabled: true });
+    hookButton().click();
+    await flushPromises();
+
+    expect(write.mock.calls[1]?.[0]).toMatchObject({ edits: [{ value: { "hook-key": { enabled: true } } }] });
+    expect(hookButton().textContent).toBe("Disable");
+    expect(tab.containerEl.querySelector(".codex-panel-settings__hook-row")?.textContent).toContain("trusted · enabled");
+
+    hooks[0] = hook({ enabled: false });
+    hookButton().click();
+    await flushPromises();
+
+    expect(write.mock.calls[2]?.[0]).toMatchObject({ edits: [{ value: { "hook-key": { enabled: false } } }] });
+    expect(hookButton().textContent).toBe("Enable");
+    expect(tab.containerEl.querySelector(".codex-panel-settings__hook-row")?.textContent).toContain("trusted · disabled");
+    tab.hide();
+  });
+
   it("shows a hook refresh failure without reporting a successful trust operation as failed", async () => {
     const client = settingsClient({ hooks: [hook({ trustStatus: "untrusted" })] });
     useContextClients(client);

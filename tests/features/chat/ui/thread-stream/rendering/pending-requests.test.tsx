@@ -603,19 +603,65 @@ describe("panel pending request rendering", () => {
     unmountUiRootInAct(parent);
   });
 
-  it("accepts MCP multi-select fields without panel-side cardinality validation", () => {
+  it.each([true, false])("submits edited MCP multi-select choices with a remaining selection=%s", (keepSelection) => {
     const parent = document.createElement("div");
-    const resolveMcpElicitation = vi.fn();
-
-    renderMcpRequest(parent, pendingMcpMultiSelectElicitation(), pendingRequestActions({ resolveMcpElicitation }));
-
-    expect(parent.querySelectorAll<HTMLInputElement>(".codex-panel__mcp-elicitation-checkbox")).toHaveLength(2);
-    actEvent(() => {
-      expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")).click();
+    const { stateStore, receive, pendingRequests } = pendingRequestFixture();
+    const responder = receive({
+      id: 53,
+      method: "mcpServer/elicitation/request",
+      params: {
+        threadId: "thread-active",
+        turnId: "turn-active",
+        serverName: "github",
+        mode: "form",
+        _meta: null,
+        message: "Choose labels",
+        requestedSchema: {
+          type: "object",
+          required: ["labels"],
+          properties: {
+            labels: { type: "array", title: "Labels", items: { type: "string", enum: ["bug", "docs"] }, minItems: 1n },
+          },
+        },
+      },
     });
+    const render = () => {
+      const snapshot = pendingRequestBlockSnapshotFromState({ ...stateStore.getState().requests, approvalDetails: new Set() });
+      renderThreadStreamBlocksInAct(
+        parent,
+        projectedThreadStream({
+          items: [{ id: "prompt", kind: "dialogue", role: "user", dialogueKind: "user", text: "Apply labels to the issue" }],
+          pendingRequests: pendingRequestContext({ signature: "mcp:53", snapshot, actions: pendingRequests.actions }),
+        }),
+      );
+    };
+    const toggle = (value: string) => {
+      actEvent(() => {
+        expectPresent(parent.querySelector<HTMLInputElement>(`input[value="${value}"]`)).click();
+      });
+      render();
+    };
+    try {
+      render();
+      toggle("bug");
+      toggle("docs");
+      expect([...parent.querySelectorAll<HTMLInputElement>("input:checked")].map((input) => input.value)).toEqual(["bug", "docs"]);
+      toggle("bug");
+      if (!keepSelection) toggle("docs");
 
-    expect(resolveMcpElicitation).toHaveBeenCalledWith(53, "accept");
-    unmountUiRootInAct(parent);
+      actEvent(() => {
+        expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")).click();
+      });
+
+      expect(responder.respond).toHaveBeenCalledExactlyOnceWith({
+        action: "accept",
+        content: { labels: keepSelection ? ["docs"] : [] },
+        _meta: null,
+      });
+      expect(stateStore.getState().requests.pendingMcpElicitations).toEqual([]);
+    } finally {
+      unmountUiRootInAct(parent);
+    }
   });
 
   it("keeps mixed MCP form fields wired to their drafts and supports declining the request", () => {
@@ -833,32 +879,6 @@ function pendingMcpElicitationSnapshot(elicitation: PendingMcpElicitation): Pend
       approvalDetails: new Set(),
     }).pendingMcpElicitations[0],
   );
-}
-
-function pendingMcpMultiSelectElicitation(): PendingRequestBlockSnapshot["pendingMcpElicitations"][number] {
-  return pendingMcpElicitationSnapshot({
-    requestId: 53,
-    params: {
-      turnId: null,
-      serverName: "github",
-      mode: "form",
-      message: "Choose labels",
-      fields: [
-        {
-          id: "labels",
-          title: "Labels",
-          description: null,
-          type: "multi-select",
-          required: true,
-          options: [
-            { value: "bug", label: "Bug" },
-            { value: "docs", label: "Docs" },
-          ],
-          defaultValue: [],
-        },
-      ],
-    },
-  });
 }
 
 function controlledOtherInput(parent = document.createElement("div")) {

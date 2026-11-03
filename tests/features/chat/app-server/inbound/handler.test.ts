@@ -165,6 +165,47 @@ describe("ChatInboundHandler", () => {
       ]);
     });
 
+    it("keeps MCP progress on the running tool instead of creating separate activity items", () => {
+      const handler = handlerForState(chatStateFixture({ activeThread: { id: "thread-active" } }));
+      handler.handleNotification(
+        turnNotification("turn/started", "thread-active", { id: "turn-active", status: "inProgress", itemsView: "full", items: [] }),
+      );
+      handler.handleNotification({
+        method: "item/started",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          startedAtMs: 1,
+          item: {
+            type: "mcpToolCall",
+            id: "lookup",
+            server: "notes",
+            tool: "search",
+            arguments: { query: "project" },
+            status: "inProgress",
+            result: null,
+            error: null,
+            durationMs: null,
+            appContext: null,
+            mcpAppUi: null,
+            pluginId: null,
+            readOnlyHint: null,
+          },
+        },
+      });
+
+      for (const message of ["Reading notes\n", "Found 3 matches"]) {
+        handler.handleNotification({
+          method: "item/mcpToolCall/progress",
+          params: { threadId: "thread-active", turnId: "turn-active", itemId: "lookup", message },
+        });
+      }
+
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([
+        expect.objectContaining({ id: "lookup", kind: "tool", toolName: "notes.search", output: "Reading notes\nFound 3 matches" }),
+      ]);
+    });
+
     it("applies token usage only to its thread", () => {
       const handler = handlerForState(activeRunningState());
       const tokenUsage = {
