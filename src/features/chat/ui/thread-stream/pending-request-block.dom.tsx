@@ -1,4 +1,4 @@
-import type { AccessibleInputHTMLAttributes, TargetedCompositionEvent, ComponentChild as UiNode } from "preact";
+import type { InputHTMLAttributes, TargetedCompositionEvent, ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../domain/pending-requests/aggregate";
 import { approvalDetailsDisclosureId } from "../../domain/pending-requests/disclosure-ids";
@@ -532,7 +532,7 @@ function McpElicitationFieldControl({
         field.type === "number" || field.type === "integer"
           ? { type: "number", step: field.type === "integer" ? "1" : "any" }
           : { type: "text" }
-      ) satisfies AccessibleInputHTMLAttributes;
+      ) satisfies InputHTMLAttributes;
       return (
         <input
           {...inputTypeProps}
@@ -667,7 +667,7 @@ function FreeformUserInput({
   question: PendingUserInputQuestionViewModel;
   actions: PendingRequestBlockActions;
 }): UiNode {
-  const inputTypeProps = (isSecret ? { type: "password" } : { type: "text" }) satisfies AccessibleInputHTMLAttributes;
+  const inputTypeProps = (isSecret ? { type: "password" } : { type: "text" }) satisfies InputHTMLAttributes;
   return (
     <input
       {...inputTypeProps}
