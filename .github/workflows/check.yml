@@ -224,7 +224,7 @@ jobs:
       - name: Maintain release PR or tag approved merge
         if: github.event_name == 'push'
         id: tagpr
-        uses: Songmu/tagpr@v1.21.3
+        uses: Songmu/tagpr@v1.21.4
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
 
