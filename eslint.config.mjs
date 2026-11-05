@@ -1,7 +1,6 @@
 import vitest from "@vitest/eslint-plugin";
 import { defineConfig } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
-import { PlainTextParser } from "eslint-plugin-obsidianmd/dist/lib/plainTextParser.js";
 import tseslint from "typescript-eslint";
 
 const sourceTypeScriptFiles = ["src/**/*.{ts,tsx}"];
@@ -16,7 +15,7 @@ export default defineConfig([
       obsidianmd,
     },
   },
-  ...obsidianmd.configs.recommended.map(obsidianSourceRecommendedConfig).filter(Boolean),
+  ...obsidianmd.configs.recommended.map(obsidianRecommendedConfig).filter(Boolean),
   ...tseslint.configs.strictTypeChecked.map((config) => ({
     ...config,
     files: sourceTypeScriptFiles,
@@ -82,34 +81,16 @@ export default defineConfig([
       "vitest/prefer-hooks-in-order": "error",
     },
   },
-  {
-    files: ["manifest.json"],
-    plugins: {
-      obsidianmd,
-    },
-    languageOptions: {
-      // Obsidian's manifest rule expects this parser's JSON output.
-      parser: tseslint.parser,
-    },
-    rules: {
-      "obsidianmd/validate-manifest": "error",
-    },
-  },
-  {
-    files: ["LICENSE"],
-    plugins: {
-      obsidianmd,
-    },
-    languageOptions: {
-      parser: PlainTextParser,
-    },
-    rules: {
-      "obsidianmd/validate-license": "error",
-    },
-  },
 ]);
 
-function obsidianSourceRecommendedConfig(config) {
+function obsidianRecommendedConfig(config) {
+  if (config.rules?.["obsidianmd/validate-manifest"] || config.rules?.["obsidianmd/validate-license"]) {
+    return {
+      ...config,
+      rules: Object.fromEntries(Object.keys(config.rules).map((rule) => [rule, "error"])),
+    };
+  }
+
   const rules = Object.fromEntries(
     Object.entries(config.rules ?? {})
       .filter(([ruleName]) => {
