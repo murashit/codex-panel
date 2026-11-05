@@ -3,25 +3,17 @@ import { defineConfig } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
 import tseslint from "typescript-eslint";
 
-const sourceTypeScriptFiles = ["src/**/*.{ts,tsx}"];
-
 export default defineConfig([
   {
     ignores: ["main.js", "node_modules/**", "src/generated/**"],
   },
   {
-    basePath: "src",
-    plugins: {
-      obsidianmd,
-    },
+    files: ["src/**/*.{ts,tsx}", "manifest.json", "LICENSE"],
+    extends: [obsidianmd.configs.recommended],
   },
-  ...obsidianmd.configs.recommended.map(obsidianRecommendedConfig).filter(Boolean),
-  ...tseslint.configs.strictTypeChecked.map((config) => ({
-    ...config,
-    files: sourceTypeScriptFiles,
-  })),
   {
-    files: sourceTypeScriptFiles,
+    files: ["src/**/*.{ts,tsx}"],
+    extends: [tseslint.configs.strictTypeChecked],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
@@ -29,20 +21,20 @@ export default defineConfig([
         tsconfigRootDir: import.meta.dirname,
         projectService: true,
       },
-      globals: {
-        AbortSignal: "readonly",
-        HTMLElement: "readonly",
-        HTMLTextAreaElement: "readonly",
-        KeyboardEvent: "readonly",
-        NodeJS: "readonly",
-        clearTimeout: "readonly",
-        console: "readonly",
-        document: "readonly",
-        requestAnimationFrame: "readonly",
-        setTimeout: "readonly",
-      },
     },
     rules: {
+      // Obsidian's replacement ignores its chaining `then` without weakening Promise checks.
+      "@typescript-eslint/no-misused-promises": "off",
+      // Allow local, explained exceptions under docs/development.md; the preset still requires descriptions.
+      "eslint-comments/no-restricted-disable": "off",
+      "obsidianmd/ui/sentence-case": [
+        "error",
+        {
+          enforceCamelCaseLower: true,
+          acronyms: ["MCP"],
+          brands: ["Codex", "Codex Panel", "Obsidian"],
+        },
+      ],
       // Biome import restrictions do not cover `import("...").T`; keep that type syntax out before source-boundary lint runs.
       "@typescript-eslint/consistent-type-imports": [
         "error",
@@ -82,43 +74,3 @@ export default defineConfig([
     },
   },
 ]);
-
-function obsidianRecommendedConfig(config) {
-  if (config.rules?.["obsidianmd/validate-manifest"] || config.rules?.["obsidianmd/validate-license"]) {
-    return {
-      ...config,
-      rules: Object.fromEntries(Object.keys(config.rules).map((rule) => [rule, "error"])),
-    };
-  }
-
-  const rules = Object.fromEntries(
-    Object.entries(config.rules ?? {})
-      .filter(([ruleName]) => {
-        return (
-          ruleName.startsWith("obsidianmd/") && ruleName !== "obsidianmd/validate-manifest" && ruleName !== "obsidianmd/validate-license"
-        );
-      })
-      .map(([ruleName, ruleConfig]) => {
-        if (ruleName !== "obsidianmd/ui/sentence-case") return [ruleName, ruleConfig];
-        return [
-          ruleName,
-          [
-            "error",
-            {
-              enforceCamelCaseLower: true,
-              acronyms: ["MCP"],
-              brands: ["Codex", "Codex Panel", "Obsidian"],
-            },
-          ],
-        ];
-      }),
-  );
-  if (Object.keys(rules).length === 0) return null;
-  const obsidianConfig = {
-    basePath: "src",
-    rules,
-  };
-  if (config.files) obsidianConfig.files = config.files;
-  if (config.ignores) obsidianConfig.ignores = config.ignores;
-  return obsidianConfig;
-}
