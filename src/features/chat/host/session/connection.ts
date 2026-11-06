@@ -124,7 +124,6 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
     },
     setStatus: status.set,
     addSystemMessage: status.addSystemMessage,
-    configuredCommand: () => environment.plugin.appServerContext.codexPath,
     isStaleConnectionError: (error) => error instanceof StaleConnectionError,
     notifyConnectionFailed: () => {
       new Notice("Codex app-server connection failed.");

@@ -43,6 +43,13 @@ export class AppServerRpcError extends Error {
   }
 }
 
+export class AppServerRequestTimeoutError extends Error {
+  constructor(method: ClientRequestMethod) {
+    super(`Codex app-server request timed out: ${method}`);
+    this.name = "AppServerRequestTimeoutError";
+  }
+}
+
 export class JsonRpcClient {
   private nextId = 1;
   private readonly pending = new Map<RequestId, PendingRequest>();
@@ -60,7 +67,7 @@ export class JsonRpcClient {
       const timeout = window.setTimeout(() => {
         this.pending.delete(id);
         this.suppressOrphanResponse(id);
-        reject(new Error(`Codex app-server request timed out: ${method}`));
+        reject(new AppServerRequestTimeoutError(method));
       }, requestOptions.timeoutMs ?? this.options.requestTimeoutMs);
       this.pending.set(id, {
         method,

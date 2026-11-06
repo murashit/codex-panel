@@ -26,7 +26,6 @@ export interface ChatConnectionCoordinatorHost {
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   setStatus: (statusText: string, phase?: ChatConnectionPhase) => void;
   addSystemMessage: (text: string) => void;
-  configuredCommand: () => string;
   isStaleConnectionError: (error: unknown) => boolean;
   notifyConnectionFailed: () => void;
 }
@@ -133,7 +132,7 @@ async function initializeConnection(host: ChatConnectionCoordinatorHost, isStale
   } catch (error) {
     if (isStale()) return;
     if (host.isStaleConnectionError(error)) return;
-    const message = connectionErrorMessage(error, host.configuredCommand());
+    const message = errorMessage(error);
     host.setStatus(STATUS_CONNECTION_FAILED, { kind: "failed", message });
     host.addSystemMessage(message);
     host.notifyConnectionFailed();
@@ -152,18 +151,6 @@ async function hydrateConnectedResources(host: ChatConnectionCoordinatorHost, is
   ]);
 }
 
-function connectionErrorMessage(error: unknown, configuredCommand: string): string {
-  const message = errorMessage(error);
-  if (!isMissingCommandError(error)) return message;
-  return `Could not start Codex app-server because the configured command was not found: ${configuredCommand}. Check the Codex command path in settings. (${message})`;
-}
-
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function isMissingCommandError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  const candidate = error as { code?: unknown; syscall?: unknown };
-  return candidate.code === "ENOENT" && candidate.syscall === "spawn";
 }

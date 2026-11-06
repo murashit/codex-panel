@@ -74,7 +74,7 @@ describe("ConnectionManager", () => {
       testClientFactory({ requestTimeoutMs: 5, onTransport: (next) => (transport = next) }),
     );
 
-    await expect(manager.connect(silentConnectionHandlers())).rejects.toThrow("Codex app-server request timed out: initialize");
+    await expect(manager.connect(silentConnectionHandlers())).rejects.toThrow("Codex did not finish connecting.");
 
     expect(transport.running).toBe(false);
     expect(manager.currentClient()).toBeNull();
@@ -150,7 +150,7 @@ describe("ConnectionManager", () => {
     const connecting = manager.connect({ ...silentConnectionHandlers(), onExit });
     transport.emitExit();
 
-    await expect(connecting).rejects.toThrow("Codex app-server exited: unknown");
+    await expect(connecting).rejects.toThrow("Codex stopped before the connection was ready.");
     expect(onExit).not.toHaveBeenCalled();
     expect(manager.currentClient()).toBeNull();
   });
