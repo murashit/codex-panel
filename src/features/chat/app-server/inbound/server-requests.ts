@@ -11,6 +11,7 @@ import {
   appServerMcpElicitationResponse,
   appServerUserInputResponse,
   isApprovalServerRequest,
+  isRequiredHumanApprovalRequest,
 } from "./server-request-adapter";
 import { routeServerRequest, serverRequestCurrentTimeResponse } from "./server-request-routing";
 
@@ -77,7 +78,9 @@ export class ChatServerRequests {
           this.rejectUnsupported(request, `Rejected approval without a turn: ${request.method}`);
           break;
         }
-        this.pending.queueApproval(trackedSubagent ? { ...route.approval, turnId: parentTurnId } : route.approval);
+        this.pending.queueApproval(
+          trackedSubagent && route.approval.kind !== "humanCommand" ? { ...route.approval, turnId: parentTurnId } : route.approval,
+        );
         break;
       }
       case "userInput":
@@ -98,7 +101,7 @@ export class ChatServerRequests {
         this.rejectUnsupported(
           request,
           request.method === "item/commandExecution/requestApproval"
-            ? "Rejected command approval: availableDecisions must be a nonempty list of supported decisions."
+            ? "Codex requested approval options that this Panel cannot offer. The command was not approved."
             : `Rejected unsupported app-server request: ${request.method}`,
         );
         break;
@@ -122,7 +125,7 @@ export class ChatServerRequests {
     this.pending.clear();
     for (const [requestId, entry] of this.entries) {
       // Closing presentation is not an approval decision; Codex owns retention and resume replay.
-      if (reason === "close" && isApprovalServerRequest(entry.request)) continue;
+      if (isApprovalServerRequest(entry.request) && (reason === "close" || isRequiredHumanApprovalRequest(entry.request))) continue;
       this.reject(requestId, -32000, "Codex Panel disconnected before the request was answered.");
     }
     this.entries.clear();
@@ -145,7 +148,7 @@ export class ChatServerRequests {
     if (!entry) return false;
     try {
       deliver(entry.responder);
-      this.entries.delete(requestId);
+      if (!isRequiredHumanApprovalRequest(entry.request)) this.entries.delete(requestId);
       return true;
     } catch {
       return false;
@@ -177,6 +180,9 @@ function trackedSubagentApprovalScope(current: ChatState, request: ServerRequest
   if (!isApprovalServerRequest(request)) return null;
   const parentTurnId = activeTurnId(current.activeTurn);
   const tracked = current.activeTurn.subagents.byThreadId.get(request.params.threadId);
+  if (parentTurnId && tracked && isRequiredHumanApprovalRequest(request)) {
+    return { activeThreadId: tracked.threadId, activeTurnId: tracked.childTurnId ?? parentTurnId };
+  }
   if (!parentTurnId || !tracked?.childTurnId || tracked.childTurnId !== request.params.turnId || tracked.liveness !== "running") {
     return null;
   }

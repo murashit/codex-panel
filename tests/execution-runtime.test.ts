@@ -1,3 +1,4 @@
+import { codexPanelAppServerInitializeParams } from "../src/app-server/connection/client-profile";
 import { threadGoalFixture } from "./support/thread-goal";
 // @vitest-environment jsdom
 
@@ -141,9 +142,10 @@ describe("CodexExecutionRuntime", () => {
     expect(contextConnectionMock.client.request).toHaveBeenCalledWith("model/list", { cursor: null, includeHidden: false, limit: 100 });
     expect(contextConnectionMock.client.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
     expect(contextConnectionMock.instances).toHaveLength(1);
+    expect(codexPanelAppServerInitializeParams("background").capabilities?.requiredHumanApproval).toBeUndefined();
     expect(contextConnectionMock.instances[0]?.initializeParams).toEqual({
       clientInfo: { name: "obsidian_codex_panel", title: "Codex Panel", version: manifest.version },
-      capabilities: compatibility.codexAppServer.initialize.capabilities,
+      capabilities: { ...compatibility.codexAppServer.initialize.capabilities, requiredHumanApproval: true },
     });
   });
 

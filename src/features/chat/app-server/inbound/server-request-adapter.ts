@@ -106,6 +106,8 @@ export function appServerApprovalResponse(request: ApprovalRequest, action: Appr
       if (typeof action !== "object") throw new Error("Command approval requires an offered option.");
       const selected = commandApprovalDecisionForOption(request.params.availableDecisions, action.optionId);
       if (selected === undefined) throw new Error(`Unknown command approval option: ${action.optionId}`);
+      if (request.params.kind === "humanCommand" && !isOneTimeDecision(selected))
+        throw new Error("Human approval requires a one-time decision.");
       return { decision: selected } satisfies CommandExecutionRequestApprovalResponse;
     }
     case "item/fileChange/requestApproval":
@@ -116,6 +118,12 @@ export function appServerApprovalResponse(request: ApprovalRequest, action: Appr
         permissions: intent === "accept" || intent === "accept-session" ? grantedPermissions(request.params.permissions) : {},
       } satisfies PermissionsRequestApprovalResponse;
   }
+}
+
+export function isRequiredHumanApprovalRequest(
+  request: ServerRequest,
+): request is CommandApprovalRequest & { params: CommandApprovalParams & { kind: "humanCommand" } } {
+  return request.method === "item/commandExecution/requestApproval" && request.params.kind === "humanCommand";
 }
 
 export function isApprovalServerRequest(request: ServerRequest): request is ApprovalRequest {
@@ -197,18 +205,20 @@ export function appServerMcpElicitationResponse(
 function commandApprovalRequest(requestId: PendingApproval["requestId"], params: CommandApprovalParams): PendingApproval | null {
   const decisions = commandApprovalDecisions(params.availableDecisions);
   if (!decisions) return null;
+  const humanRequired = params.kind === "humanCommand";
+  if (humanRequired && !decisions.every(isOneTimeDecision)) return null;
   const details = commandApprovalDetails(params);
   const isWriteStdin = params.kind === "writeStdin";
   const fallback = isWriteStdin ? "Terminal input requested." : "Command execution requested.";
   return {
     requestId,
-    kind: "command",
+    kind: humanRequired ? "humanCommand" : "command",
     turnId: nullableString(params.turnId),
-    title: isWriteStdin ? "Terminal input approval" : "Command approval",
+    title: humanRequired ? "Human approval required" : isWriteStdin ? "Terminal input approval" : "Command approval",
     summary: approvalSummary(params.reason, params.command, fallback),
     resultSummary: approvalResultSummary(params.reason, params.command, fallback),
     details,
-    actionOptions: commandApprovalActionOptions(decisions),
+    actionOptions: commandApprovalActionOptions(decisions, humanRequired),
   };
 }
 
@@ -288,18 +298,30 @@ function commandApprovalDetails(params: CommandApprovalParams): ApprovalDetailRo
   return rows;
 }
 
-function commandApprovalActionOptions(
-  decisions: readonly [CommandApprovalDecision, ...CommandApprovalDecision[]],
-): readonly [PendingCommandApprovalOption, ...PendingCommandApprovalOption[]] {
-  const [first, ...rest] = decisions;
-  return [commandApprovalActionOption(first, 0), ...rest.map((decision, index) => commandApprovalActionOption(decision, index + 1))];
+function isOneTimeDecision(decision: CommandApprovalDecision): boolean {
+  return decision === "accept" || decision === "decline" || decision === "cancel";
 }
 
-function commandApprovalActionOption(decision: CommandApprovalDecision, index: number): PendingCommandApprovalOption {
+function commandApprovalActionOptions(
+  decisions: readonly [CommandApprovalDecision, ...CommandApprovalDecision[]],
+  humanRequired: boolean,
+): readonly [PendingCommandApprovalOption, ...PendingCommandApprovalOption[]] {
+  const [first, ...rest] = decisions;
+  return [
+    commandApprovalActionOption(first, 0, humanRequired),
+    ...rest.map((decision, index) => commandApprovalActionOption(decision, index + 1, humanRequired)),
+  ];
+}
+
+function commandApprovalActionOption(
+  decision: CommandApprovalDecision,
+  index: number,
+  humanRequired: boolean,
+): PendingCommandApprovalOption {
   const id = commandApprovalOptionId(decision, index);
   return {
     id,
-    label: commandDecisionLabel(decision),
+    label: humanRequired && decision === "accept" ? "Allow once" : commandDecisionLabel(decision),
     action: { kind: "approval-option", optionId: id, intent: commandDecisionIntent(decision) },
   };
 }

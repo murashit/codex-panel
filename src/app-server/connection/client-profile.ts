@@ -17,7 +17,7 @@ interface AppServerCompatibility {
 
 const appServerCompatibility = compatibility satisfies AppServerCompatibility;
 
-export function codexPanelAppServerInitializeParams(): InitializeParams {
+export function codexPanelAppServerInitializeParams(mode: "interactive" | "background"): InitializeParams {
   return {
     clientInfo: {
       name: "obsidian_codex_panel",
@@ -25,6 +25,7 @@ export function codexPanelAppServerInitializeParams(): InitializeParams {
       version: CLIENT_VERSION,
     },
     capabilities: {
+      ...(mode === "interactive" ? { requiredHumanApproval: true } : {}),
       experimentalApi: appServerCompatibility.codexAppServer.initialize.capabilities.experimentalApi,
       requestAttestation: appServerCompatibility.codexAppServer.initialize.capabilities.requestAttestation,
     },

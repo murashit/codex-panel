@@ -734,7 +734,7 @@ describe("ChatInboundHandler", () => {
       expect(rejectServerRequest).toHaveBeenCalledWith(
         51,
         -32601,
-        "Rejected command approval: availableDecisions must be a nonempty list of supported decisions.",
+        "Codex requested approval options that this Panel cannot offer. The command was not approved.",
       );
     });
 
@@ -780,6 +780,22 @@ describe("ChatInboundHandler", () => {
         kind: "approvalResult",
         turnId: "turn-active",
       });
+    });
+
+    it("accepts required human approval from an earlier turn of a tracked child", () => {
+      const respondToServerRequest = vi.fn();
+      const handler = handlerForState(activeRunningState(), { respondToServerRequest });
+      trackDirectSubagent(handler, "child", "child-next-turn");
+      const request = commandApprovalRequest(91, "child", "child-yielded-turn", "command");
+      if (request.method !== "item/commandExecution/requestApproval") throw new Error("Expected command approval");
+      request.params.kind = "humanCommand";
+      request.params.availableDecisions = ["accept", "decline", "cancel"];
+      expect(handler.handleServerRequest(request)).toBe(true);
+      expect(handler.currentState().requests.approvals).toEqual([expect.objectContaining({ requestId: 91, turnId: "child-yielded-turn" })]);
+      handler.pendingRequests.resolveApproval(91, commandApprovalAction(handler, 91, "accept"));
+      expect(respondToServerRequest).toHaveBeenCalledExactlyOnceWith(91, { decision: "accept" });
+      handler.handleNotification({ method: "serverRequest/resolved", params: { threadId: "child", requestId: 91 } });
+      expect(handler.currentState().requests.approvals).toEqual([]);
     });
 
     it("retains a failed approval for an explicit retry using the user's current choice", () => {

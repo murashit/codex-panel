@@ -1,10 +1,70 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 import { commandApprovalRequestFixture, userInputRequestFixture } from "../../../../support/server-requests";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 import { pendingRequestFixture } from "../../support/pending-requests";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
 describe("pending request actions", () => {
+  it.each(["accept", "decline"] as const)(
+    "keeps human approval across turns without treating the sent %s as the server decision",
+    (decision) => {
+      const { stateStore, handler, receive, pendingRequests } = pendingRequestFixture();
+      stateStore.dispatch({ type: "turn/scoped-cleared" });
+      const request = commandApprovalRequestFixture(91, {
+        kind: "humanCommand",
+        threadId: "thread-active",
+        turnId: "turn-yielded",
+        availableDecisions: ["accept", "decline", "cancel"],
+      });
+      const original = receive(request);
+      stateStore.dispatch({ type: "turn/started", threadId: "thread-active", turnId: "turn-next" });
+      const approval = stateStore.getState().requests.approvals[0];
+      const action = approval?.actionOptions?.find((option) => option.action.intent === decision)?.action;
+      if (!action) throw new Error("Expected an offered human approval action");
+      expect(approval?.turnId).toBe("turn-yielded");
+      pendingRequests.actions.resolveApproval(91, action);
+      pendingRequests.actions.resolveApproval(91, action);
+      expect(original.respond).toHaveBeenCalledExactlyOnceWith({ decision });
+      expect(stateStore.getState().requests.approvals).toHaveLength(1);
+      expect(chatStateThreadStreamItems(stateStore.getState()).some((item) => item.kind === "approvalResult")).toBe(false);
+      stateStore.dispatch({ type: "turn/scoped-cleared" });
+      handler.handleNotification({ method: "serverRequest/resolved", params: { threadId: "thread-active", requestId: 91 } });
+      expect(stateStore.getState().requests.approvals).toEqual([]);
+      expect(chatStateThreadStreamItems(stateStore.getState()).some((item) => item.kind === "approvalResult")).toBe(false);
+      expect(chatStateThreadStreamItems(stateStore.getState()).at(-1)).toMatchObject({
+        kind: "system",
+        text: "Human approval request resolved: npm test",
+      });
+    },
+  );
+
+  it("leaves disconnected human approvals to Codex and accepts replay without leaking into another conversation", () => {
+    const { stateStore, handler, receive, pendingRequests } = pendingRequestFixture();
+    const request = commandApprovalRequestFixture(92, {
+      kind: "humanCommand",
+      threadId: "thread-active",
+      turnId: "turn-active",
+      availableDecisions: ["accept", "decline", "cancel"],
+    });
+    const original = receive(request);
+    handler.clearServerRequests();
+    expect(original.reject).not.toHaveBeenCalled();
+    stateStore.dispatch({ type: "connection/scoped-cleared" });
+    expect(stateStore.getState().requests.approvals).toEqual([]);
+    stateStore.dispatch({ type: "active-thread/resumed", ...threadActivationFixture(panelThreadFixture({ id: "thread-active" })) });
+    const replayed = receive(request);
+    const action = stateStore.getState().requests.approvals[0]?.actionOptions?.[0]?.action;
+    if (!action) throw new Error("Expected a replayed human approval action");
+    pendingRequests.actions.resolveApproval(92, action);
+    expect(replayed.respond).toHaveBeenCalledOnce();
+    stateStore.dispatch({ type: "active-thread/cleared" });
+    const unrelated = receive(request);
+    expect(stateStore.getState().requests.approvals).toEqual([]);
+    expect(unrelated.respond).not.toHaveBeenCalled();
+  });
+
   it("submits the latest answer draft, clears it, records the result and restores focus", () => {
     const { stateStore, receive, pendingRequests, focusComposer } = pendingRequestFixture();
     const response = receive(inputRequest());

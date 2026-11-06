@@ -120,7 +120,7 @@ export async function runEphemeralStructuredTurn(
         codexPath,
         cwd,
         handlers,
-        initializeParams: codexPanelAppServerInitializeParams(),
+        initializeParams: codexPanelAppServerInitializeParams("background"),
       }));
   const client = clientFactory(options.codexPath, options.cwd, {
     onNotification: (notification) => {

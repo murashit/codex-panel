@@ -1,5 +1,11 @@
 import { mcpElicitationDraftKey, userInputDraftKey, userInputOtherDraftKey } from "../../domain/pending-requests/drafts";
-import type { PendingApproval, PendingMcpElicitation, PendingRequestId, PendingUserInput } from "../../domain/pending-requests/model";
+import type {
+  ApprovalAction,
+  PendingApproval,
+  PendingMcpElicitation,
+  PendingRequestId,
+  PendingUserInput,
+} from "../../domain/pending-requests/model";
 import { patchObject } from "../state/patch";
 
 export interface ChatRequestState {
@@ -12,6 +18,7 @@ export interface ChatRequestState {
 
 export type RequestAction =
   | { type: "request/approval-queued"; approval: PendingApproval }
+  | { type: "request/approval-response-sent"; requestId: PendingRequestId; response: ApprovalAction }
   | { type: "request/user-input-queued"; input: PendingUserInput }
   | { type: "request/user-input-auto-resolution-extended"; requestId: PendingRequestId; autoResolutionAtMs: number }
   | { type: "request/mcp-elicitation-queued"; elicitation: PendingMcpElicitation }
@@ -30,8 +37,23 @@ export function initialChatRequestState(): ChatRequestState {
 
 export function reduceRequestSlice(state: ChatRequestState, action: RequestAction): ChatRequestState {
   switch (action.type) {
+    case "request/approval-response-sent":
+      return patchObject(state, {
+        approvals: state.approvals.map((approval) =>
+          approval.requestId === action.requestId && approval.kind === "humanCommand"
+            ? { ...approval, response: action.response }
+            : approval,
+        ),
+      });
     case "request/approval-queued":
-      if (state.approvals.some((existing) => existing.requestId === action.approval.requestId)) return state;
+      if (state.approvals.some((existing) => existing.requestId === action.approval.requestId)) {
+        // A replay is authoritative: the server still needs a response on its new responder.
+        return action.approval.kind === "humanCommand"
+          ? patchObject(state, {
+              approvals: state.approvals.map((approval) => (approval.requestId === action.approval.requestId ? action.approval : approval)),
+            })
+          : state;
+      }
       return patchObject(state, { approvals: [...state.approvals, action.approval] });
     case "request/user-input-queued":
       if (state.pendingUserInputs.some((existing) => existing.requestId === action.input.requestId)) return state;

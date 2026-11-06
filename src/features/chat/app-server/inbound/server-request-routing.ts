@@ -13,6 +13,7 @@ import {
   appServerApprovalRequest,
   appServerMcpElicitationRequest,
   appServerUserInputRequest,
+  isRequiredHumanApprovalRequest,
 } from "./server-request-adapter";
 
 export type ServerRequestRoute =
@@ -31,6 +32,12 @@ export type ServerRequestRoute =
 
 export function routeServerRequest(request: ServerRequest, scope: ActiveRouteScope): ServerRequestRoute {
   const routeScope = serverRequestScope(request);
+  // A yielded command may still need human approval after its originating turn ends.
+  if (isRequiredHumanApprovalRequest(request)) {
+    const approval = appServerApprovalRequest(request);
+    if (routeScope.threadId !== scope.activeThreadId) return { kind: "inactive", request };
+    return approval ? { kind: "approval", request, approval } : { kind: "unsupported", request };
+  }
   if (!isAppServerRouteScopeInActiveRouteScope(routeScope, scope)) return { kind: "inactive", request };
   if (isTurnScopedAppServerRouteForIdlePanelTurn(routeScope, scope)) return { kind: "inactive", request };
 

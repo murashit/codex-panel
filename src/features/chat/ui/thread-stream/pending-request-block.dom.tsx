@@ -181,6 +181,11 @@ function ApprovalCard({
       <div className="codex-panel__pending-request-info">
         <div className="codex-panel__pending-request-title">{approval.title}</div>
         <div className="codex-panel__pending-request-body">{approval.summary}</div>
+        {approval.responsePending ? (
+          <div className="codex-panel__pending-request-body" role="status">
+            Response sent. Waiting for Codex to confirm.
+          </div>
+        ) : null}
         <ApprovalDetails approval={approval} approvalDetails={approvalDetails} actions={actions} />
       </div>
       <div className="codex-panel__pending-request-actions">

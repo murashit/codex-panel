@@ -58,13 +58,15 @@ function pendingApprovalViewModel(approval: PendingApproval): PendingApprovalVie
     requestId: approval.requestId,
     title: approval.title,
     summary: approval.summary,
+    responsePending: approval.kind === "humanCommand" && approval.response !== undefined,
     details: [...approval.details],
     actions: approvalActionOptions(approval),
   };
 }
 
 function approvalActionOptions(approval: PendingApproval): ApprovalActionOption[] {
-  const options = approval.kind === "command" ? approval.actionOptions : defaultPendingApprovalOptions();
+  if (approval.kind === "humanCommand" && approval.response) return [];
+  const options = approval.actionOptions ?? defaultPendingApprovalOptions();
   return options.map(approvalActionOptionViewModel);
 }
 

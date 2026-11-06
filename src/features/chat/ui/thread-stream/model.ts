@@ -10,6 +10,7 @@ export function threadStreamExecutionClassName(state: ExecutionState | null): st
 }
 
 export interface PendingApprovalViewModel {
+  responsePending?: boolean;
   requestId: PendingRequestId;
   title: string;
   summary: string;

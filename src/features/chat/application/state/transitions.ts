@@ -207,7 +207,7 @@ function reduceActiveThreadActivatedTransition(state: ChatState, action: ActiveT
     },
     activeTurn: restoredTurn.activeTurn,
     pendingSubmission: creating && state.pendingSubmission ? { ...state.pendingSubmission, targetThreadId: action.thread.id } : null,
-    requests: initialChatRequestState(),
+    requests: sameConversation ? turnScopedState.requests : initialChatRequestState(),
     composer: sameConversation ? state.composer : initialComposerState(),
     ui: action.preserveGoalEditor ? { ...initialUiState(), goalEditor: state.ui.goalEditor } : initialUiState(),
   });
@@ -335,7 +335,7 @@ function clearTurnScopedState(state: ChatState): ChatState {
   return patchObject(state, {
     activeTurn: initialChatActiveTurnState(),
     threadStream: threadStreamWithItems(state.threadStream, items),
-    requests: initialChatRequestState(),
+    requests: { ...initialChatRequestState(), approvals: state.requests.approvals.filter((approval) => approval.kind === "humanCommand") },
     ui: clearAllRequestDisclosures(state.ui),
   });
 }
@@ -343,6 +343,7 @@ function clearTurnScopedState(state: ChatState): ChatState {
 function clearThreadScopedState(state: ChatState): ChatState {
   const cleared = clearTurnScopedState(state);
   return patchObject(cleared, {
+    requests: initialChatRequestState(),
     panelThread: initialPanelThreadState(),
     threadReadReceipt: null,
     panelTargetRevision: state.panelTargetRevision + 1,
@@ -359,6 +360,7 @@ function clearConnectionScopedState(state: ChatState): ChatState {
   const ephemeralExpired = state.panelThread.kind === "active" && state.panelThread.thread.lifetime?.kind === "ephemeral";
   const nextPanelThread = panelThreadAfterConnectionExit(state.panelThread);
   return patchObject(cleared, {
+    requests: initialChatRequestState(),
     panelThread: nextPanelThread,
     panelTargetRevision:
       panelThreadIdForState(nextPanelThread) === panelThreadId(state) ? state.panelTargetRevision : state.panelTargetRevision + 1,

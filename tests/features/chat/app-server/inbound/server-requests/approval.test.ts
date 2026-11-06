@@ -31,6 +31,17 @@ function approvalResponseAt(request: ApprovalRequest, approval: NonNullable<Retu
 }
 
 describe("approval model", () => {
+  it("offers only one-time decisions for required human approval", () => {
+    const request = commandApprovalRequestFixture(91, { kind: "humanCommand", availableDecisions: ["accept", "decline", "cancel"] });
+    const approval = expectPresent(toPendingApproval(request));
+    expect(approval).toMatchObject({ kind: "humanCommand", title: "Human approval required" });
+    expect(approvalActionLabels(approval)).toEqual(["Allow once", "Deny", "Cancel"]);
+    expect(approvalResponseAt(request, approval, 0)).toEqual({ decision: "accept" });
+    expect(
+      toPendingApproval(commandApprovalRequestFixture(92, { kind: "humanCommand", availableDecisions: ["acceptForSession"] })),
+    ).toBeNull();
+  });
+
   it("classifies command approvals and builds v2 decisions", () => {
     const request: ApprovalRequest = commandApprovalRequestFixture(1, { command: "npm run build", itemId: "item" });
     const approval = expectPresent(toPendingApproval(request));
