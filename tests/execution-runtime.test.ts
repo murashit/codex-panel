@@ -143,7 +143,7 @@ describe("CodexExecutionRuntime", () => {
     expect(contextConnectionMock.instances).toHaveLength(1);
     expect(contextConnectionMock.instances[0]?.initializeParams).toEqual({
       clientInfo: { name: "obsidian_codex_panel", title: "Codex Panel", version: manifest.version },
-      capabilities: compatibility.codexAppServer.initialize.capabilities,
+      capabilities: { ...compatibility.codexAppServer.initialize.capabilities, requiredHumanApproval: true },
     });
   });
 

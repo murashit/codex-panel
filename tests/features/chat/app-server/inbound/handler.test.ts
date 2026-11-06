@@ -802,6 +802,38 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toHaveLength(1);
     });
 
+    it("retains a sent human approval from a child until resolution after the parent turn completes", () => {
+      const respondToServerRequest = vi.fn();
+      const handler = handlerForState(activeRunningState(), { respondToServerRequest });
+      trackDirectSubagent(handler, "child", "child-turn");
+      handler.handleServerRequest(
+        commandApprovalRequestFixture(81, {
+          threadId: "child",
+          turnId: "child-turn",
+          kind: "humanCommand",
+          availableDecisions: ["accept"],
+        }),
+      );
+      handler.pendingRequests.resolveApproval(81, commandApprovalAction(handler, 81, "accept"));
+      handler.handleNotification(
+        turnNotification("turn/completed", "thread-active", {
+          id: "turn-active",
+          status: "completed",
+          startedAt: 1,
+          completedAt: 2,
+          durationMs: 1,
+          itemsView: "full",
+          items: [],
+        }),
+      );
+      expect(handler.currentState().requests.approvals).toEqual([
+        expect.objectContaining({ requestId: 81, turnId: "child-turn", responseSent: true }),
+      ]);
+      handler.handleNotification({ method: "serverRequest/resolved", params: { threadId: "child", requestId: 81 } });
+      expect(handler.currentState().requests.approvals).toEqual([]);
+      expect(respondToServerRequest).toHaveBeenCalledExactlyOnceWith(81, { decision: "accept" });
+    });
+
     it("clears a tracked-child approval when its request resolves outside the active thread", () => {
       const handler = handlerForState(activeRunningState());
       trackDirectSubagent(handler, "child", "child-turn");

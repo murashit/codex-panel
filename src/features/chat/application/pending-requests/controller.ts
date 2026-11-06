@@ -59,7 +59,7 @@ export class PendingRequests {
     const state = this.host.stateStore.getState();
     const turnId = activeTurnId(state.activeTurn);
     for (const approval of state.requests.approvals) {
-      if (approval.turnId !== turnId) this.resolve(approval.requestId);
+      if (approval.kind !== "humanCommand" && approval.turnId !== turnId) this.resolve(approval.requestId);
     }
     for (const requestId of this.userInputTimers.keys()) {
       if (!this.pendingUserInput(requestId)) this.clearUserInputTimer(requestId);
@@ -80,12 +80,16 @@ export class PendingRequests {
   resolveApproval(requestId: PendingRequestId, action: ApprovalAction): boolean {
     this.reconcile();
     const approval = this.state.approvals.find((item) => item.requestId === requestId);
-    if (!approval) return false;
+    if (!approval || (approval.kind === "humanCommand" && approval.responseSent)) return false;
     if (!this.host.responses.respondApproval(requestId, action)) {
       this.host.addSystemMessage("Could not send approval response because Codex app-server is not connected.");
       return true;
     }
-    this.host.stateStore.dispatch({ type: "request/resolved", requestId, resultItem: createApprovalResultItem(approval, action) });
+    if (approval.kind === "humanCommand") {
+      this.host.stateStore.dispatch({ type: "request/approval-response-sent", requestId });
+    } else {
+      this.host.stateStore.dispatch({ type: "request/resolved", requestId, resultItem: createApprovalResultItem(approval, action) });
+    }
     return true;
   }
 

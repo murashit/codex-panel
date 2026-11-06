@@ -67,7 +67,7 @@ export class CodexExecutionRuntime {
     this.appServerConnection = new AppServerContextConnection(
       this.context.codexPath,
       this.context.vaultPath,
-      codexPanelAppServerInitializeParams(),
+      codexPanelAppServerInitializeParams(true),
       {
         onNotification: (notification) => {
           if (this.disposed) return true;

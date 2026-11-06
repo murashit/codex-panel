@@ -11,6 +11,7 @@ import {
   appServerMcpElicitationResponse,
   appServerUserInputResponse,
   isApprovalServerRequest,
+  isHumanCommandApproval,
 } from "./server-request-adapter";
 import { routeServerRequest, serverRequestCurrentTimeResponse } from "./server-request-routing";
 
@@ -77,7 +78,9 @@ export class ChatServerRequests {
           this.rejectUnsupported(request, `Rejected approval without a turn: ${request.method}`);
           break;
         }
-        this.pending.queueApproval(trackedSubagent ? { ...route.approval, turnId: parentTurnId } : route.approval);
+        this.pending.queueApproval(
+          trackedSubagent && route.approval.kind !== "humanCommand" ? { ...route.approval, turnId: parentTurnId } : route.approval,
+        );
         break;
       }
       case "userInput":
@@ -110,10 +113,9 @@ export class ChatServerRequests {
   }
 
   resolved(requestId: RequestId): boolean {
-    const entry = this.entries.get(requestId);
     this.entries.delete(requestId);
-    // Child approvals are displayed in the parent panel, before ordinary thread routing.
-    if (!entry || !isApprovalServerRequest(entry.request)) return false;
+    // Unresolved cards also own child approvals displayed in the parent panel.
+    if (!this.host.stateStore.getState().requests.approvals.some((approval) => approval.requestId === requestId)) return false;
     this.pending.resolve(requestId);
     return true;
   }
@@ -122,7 +124,7 @@ export class ChatServerRequests {
     this.pending.clear();
     for (const [requestId, entry] of this.entries) {
       // Closing presentation is not an approval decision; Codex owns retention and resume replay.
-      if (reason === "close" && isApprovalServerRequest(entry.request)) continue;
+      if ((reason === "close" && isApprovalServerRequest(entry.request)) || isHumanCommandApproval(entry.request)) continue;
       this.reject(requestId, -32000, "Codex Panel disconnected before the request was answered.");
     }
     this.entries.clear();
