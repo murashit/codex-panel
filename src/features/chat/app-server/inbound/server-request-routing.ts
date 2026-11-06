@@ -75,6 +75,7 @@ export function serverRequestCurrentTimeResponse(currentTimeMs: number): Current
 function serverRequestScope(request: ServerRequest): AppServerRouteScope {
   switch (request.method) {
     case "item/commandExecution/requestApproval":
+      return request.params.kind === "humanCommand" ? threadOnlyRequestScope(request) : threadTurnRequestScope(request);
     case "item/fileChange/requestApproval":
     case "item/permissions/requestApproval":
     case "item/tool/requestUserInput":

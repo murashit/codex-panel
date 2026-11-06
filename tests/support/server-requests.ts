@@ -21,7 +21,7 @@ export function userInputRequestFixture(
 
 export function commandApprovalRequestFixture(
   id: number,
-  params: Partial<Omit<Extract<ServerRequest, { method: "item/commandExecution/requestApproval" }>["params"], "kind">> = {},
+  params: Partial<Extract<ServerRequest, { method: "item/commandExecution/requestApproval" }>["params"]> = {},
 ): Extract<ServerRequest, { method: "item/commandExecution/requestApproval" }> {
   return {
     id,

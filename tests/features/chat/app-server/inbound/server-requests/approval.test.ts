@@ -31,6 +31,14 @@ function approvalResponseAt(request: ApprovalRequest, approval: NonNullable<Retu
 }
 
 describe("approval model", () => {
+  it("rejects persistent decisions for required human approval in both directions", () => {
+    const invalid = commandApprovalRequestFixture(82, { kind: "humanCommand", availableDecisions: ["acceptForSession"] });
+    expect(toPendingApproval(invalid)).toBeNull();
+    expect(() =>
+      approvalResponse(invalid, { kind: "approval-option", optionId: "approval-option:0:acceptForSession", intent: "accept-session" }),
+    ).toThrow("one-time decision");
+  });
+
   it("classifies command approvals and builds v2 decisions", () => {
     const request: ApprovalRequest = commandApprovalRequestFixture(1, { command: "npm run build", itemId: "item" });
     const approval = expectPresent(toPendingApproval(request));
@@ -363,9 +371,7 @@ describe("approval model", () => {
     {
       name: "command approval",
       request: commandApprovalRequestFixture(3, { availableDecisions: ["accept", "acceptForSession", "cancel", "decline"] }),
-      accept: { decision: "accept" },
-      acceptSession: { decision: "acceptForSession" },
-      cancel: { decision: "cancel" },
+      decisions: ["accept", "acceptForSession", "cancel", "decline"],
     },
     {
       name: "file change approval",
@@ -381,22 +387,22 @@ describe("approval model", () => {
           grantRoot: "/tmp/project",
         },
       },
-      accept: { decision: "accept" },
-      acceptSession: { decision: "acceptForSession" },
-      cancel: { decision: "cancel" },
+      decisions: ["accept", "acceptForSession", "cancel", "decline"],
     },
-  ] satisfies { name: string; request: ApprovalRequest; accept: unknown; acceptSession: unknown; cancel: unknown }[])(
+    {
+      name: "required human command approval",
+      request: commandApprovalRequestFixture(81, { kind: "humanCommand", availableDecisions: ["accept", "decline", "cancel"] }),
+      decisions: ["accept", "decline", "cancel"],
+    },
+  ] satisfies { name: string; request: ApprovalRequest; decisions: string[] }[])(
     "builds action responses for $name",
-    ({ request, accept, acceptSession, cancel }) => {
+    ({ request, decisions }) => {
       const approval = expectPresent(toPendingApproval(request));
       const actions =
         request.method === "item/commandExecution/requestApproval"
           ? approvalActionOptions(approval).map((option) => option.action)
           : (["accept", "accept-session", "cancel", "decline"] as const);
-      expect(approvalResponse(request, expectPresent(actions[0]))).toEqual(accept);
-      expect(approvalResponse(request, expectPresent(actions[1]))).toEqual(acceptSession);
-      expect(approvalResponse(request, expectPresent(actions[2]))).toEqual(cancel);
-      expect(approvalResponse(request, expectPresent(actions[3]))).toEqual({ decision: "decline" });
+      expect(actions.map((action) => approvalResponse(request, action))).toEqual(decisions.map((decision) => ({ decision })));
     },
   );
 });

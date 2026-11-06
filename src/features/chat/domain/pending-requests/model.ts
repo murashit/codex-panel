@@ -36,7 +36,11 @@ interface PendingApprovalBase {
 
 export type PendingApproval = PendingApprovalBase &
   (
-    | { kind: "command"; actionOptions: readonly [PendingCommandApprovalOption, ...PendingCommandApprovalOption[]] }
+    | {
+        kind: "command" | "humanCommand";
+        responseSent?: boolean;
+        actionOptions: readonly [PendingCommandApprovalOption, ...PendingCommandApprovalOption[]];
+      }
     | { kind: "fileChange" | "permission"; actionOptions: null }
   );
 

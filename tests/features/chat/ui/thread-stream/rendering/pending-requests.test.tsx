@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
+import { appServerApprovalRequest } from "../../../../../../src/features/chat/app-server/inbound/server-request-adapter";
 import { createChatState } from "../../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../../src/features/chat/application/state/store";
 import { userInputDraftKey } from "../../../../../../src/features/chat/domain/pending-requests/drafts";
@@ -15,6 +16,7 @@ import type { PendingRequestBlockContext } from "../../../../../../src/features/
 import type { PendingRequestBlockSnapshot } from "../../../../../../src/features/chat/ui/thread-stream/model";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../../src/features/chat/ui/thread-stream/pending-requests";
 import { changeInputValue, textContents } from "../../../../../support/dom";
+import { commandApprovalRequestFixture } from "../../../../../support/server-requests";
 import { pendingRequestFixture } from "../../../support/pending-requests";
 import { setupThreadStreamRendering } from "./setup";
 
@@ -36,6 +38,39 @@ import {
 } from "./test-helpers";
 
 describe("panel pending request rendering", () => {
+  it("keeps the command card readable after answering a required human approval", () => {
+    const parent = document.createElement("div");
+    const approval = expectPresent(
+      appServerApprovalRequest(
+        commandApprovalRequestFixture(81, {
+          kind: "humanCommand",
+          availableDecisions: ["accept", "decline", "cancel"],
+          command: "npm test",
+        }),
+      ),
+    );
+    const resolveApproval = vi.fn();
+    const actions = pendingRequestActions({ resolveApproval });
+    renderPendingRequestNode(parent, [approval], [], new Map(), new Set(), actions);
+    const title = parent.querySelector(".codex-panel__pending-request-title");
+    expect(title?.textContent).toBe("Command approval");
+    expect(title?.nextElementSibling?.textContent).toBe("This command requires human approval.");
+    expect(title?.nextElementSibling?.nextElementSibling?.textContent).toBe("npm test");
+    const buttons = [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-actions button")];
+    expect(buttons.map((button) => button.textContent)).toEqual(["Allow once", "Deny", "Cancel"]);
+    actEvent(() => buttons[0]?.click());
+    expect(resolveApproval).toHaveBeenCalledWith(81, approval.actionOptions?.[0]?.action);
+    if (approval.kind !== "humanCommand") throw new Error("Expected human command");
+    renderPendingRequestNode(parent, [{ ...approval, responseSent: true }], [], new Map(), new Set(), actions);
+    expect(parent.querySelector('[role="status"]')?.textContent).toBe("Response sent. Waiting for Codex.");
+    expect(parent.querySelectorAll(".codex-panel__pending-request-actions button")).toHaveLength(0);
+    expect(parent.textContent).toContain("npm test");
+    expect(parent.textContent).toContain("This command requires human approval.");
+    const ordinary = expectPresent(appServerApprovalRequest(commandApprovalRequestFixture(82, { command: "npm test" })));
+    renderPendingRequestNode(parent, [ordinary], [], new Map(), new Set(), actions);
+    expect(parent.textContent).not.toContain("This command requires human approval.");
+  });
+
   it("preserves draft selection and consumed autofocus across deadline updates and remounts", () => {
     const parent = document.createElement("div");
     const composer = document.createElement("textarea");
