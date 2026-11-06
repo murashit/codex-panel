@@ -134,7 +134,6 @@ export class CodexExecutionRuntime {
         vaultConfigDir: this.options.app.vault.configDir,
       },
       archiveDestination: () => createObsidianVaultMarkdownDestination(this.options.app.vault),
-      facts: this.threadReplacementPublication.facts,
       threadIsBusy: (threadId) =>
         this.options.workspace
           .openPanelActivities()

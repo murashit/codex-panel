@@ -1,4 +1,5 @@
 import type { ServerNotification } from "../../../app-server/connection/rpc-messages";
+import { isPinnedThreadSection } from "../../../app-server/services/threads";
 import { normalizeExplicitThreadName } from "../../../domain/threads/model";
 import type { ThreadFact } from "../workflows/thread-facts";
 
@@ -10,6 +11,12 @@ export function threadFactFromLifecycleNotification(notification: ServerNotifica
       return { type: "thread-deleted", threadId: notification.params.threadId };
     case "thread/unarchived":
       return { type: "thread-unarchived", threadId: notification.params.threadId };
+    case "thread/section/changed":
+      return {
+        type: "thread-pinned",
+        threadId: notification.params.threadId,
+        isPinned: isPinnedThreadSection(notification.params.sectionId),
+      };
     case "thread/name/updated":
       return {
         type: "thread-renamed",
