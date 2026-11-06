@@ -43,6 +43,10 @@ export function createChatPanelRuntimeNotices(input: ChatPanelRuntimeNoticesInpu
       const sections = appServerDiagnosticSections({
         connected: input.connected(),
         configuredCommand: input.configuredCommand(),
+        connectionMessage:
+          state.connection.phase.kind === "failed" || state.connection.phase.kind === "disconnected"
+            ? state.connection.phase.message
+            : undefined,
         initializeResponse: state.connection.initializeResponse,
         diagnostics: serverDiagnostics(input.sharedResources.metadataDiagnosticsSnapshot(), inventory?.mcpDiagnostics ?? []),
       });
@@ -88,10 +92,11 @@ export function createChatPanelRuntimeNotices(input: ChatPanelRuntimeNoticesInpu
 }
 
 function noticeSectionsFromDiagnostics(
-  sections: readonly { title: string; rows: readonly { label: string; value: string }[] }[],
+  sections: readonly { title: string; description?: string; rows: readonly { label: string; value: string }[] }[],
 ): ThreadStreamNoticeSection[] {
   return sections.map((section) => ({
     title: section.title,
+    ...(section.description ? { body: section.description } : {}),
     auditFacts: section.rows.map((row) => ({ key: row.label, value: row.value })),
   }));
 }

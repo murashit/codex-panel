@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { ConnectionStartupError } from "../../../../../src/domain/runtime/connection-failure";
 import {
   type ChatConnectionCoordinatorHost,
   createChatConnectionCoordinator,
@@ -38,7 +39,6 @@ function createCoordinatorHarness({ connected = false, canConnect = true } = {})
     resetThreadTurnPresence: vi.fn(),
     setStatus: vi.fn(),
     addSystemMessage: vi.fn(),
-    configuredCommand: () => "codex",
     isStaleConnectionError: () => false,
     notifyConnectionFailed: vi.fn(),
   };
@@ -241,9 +241,9 @@ describe("ChatConnectionCoordinator", () => {
     coordinator.handleExit();
 
     expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
-    expect(host.setStatus).toHaveBeenCalledWith("Codex app-server stopped.", {
+    expect(host.setStatus).toHaveBeenCalledWith("Connection to Codex was lost. Use /reconnect to reconnect.", {
       kind: "disconnected",
-      message: "Codex app-server stopped.",
+      message: "Connection to Codex was lost. Use /reconnect to reconnect.",
     });
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(stateStore.getState()).toMatchObject({
@@ -254,22 +254,23 @@ describe("ChatConnectionCoordinator", () => {
     });
   });
 
-  it("explains missing configured command failures", async () => {
+  it("preserves the safe startup explanation in the failure state and conversation", async () => {
     const { coordinator, connect, host } = createCoordinatorHarness();
-    const error = Object.assign(new Error("spawn codex ENOENT"), { code: "ENOENT", syscall: "spawn" });
+    const error = new ConnectionStartupError("executable");
     connect.mockRejectedValueOnce(error);
 
     await coordinator.ensureConnected();
 
-    expect(host.setStatus).toHaveBeenCalledWith("Connection failed.", {
-      kind: "failed",
-      message:
-        "Could not start Codex app-server because the configured command was not found: codex. Check the Codex command path in settings. (spawn codex ENOENT)",
-    });
-    expect(host.addSystemMessage).toHaveBeenCalledWith(
-      "Could not start Codex app-server because the configured command was not found: codex. Check the Codex command path in settings. (spawn codex ENOENT)",
-    );
+    expect(host.setStatus).toHaveBeenCalledWith("Connection failed.", { kind: "failed", message: error.message });
+    expect(host.addSystemMessage).toHaveBeenCalledWith(error.message);
     expect(host.notifyConnectionFailed).toHaveBeenCalledOnce();
+  });
+
+  it("does not display an unclassified connection exception as user guidance", async () => {
+    const { coordinator, connect, host } = createCoordinatorHarness();
+    connect.mockRejectedValueOnce(new Error("private_token=secret"));
+    await coordinator.ensureConnected();
+    expect(host.addSystemMessage).toHaveBeenCalledWith(new ConnectionStartupError("unknown").message);
   });
 
   it("ignores stale connection failures during startup", async () => {

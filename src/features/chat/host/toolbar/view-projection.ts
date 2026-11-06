@@ -73,6 +73,7 @@ export function projectChatPanelToolbar(
       connected,
       configuredCommand,
       initializeResponse: model.initializeResponse,
+      connectionMessage: model.connectionMessage,
       diagnostics,
     }),
     toolInventory: toolInventoryDiagnosticSections(model.toolInventory, {
@@ -111,6 +112,7 @@ export interface ChatPanelToolbarModel extends RuntimeSnapshot {
   readonly goalMutationDisabled: boolean;
   readonly turnBusy: boolean;
   readonly availableSkills: readonly SkillMetadata[];
+  readonly connectionMessage: string | undefined;
   readonly initializeResponse: ChatState["connection"]["initializeResponse"];
   readonly metadataDiagnostics: MetadataResourceDiagnostics;
   readonly toolInventory: ToolInventorySnapshot | null;
@@ -144,6 +146,10 @@ export function selectChatPanelToolbar(state: ChatState, shared: ChatPanelToolba
     turnBusy: chatTurnBusy(state.activeTurn),
     availableSkills: shared.skills,
     initializeResponse: state.connection.initializeResponse,
+    connectionMessage:
+      state.connection.phase.kind === "failed" || state.connection.phase.kind === "disconnected"
+        ? state.connection.phase.message
+        : undefined,
     metadataDiagnostics: shared.metadataDiagnostics,
     toolInventory: shared.toolInventory,
     toolbarPanel: state.ui.toolbarPanel,

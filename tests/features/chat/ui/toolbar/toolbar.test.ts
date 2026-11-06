@@ -102,7 +102,11 @@ describe("Toolbar decisions", () => {
       toolbarModel({
         openPanel: "status",
         diagnostics: [
-          { title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/1.2.3" }] },
+          {
+            title: "Process",
+            description: "Codex did not finish connecting. Use /reconnect to try again.",
+            rows: [{ label: "Codex App Server", value: "codex-cli/1.2.3" }],
+          },
           { title: "Runtime Checks", rows: [{ label: "diagnostics", value: "model/list failed", level: "error" }] },
         ],
       }),
@@ -121,6 +125,9 @@ describe("Toolbar decisions", () => {
     expect(parent.textContent).toContain("Copy debug details");
     expect(parent.textContent).toContain("Refresh");
     expect(parent.textContent).toContain("codex-cli/1.2.3");
+    expect(parent.querySelector("p.codex-panel__status-diagnostics-description")?.textContent).toBe(
+      "Codex did not finish connecting. Use /reconnect to try again.",
+    );
     expect(parent.querySelector(".codex-panel__status-diagnostics-row--error")?.textContent).toContain("model/list failed");
     const statusItems = [...parent.querySelectorAll<HTMLElement>(".codex-panel__status-panel-item")];
     statusItems.find((item) => item.textContent.includes("Refresh"))?.click();

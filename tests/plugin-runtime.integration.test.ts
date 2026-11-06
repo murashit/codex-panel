@@ -363,7 +363,8 @@ describe("CodexPanelPlugin runtime integration", () => {
     leaves.push(panelLeaf);
     try {
       await view.onOpen();
-      await vi.waitFor(() => expect(view.containerEl.textContent).toContain("initial executable failed"));
+      await vi.waitFor(() => expect(view.containerEl.textContent).toContain("Could not connect to Codex. Use /reconnect to try again."));
+      expect(view.containerEl.textContent).not.toContain("initial executable failed");
       expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, connected: false });
       expect(notices).toContain("Codex app-server connection failed.");
 
@@ -407,7 +408,10 @@ describe("CodexPanelPlugin runtime integration", () => {
       await foreground.onOpen();
       await background.onOpen();
       plugin.runtime.activeWorkspaceLeafChanged(foregroundLeaf as never);
-      await vi.waitFor(() => expect(foreground.containerEl.textContent).toContain("initial executable failed"));
+      await vi.waitFor(() =>
+        expect(foreground.containerEl.textContent).toContain("Could not connect to Codex. Use /reconnect to try again."),
+      );
+      expect(foreground.containerEl.textContent).not.toContain("initial executable failed");
       expect(foreground.getState()).toMatchObject({ threadId: "foreground", threadTitle: "Saved foreground" });
 
       await publishCodexPath(plugin, "corrected-codex");

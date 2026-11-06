@@ -543,15 +543,15 @@ describe("chat panel projection integration", () => {
 
   it("replaces composer meta with fatal connection state", () => {
     let state = chatStateFixture();
-    state = chatStateWith(state, { connection: { phase: { kind: "failed", message: "Connection failed." } } });
+    state = chatStateWith(state, { connection: { phase: { kind: "failed", message: "Codex did not finish connecting. Use /reconnect to try again." } } });
 
     expect(composerProjectionFromState(composerProjectionActionsFixture(), state, emptyComposerShared).meta).toMatchObject({
-      fatal: "Codex app-server disconnected",
+      fatal: "Codex did not finish connecting. Use /reconnect to try again.",
       context: {
         cells: EXPECTED_EMPTY_CONTEXT_CELLS,
         percent: "--%",
       },
-      statusSummary: "Codex app-server disconnected",
+      statusSummary: "Codex did not finish connecting. Use /reconnect to try again.",
       model: "",
       effort: null,
       planActive: false,

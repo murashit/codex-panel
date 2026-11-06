@@ -109,6 +109,7 @@
 .codex-panel__limit-panel-title,
 .codex-panel__status-diagnostics-title,
 .codex-panel__status-diagnostics-section {
+  overflow-wrap: anywhere;
   color: var(--codex-panel-section-label-color);
   font-size: var(--codex-panel-section-label-size);
   font-weight: var(--codex-panel-section-label-weight);
@@ -231,6 +232,7 @@
 }
 
 .codex-panel__status-diagnostics-section {
+  overflow-wrap: anywhere;
   padding: var(--codex-panel-section-label-block-padding);
 }
 
@@ -411,4 +413,10 @@
 
 .codex-panel__thread-pin--pinned svg {
   fill: currentColor;
+}
+
+.codex-panel__status-diagnostics-description {
+  margin: var(--size-4-1) 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

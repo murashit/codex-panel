@@ -1,3 +1,4 @@
+import { ConnectionStartupError } from "../../domain/runtime/connection-failure";
 import type { InitializeParams } from "../../generated/app-server/InitializeParams";
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
 import type { RequestId } from "../../generated/app-server/RequestId";
@@ -38,6 +39,7 @@ import type { TurnStartResponse } from "../../generated/app-server/v2/TurnStartR
 import type { TurnSteerResponse } from "../../generated/app-server/v2/TurnSteerResponse";
 import { JsonRpcClient } from "./json-rpc-client";
 import type { ClientRequestMethod, ClientRequestParams, RpcOutboundMessage } from "./rpc-messages";
+import { startupDiagnostic, startupFailure } from "./startup-failure";
 import { type AppServerTransport, type AppServerTransportHandlers, StdioAppServerTransport } from "./transport";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
@@ -151,6 +153,7 @@ export class AppServerClient {
       throw new Error("Codex app-server client is already connecting or connected.");
     }
 
+    const startup: { fatalDiagnostic: ConnectionStartupError | null } = { fatalDiagnostic: null };
     const transportRef: { current: AppServerTransport | null } = { current: null };
     const transportHandlers: AppServerTransportHandlers = {
       onLine: (line) => {
@@ -163,6 +166,10 @@ export class AppServerClient {
         const transport = transportRef.current;
         if (!transport) return;
         if (!this.isActiveTransport(transport)) return;
+        if (this.lifecycle.kind === "starting") {
+          startup.fatalDiagnostic ??= startupDiagnostic(message);
+          return;
+        }
         this.handlers.onLog(message);
       },
       onError: (error) => {
@@ -176,7 +183,11 @@ export class AppServerClient {
         if (!this.isActiveTransport(transport)) return;
         const wasInitialized = this.lifecycle.kind === "initialized";
         this.lifecycle = { kind: "disconnected" };
-        this.rpc.rejectAll(new Error(`Codex app-server exited: ${String(code ?? signal ?? "unknown")}`));
+        this.rpc.rejectAll(
+          wasInitialized
+            ? new Error(`Codex app-server exited: ${String(code ?? signal ?? "unknown")}`)
+            : (startup.fatalDiagnostic ?? new ConnectionStartupError("exited")),
+        );
         if (!wasInitialized) return;
         this.handlers.onExit(code, signal);
       },
@@ -199,7 +210,7 @@ export class AppServerClient {
         this.rpc.rejectAll(normalized);
         transport.stop();
       }
-      throw error;
+      throw startup.fatalDiagnostic ?? (await startupFailure(error, this.codexPath, this.cwd));
     }
   }
 

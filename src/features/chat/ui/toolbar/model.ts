@@ -33,6 +33,7 @@ export interface ToolbarStatusRow {
 
 export interface ToolbarStatusSection {
   title: string;
+  description?: string;
   rows: ToolbarStatusRow[];
 }
 

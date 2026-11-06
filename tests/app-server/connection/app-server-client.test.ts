@@ -546,7 +546,7 @@ describe("AppServerClient", () => {
 
     firstTransport.emitLine({ id: initialize.id, error: { code: -32000, message: "initialize failed" } });
 
-    await expect(connecting).rejects.toThrow("initialize failed");
+    await expect(connecting).rejects.toThrow("Codex rejected the connection setup.");
     expect(client.isConnected()).toBe(false);
     expect(firstTransport.isRunning()).toBe(false);
 
@@ -575,7 +575,7 @@ describe("AppServerClient", () => {
     const connecting = client.connect();
     const { transport } = fixture;
     await Promise.all([
-      expect(connecting).rejects.toThrow("Codex app-server request timed out: initialize"),
+      expect(connecting).rejects.toThrow("Codex did not finish connecting. Use /reconnect to try again."),
       vi.advanceTimersByTimeAsync(500),
     ]);
     expect(client.isConnected()).toBe(false);
@@ -594,9 +594,46 @@ describe("AppServerClient", () => {
     const { transport } = fixture;
     transport.emitExit(1);
 
-    await expect(connecting).rejects.toThrow("Codex app-server exited: 1");
+    await expect(connecting).rejects.toThrow("Codex stopped before the connection was ready.");
     expect(client.isConnected()).toBe(false);
     expect(onExit).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['Error: approval_policy = "untrusted" is no longer supported; remove this setting', "Codex no longer supports"],
+    ["Error: authentication requirements do not permit any usable login method", "Codex cannot use a permitted sign-in method"],
+    ["Error: windows.require_mxc = true requires MXC to be selected on this Windows host", "Codex requires the MXC Windows sandbox"],
+    ["Error: private_token=secret authentication policy blocked", "Codex stopped before the connection was ready"],
+  ])("explains a startup failure without exposing stderr: %s", async (stderr, explanation) => {
+    const onLog = vi.fn();
+    const fixture = clientFixture({ onLog });
+    const connecting = fixture.client.connect();
+    fixture.transport.emitLog(stderr);
+    fixture.transport.emitExit(1);
+
+    await expect(connecting).rejects.toThrow(explanation);
+    expect(onLog).not.toHaveBeenCalled();
+  });
+
+  it("keeps the known startup cause when a broken pipe arrives before process exit", async () => {
+    const fixture = clientFixture();
+    const connecting = fixture.client.connect();
+    fixture.transport.emitLog('Error: approval_policy = "untrusted" is no longer supported; remove this setting');
+    fixture.transport.emitError(Object.assign(new Error("write EPIPE"), { code: "EPIPE" }));
+    fixture.transport.emitExit(1);
+
+    await expect(connecting).rejects.toThrow("Codex no longer supports the ‘untrusted’ approval policy");
+    expect(fixture.client.isConnected()).toBe(false);
+  });
+
+  it("does not turn a startup diagnostic into failure after initialization succeeds", async () => {
+    const fixture = clientFixture();
+    const connecting = fixture.client.connect();
+    fixture.transport.emitLog('Error: approval_policy = "untrusted" is no longer supported; remove this setting');
+    fixture.transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } });
+    await expect(connecting).resolves.toMatchObject({ codexHome: "/tmp/codex" });
+    expect(fixture.client.isConnected()).toBe(true);
+    fixture.client.disconnect();
   });
 
   it("delivers active transport logs and ignores stale events across reconnect", async () => {
@@ -645,7 +682,7 @@ describe("AppServerClient", () => {
     expect(client.isConnected()).toBe(true);
     expect(onNotification).not.toHaveBeenCalled();
     expect(onServerRequest).not.toHaveBeenCalled();
-    expect(logs).toEqual(["first startup", "first connected", "second startup", "second connected"]);
+    expect(logs).toEqual(["first connected", "second connected"]);
     expect(onExit).not.toHaveBeenCalled();
   });
 

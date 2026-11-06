@@ -8,6 +8,7 @@ const RUNTIME_CHECK_PROBE_IDS: readonly DiagnosticProbeId[] = ["models", "rateLi
 
 interface AppServerDiagnosticSectionsInput {
   connected: boolean;
+  connectionMessage?: string | undefined;
   configuredCommand: string;
   initializeResponse: ServerInitialization | null;
   diagnostics: Diagnostics;
@@ -17,6 +18,7 @@ export function appServerDiagnosticSections(input: AppServerDiagnosticSectionsIn
   return [
     {
       title: "Process",
+      ...(!input.connected && input.connectionMessage ? { description: input.connectionMessage } : {}),
       rows: [
         { label: "connection", value: input.connected ? "connected" : "offline" },
         { label: "configured command", value: input.configuredCommand },

@@ -204,9 +204,8 @@
 
 .codex-panel__composer-meta-fatal {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .codex-panel__composer-meta-status.is-status-hidden .codex-panel__composer-meta-status-visual {

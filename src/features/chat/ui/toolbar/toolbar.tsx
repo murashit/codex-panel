@@ -253,6 +253,7 @@ function DiagnosticSection({ section }: { section: ToolbarStatusSection }): UiNo
   return (
     <>
       {section.title ? <div className="codex-panel__status-diagnostics-section">{section.title}</div> : null}
+      {section.description ? <p className="codex-panel__status-diagnostics-description">{section.description}</p> : null}
       <DiagnosticRows rows={section.rows} />
     </>
   );

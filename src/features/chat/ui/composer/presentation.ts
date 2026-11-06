@@ -14,6 +14,7 @@ type ComposerRuntimeChoice = ComposerMetaViewModel["modelChoices"][number];
 interface ComposerPresentationInput {
   snapshot: RuntimeSnapshot;
   disconnected: boolean;
+  connectionMessage?: string | undefined;
   sideChatActive: boolean;
   inputRestriction: "read-only" | "agent-unknown" | null;
 }
@@ -42,7 +43,7 @@ export function composerPresentation(
             ? "Ask in side chat..."
             : "Ask Codex...",
     meta: {
-      ...composerMetaViewModel(input.disconnected, snapshot, resolution),
+      ...composerMetaViewModel(input.disconnected, snapshot, resolution, input.connectionMessage),
       ...runtimeComposerChoices({ models: snapshot.availableModels, resolution, ...actions }),
     },
   };
@@ -59,12 +60,13 @@ function composerMetaViewModel(
   disconnected: boolean,
   snapshot: RuntimeSnapshot,
   resolution: RuntimeControlsResolution,
+  connectionMessage: string | undefined,
 ): Omit<ComposerMetaViewModel, "modelChoices" | "effortChoices"> {
   if (disconnected) {
     return {
-      fatal: "Codex app-server disconnected",
+      fatal: connectionMessage ?? "Not connected to Codex. Use /reconnect to connect.",
       context: contextComposerMeter(null),
-      statusSummary: "Codex app-server disconnected",
+      statusSummary: connectionMessage ?? "Not connected to Codex. Use /reconnect to connect.",
       model: "",
       effort: null,
       planActive: false,
