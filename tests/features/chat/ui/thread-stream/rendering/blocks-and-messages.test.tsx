@@ -175,6 +175,7 @@ describe("panel thread stream rendering and action menu", () => {
             },
             {
               title: "Runtime",
+              body: "Codex did not report a reason. Use /plugins in the Codex CLI to inspect this plugin.",
               auditFacts: [{ key: "/doctor", value: "Show Codex CLI and Codex App Server diagnostics." }],
             },
           ],
@@ -192,6 +193,10 @@ describe("panel thread stream rendering and action menu", () => {
     expect(element.querySelector(".codex-panel__output-title")).toBeNull();
     expect(element.querySelector(".codex-panel__meta-grid")).toBeNull();
     expect(element.querySelectorAll(".codex-panel__system-result-grid")).toHaveLength(1);
+    expect(element.querySelector("p.codex-panel__system-result-body")?.textContent).toBe(
+      "Codex did not report a reason. Use /plugins in the Codex CLI to inspect this plugin.",
+    );
+    expect(element.querySelector("pre.codex-panel__system-result-body")).toBeNull();
     expect(textContents(element, ".codex-panel__system-result-heading")).toEqual(["Thread", "Runtime"]);
     expect(element.querySelector(".codex-panel__system-result-grid")?.textContent).toContain("/helpShow available Codex slash commands.");
     expect(element.querySelector(".codex-panel__system-result-grid")?.textContent).toContain(

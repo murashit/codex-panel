@@ -41,6 +41,7 @@ export interface ToolInventoryPlugin {
   readonly localVersion: string | null;
   readonly installed: boolean;
   readonly enabled: boolean;
+  readonly unavailableReason: "admin" | "plan" | "requiredApp" | "unknown" | null;
 }
 
 export interface ToolInventorySnapshot {

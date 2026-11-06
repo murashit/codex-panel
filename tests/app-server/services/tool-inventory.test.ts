@@ -43,7 +43,14 @@ describe("tool inventory", () => {
     ]);
   });
 
-  it("reads and sorts installed plugins without loading plugin details", async () => {
+  it.each([
+    ["AVAILABLE", null, null],
+    ["DISABLED_BY_ADMIN", null, "admin"],
+    ["DISABLED_BY_ADMIN", "disabled_by_admin", "admin"],
+    ["DISABLED_BY_ADMIN", "plan_not_eligible", "plan"],
+    ["DISABLED_BY_ADMIN", "required_app_unavailable", "requiredApp"],
+    ["DISABLED_BY_ADMIN", "unknown", "unknown"],
+  ])("retains installed plugin availability (%s, %s) without loading details", async (availability, disabledReason, unavailableReason) => {
     const request = vi.fn().mockResolvedValue({
       marketplaces: [
         {
@@ -57,7 +64,8 @@ describe("tool inventory", () => {
               localVersion: "2.0.0",
               installed: true,
               enabled: true,
-              availability: "AVAILABLE",
+              availability,
+              disabledReason,
               source: { type: "remote" },
             },
           ],
@@ -86,6 +94,7 @@ describe("tool inventory", () => {
 
     expect(request.mock.calls).toEqual([["plugin/installed", { cwds: ["/vault"] }]]);
     expect(result.plugins.map((plugin) => plugin.name)).toEqual(["local-plugin", "remote-plugin"]);
+    expect(result.plugins.map((plugin) => plugin.unavailableReason)).toEqual([null, unavailableReason]);
   });
 });
 

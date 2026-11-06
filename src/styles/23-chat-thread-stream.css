@@ -155,6 +155,7 @@
 }
 
 .codex-panel__system-result-heading {
+  overflow-wrap: anywhere;
   grid-column: 1 / -1;
   margin-top: var(--codex-panel-item-gap);
   color: var(--text-muted);
@@ -181,9 +182,9 @@
 
 .codex-panel__system-result-body {
   grid-column: 1 / -1;
-  max-height: var(--codex-panel-size-output-max-height);
   margin: 0;
-  color: var(--code-normal, var(--codex-panel-text-muted));
+  color: var(--codex-panel-text-muted);
+  overflow-wrap: anywhere;
   cursor: text;
   user-select: text;
   white-space: pre-wrap;

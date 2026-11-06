@@ -232,8 +232,8 @@ function DiagnosticSectionsPanel({ title, sections }: { title: string; sections:
   return (
     <div className="codex-panel__status-diagnostics">
       <div className="codex-panel__status-diagnostics-title">{title}</div>
-      {sections.map((section) => (
-        <DiagnosticSection key={section.title} section={section} />
+      {sections.map((section, index) => (
+        <DiagnosticSection key={`${section.title}:${String(index)}`} section={section} />
       ))}
     </div>
   );

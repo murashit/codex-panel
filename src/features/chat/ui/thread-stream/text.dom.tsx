@@ -264,7 +264,7 @@ function SystemDetails({ details }: { details: readonly TextItemDetailSectionVie
               <div className="codex-panel__system-result-value">{row.value}</div>
             </Fragment>
           ))}
-          {section.body ? <pre className="codex-panel__system-result-body">{section.body}</pre> : null}
+          {section.body ? <p className="codex-panel__system-result-body">{section.body}</p> : null}
         </Fragment>
       ))}
     </div>

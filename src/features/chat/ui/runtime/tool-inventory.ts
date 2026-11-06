@@ -33,27 +33,50 @@ export function toolInventoryDiagnosticSections(
 }
 
 function toolInventorySnapshotSections(inventory: ToolInventorySnapshot): DiagnosticSection[] {
-  return [
-    { title: "Plugins", rows: pluginRows(inventory) },
-    { title: TOOL_PROVIDERS_LABEL, rows: mcpToolProviderRows(inventory) },
-  ];
+  return [...pluginSections(inventory), { title: TOOL_PROVIDERS_LABEL, rows: mcpToolProviderRows(inventory) }];
 }
 
-function pluginRows(inventory: ToolInventorySnapshot): DiagnosticRow[] {
-  const failure: DiagnosticRow[] = inventory.pluginsError ? [{ label: "Refresh", value: inventory.pluginsError, level: "error" }] : [];
-  if (!inventory.plugins) return [...failure, { label: "Plugins", value: "not loaded", level: "warning" }];
+function pluginSections(inventory: ToolInventorySnapshot): DiagnosticSection[] {
+  const rows: DiagnosticRow[] = inventory.pluginsError ? [{ label: "Refresh", value: inventory.pluginsError, level: "error" }] : [];
+  if (!inventory.plugins) {
+    rows.push({ label: "Plugins", value: "not loaded", level: "warning" });
+    return [{ title: "Plugins", rows }];
+  }
 
-  if (inventory.pluginsError) failure.push({ label: "Plugins", value: "showing last known inventory", level: "warning" });
-  const rows = inventory.plugins.filter((plugin) => plugin.enabled && plugin.installed).map(pluginRow);
-  return [...failure, ...(rows.length > 0 ? rows : [{ label: "Plugins", value: "(none)" }])];
+  if (inventory.pluginsError) rows.push({ label: "Plugins", value: "showing last known inventory", level: "warning" });
+  const installed = inventory.plugins.filter((plugin) => plugin.installed);
+  const unavailable: DiagnosticSection[] = [];
+  for (const plugin of installed) {
+    const name = plugin.displayName ?? plugin.name;
+    if (plugin.enabled && plugin.unavailableReason === null) {
+      rows.push({ label: name, value: pluginBundleSummary(plugin), level: "normal" });
+    } else {
+      unavailable.push({
+        title: name,
+        rows: [
+          { label: "Status", value: plugin.unavailableReason === null ? "Disabled" : "Unavailable", level: "warning" },
+          { label: "Version", value: plugin.localVersion ?? "unknown" },
+        ],
+        description: pluginUnavailableDescription(plugin.unavailableReason),
+      });
+    }
+  }
+  if (installed.length === 0) rows.push({ label: "Plugins", value: "(none)" });
+  return [{ title: "Plugins", rows }, ...unavailable];
 }
 
-function pluginRow(plugin: ToolInventoryPlugin): DiagnosticRow {
-  return {
-    label: plugin.displayName ?? plugin.name,
-    value: pluginBundleSummary(plugin),
-    level: "normal",
-  };
+function pluginUnavailableDescription(reason: ToolInventoryPlugin["unavailableReason"]): string {
+  switch (reason) {
+    case "admin":
+      return "Disabled by your administrator. Contact your administrator if you need access.";
+    case "plan":
+      return "This plugin is not included in your current plan. Check the plan available to your account or organization.";
+    case "requiredApp":
+      return "An app required by this plugin is unavailable. Use /apps in the Codex CLI to check app access.";
+    case "unknown":
+    case null:
+      return "Codex did not report a reason. Use /plugins in the Codex CLI to inspect this plugin.";
+  }
 }
 
 function mcpToolProviderRows(inventory: ToolInventorySnapshot): DiagnosticRow[] {

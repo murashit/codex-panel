@@ -8,7 +8,6 @@
 }
 
 .codex-panel-diff,
-.codex-panel__system-result-body,
 .codex-panel__output pre,
 .codex-panel-selection-rewrite__debug pre {
   padding: var(--codex-panel-section-gap);

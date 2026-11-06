@@ -114,7 +114,7 @@ describe("connection diagnostics", () => {
     ]);
   });
 
-  it("summarizes usable Codex capabilities and groups skills by provenance", () => {
+  it("summarizes installed plugins and usable tools, and groups skills by provenance", () => {
     const skills = [
       skillFixture("codex-panel-local", "repo"),
       skillFixture("jujutsu-agent-workflow", "user"),
@@ -132,6 +132,7 @@ describe("connection diagnostics", () => {
           name: "usable-bundle",
           displayName: "Usable Plugin",
           localVersion: "1.2.3",
+          unavailableReason: null,
           installed: true,
           enabled: true,
         },
@@ -140,6 +141,7 @@ describe("connection diagnostics", () => {
           name: "installable-plugin",
           displayName: "Installable Plugin",
           localVersion: null,
+          unavailableReason: null,
           installed: false,
           enabled: true,
         },
@@ -148,6 +150,7 @@ describe("connection diagnostics", () => {
           name: "disabled-plugin",
           displayName: "Disabled Plugin",
           localVersion: "2.0.0",
+          unavailableReason: null,
           installed: true,
           enabled: false,
         },
@@ -156,6 +159,7 @@ describe("connection diagnostics", () => {
           name: "unversioned-bundle",
           displayName: "Usable Plugin",
           localVersion: null,
+          unavailableReason: null,
           installed: true,
           enabled: true,
         },
@@ -207,7 +211,7 @@ describe("connection diagnostics", () => {
     const toolProviderRows = sections.find((section) => section.title === "Tool providers")?.rows ?? [];
     const skillRows = sections.find((section) => section.title === "Skills")?.rows ?? [];
 
-    expect(sections.map((section) => section.title)).toEqual(["Plugins", "Tool providers", "Skills"]);
+    expect(sections.map((section) => section.title)).toEqual(["Plugins", "Disabled Plugin", "Tool providers", "Skills"]);
     expect(pluginRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
       "Usable Plugin: version 1.2.3",
       "Usable Plugin: version unknown",
@@ -238,6 +242,45 @@ describe("connection diagnostics", () => {
       { label: "unversioned-bundle", value: "writer" },
       { label: "usable-bundle", value: "github:gh-fix-ci, github:github" },
     ]);
+  });
+
+  it.each([
+    ["admin", "Disabled by your administrator."],
+    ["plan", "not included in your current plan"],
+    ["requiredApp", "An app required by this plugin is unavailable."],
+    ["unknown", "Codex did not report a reason."],
+    [null, "Codex did not report a reason."],
+  ] as const)("keeps installed unavailable plugins visible with the reported reason (%s)", (unavailableReason, explanation) => {
+    const sections = toolInventoryDiagnosticSections(
+      {
+        plugins: [
+          {
+            id: "restricted",
+            name: "restricted",
+            displayName: "Restricted Plugin",
+            localVersion: "1.0",
+            installed: true,
+            enabled: false,
+            unavailableReason,
+          },
+        ],
+        pluginsError: null,
+        mcpServers: [],
+        mcpDiagnostics: [],
+        mcpError: null,
+      },
+      { value: [], probe: diagnosticProbeOk("0 skills", 1) },
+    );
+    expect(sections[0]).toEqual({ title: "Plugins", rows: [] });
+    expect(sections[1]).toMatchObject({
+      title: "Restricted Plugin",
+      rows: [
+        { label: "Status", value: unavailableReason === null ? "Disabled" : "Unavailable", level: "warning" },
+        { label: "Version", value: "1.0" },
+      ],
+    });
+    expect(sections[1]?.description).toContain(explanation);
+    expect(sections[1]?.description?.includes("administrator")).toBe(unavailableReason === "admin");
   });
 
   it("shows plugin and MCP refresh failures", () => {

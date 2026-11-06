@@ -154,7 +154,17 @@ describe("createChatPanelRuntimeNotices", () => {
 
   it("projects connection and tool inventory diagnostics into runtime notices", () => {
     const inventory: ToolInventorySnapshot = {
-      plugins: [],
+      plugins: [
+        {
+          id: "restricted",
+          name: "restricted",
+          displayName: "Restricted Plugin",
+          localVersion: "1.0",
+          installed: true,
+          enabled: false,
+          unavailableReason: "admin",
+        },
+      ],
       pluginsError: null,
       mcpServers: [
         {
@@ -197,9 +207,17 @@ describe("createChatPanelRuntimeNotices", () => {
       ]),
     });
     const toolSections = projection.toolInventoryDetails();
-    expect(toolSections.map((section) => section.title)).toEqual(["Plugins", "Tool providers", "Skills"]);
-    expect(toolSections.slice(0, 2)).toEqual([
-      { title: "Plugins", auditFacts: [{ key: "Plugins", value: "(none)" }] },
+    expect(toolSections.map((section) => section.title)).toEqual(["Plugins", "Restricted Plugin", "Tool providers", "Skills"]);
+    expect(toolSections.slice(0, 3)).toEqual([
+      { title: "Plugins", auditFacts: [] },
+      {
+        title: "Restricted Plugin",
+        auditFacts: [
+          { key: "Status", value: "Unavailable" },
+          { key: "Version", value: "1.0" },
+        ],
+        body: "Disabled by your administrator. Contact your administrator if you need access.",
+      },
       { title: "Tool providers", auditFacts: [{ key: "github", value: "MCP server, connected, auth OAuth, 1 tool" }] },
     ]);
   });
