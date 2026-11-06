@@ -3,6 +3,7 @@ import * as contextConnection from "../src/app-server/connection/context-connect
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../src/app-server/connection/client";
+import type { ConnectionManagerHandlers } from "../src/app-server/connection/connection-manager";
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_TURN_DIFF } from "../src/constants";
 import type { Thread } from "../src/domain/threads/model";
 import { sideChatDraft } from "../src/features/chat/application/threads/fork-draft";
@@ -38,6 +39,8 @@ function threadCatalog(plugin: CodexPanelPlugin) {
 function threadFacts(plugin: CodexPanelPlugin) {
   return currentChatHost(plugin).threadFacts;
 }
+
+let connectionHandlers: ConnectionManagerHandlers;
 
 const capturedChatHosts = new WeakMap<CodexPanelPlugin, { current: CodexChatHost | null }>();
 
@@ -75,7 +78,8 @@ describe("CodexPanelPlugin runtime integration", () => {
         constructor(...args: ConstructorParameters<typeof ActualContextConnection>) {
           let client: AppServerClient | null = null;
           super(args[0], args[1], args[2], args[3], {
-            connect: async () => {
+            connect: async (handlers) => {
+              connectionHandlers = handlers;
               client ??= contextConnectionClientMock(args[0], args[1]);
               return { codexHome: "/tmp/codex", platformFamily: "unix", platformOs: "macos", userAgent: "test" };
             },
@@ -193,7 +197,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     });
   });
 
-  it("publishes rename and delayed toolbar Pin results across catalogs and panels", async () => {
+  it("publishes rename and delayed toolbar Pin notifications across catalogs and panels", async () => {
     const moved = deferred<object>();
     const move = vi.fn(() => moved.promise);
     const listClient: { request(method: string, params: unknown): Promise<unknown> } = threadListClient(async () => [
@@ -237,6 +241,12 @@ describe("CodexPanelPlugin runtime integration", () => {
       });
       await first.surface.activateThread("thread-2");
       moved.resolve({});
+      await flushMicrotasks();
+      expect(catalog.activeThreadsSnapshot()?.find((row) => row.id === "thread-1")?.isPinned).not.toBe(true);
+      connectionHandlers.onNotification({
+        method: "thread/section/changed",
+        params: { threadId: "thread-1", sectionId: "01984de2-8f74-7c91-a3b2-5c5e937cf318" },
+      });
       await vi.waitFor(() =>
         expect(catalog.activeThreadsSnapshot()?.find((row) => row.id === "thread-1")).toMatchObject({ isPinned: true }),
       );

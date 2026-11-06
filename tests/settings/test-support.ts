@@ -275,7 +275,6 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): SettingsT
         createFolder: vi.fn().mockResolvedValue(undefined),
         createMarkdownFile: vi.fn().mockResolvedValue(undefined),
       }),
-      facts: { apply: () => undefined, applyBatch: () => undefined },
       threadIsBusy: () => false,
     });
     return {

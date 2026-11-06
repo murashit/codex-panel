@@ -414,6 +414,10 @@ export async function renameThread(client: AppServerRequestClient, threadId: str
   await client.request("thread/name/set", { threadId, name });
 }
 
+export function isPinnedThreadSection(sectionId: string | null): boolean {
+  return sectionId === BUILT_IN_PINNED_THREAD_SECTION_ID;
+}
+
 export async function setThreadPinned(client: AppServerRequestClient, threadId: string, isPinned: boolean): Promise<void> {
   await client.request("thread/section/move", { threadId, sectionId: isPinned ? BUILT_IN_PINNED_THREAD_SECTION_ID : null });
 }

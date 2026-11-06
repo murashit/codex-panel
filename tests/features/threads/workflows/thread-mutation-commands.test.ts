@@ -5,7 +5,6 @@ import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import { createThreadMutationAdapter } from "../../../../src/features/threads/app-server/workflow-adapters";
 import type { ArchiveExportDestination } from "../../../../src/features/threads/workflows/archive-export";
 import type { ArchiveThreadResult } from "../../../../src/features/threads/workflows/ports";
-import type { ThreadFact } from "../../../../src/features/threads/workflows/thread-facts";
 import {
   createThreadMutationCommands,
   type ThreadMutationCommandsHost,
@@ -15,12 +14,11 @@ import { deferred } from "../../../support/async";
 
 describe("ThreadMutationCommands", () => {
   it("renames a thread through the shared client", async () => {
-    const { mutations, client, catalog } = operationsFixture();
+    const { mutations, client } = operationsFixture();
 
     await expect(mutations.renameThread("thread", "  Saved   title  ")).resolves.toBe(true);
 
     expect(client.request).toHaveBeenCalledWith("thread/name/set", { threadId: "thread", name: "Saved title" });
-    expect(catalog.apply).not.toHaveBeenCalled();
   });
 
   it("evaluates rename admission after queued work reaches the front", async () => {
@@ -45,23 +43,22 @@ describe("ThreadMutationCommands", () => {
     expect(client.request).toHaveBeenCalledOnce();
   });
 
-  it("unpins without listing sections and publishes only after the move succeeds", async () => {
-    const { mutations, client, catalog } = operationsFixture();
+  it("forwards repeated unpin requests without listing sections", async () => {
+    const { mutations, client } = operationsFixture();
 
-    await mutations.setThreadPinned("thread", false);
+    await Promise.all([mutations.setThreadPinned("thread", false), mutations.setThreadPinned("thread", false)]);
 
-    expect(client.request).toHaveBeenCalledExactlyOnceWith("thread/section/move", { threadId: "thread", sectionId: null });
-    expect(catalog.apply).toHaveBeenCalledWith({ type: "thread-pinned", threadId: "thread", isPinned: false });
+    expect(client.request).toHaveBeenCalledTimes(2);
+    expect(client.request).toHaveBeenNthCalledWith(1, "thread/section/move", { threadId: "thread", sectionId: null });
+    expect(client.request).toHaveBeenNthCalledWith(2, "thread/section/move", { threadId: "thread", sectionId: null });
   });
 
-  it("does not publish a pin when the move fails", async () => {
+  it("reports a failed pin move", async () => {
     const client = clientMock();
     client.request.mockRejectedValueOnce(new Error("section unavailable"));
-    const { mutations, catalog } = operationsFixture({ client });
+    const { mutations } = operationsFixture({ client });
 
     await expect(mutations.setThreadPinned("thread", true)).rejects.toThrow("section unavailable");
-
-    expect(catalog.apply).not.toHaveBeenCalled();
   });
 
   it("serializes successive names for the same thread", async () => {
@@ -137,7 +134,7 @@ describe("ThreadMutationCommands", () => {
   });
 
   it("archives a thread and reports exported markdown", async () => {
-    const { mutations, catalog, client, archiveDestination } = operationsFixture();
+    const { mutations, client, archiveDestination } = operationsFixture();
 
     await expect(mutations.archiveThread("thread", { saveMarkdown: true })).resolves.toEqual({
       kind: "archived",
@@ -152,7 +149,6 @@ describe("ThreadMutationCommands", () => {
     );
     expect(client.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
     expect(callOrder(archiveDestination.createMarkdownFile)).toBeLessThan(requestCallOrder(client, "thread/archive"));
-    expect(catalog.apply).not.toHaveBeenCalled();
   });
 
   it("blocks archive when the thread becomes busy during markdown export", async () => {
@@ -268,14 +264,13 @@ describe("ThreadMutationCommands", () => {
   });
 
   it("restores and deletes archived threads through the shared lifecycle owner", async () => {
-    const { mutations, client, catalog } = operationsFixture();
+    const { mutations, client } = operationsFixture();
 
     await expect(mutations.restoreThread("thread")).resolves.toMatchObject({ id: "abcdef12-9999", archived: false });
     await expect(mutations.deleteThread("thread")).resolves.toBeUndefined();
 
     expect(client.request).toHaveBeenCalledWith("thread/unarchive", { threadId: "thread" });
     expect(client.request).toHaveBeenCalledWith("thread/delete", { threadId: "thread" });
-    expect(catalog.apply).not.toHaveBeenCalled();
   });
 });
 
@@ -290,13 +285,6 @@ function operationsFixture(
     archiveExportFilenameTemplate: "{{title}} {{shortId}}",
     archiveExportTags: DEFAULT_SETTINGS.archiveExportTags,
   }));
-  const apply = vi.fn();
-  const catalog = {
-    apply,
-    applyBatch: vi.fn((facts: readonly ThreadFact[]) => {
-      for (const fact of facts) apply(fact);
-    }),
-  };
   const host: ThreadMutationCommandsHost = {
     port: createThreadMutationAdapter(
       options.clientAccess ?? {
@@ -312,7 +300,6 @@ function operationsFixture(
       vaultConfigDir: "vault-config",
     },
     archiveDestination: archiveDestinationFactory,
-    facts: catalog,
     threadIsBusy: options.threadIsBusy ?? (() => false),
   };
   return {
@@ -321,7 +308,6 @@ function operationsFixture(
     archiveDestination,
     archiveDestinationFactory,
     archiveExportSettings,
-    catalog,
   };
 }
 

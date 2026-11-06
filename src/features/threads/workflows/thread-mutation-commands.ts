@@ -1,8 +1,7 @@
-import { normalizeExplicitThreadName, type Thread } from "../../../domain/threads/model";
+import { normalizeExplicitThreadName } from "../../../domain/threads/model";
 import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../shared/async/keyed-operation-coordinator";
 import { type ArchiveExportDestination, type ArchiveExportSettings, exportArchivedThreadMarkdown } from "./archive-export";
 import type { ArchiveThreadResult, ThreadMutationPort } from "./ports";
-import type { ThreadFactSink } from "./thread-facts";
 
 export interface ThreadMutationCommandsHost {
   port: ThreadMutationPort;
@@ -13,7 +12,6 @@ export interface ThreadMutationCommandsHost {
     vaultConfigDir: string;
   };
   archiveDestination(): ArchiveExportDestination;
-  facts: ThreadFactSink;
   threadIsBusy(threadId: string): boolean;
 }
 
@@ -26,23 +24,18 @@ interface RenameThreadOptions {
   shouldStart?: () => boolean;
 }
 
-export interface ThreadMutationCommands {
+export interface ThreadMutationCommands extends Pick<ThreadMutationPort, "setThreadPinned" | "restoreThread" | "deleteThread"> {
   renameThread: (threadId: string, value: string, options?: RenameThreadOptions) => Promise<boolean>;
-  setThreadPinned(threadId: string, isPinned: boolean): Promise<void>;
   archiveThread(threadId: string, options?: ArchiveThreadOptions): Promise<ArchiveThreadResult>;
-  restoreThread(threadId: string): Promise<Thread>;
-  deleteThread(threadId: string): Promise<void>;
 }
 
 export function createThreadMutationCommands(host: ThreadMutationCommandsHost): ThreadMutationCommands {
   const nameMutations = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
   const archiveMutations = createKeyedOperationCoordinator<string>({ whenBusy: "reject" });
   return {
+    ...host.port,
     renameThread: (threadId, value, options) => renameThread(host, nameMutations, threadId, value, options),
-    setThreadPinned: (threadId, isPinned) => setThreadPinned(host, threadId, isPinned),
     archiveThread: (threadId, options) => archiveThread(host, archiveMutations, threadId, options),
-    restoreThread: (threadId) => host.port.restoreThread(threadId),
-    deleteThread: (threadId) => host.port.deleteThread(threadId),
   };
 }
 
@@ -60,11 +53,6 @@ async function renameThread(
     await host.port.renameThread(threadId, name);
     return true;
   });
-}
-
-async function setThreadPinned(host: ThreadMutationCommandsHost, threadId: string, isPinned: boolean): Promise<void> {
-  await host.port.setThreadPinned(threadId, isPinned);
-  host.facts.apply({ type: "thread-pinned", threadId, isPinned });
 }
 
 async function archiveThread(
