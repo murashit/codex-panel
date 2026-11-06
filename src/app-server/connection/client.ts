@@ -4,6 +4,7 @@ import type { RequestId } from "../../generated/app-server/RequestId";
 import type { ServerNotification } from "../../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../generated/app-server/ServerRequest";
 import type { ConfigReadResponse } from "../../generated/app-server/v2/ConfigReadResponse";
+import type { ConfigRequirementsReadResponse } from "../../generated/app-server/v2/ConfigRequirementsReadResponse";
 import type { ConfigWriteResponse } from "../../generated/app-server/v2/ConfigWriteResponse";
 import type { FsReadFileResponse } from "../../generated/app-server/v2/FsReadFileResponse";
 import type { GetAccountRateLimitsResponse } from "../../generated/app-server/v2/GetAccountRateLimitsResponse";
@@ -69,6 +70,7 @@ export interface ClientResponseByMethod {
   initialize: InitializeResponse;
   "config/batchWrite": ConfigWriteResponse;
   "config/read": ConfigReadResponse;
+  "configRequirements/read": ConfigRequirementsReadResponse;
   "hooks/list": HooksListResponse;
   "thread/start": ThreadStartResponse;
   "thread/resume": ThreadResumeResponse;

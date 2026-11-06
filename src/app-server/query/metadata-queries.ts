@@ -28,7 +28,7 @@ import {
   trustHookItem,
 } from "../services/catalog";
 import type { AppServerRequestClient } from "../services/request-client";
-import { readAccountRateLimits, readEffectiveConfig } from "../services/runtime-metadata";
+import { readAccountRateLimits, readAllowedApprovalsReviewers, readEffectiveConfig } from "../services/runtime-metadata";
 import type { AppServerQueryOptions, AppServerQueryScope } from "./query-scope";
 
 const METADATA_QUERY_KEY = ["metadata"] as const;
@@ -187,9 +187,16 @@ export class AppServerMetadataQueries {
         queryOptions: {
           queryKey: RUNTIME_CONFIG_QUERY_KEY,
           queryFn: async (): Promise<RuntimeConfigSnapshot> =>
-            this.scope.runWithClient(async (client) =>
-              runtimeConfigSnapshotFromAppServerConfig(await readEffectiveConfig(client, this.scope.context.vaultPath)),
-            ),
+            this.scope.runWithClient(async (client) => {
+              const [config, allowedApprovalsReviewers] = await Promise.all([
+                readEffectiveConfig(client, this.scope.context.vaultPath),
+                readAllowedApprovalsReviewers(client),
+              ]);
+              return {
+                ...runtimeConfigSnapshotFromAppServerConfig(config),
+                ...(allowedApprovalsReviewers === undefined ? {} : { allowedApprovalsReviewers }),
+              };
+            }),
         },
         project: (result) => ({
           id: "runtimeConfig",

@@ -1112,6 +1112,19 @@ describe("app-server query resources", () => {
     await vi.waitFor(() => expect(cache.metadataQueries.metadataSnapshot("skills")?.map((skill) => skill.name)).toEqual(["new"]));
   });
 
+  it("loads explicit reviewer requirements without making their failure a config failure", async () => {
+    const requirements = vi
+      .fn()
+      .mockResolvedValueOnce({ requirements: { allowedApprovalsReviewers: ["user"] } })
+      .mockRejectedValueOnce(new Error("requirements unavailable"));
+    const cache = cacheWithRequestHandlers(metadataRequestHandlers({ "configRequirements/read": requirements }));
+    await cache.metadataQueries.refreshAppServerMetadata();
+    expect(cache.metadataQueries.metadataSnapshot("runtimeConfig")?.allowedApprovalsReviewers).toEqual(["user"]);
+    await cache.metadataQueries.refreshAppServerMetadata();
+    expect(cache.metadataQueries.metadataSnapshot("runtimeConfig")).not.toBeNull();
+    expect(cache.metadataQueries.metadataSnapshot("runtimeConfig")?.allowedApprovalsReviewers).toBeUndefined();
+  });
+
   it("rejects an initial metadata refresh when runtime config fails after optional resources settle", async () => {
     const skills = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
     const cache = cacheWithRequestHandlers(
@@ -1364,6 +1377,7 @@ function paginatedCatalogFixture() {
 function metadataRequestHandlers(overrides: Record<string, (params: unknown) => Promise<unknown>>) {
   return {
     "config/read": vi.fn().mockResolvedValue({}),
+    "configRequirements/read": vi.fn().mockResolvedValue({ requirements: null }),
     "model/list": vi.fn().mockResolvedValue({ data: [] }),
     "skills/list": vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
     "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),

@@ -16,6 +16,22 @@ import { deferred } from "../../../support/async";
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
 describe("chat app-server adapters", () => {
+  it("distinguishes settings rejection from an uncertain transport failure", async () => {
+    const request = vi
+      .fn()
+      .mockRejectedValueOnce(new AppServerRpcError("thread/settings/update", { code: -32600, message: "Reviewer is not allowed." }))
+      .mockRejectedValueOnce(new Error("connection closed"));
+    const client = { request } as unknown as AppServerClient;
+    const gateway = createTestGateway({ currentClient: () => client });
+    await expect(gateway.runtimeSettings.updateThreadSettings("thread", { approvalsReviewer: "auto_review" })).resolves.toEqual({
+      kind: "rejected",
+      message: "Reviewer is not allowed.",
+    });
+    await expect(gateway.runtimeSettings.updateThreadSettings("thread", { approvalsReviewer: "auto_review" })).resolves.toEqual({
+      kind: "unknown",
+    });
+  });
+
   it.each([false, true])("starts ordinary conversations with normal permissions and tools (temporary=%s)", async (ephemeral) => {
     const response = threadStartResponse("thread");
     const request = vi.fn().mockResolvedValue({ ...response, thread: { ...response.thread, ephemeral } });
@@ -188,7 +204,11 @@ describe("chat app-server adapters", () => {
       currentClient: () => currentClient,
     }).turn;
 
-    const starting = adapter.startTurn({ threadId: "thread", input: textInput("hello"), clientUserMessageId: "local-user" });
+    const starting = adapter.startTurn({
+      threadId: "thread",
+      input: textInput("hello"),
+      clientUserMessageId: "local-user",
+    });
     currentClient = secondClient;
     start.resolve({ turn: { id: "turn-1" } });
 
@@ -412,7 +432,7 @@ describe("chat app-server adapters", () => {
     currentClient = secondClient;
     update.resolve(undefined);
 
-    await expect(updating).resolves.toBe(true);
+    await expect(updating).resolves.toEqual({ kind: "accepted" });
     expect(request).toHaveBeenCalledWith("thread/settings/update", { threadId: "thread", model: "gpt-5.5" });
   });
 

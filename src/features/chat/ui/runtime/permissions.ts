@@ -1,6 +1,6 @@
 import type { RuntimeApprovalPolicy, RuntimeSandboxPolicy } from "../../../../domain/runtime/permissions";
-import { runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
-import { resolveRuntimeControls } from "../../domain/runtime/resolution";
+import { type ApprovalsReviewer, runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
+import { type RuntimeControlsResolution, resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import type { ToolbarStatusRow as DiagnosticRow, ToolbarStatusSection as DiagnosticSection } from "../toolbar/model";
 
@@ -19,7 +19,7 @@ export function runtimePermissionSections(input: RuntimePermissionSectionsInput)
     },
     {
       title: "Approvals",
-      rows: approvalRows(resolution.approvalPolicy.confirmed, resolution.autoReview.confirmedActive),
+      rows: approvalRows(resolution, config.allowedApprovalsReviewers, input.snapshot.pending.approvalsReviewer.kind !== "unchanged"),
     },
   ];
 }
@@ -33,13 +33,19 @@ function accessRows(profile: string | null, sandbox: RuntimeSandboxPolicy | null
   ];
 }
 
-function approvalRows(policy: RuntimeApprovalPolicy | null, autoReview: boolean): DiagnosticRow[] {
+function approvalRows(
+  resolution: RuntimeControlsResolution,
+  allowed: readonly ApprovalsReviewer[] | null | undefined,
+  pending: boolean,
+): DiagnosticRow[] {
+  const review = resolution.autoReview;
+  const parts = [review.confirmedActive ? "on" : "off"];
+  if (pending) parts.push(`requested ${review.active ? "on" : "off"}, not confirmed`);
+  if (allowed && !allowed.includes("auto_review")) parts.push("requirements do not allow turning on");
+  if (allowed && !allowed.includes("user")) parts.push("requirements do not allow turning off");
   return [
-    { label: "Approval policy", value: approvalPolicyLabel(policy) },
-    {
-      label: "Auto review",
-      value: autoReview ? "on" : "off",
-    },
+    { label: "Approval policy", value: approvalPolicyLabel(resolution.approvalPolicy.confirmed) },
+    { label: "Auto review", value: parts.join("; ") },
   ];
 }
 

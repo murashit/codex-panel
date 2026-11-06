@@ -32,6 +32,52 @@ import {
 describe("CodexChatView connection lifecycle", () => {
   setupViewConnectionHarness();
 
+  it("explains reviewer constraints through both controls and existing permission details", async () => {
+    const update = vi.fn();
+    const view = await openedChatView(
+      connectedClient({
+        "configRequirements/read": vi.fn().mockResolvedValue({ requirements: { allowedApprovalsReviewers: ["user"] } }),
+        "thread/settings/update": update,
+      }),
+    );
+    await view.surface.activateThread("thread-1", { focus: false });
+    const status = requiredButton(view.containerEl, '[aria-label="Show status"]');
+    status.click();
+    await waitForAsyncWork(() =>
+      expect(
+        [...view.containerEl.querySelectorAll(".codex-panel__status-diagnostics-row")]
+          .find((row) => row.querySelector("dt")?.textContent === "Auto review")
+          ?.querySelector("dd")?.textContent,
+      ).toBe("off; requirements do not allow turning on"),
+    );
+    status.click();
+    const input = requiredTextArea(view.containerEl, ".codex-panel__composer-input");
+    input.focus();
+    const shield = () => view.containerEl.querySelector(".codex-panel__composer-meta-modes")?.children[1];
+    shield()?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    await waitForAsyncWork(() =>
+      expect(view.containerEl.querySelector(".codex-panel__thread-stream")?.textContent).toContain(
+        "Auto-review remains off. Current requirements do not allow turning it on.",
+      ),
+    );
+    expect(document.activeElement).toBe(input);
+    expect(shield()?.classList.contains("is-active")).toBe(false);
+    for (const command of ["/auto-review", "/permissions"]) {
+      input.value = command;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+      await submitComposerByEnter(view);
+      expect(shield()?.classList.contains("is-active")).toBe(false);
+    }
+    expect(update).not.toHaveBeenCalled();
+    await waitForAsyncWork(() =>
+      expect(
+        [...view.containerEl.querySelectorAll(".codex-panel__system-result-key")].find((row) => row.textContent === "Auto review")
+          ?.nextElementSibling?.textContent,
+      ).toBe("off; requirements do not allow turning on"),
+    );
+  });
+
   it("projects official receipts through panel snapshots and acknowledges foreground activation", async () => {
     const focus = vi.spyOn(document, "hasFocus").mockReturnValue(false);
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
