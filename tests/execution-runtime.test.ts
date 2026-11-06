@@ -344,6 +344,7 @@ describe("CodexExecutionRuntime", () => {
       });
       vi.spyOn(AppServerClient.prototype, "request").mockImplementation(async (method) => {
         if (method === "config/read") return { config: {} } as never;
+        if (method === "configRequirements/read") return { requirements: null } as never;
         if (method === "thread/start") return { thread: { id: "helper" } } as never;
         if (method === "turn/start") {
           reached();
@@ -439,6 +440,8 @@ function mockMetadataRequests(): void {
   vi.when(contextConnectionMock.client.request, { onUnmatched: "throw" })
     .calledWith("config/read", expect.anything())
     .thenResolve({})
+    .calledWith("configRequirements/read", undefined)
+    .thenResolve({ requirements: null })
     .calledWith("model/list", expect.anything())
     .thenResolve({ data: [] })
     .calledWith("skills/list", expect.anything())

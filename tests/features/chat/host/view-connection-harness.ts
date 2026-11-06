@@ -152,6 +152,7 @@ export function connectedClient(overrides: RequestHandlers = {}): TestAppServerC
 function baseClientHandlers(): RequestHandlers {
   return {
     "config/read": vi.fn().mockResolvedValue({ config: {}, layers: null }),
+    "configRequirements/read": vi.fn().mockResolvedValue({ requirements: null }),
     "model/list": vi.fn().mockResolvedValue({ data: [] }),
     "skills/list": vi.fn().mockResolvedValue({ data: [] }),
     "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
@@ -554,7 +555,14 @@ export async function openedChatView(client: TestAppServerClient, options: Param
 }
 
 export function expectMetadataRequestedOnce(client: TestAppServerClient): void {
-  for (const method of ["config/read", "model/list", "skills/list", "permissionProfile/list", "account/rateLimits/read"]) {
+  for (const method of [
+    "config/read",
+    "configRequirements/read",
+    "model/list",
+    "skills/list",
+    "permissionProfile/list",
+    "account/rateLimits/read",
+  ]) {
     expectRequestTimes(client, method, 1);
   }
 }

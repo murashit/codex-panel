@@ -126,11 +126,14 @@ function createChatTurnAdapter(host: ChatAppServerAdapterHost): ChatTurnPort {
 function createChatRuntimeSettingsAdapter(host: CurrentChatAppServerClientHost): RuntimeSettingsPort {
   return {
     updateThreadSettings: async (threadId: string, update: RuntimeSettingsPatch) => {
-      const result = await withCurrentChatAppServerClient(host, async (client) => {
+      const client = host.currentClient();
+      if (!client) return { kind: "not-started" };
+      try {
         await updateThreadSettings(client, threadId, update);
-        return true;
-      });
-      return result ?? false;
+        return { kind: "accepted" };
+      } catch (error) {
+        return error instanceof AppServerRpcError ? { kind: "rejected", message: error.message } : { kind: "unknown" };
+      }
     },
   };
 }

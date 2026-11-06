@@ -35,6 +35,7 @@ export interface RuntimeConfigSnapshot {
   readonly verbosity: Verbosity | null;
   readonly serviceTier: ServiceTier | null;
   readonly approvalsReviewer: ApprovalsReviewer | null;
+  readonly allowedApprovalsReviewers?: readonly ApprovalsReviewer[] | null;
   readonly startupPermissions: RuntimePermissionState;
   readonly modelContextWindow: number | null;
   readonly autoCompactTokenLimit: number | null;

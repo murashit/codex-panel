@@ -96,7 +96,7 @@ describe("createChatPanelRuntimeNotices", () => {
     ]);
   });
 
-  it("keeps pending approval reviewer out of diagnostic permission details", () => {
+  it("distinguishes confirmed and pending approval reviewer in diagnostic permission details", () => {
     const state = chatStateWith(chatStateFixture(), {
       activeThread: { id: "thread-1" },
       runtime: {
@@ -128,7 +128,7 @@ describe("createChatPanelRuntimeNotices", () => {
         title: "Approvals",
         auditFacts: [
           { key: "Approval policy", value: "on-request" },
-          { key: "Auto review", value: "off" },
+          { key: "Auto review", value: "off; requested on, not confirmed" },
         ],
       },
     ]);
