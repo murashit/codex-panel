@@ -6,7 +6,12 @@ import {
   unsupportedReasoningEffortMessage,
 } from "../../../../domain/runtime/catalog";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/settings";
-import { type RuntimeConfigSnapshot, runtimeConfigOrDefault, sameServiceTier } from "../../../../domain/runtime/settings";
+import {
+  autoReviewChangeRestriction,
+  type RuntimeConfigSnapshot,
+  runtimeConfigOrDefault,
+  sameServiceTier,
+} from "../../../../domain/runtime/settings";
 import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../../shared/async/keyed-operation-coordinator";
 import {
   type CollaborationModeSelection,
@@ -31,8 +36,15 @@ import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurre
 import type { ChatAction } from "../state/reducer";
 import type { ChatStateStore } from "../state/store";
 
+export type RuntimeSettingsUpdateResult =
+  | { kind: "accepted" }
+  | { kind: "rejected"; message: string }
+  | { kind: "unknown" }
+  | { kind: "not-started" };
+
 export interface RuntimeSettingsPort {
-  updateThreadSettings(threadId: string, update: RuntimeSettingsPatch): Promise<boolean>;
+  updateThreadSettings(threadId: string, update: RuntimeSettingsPatch): Promise<RuntimeSettingsUpdateResult>;
+  readThreadSettings(threadId: string, onSettings: (settings: ActiveThreadRuntimeState) => void): Promise<boolean>;
 }
 
 interface RuntimeSettingsCommitResult {
@@ -111,11 +123,25 @@ async function commitPendingThreadSettings(
   const target = capturePanelTargetLease(state(host));
   const threadId = activeThreadId(state(host));
   if (!threadId) return { ok: true, collaborationModeApplied: true };
+  if (!fields && state(host).runtime.settingsStatus === "unavailable") {
+    host.addSystemMessage(
+      "Current settings are unavailable. Reconnect with /reconnect or change the settings again before sending a new message.",
+    );
+    return { ok: false, collaborationModeApplied: false };
+  }
   if (activePanelOperationBlocked(host, "thread-settings")) return { ok: false, collaborationModeApplied: false };
   const requested = state(host).runtime.pending;
+  const requestedStatus = state(host).runtime.settingsStatus;
   return host.threadCommits.run(threadId, async () => {
     let collaborationModeApplied = false;
     while (panelTargetLeaseIsCurrent(state(host), target)) {
+      const settingsStatus = state(host).runtime.settingsStatus;
+      if (
+        !fields &&
+        (settingsStatus === "unavailable" ||
+          (settingsStatus === "auto-review-unconfirmed" && requestedStatus !== "auto-review-unconfirmed"))
+      )
+        return { ok: false, collaborationModeApplied: false };
       // UI commands report only their own intent. Turn submission reconciles all
       // outstanding intent through this same path, including changes during a send.
       const pending = state(host).runtime.pending;
@@ -125,71 +151,108 @@ async function commitPendingThreadSettings(
       if (collaborationModeWarning) reportCollaborationModeWarning(host);
       collaborationModeApplied ||= !collaborationModeWarning && "collaborationMode" in update;
       if (Object.keys(update).length === 0) return { ok: true, collaborationModeApplied };
-      if (!(await updateRuntimeSettings(host, threadId, target, update)) || !panelTargetLeaseIsCurrent(state(host), target)) break;
-
+      const result = await updateRuntimeSettings(host, threadId, target, update);
+      if (!panelTargetLeaseIsCurrent(state(host), target)) break;
       const current = state(host).runtime.pending;
       const requestedApplied = !fields || fields.every((key) => current[key] === requested[key] || current[key].kind === "unchanged");
-      dispatch(host, { type: "runtime/pending-intent-confirmed", intents });
+      // A submitted change must never become an automatic retry, even if its response was lost.
+      // Reference equality preserves newer user edits made while this request was in flight.
+      if (result !== "not-started") dispatch(host, { type: "runtime/pending-intent-settled", intents });
+      if (result !== "confirmed") break;
       if (fields) return { ok: requestedApplied, collaborationModeApplied: requestedApplied && collaborationModeApplied };
     }
     return { ok: false, collaborationModeApplied: false };
   });
 }
 
+type SettingsCommitOutcome = "confirmed" | "rejected" | "unconfirmed" | "not-started";
+
 async function updateRuntimeSettings(
   host: RuntimeSettingsCommandsContext,
   threadId: string,
   target: PanelTargetLease,
   update: RuntimeSettingsPatch,
-): Promise<boolean> {
-  const previous = state(host).runtime.active;
+): Promise<SettingsCommitOutcome> {
+  const isCurrent = () => panelTargetLeaseIsCurrent(state(host), target) && activeThreadId(state(host)) === threadId;
   let confirm!: () => void;
   let cancel!: () => void;
-  const confirmed = new Promise<void>((resolve) => {
-    confirm = resolve;
+  let expire!: () => void;
+  const confirmed = new Promise<"confirmed">((resolve) => {
+    confirm = () => {
+      resolve("confirmed");
+    };
   });
-  const cancelled = new Promise<false>((resolve) => {
+  const cancelled = new Promise<"cancelled">((resolve) => {
     cancel = () => {
-      resolve(false);
+      resolve("cancelled");
+    };
+  });
+  const expired = new Promise<"expired">((resolve) => {
+    expire = () => {
+      resolve("expired");
     };
   });
   const unsubscribe = host.stateStore.subscribe(() => {
     const current = state(host);
-    if (
-      !panelTargetLeaseIsCurrent(current, target) ||
-      activeThreadId(current) !== threadId ||
-      current.connection.phase.kind === "disconnected" ||
-      current.connection.phase.kind === "failed"
-    ) {
-      cancel();
-    } else if (current.runtime.active !== previous && runtimeSettingsMatch(current.runtime.active, update)) {
-      // An ACK only queues the update. Its notification may precede the ACK.
-      confirm();
-    }
+    if (!isCurrent() || current.connection.phase.kind === "disconnected" || current.connection.phase.kind === "failed") cancel();
+    else if (current.runtime.settingsStatus === "current" && runtimeSettingsMatch(current.runtime.active, update)) confirm();
   });
-  const timeout = window.setTimeout(() => {
-    host.addSystemMessage("Timed out waiting for updated thread settings.");
-    cancel();
-  }, 10_000);
+  const timeout = window.setTimeout(expire, 10_000);
   try {
-    const accepted = host.runtimeSettingsPort.updateThreadSettings(threadId, update);
-    return await Promise.race([
-      cancelled,
-      accepted.then(async (ok) => {
-        if (!ok) return false;
-        await confirmed;
-        return panelTargetLeaseIsCurrent(state(host), target);
-      }),
-    ]);
-  } catch (error) {
-    if (panelTargetLeaseIsCurrent(state(host), target)) {
-      host.addSystemMessage(error instanceof Error ? error.message : String(error));
+    const response = await Promise.race([host.runtimeSettingsPort.updateThreadSettings(threadId, update), cancelled, expired]);
+    if (!isCurrent() || response === "cancelled") return "unconfirmed";
+    if (response !== "expired") {
+      if (response.kind === "not-started") return "not-started";
+      if (response.kind === "rejected") {
+        host.addSystemMessage(`Codex did not accept the settings change: ${response.message}`);
+        return "rejected";
+      }
+      if (response.kind === "accepted") {
+        // Same-value updates do not emit a settings notification in Codex.
+        if (state(host).runtime.settingsStatus === "current" && runtimeSettingsMatch(state(host).runtime.active, update))
+          return "confirmed";
+        const applied = await Promise.race([confirmed, cancelled, expired]);
+        if (!isCurrent() || applied === "cancelled") return "unconfirmed";
+        if (applied === "confirmed" && runtimeSettingsMatch(state(host).runtime.active, update)) return "confirmed";
+      }
     }
-    return false;
+    return await refreshUnconfirmedSettings(host, threadId, update, isCurrent);
   } finally {
     window.clearTimeout(timeout);
     unsubscribe();
   }
+}
+
+async function refreshUnconfirmedSettings(
+  host: RuntimeSettingsCommandsContext,
+  threadId: string,
+  update: RuntimeSettingsPatch,
+  isCurrent: () => boolean,
+): Promise<SettingsCommitOutcome> {
+  const before = state(host).runtime.active;
+  let read = false;
+  try {
+    read = await host.runtimeSettingsPort.readThreadSettings(threadId, (settings) => {
+      // The adapter calls this in response order, before later notifications can supersede it.
+      if (isCurrent()) dispatch(host, { type: "active-thread/settings-applied", ...settings });
+    });
+  } catch {
+    // Keep the last confirmed values, but do not use them to start a new turn after a failed read.
+  }
+  if (!isCurrent()) return "unconfirmed";
+  if (read || state(host).runtime.active !== before)
+    host.addSystemMessage("Settings refreshed. The previous change could not be confirmed.");
+  else {
+    const reviewer = state(host).runtime.active.approvalsReviewer;
+    const autoReviewOnly = Object.keys(update).every((key) => key === "approvalsReviewer") && reviewer !== null;
+    dispatch(host, { type: "runtime/settings-unavailable", autoReviewOnly });
+    host.addSystemMessage(
+      autoReviewOnly
+        ? `Could not confirm the change. Auto-review was last confirmed ${reviewer === "user" ? "off" : "on"}. This setting will be requested for the next turn.`
+        : "Could not read the current settings. Reconnect with /reconnect or change the settings again. Your draft has been kept.",
+    );
+  }
+  return "unconfirmed";
 }
 
 function runtimeSettingsMatch(active: ActiveThreadRuntimeState, update: RuntimeSettingsPatch): boolean {
@@ -345,11 +408,17 @@ function requestDefaultCollaborationModeForNextTurn(host: RuntimeSettingsCommand
 
 async function toggleAutoReview(host: RuntimeSettingsCommandsContext): Promise<void> {
   const { snapshot, config } = runtimeProjection(host);
-  const nextState = resolveRuntimeControls(snapshot, config).autoReview.active ? "disabled" : "enabled";
+  const review = resolveRuntimeControls(snapshot, config).autoReview;
+  const nextState = (snapshot.activeThreadId ? review.confirmedActive : review.active) ? "disabled" : "enabled";
   await setAutoReview(host, nextState);
 }
 
 async function setAutoReview(host: RuntimeSettingsCommandsContext, mode: AutoReviewState): Promise<void> {
+  const restriction = autoReviewChangeRestriction(runtimeProjection(host).config, mode === "enabled");
+  if (restriction) {
+    host.addSystemMessage(restriction);
+    return;
+  }
   if (activePanelOperationBlocked(host, "thread-settings")) return;
   await runRuntimeUiCommand(
     host,

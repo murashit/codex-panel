@@ -132,7 +132,12 @@ describe("TurnSubmissionCommand", () => {
 
     await expect(submitting).resolves.toBe(!replaced);
     expect(host.startThread).not.toHaveBeenCalled();
-    const expectedTurn = { threadId: "first", input: textInput("hello"), clientUserMessageId: expect.any(String) };
+    const expectedTurn = {
+      approvalsReviewer: "user",
+      threadId: "first",
+      input: textInput("hello"),
+      clientUserMessageId: expect.any(String),
+    };
     expect(startTurn.mock.calls).toEqual(replaced ? [] : [[expectedTurn]]);
   });
 
@@ -208,6 +213,29 @@ describe("TurnSubmissionCommand", () => {
     expect(host.applyPendingThreadSettings).toHaveBeenCalledOnce();
     expect(startTurn).toHaveBeenCalledWith(expect.objectContaining({ threadId: "side", input: textInput("hello") }));
     expect(host.addSystemMessage).not.toHaveBeenCalled();
+  });
+
+  it("starts with the last confirmed reviewer and clears auto-review uncertainty", async () => {
+    const { host, stateStore, startTurn } = createHost();
+    stateStore.dispatch({ type: "active-thread/resumed", ...threadActivationFixture(thread("thread")), approvalsReviewer: "user" });
+    stateStore.dispatch({ type: "runtime/settings-unavailable", autoReviewOnly: true });
+    await expect(claimedCommand(host).sendTurnText({ preparedInput: preparedText("hello") })).resolves.toBe(true);
+    expect(startTurn).toHaveBeenCalledWith(expect.objectContaining({ approvalsReviewer: "user" }));
+    expect(stateStore.getState().runtime.settingsStatus).toBe("current");
+  });
+
+  it("does not clear a newer auto-review uncertainty when an older turn-start response arrives", async () => {
+    const { host, stateStore, startTurn } = createHost();
+    stateStore.dispatch({ type: "active-thread/resumed", ...threadActivationFixture(thread("thread")), approvalsReviewer: "user" });
+    stateStore.dispatch({ type: "runtime/settings-unavailable", autoReviewOnly: true });
+    const response = deferred<ReturnType<typeof completed<{ turnId: string }>>>();
+    startTurn.mockReturnValue(response.promise);
+    const sending = claimedCommand(host).sendTurnText({ preparedInput: preparedText("hello") });
+    await vi.waitFor(() => expect(startTurn).toHaveBeenCalledOnce());
+    stateStore.dispatch({ type: "runtime/settings-unavailable", autoReviewOnly: true });
+    response.resolve(completed({ turnId: "turn" }));
+    await expect(sending).resolves.toBe(true);
+    expect(stateStore.getState().runtime.settingsStatus).toBe("auto-review-unconfirmed");
   });
 
   it("creates a thread, applies pending settings, and submits prepared input with optimistic history", async () => {

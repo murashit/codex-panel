@@ -56,11 +56,12 @@ export interface ThreadForkRuntimeOverrides {
   readonly sandboxPolicy?: RuntimeSandboxPolicy;
 }
 
-export function forkDraftRuntime({ active, pending }: ChatRuntimeState): ChatRuntimeState {
+export function forkDraftRuntime({ active, pending, settingsStatus }: ChatRuntimeState): ChatRuntimeState {
   // The fork request carries inherited settings except collaboration mode.
   // Reserve that mode for the first turn; leave explicit user changes intact.
   return {
     active,
+    settingsStatus,
     pending: {
       ...pending,
       collaborationMode:

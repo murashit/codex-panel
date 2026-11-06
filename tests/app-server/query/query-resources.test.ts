@@ -865,6 +865,38 @@ describe("app-server query resources", () => {
     expect(listModels).toHaveBeenCalledOnce();
   });
 
+  it("refreshes explicit reviewer requirements without losing config when the check fails", async () => {
+    const requirements = vi
+      .fn()
+      .mockResolvedValueOnce({ requirements: { allowedApprovalsReviewers: ["user"] } })
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({ requirements: null });
+    const cache = cacheWithRequestHandlers(
+      metadataRequestHandlers({
+        "config/read": vi.fn().mockResolvedValue({ config: { model: "available-model" } }),
+        "configRequirements/read": requirements,
+      }),
+    );
+    await cache.metadataQueries.ensureAppServerMetadata();
+    expect(cache.metadataQueries.metadataSnapshot("runtimeConfig")).toMatchObject({
+      model: "available-model",
+      allowedApprovalsReviewers: ["user"],
+      requirementsUnavailable: false,
+    });
+    await cache.metadataQueries.refreshAppServerMetadata();
+    expect(cache.metadataQueries.metadataSnapshot("runtimeConfig")).toMatchObject({
+      model: "available-model",
+      allowedApprovalsReviewers: null,
+      requirementsUnavailable: true,
+    });
+    await cache.metadataQueries.refreshAppServerMetadata();
+    expect(cache.metadataQueries.metadataSnapshot("runtimeConfig")).toMatchObject({
+      allowedApprovalsReviewers: null,
+      requirementsUnavailable: false,
+    });
+    cache.scope.dispose();
+  });
+
   it("fetches app-server metadata and models through their respective query records", async () => {
     const model: CatalogModel = {
       ...catalogModel("gpt-meta"),

@@ -32,6 +32,45 @@ import {
 describe("CodexChatView connection lifecycle", () => {
   setupViewConnectionHarness();
 
+  it("explains reviewer restrictions through the keyboard slash-command path", async () => {
+    const updateSettings = vi.fn().mockResolvedValue({});
+    const client = connectedClient({
+      "config/read": vi.fn().mockResolvedValue({ config: { approvals_reviewer: "user" }, layers: null }),
+      "configRequirements/read": vi.fn().mockResolvedValue({ requirements: { allowedApprovalsReviewers: ["user"] } }),
+      "thread/resume": vi.fn().mockResolvedValue({ ...resumedThread("thread-1"), approvalsReviewer: "user" }),
+      "thread/settings/update": updateSettings,
+    });
+    const view = await openedChatView(client);
+    await view.surface.connect();
+    await view.surface.activateThread("thread-1", { focus: false });
+    const reason = "Auto-review cannot be turned on under the current requirements.";
+    await waitForAsyncWork(() => expect(view.containerEl.querySelector(".codex-panel__composer-meta-reason")?.textContent).toBe(reason));
+    const input = requiredTextArea(view.containerEl, ".codex-panel__composer-input");
+    input.focus();
+    input.value = "/auto-review";
+    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    // Dismiss completion with the keyboard, then execute the typed command.
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    await submitComposerByEnter(view);
+    await waitForAsyncWork(() => expect(view.containerEl.querySelector(".codex-panel__thread-stream")?.textContent).toContain(reason));
+    expect(updateSettings).not.toHaveBeenCalled();
+    expectRequestTimes(client, "turn/start", 0);
+
+    input.value = "/permissions";
+    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    await submitComposerByEnter(view);
+    await waitForAsyncWork(() => {
+      const permissions = [...view.containerEl.querySelectorAll(".codex-panel__stream-item--system")].find((item) =>
+        item.textContent?.includes("Permissions & Approvals"),
+      );
+      expect(permissions?.textContent).toContain("Auto review");
+      expect(permissions?.textContent).toContain(reason);
+    });
+    expect(updateSettings).not.toHaveBeenCalled();
+    expectRequestTimes(client, "turn/start", 0);
+  });
+
   it("projects official receipts through panel snapshots and acknowledges foreground activation", async () => {
     const focus = vi.spyOn(document, "hasFocus").mockReturnValue(false);
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");

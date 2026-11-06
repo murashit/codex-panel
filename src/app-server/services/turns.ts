@@ -1,4 +1,5 @@
 import type { CodexInput } from "../../domain/input/input";
+import type { ApprovalsReviewer } from "../../domain/runtime/settings";
 import type { ClientResponseByMethod } from "../connection/client";
 import type { ClientRequestParams } from "../connection/rpc-messages";
 import { appServerTurnInputFromCodexInput } from "../protocol/request-input";
@@ -6,6 +7,7 @@ import type { AppServerRequestClient } from "./request-client";
 import type { RuntimeOverride } from "./runtime-overrides";
 
 export interface AppServerStartTurnOptions {
+  approvalsReviewer?: ApprovalsReviewer;
   threadId: string;
   cwd: string;
   input: CodexInput;
@@ -34,6 +36,7 @@ export function startTurn(
     threadId,
     cwd,
     clientUserMessageId,
+    ...(options.approvalsReviewer ? { approvalsReviewer: options.approvalsReviewer } : {}),
     ...(prepared.additionalContext !== undefined ? { additionalContext: prepared.additionalContext } : {}),
     input: prepared.input,
   };

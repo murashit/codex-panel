@@ -1,7 +1,9 @@
 import type { CodexInput } from "../../../../domain/input/input";
+import type { ApprovalsReviewer } from "../../../../domain/runtime/settings";
 import type { EffectOutcome } from "../effect-outcome";
 
 interface ChatTurnStartRequest {
+  approvalsReviewer?: ApprovalsReviewer;
   threadId: string;
   input: CodexInput;
   clientUserMessageId: string;

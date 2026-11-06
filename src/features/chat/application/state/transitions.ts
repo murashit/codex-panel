@@ -200,6 +200,7 @@ function reduceActiveThreadActivatedTransition(state: ChatState, action: ActiveT
     runtime: {
       ...runtimeBase,
       active: activeRuntimeFromAction(action),
+      settingsStatus: "current",
     },
     threadStream: {
       ...restoredTurn.threadStream,
@@ -219,6 +220,7 @@ function reduceActiveThreadSettingsAppliedTransition(state: ChatState, action: A
     runtime: {
       ...state.runtime,
       active: activeRuntimeFromAction(action),
+      settingsStatus: "current",
     },
   });
 }

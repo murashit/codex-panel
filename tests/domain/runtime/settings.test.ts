@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { approvalsReviewerOrNull, parseServiceTier, runtimeConfigOrDefault } from "../../../src/domain/runtime/settings";
+import {
+  approvalsReviewerOrNull,
+  autoReviewChangeRestriction,
+  parseServiceTier,
+  runtimeConfigOrDefault,
+} from "../../../src/domain/runtime/settings";
 import { runtimeConfigFixture } from "../../support/runtime-config";
 
 describe("runtime config", () => {
@@ -10,6 +15,19 @@ describe("runtime config", () => {
     ["unknown", null],
   ])("recognizes approvals reviewer %s", (value, expected) => {
     expect(approvalsReviewerOrNull(value)).toBe(expected);
+  });
+
+  it("blocks only changes excluded by an explicit reviewer allow-list", () => {
+    expect(autoReviewChangeRestriction(runtimeConfigFixture(), true)).toBeNull();
+    expect(autoReviewChangeRestriction(runtimeConfigFixture({ requirementsUnavailable: true }), false)).toBeNull();
+    expect(autoReviewChangeRestriction(runtimeConfigFixture({ allowedApprovalsReviewers: ["user"] }), true)).toBe(
+      "Auto-review cannot be turned on under the current requirements.",
+    );
+    expect(autoReviewChangeRestriction(runtimeConfigFixture({ allowedApprovalsReviewers: ["auto_review"] }), false)).toBe(
+      "Auto-review cannot be turned off under the current requirements.",
+    );
+    expect(autoReviewChangeRestriction(runtimeConfigFixture({ allowedApprovalsReviewers: ["guardian_subagent"] }), true)).toBeNull();
+    expect(autoReviewChangeRestriction(runtimeConfigFixture({ allowedApprovalsReviewers: ["user", "auto_review"] }), true)).toBeNull();
   });
 
   it("preserves opaque service tier names and rejects absent values", () => {

@@ -96,6 +96,7 @@ function createChatTurnAdapter(host: ChatAppServerAdapterHost): ChatTurnPort {
           cwd: host.vaultPath,
           input: request.input,
           clientUserMessageId: request.clientUserMessageId,
+          ...(request.approvalsReviewer ? { approvalsReviewer: request.approvalsReviewer } : {}),
         });
         return { turnId: response.turn.id };
       }),
@@ -126,11 +127,32 @@ function createChatTurnAdapter(host: ChatAppServerAdapterHost): ChatTurnPort {
 function createChatRuntimeSettingsAdapter(host: CurrentChatAppServerClientHost): RuntimeSettingsPort {
   return {
     updateThreadSettings: async (threadId: string, update: RuntimeSettingsPatch) => {
-      const result = await withCurrentChatAppServerClient(host, async (client) => {
+      const client = host.currentClient();
+      if (!client) return { kind: "not-started" };
+      try {
         await updateThreadSettings(client, threadId, update);
-        return true;
-      });
-      return result ?? false;
+        return { kind: "accepted" };
+      } catch (error) {
+        return error instanceof AppServerRpcError ? { kind: "rejected", message: error.message } : { kind: "unknown" };
+      }
+    },
+    readThreadSettings: async (threadId, onSettings) => {
+      const client = host.currentClient();
+      if (!client) return false;
+      const delivery = { received: false };
+      await client.request(
+        "thread/resume",
+        { threadId, excludeTurns: true },
+        {
+          onResponse: (response) => {
+            if (host.currentClient() !== client) return;
+            const settings = threadActivationSnapshotFromAppServerResponse(response);
+            onSettings({ ...settings, serviceTierKnown: true });
+            delivery.received = true;
+          },
+        },
+      );
+      return delivery.received && host.currentClient() === client;
     },
   };
 }

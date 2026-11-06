@@ -410,7 +410,10 @@ describe("chat panel projection integration", () => {
     expect(parent.textContent).toContain("Approvals");
     expect(parent.textContent).toContain(":workspace");
     expect(parent.textContent).toContain("on-request");
-    expect(parent.textContent).toContain("off");
+    const autoReviewRow = [...parent.querySelectorAll(".codex-panel__status-diagnostics-row")].find((row) =>
+      row.textContent?.startsWith("Auto review"),
+    );
+    expect(autoReviewRow?.textContent).toBe("Auto reviewon");
     expect(parent.textContent).not.toContain("auto_review");
     expect(parent.textContent).not.toContain("user -> auto_review");
     unmountUiRoot(parent);
@@ -434,6 +437,76 @@ describe("chat panel projection integration", () => {
     expect(projection.rateLimit?.rows).toEqual([expect.objectContaining({ label: "5h", value: "72%", resetLabel: "reset in 2h 20m" })]);
     const later = projectChatPanelToolbar(selectChatPanelToolbar(state, shared), toolbarSurfaceFixture(), 1_799_995_200_000);
     expect(later.rateLimit?.rows).toEqual([expect.objectContaining({ resetLabel: "reset in 1h 20m" })]);
+  });
+
+  it("shows the confirmed reviewer and the same explicit restriction in composer and permissions", () => {
+    const state = chatStateWith(chatStateFixture(), {
+      activeThread: { id: "thread" },
+      runtime: {
+        active: { approvalsReviewer: "user" },
+        pending: { approvalsReviewer: { kind: "set", value: "auto_review" } },
+      },
+    });
+    const runtimeConfig = {
+      ...runtimeConfigFromAppServerFixture({ approvals_reviewer: "auto_review" }),
+      allowedApprovalsReviewers: ["user"] as const,
+    };
+    const composer = composerProjectionFromState(
+      composerProjectionActionsFixture(),
+      state,
+      chatComposerSharedValuesFixture({ runtimeConfig }),
+    );
+    const reason = "Auto-review cannot be turned on under the current requirements.";
+    expect(composer.meta.autoReviewActive).toBe(false);
+    expect(composer.meta.autoReviewReason).toBe(reason);
+    expect(composer.meta.statusSummary).toContain(reason);
+    const toolbar = projectChatPanelToolbar(
+      selectChatPanelToolbar(state, chatToolbarSharedValuesFixture({ runtimeConfig })),
+      toolbarSurfaceFixture(),
+      0,
+    );
+    expect(toolbar.permissionsAndApprovals.find((section) => section.title === "Approvals")).toMatchObject({
+      rows: expect.arrayContaining([{ label: "Auto review", value: "off" }]),
+      description: reason,
+    });
+    const unavailable = chatStateWith(state, { runtime: { settingsStatus: "unavailable" } });
+    const unavailableComposer = composerProjectionFromState(
+      composerProjectionActionsFixture(),
+      unavailable,
+      chatComposerSharedValuesFixture({ runtimeConfig }),
+    );
+    expect(unavailableComposer.meta.statusSummary).toContain("auto-review unavailable");
+    expect(unavailableComposer.meta.autoReviewReason).toBe(
+      "Current settings are unavailable. Reconnect with /reconnect or change the settings again.",
+    );
+    const unavailableToolbar = projectChatPanelToolbar(
+      selectChatPanelToolbar(unavailable, chatToolbarSharedValuesFixture({ runtimeConfig })),
+      toolbarSurfaceFixture(),
+      0,
+    );
+    expect(unavailableToolbar.permissionsAndApprovals.find((section) => section.title === "Approvals")?.rows).toContainEqual({
+      label: "Auto review",
+      value: "unavailable",
+    });
+    const unconfirmed = chatStateWith(state, { runtime: { settingsStatus: "auto-review-unconfirmed" } });
+    const unconfirmedComposer = composerProjectionFromState(
+      composerProjectionActionsFixture(),
+      unconfirmed,
+      chatComposerSharedValuesFixture({ runtimeConfig }),
+    );
+    expect(unconfirmedComposer.meta.statusSummary).toContain("auto-review last confirmed off");
+    expect(unconfirmedComposer.meta.autoReviewReason).toBe(
+      "Auto-review was last confirmed off. This setting will be requested for the next turn.",
+    );
+    const unconfirmedToolbar = projectChatPanelToolbar(
+      selectChatPanelToolbar(unconfirmed, chatToolbarSharedValuesFixture({ runtimeConfig })),
+      toolbarSurfaceFixture(),
+      0,
+    );
+    expect(unconfirmedToolbar.permissionsAndApprovals.find((section) => section.title === "Approvals")).toMatchObject({
+      rows: expect.arrayContaining([{ label: "Auto review", value: "last confirmed off" }]),
+      description: "Auto-review was last confirmed off. This setting will be requested for the next turn.",
+    });
   });
 
   it("builds composer meta from context and runtime state", () => {
@@ -543,7 +616,9 @@ describe("chat panel projection integration", () => {
 
   it("replaces composer meta with fatal connection state", () => {
     let state = chatStateFixture();
-    state = chatStateWith(state, { connection: { phase: { kind: "failed", message: "Codex did not finish connecting. Use /reconnect to try again." } } });
+    state = chatStateWith(state, {
+      connection: { phase: { kind: "failed", message: "Codex did not finish connecting. Use /reconnect to try again." } },
+    });
 
     expect(composerProjectionFromState(composerProjectionActionsFixture(), state, emptyComposerShared).meta).toMatchObject({
       fatal: "Codex did not finish connecting. Use /reconnect to try again.",

@@ -27,6 +27,7 @@ export interface ComposerMetaViewModel {
   effort: string | null;
   planActive: boolean;
   autoReviewActive: boolean;
+  autoReviewReason?: string | null;
   fastAvailable: boolean;
   fastActive: boolean;
   modelChoices: RuntimeChoice[];
@@ -314,6 +315,11 @@ function ComposerMeta({
         />
       ) : null}
       <ComposerActions cancelFork={cancelFork} sendMode={sendMode} onSendOrInterrupt={callbacks.onSendOrInterrupt} />
+      {meta.autoReviewReason ? (
+        <div className="codex-panel__composer-meta-reason" role="status">
+          {meta.autoReviewReason}
+        </div>
+      ) : null}
     </div>
   );
 }

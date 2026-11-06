@@ -208,6 +208,12 @@
   white-space: normal;
 }
 
+.codex-panel__composer-meta-reason {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .codex-panel__composer-meta-status.is-status-hidden .codex-panel__composer-meta-status-visual {
   visibility: hidden;
 }

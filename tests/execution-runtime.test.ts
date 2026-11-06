@@ -439,6 +439,8 @@ function executionRuntime(
 
 function mockMetadataRequests(): void {
   vi.when(contextConnectionMock.client.request, { onUnmatched: "throw" })
+    .calledWith("configRequirements/read", undefined)
+    .thenResolve({ requirements: null })
     .calledWith("config/read", expect.anything())
     .thenResolve({})
     .calledWith("model/list", expect.anything())

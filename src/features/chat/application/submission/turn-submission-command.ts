@@ -136,8 +136,11 @@ async function sendTurnText(
       ...(request.pendingSubmissionId ? { pendingSubmissionId: request.pendingSubmissionId } : {}),
     });
 
+    const runtimeAtStart = host.stateStore.getState().runtime;
+    const approvalsReviewer = runtimeAtStart.active.approvalsReviewer;
     const outcome = await host.turnPort.startTurn({
       threadId: activeThreadId,
+      ...(approvalsReviewer ? { approvalsReviewer } : {}),
       input: prepared.input,
       clientUserMessageId,
     });
@@ -145,6 +148,8 @@ async function sendTurnText(
       host.stateStore.dispatch({ type: "turn/start-failed", threadId: activeThreadId, anchorItemId: optimisticItemId });
       return false;
     }
+    if (approvalsReviewer && submissionIsCurrent(host, request) && host.stateStore.getState().runtime === runtimeAtStart)
+      host.stateStore.dispatch({ type: "runtime/auto-review-recovered", threadId: activeThreadId });
     host.stateStore.dispatch({
       type: "turn/start-acknowledged",
       threadId: activeThreadId,

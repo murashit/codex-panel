@@ -1,7 +1,7 @@
 import type { ServerInitialization } from "../../../../domain/runtime/metadata";
 import type { ThreadTokenUsage } from "../../../../domain/runtime/usage";
 import type { ThreadReadReceipt } from "../../../../domain/threads/model";
-import { type ChatRuntimeState, confirmRuntimeIntentState, type PendingRuntimeIntentState } from "../../domain/runtime/state";
+import { type ChatRuntimeState, type PendingRuntimeIntentState, settleRuntimeIntentState } from "../../domain/runtime/state";
 import { type RequestAction, reduceRequestSlice } from "../pending-requests/state";
 import { type ComposerAction, reduceComposerSlice } from "./composer";
 import type { ChatConnectionPhase, ChatConnectionState, ChatPanelThreadState, ChatState } from "./model";
@@ -20,8 +20,10 @@ type ActiveThreadAction =
   | { type: "active-thread/read-receipt-set"; receipt: ThreadReadReceipt | null };
 
 type RuntimeAction =
+  | { type: "runtime/settings-unavailable"; autoReviewOnly: boolean }
+  | { type: "runtime/auto-review-recovered"; threadId: string }
   | { type: "runtime/pending-intent-patched"; patch: Partial<PendingRuntimeIntentState> }
-  | { type: "runtime/pending-intent-confirmed"; intents: Partial<PendingRuntimeIntentState> };
+  | { type: "runtime/pending-intent-settled"; intents: Partial<PendingRuntimeIntentState> };
 
 type ChatSliceAction = ConnectionAction | ActiveThreadAction | RuntimeAction | RequestAction | TurnScopeAction | ComposerAction | UiAction;
 
@@ -72,8 +74,17 @@ function reduceChatSlice(state: ChatState, action: ChatSliceAction): ChatState {
       return patchObject(state, { threadReadReceipt: action.receipt });
     case "active-thread/token-usage-set":
       return patchObject(state, { panelThread: reducePanelThreadSlice(state.panelThread, action.tokenUsage) });
+    case "runtime/auto-review-recovered":
+      if (
+        state.panelThread.kind !== "active" ||
+        state.panelThread.thread.id !== action.threadId ||
+        state.runtime.settingsStatus !== "auto-review-unconfirmed"
+      )
+        return state;
+      return { ...state, runtime: { ...state.runtime, settingsStatus: "current" } };
+    case "runtime/settings-unavailable":
     case "runtime/pending-intent-patched":
-    case "runtime/pending-intent-confirmed":
+    case "runtime/pending-intent-settled":
       return patchObject(state, { runtime: reduceRuntimeSlice(state.runtime, action) });
     case "composer/draft-set":
     case "composer/input-set":
@@ -148,11 +159,19 @@ function reducePanelThreadSlice(state: ChatPanelThreadState, tokenUsage: ThreadT
   return patchObject(state, { thread: patchObject(state.thread, { tokenUsage }) });
 }
 
-function reduceRuntimeSlice(state: ChatRuntimeState, action: RuntimeAction): ChatRuntimeState {
+function reduceRuntimeSlice(
+  state: ChatRuntimeState,
+  action: Exclude<RuntimeAction, { type: "runtime/auto-review-recovered" }>,
+): ChatRuntimeState {
   switch (action.type) {
+    case "runtime/settings-unavailable":
+      return {
+        ...state,
+        settingsStatus: action.autoReviewOnly && state.settingsStatus !== "unavailable" ? "auto-review-unconfirmed" : "unavailable",
+      };
     case "runtime/pending-intent-patched":
       return patchObject(state, { pending: patchObject(state.pending, action.patch) });
-    case "runtime/pending-intent-confirmed":
-      return patchObject(state, confirmRuntimeIntentState(state, action.intents));
+    case "runtime/pending-intent-settled":
+      return patchObject(state, settleRuntimeIntentState(state, action.intents));
   }
 }

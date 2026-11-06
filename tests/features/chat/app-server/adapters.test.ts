@@ -412,8 +412,51 @@ describe("chat app-server adapters", () => {
     currentClient = secondClient;
     update.resolve(undefined);
 
-    await expect(updating).resolves.toBe(true);
+    await expect(updating).resolves.toEqual({ kind: "accepted" });
     expect(request).toHaveBeenCalledWith("thread/settings/update", { threadId: "thread", model: "gpt-5.5" });
+  });
+
+  it("distinguishes a rejected setting from an unknown delivery and an unavailable connection", async () => {
+    const request = vi
+      .fn()
+      .mockRejectedValueOnce(new AppServerRpcError("thread/settings/update", { code: -32600, message: "reviewer is not allowed" }))
+      .mockRejectedValueOnce(new Error("transport closed"));
+    const client = { request } as unknown as AppServerClient;
+    const adapter = createTestGateway({ currentClient: () => client }).runtimeSettings;
+    await expect(adapter.updateThreadSettings("thread", { approvalsReviewer: "auto_review" })).resolves.toEqual({
+      kind: "rejected",
+      message: "reviewer is not allowed",
+    });
+    await expect(adapter.updateThreadSettings("thread", { approvalsReviewer: "auto_review" })).resolves.toEqual({ kind: "unknown" });
+    await expect(
+      createTestGateway({ currentClient: () => null }).runtimeSettings.updateThreadSettings("thread", { approvalsReviewer: "user" }),
+    ).resolves.toEqual({ kind: "not-started" });
+  });
+
+  it("delivers refreshed settings in wire order and ignores a retired client", async () => {
+    const response = deferred<unknown>();
+    let callback: ((value: unknown) => void) | undefined;
+    const request = vi.fn((_method, _params, options) => {
+      callback = options.onResponse;
+      return response.promise;
+    });
+    const client = { request } as unknown as AppServerClient;
+    let current: AppServerClient | null = client;
+    const adapter = createTestGateway({ currentClient: () => current }).runtimeSettings;
+    const observed: string[] = [];
+    const reading = adapter.readThreadSettings("thread", (settings) => observed.push(settings.approvalsReviewer ?? "unknown"));
+    if (!callback) throw new Error("Missing response callback");
+    callback(threadStartResponse("thread"));
+    observed.push("later notification");
+    response.resolve(threadStartResponse("thread"));
+    await expect(reading).resolves.toBe(true);
+    expect(observed).toEqual(["user", "later notification"]);
+    const stale = adapter.readThreadSettings("thread", () => observed.push("stale"));
+    current = null;
+    if (!callback) throw new Error("Missing response callback");
+    callback(threadStartResponse("thread"));
+    await expect(stale).resolves.toBe(false);
+    expect(observed).not.toContain("stale");
   });
 
   it("reads files from the current client with request options", async () => {

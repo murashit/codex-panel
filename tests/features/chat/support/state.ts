@@ -7,6 +7,7 @@ import {
 import type { ChatActiveTurnState } from "../../../../src/features/chat/application/state/turn-scope";
 
 interface RuntimePatch {
+  settingsStatus?: ChatState["runtime"]["settingsStatus"];
   active?: Partial<ChatState["runtime"]["active"]>;
   pending?: Partial<ChatState["runtime"]["pending"]>;
 }
@@ -75,6 +76,7 @@ function panelThreadWithPatch(state: ChatState, patch: NonNullable<ChatStateFixt
 
 function runtimeWithPatch(runtime: ChatState["runtime"], patch: RuntimePatch): ChatState["runtime"] {
   return {
+    settingsStatus: patch.settingsStatus ?? runtime.settingsStatus,
     active: {
       ...runtime.active,
       ...(patch.active && "serviceTier" in patch.active ? { serviceTierKnown: true } : {}),

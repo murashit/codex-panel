@@ -40,7 +40,7 @@ export interface ActiveThreadSettingsAppliedAction extends RuntimePermissionStat
   type: "active-thread/settings-applied";
   model: string | null;
   reasoningEffort: ReasoningEffort | null;
-  collaborationMode: CollaborationModeSelection;
+  collaborationMode: ActiveThreadRuntimeState["collaborationMode"];
   serviceTier: ServiceTier | null;
   approvalsReviewer: ActiveThreadRuntimeState["approvalsReviewer"];
 }

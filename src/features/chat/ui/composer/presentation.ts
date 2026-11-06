@@ -1,6 +1,6 @@
 import type { ModelMetadata, ReasoningEffort } from "../../../../domain/runtime/catalog";
 import { sortedModelMetadata } from "../../../../domain/runtime/catalog";
-import { runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
+import { autoReviewChangeRestriction, runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
 import { compactReasoningEffortLabel } from "../../domain/runtime/labels";
 import { type RuntimeControlsResolution, resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
@@ -82,24 +82,38 @@ function composerMetaViewModel(
   const composerContext = contextComposerMeter(context?.percent ?? emptyThreadContextPercent(snapshot));
   const compactEffort = effort ? compactReasoningEffortLabel(effort) : null;
   const planActive = resolution.collaborationMode.effective === "plan";
-  const reviewActive = resolution.autoReview.active;
+  const reviewActive = snapshot.activeThreadId ? resolution.autoReview.confirmedActive : resolution.autoReview.active;
+  const autoReviewReason =
+    snapshot.settingsStatus === "unavailable"
+      ? "Current settings are unavailable. Reconnect with /reconnect or change the settings again."
+      : snapshot.settingsStatus === "auto-review-unconfirmed"
+        ? `Auto-review was last confirmed ${onOffLabel(reviewActive)}. This setting will be requested for the next turn.`
+        : autoReviewChangeRestriction(runtimeConfigOrDefault(snapshot.runtimeConfig), !reviewActive);
   const fastAvailable = resolution.fastMode.available;
   const fastActive = resolution.fastMode.active;
   return {
     fatal: null,
     context: composerContext,
-    statusSummary: composerStatusSummary({
-      context: composerContext,
-      model: selectedModel ?? "default",
-      effort: compactEffort,
-      planActive,
-      autoReviewActive: reviewActive,
-      fastActive,
-    }),
+    statusSummary: [
+      composerStatusSummary({
+        context: composerContext,
+        model: selectedModel ?? "default",
+        effort: compactEffort,
+        planActive,
+        autoReviewActive: reviewActive,
+        autoReviewUnavailable: snapshot.settingsStatus === "unavailable",
+        autoReviewUnconfirmed: snapshot.settingsStatus === "auto-review-unconfirmed",
+        fastActive,
+      }),
+      autoReviewReason,
+    ]
+      .filter(Boolean)
+      .join(". "),
     model: selectedModel ?? "default",
     effort: compactEffort,
     planActive,
-    autoReviewActive: reviewActive,
+    autoReviewActive: snapshot.settingsStatus !== "unavailable" && reviewActive,
+    autoReviewReason,
     fastAvailable,
     fastActive,
   };
@@ -145,13 +159,15 @@ function composerStatusSummary(input: {
   effort: string | null;
   planActive: boolean;
   autoReviewActive: boolean;
+  autoReviewUnavailable: boolean;
+  autoReviewUnconfirmed: boolean;
   fastActive: boolean;
 }): string {
   const context = input.context.percent === "--%" ? "Context unavailable" : `Context ${input.context.percent.trim()}`;
   return [
     context,
     `plan ${onOffLabel(input.planActive)}`,
-    `auto-review ${onOffLabel(input.autoReviewActive)}`,
+    `auto-review ${input.autoReviewUnavailable ? "unavailable" : `${input.autoReviewUnconfirmed ? "last confirmed " : ""}${onOffLabel(input.autoReviewActive)}`}`,
     `fast ${onOffLabel(input.fastActive)}`,
     `model ${input.model}`,
     `reasoning effort ${input.effort ?? "default"}`,

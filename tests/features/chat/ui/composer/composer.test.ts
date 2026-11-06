@@ -72,6 +72,21 @@ describe("ComposerShell decisions", () => {
     expect(parent.querySelector(".codex-panel__composer-action.codex-panel__send")).not.toBeNull();
   });
 
+  it("shows the auto-review restriction outside the pointer-only controls", () => {
+    const parent = document.createElement("div");
+    const callbacks = composerCallbacks();
+    const reason = "Auto-review cannot be turned on under the current requirements.";
+    mountComposerShell(parent, { callbacks, meta: { ...activeComposerMetaFixture(), autoReviewReason: reason } });
+    const explanation = parent.querySelector(".codex-panel__composer-meta-reason");
+    expect(explanation?.textContent).toBe(reason);
+    expect(explanation?.closest('[aria-hidden="true"]')).toBeNull();
+    expect(explanation?.getAttribute("role")).toBe("status");
+    expect(explanation?.parentElement?.classList.contains("codex-panel__composer-meta")).toBe(true);
+    expect(explanation?.previousElementSibling?.classList.contains("codex-panel__composer-actions")).toBe(true);
+    parent.querySelector<HTMLElement>('[data-icon="shield"]')?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(callbacks.onToggleAutoReview).toHaveBeenCalledOnce();
+  });
+
   it("disables runtime controls without disabling side-chat composition", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();

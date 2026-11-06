@@ -187,9 +187,19 @@ export class AppServerMetadataQueries {
         queryOptions: {
           queryKey: RUNTIME_CONFIG_QUERY_KEY,
           queryFn: async (): Promise<RuntimeConfigSnapshot> =>
-            this.scope.runWithClient(async (client) =>
-              runtimeConfigSnapshotFromAppServerConfig(await readEffectiveConfig(client, this.scope.context.vaultPath)),
-            ),
+            this.scope.runWithClient(async (client) => {
+              const [config, requirements] = await Promise.allSettled([
+                readEffectiveConfig(client, this.scope.context.vaultPath),
+                client.request("configRequirements/read", undefined),
+              ]);
+              if (config.status === "rejected") throw config.reason;
+              return {
+                ...runtimeConfigSnapshotFromAppServerConfig(config.value),
+                allowedApprovalsReviewers:
+                  requirements.status === "fulfilled" ? (requirements.value.requirements?.allowedApprovalsReviewers ?? null) : null,
+                requirementsUnavailable: requirements.status === "rejected",
+              };
+            }),
         },
         project: (result) => ({
           id: "runtimeConfig",

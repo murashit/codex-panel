@@ -35,6 +35,8 @@ export interface RuntimeConfigSnapshot {
   readonly verbosity: Verbosity | null;
   readonly serviceTier: ServiceTier | null;
   readonly approvalsReviewer: ApprovalsReviewer | null;
+  readonly allowedApprovalsReviewers?: readonly ApprovalsReviewer[] | null;
+  readonly requirementsUnavailable?: boolean;
   readonly startupPermissions: RuntimePermissionState;
   readonly modelContextWindow: number | null;
   readonly autoCompactTokenLimit: number | null;
@@ -65,6 +67,17 @@ function cloneRuntimeConfigSnapshot(config: RuntimeConfigSnapshot): RuntimeConfi
 
 export function runtimeConfigOrDefault(runtimeConfig: RuntimeConfigSnapshot | null): RuntimeConfigSnapshot {
   return runtimeConfig ? cloneRuntimeConfigSnapshot(runtimeConfig) : emptyRuntimeConfigSnapshot();
+}
+
+/** Only an explicit server allow-list can rule out a change before submission. */
+export function autoReviewChangeRestriction(config: RuntimeConfigSnapshot, enabled: boolean): string | null {
+  const allowed = config.allowedApprovalsReviewers;
+  if (!allowed) return null;
+  const permitted = enabled
+    ? allowed.some((reviewer) => reviewer === "auto_review" || reviewer === "guardian_subagent")
+    : allowed.includes("user");
+  if (permitted) return null;
+  return `Auto-review cannot be turned ${enabled ? "on" : "off"} under the current requirements.`;
 }
 
 export type RuntimeServiceTierRequest = string | null | undefined;

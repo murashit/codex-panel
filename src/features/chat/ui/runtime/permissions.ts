@@ -1,5 +1,5 @@
 import type { RuntimeApprovalPolicy, RuntimeSandboxPolicy } from "../../../../domain/runtime/permissions";
-import { runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
+import { autoReviewChangeRestriction, runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import type { ToolbarStatusRow as DiagnosticRow, ToolbarStatusSection as DiagnosticSection } from "../toolbar/model";
@@ -12,6 +12,24 @@ interface RuntimePermissionSectionsInput {
 export function runtimePermissionSections(input: RuntimePermissionSectionsInput): DiagnosticSection[] {
   const config = runtimeConfigOrDefault(input.snapshot.runtimeConfig);
   const resolution = resolveRuntimeControls(input.snapshot, config);
+  const reviewActive = input.snapshot.activeThreadId ? resolution.autoReview.confirmedActive : resolution.autoReview.active;
+  const reviewRestriction =
+    input.snapshot.settingsStatus === "unavailable"
+      ? "Current settings are unavailable. Reconnect with /reconnect or change the settings again."
+      : input.snapshot.settingsStatus === "auto-review-unconfirmed"
+        ? `Auto-review was last confirmed ${reviewActive ? "on" : "off"}. This setting will be requested for the next turn.`
+        : autoReviewChangeRestriction(config, !reviewActive);
+  const approvals = approvalRows(resolution.approvalPolicy.confirmed, reviewActive);
+  if (input.snapshot.settingsStatus === "unavailable") approvals[1] = { label: "Auto review", value: "unavailable" };
+  else if (input.snapshot.settingsStatus === "auto-review-unconfirmed")
+    approvals[1] = { label: "Auto review", value: `last confirmed ${reviewActive ? "on" : "off"}` };
+  if (config.requirementsUnavailable) {
+    approvals.push({
+      label: "Requirements",
+      value: "unavailable",
+      level: "warning",
+    });
+  }
   return [
     {
       title: "Permissions",
@@ -19,7 +37,13 @@ export function runtimePermissionSections(input: RuntimePermissionSectionsInput)
     },
     {
       title: "Approvals",
-      rows: approvalRows(resolution.approvalPolicy.confirmed, resolution.autoReview.confirmedActive),
+      rows: approvals,
+      description: [
+        reviewRestriction,
+        config.requirementsUnavailable ? "Could not check which changes are allowed. Codex will check changes when you submit them." : null,
+      ]
+        .filter(Boolean)
+        .join(" "),
     },
   ];
 }

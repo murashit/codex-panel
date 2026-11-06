@@ -37,7 +37,9 @@ export function projectChatPanelComposer(model: ChatPanelComposerModel, actions:
       snapshot: model,
       disconnected: model.connectionPhase.kind === "failed" || model.connectionPhase.kind === "disconnected",
       connectionMessage:
-        model.connectionPhase.kind === "failed" || model.connectionPhase.kind === "disconnected" ? model.connectionPhase.message : undefined,
+        model.connectionPhase.kind === "failed" || model.connectionPhase.kind === "disconnected"
+          ? model.connectionPhase.message
+          : undefined,
       sideChatActive: model.sideChatActive,
       inputRestriction:
         model.canAcceptDirectInput === false

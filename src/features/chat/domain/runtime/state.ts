@@ -17,6 +17,7 @@ import {
 
 export interface ChatRuntimeState {
   readonly active: ActiveThreadRuntimeState;
+  readonly settingsStatus: "current" | "auto-review-unconfirmed" | "unavailable";
   readonly pending: PendingRuntimeIntentState;
 }
 
@@ -65,11 +66,12 @@ function initialPendingRuntimeIntentState(): PendingRuntimeIntentState {
 export function initialChatRuntimeState(): ChatRuntimeState {
   return {
     active: initialActiveChatRuntimeState(),
+    settingsStatus: "current",
     pending: initialPendingRuntimeIntentState(),
   };
 }
 
-export function confirmRuntimeIntentState(state: ChatRuntimeState, intents: Partial<PendingRuntimeIntentState>): ChatRuntimeState {
+export function settleRuntimeIntentState(state: ChatRuntimeState, intents: Partial<PendingRuntimeIntentState>): ChatRuntimeState {
   const pending = { ...state.pending };
   for (const key of Object.keys(intents) as (keyof PendingRuntimeIntentState)[]) {
     // Keep requests made while the confirmed update was in flight.

@@ -29,6 +29,7 @@ export function runtimeSnapshotForChatSlices(input: RuntimeSnapshotInput): Runti
     runtimeConfig: input.runtimeConfig,
     activeThreadId: input.activeThread.id,
     active: input.runtime.active,
+    settingsStatus: input.runtime.settingsStatus,
     pending: input.runtime.pending,
     tokenUsage: input.activeThread.tokenUsage,
     rateLimit: input.rateLimit,
