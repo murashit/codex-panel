@@ -20,7 +20,23 @@ function toolInventoryPluginFromSummary(plugin: PluginSummary): ToolInventoryPlu
     localVersion: plugin.localVersion,
     installed: plugin.installed,
     enabled: plugin.enabled,
+    unavailableReason: pluginUnavailableReason(plugin),
   };
+}
+
+function pluginUnavailableReason(plugin: PluginSummary): ToolInventoryPlugin["unavailableReason"] {
+  switch (plugin.disabledReason) {
+    case "disabled_by_admin":
+      return "admin";
+    case "plan_not_eligible":
+      return "plan";
+    case "required_app_unavailable":
+      return "requiredApp";
+    case "unknown":
+      return "unknown";
+    default:
+      return plugin.availability === "DISABLED_BY_ADMIN" ? "admin" : null;
+  }
 }
 
 // Tool names may be absent in status payloads; retain the map-key fallback at this boundary.

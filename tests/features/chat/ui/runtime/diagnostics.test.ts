@@ -131,6 +131,7 @@ describe("connection diagnostics", () => {
           id: "usable-plugin",
           name: "usable-bundle",
           displayName: "Usable Plugin",
+          unavailableReason: null,
           localVersion: "1.2.3",
           installed: true,
           enabled: true,
@@ -139,6 +140,7 @@ describe("connection diagnostics", () => {
           id: "installable-plugin",
           name: "installable-plugin",
           displayName: "Installable Plugin",
+          unavailableReason: null,
           localVersion: null,
           installed: false,
           enabled: true,
@@ -147,6 +149,7 @@ describe("connection diagnostics", () => {
           id: "disabled-plugin",
           name: "disabled-plugin",
           displayName: "Disabled Plugin",
+          unavailableReason: null,
           localVersion: "2.0.0",
           installed: true,
           enabled: false,
@@ -155,10 +158,20 @@ describe("connection diagnostics", () => {
           id: "unversioned-plugin",
           name: "unversioned-bundle",
           displayName: "Usable Plugin",
+          unavailableReason: null,
           localVersion: null,
           installed: true,
           enabled: true,
         },
+        ...(["admin", "plan", "requiredApp", "unknown"] as const).map((unavailableReason) => ({
+          id: unavailableReason,
+          name: unavailableReason,
+          displayName: null,
+          unavailableReason,
+          localVersion: "1.0",
+          installed: true,
+          enabled: true,
+        })),
       ],
       pluginsError: null,
       mcpServers: [
@@ -208,9 +221,14 @@ describe("connection diagnostics", () => {
     const skillRows = sections.find((section) => section.title === "Skills")?.rows ?? [];
 
     expect(sections.map((section) => section.title)).toEqual(["Plugins", "Tool providers", "Skills"]);
-    expect(pluginRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
-      "Usable Plugin: version 1.2.3",
-      "Usable Plugin: version unknown",
+    expect(pluginRows).toEqual([
+      { label: "Usable Plugin", value: "version 1.2.3", level: "normal" },
+      { label: "Disabled Plugin", value: "version 2.0.0, disabled", level: "warning" },
+      { label: "Usable Plugin", value: "version unknown", level: "normal" },
+      { label: "admin", value: "version 1.0, disabled by administrator", level: "warning" },
+      { label: "plan", value: "version 1.0, unavailable on this plan", level: "warning" },
+      { label: "requiredApp", value: "version 1.0, required app unavailable", level: "warning" },
+      { label: "unknown", value: "version 1.0, unavailable (reason unknown)", level: "warning" },
     ]);
     expect(toolProviderRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
       "codex_apps: apple_music, github, google_drive",

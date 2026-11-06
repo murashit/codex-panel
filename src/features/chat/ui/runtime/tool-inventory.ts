@@ -44,15 +44,17 @@ function pluginRows(inventory: ToolInventorySnapshot): DiagnosticRow[] {
   if (!inventory.plugins) return [...failure, { label: "Plugins", value: "not loaded", level: "warning" }];
 
   if (inventory.pluginsError) failure.push({ label: "Plugins", value: "showing last known inventory", level: "warning" });
-  const rows = inventory.plugins.filter((plugin) => plugin.enabled && plugin.installed).map(pluginRow);
+  const rows = inventory.plugins.filter((plugin) => plugin.installed).map(pluginRow);
   return [...failure, ...(rows.length > 0 ? rows : [{ label: "Plugins", value: "(none)" }])];
 }
 
 function pluginRow(plugin: ToolInventoryPlugin): DiagnosticRow {
+  const version = plugin.localVersion ? `version ${plugin.localVersion}` : "version unknown";
+  const status = pluginUnavailableLabel(plugin);
   return {
     label: plugin.displayName ?? plugin.name,
-    value: pluginBundleSummary(plugin),
-    level: "normal",
+    value: status ? `${version}, ${status}` : version,
+    level: status ? "warning" : "normal",
   };
 }
 
@@ -170,8 +172,19 @@ function skillRows(
     .map((group) => ({ label: group.label, value: listSummary(group.names) }));
 }
 
-function pluginBundleSummary(plugin: ToolInventoryPlugin): string {
-  return plugin.localVersion ? `version ${plugin.localVersion}` : "version unknown";
+function pluginUnavailableLabel(plugin: ToolInventoryPlugin): string | null {
+  switch (plugin.unavailableReason) {
+    case "admin":
+      return "disabled by administrator";
+    case "plan":
+      return "unavailable on this plan";
+    case "requiredApp":
+      return "required app unavailable";
+    case "unknown":
+      return "unavailable (reason unknown)";
+    case null:
+      return plugin.enabled ? null : "disabled";
+  }
 }
 
 function countLabel(count: number, singular: string): string {
