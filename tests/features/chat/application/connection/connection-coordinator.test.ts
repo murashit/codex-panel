@@ -38,7 +38,6 @@ function createCoordinatorHarness({ connected = false, canConnect = true } = {})
     resetThreadTurnPresence: vi.fn(),
     setStatus: vi.fn(),
     addSystemMessage: vi.fn(),
-    configuredCommand: () => "codex",
     isStaleConnectionError: () => false,
     notifyConnectionFailed: vi.fn(),
   };
@@ -254,21 +253,15 @@ describe("ChatConnectionCoordinator", () => {
     });
   });
 
-  it("explains missing configured command failures", async () => {
+  it("shows the connection boundary's actionable failure without reclassifying it", async () => {
     const { coordinator, connect, host } = createCoordinatorHarness();
-    const error = Object.assign(new Error("spawn codex ENOENT"), { code: "ENOENT", syscall: "spawn" });
-    connect.mockRejectedValueOnce(error);
+    const message = "The vault folder is unavailable. Restore access to the vault, then reconnect to Codex.";
+    connect.mockRejectedValueOnce(new Error(message));
 
     await coordinator.ensureConnected();
 
-    expect(host.setStatus).toHaveBeenCalledWith("Connection failed.", {
-      kind: "failed",
-      message:
-        "Could not start Codex app-server because the configured command was not found: codex. Check the Codex command path in settings. (spawn codex ENOENT)",
-    });
-    expect(host.addSystemMessage).toHaveBeenCalledWith(
-      "Could not start Codex app-server because the configured command was not found: codex. Check the Codex command path in settings. (spawn codex ENOENT)",
-    );
+    expect(host.setStatus).toHaveBeenCalledWith("Connection failed.", { kind: "failed", message });
+    expect(host.addSystemMessage).toHaveBeenCalledWith(message);
     expect(host.notifyConnectionFailed).toHaveBeenCalledOnce();
   });
 

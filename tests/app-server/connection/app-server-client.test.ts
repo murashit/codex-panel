@@ -546,7 +546,7 @@ describe("AppServerClient", () => {
 
     firstTransport.emitLine({ id: initialize.id, error: { code: -32000, message: "initialize failed" } });
 
-    await expect(connecting).rejects.toThrow("initialize failed");
+    await expect(connecting).rejects.toThrow("Codex rejected the connection setup.");
     expect(client.isConnected()).toBe(false);
     expect(firstTransport.isRunning()).toBe(false);
 
@@ -574,10 +574,7 @@ describe("AppServerClient", () => {
 
     const connecting = client.connect();
     const { transport } = fixture;
-    await Promise.all([
-      expect(connecting).rejects.toThrow("Codex app-server request timed out: initialize"),
-      vi.advanceTimersByTimeAsync(500),
-    ]);
+    await Promise.all([expect(connecting).rejects.toThrow("Codex did not finish connecting."), vi.advanceTimersByTimeAsync(500)]);
     expect(client.isConnected()).toBe(false);
     expect(transport.isRunning()).toBe(false);
 
@@ -585,18 +582,37 @@ describe("AppServerClient", () => {
     expect(onExit).not.toHaveBeenCalled();
   });
 
-  it("rejects connect without notifying external exit handlers when transport exits during initialize", async () => {
+  it.each([
+    [
+      null,
+      "Codex stopped before the connection was ready. Use /reconnect in an editable chat. For a subagent, reconnect its parent chat and select the subagent again. If it fails again, use /doctor in the editable chat for connection details.",
+    ],
+    [
+      "Error: authentication requirements do not permit any usable login method",
+      "Codex cannot use any sign-in method permitted by its requirements. Check the sign-in requirements in your Codex configuration, or ask your administrator if it is managed.",
+    ],
+    [
+      "Error: windows.require_mxc = true requires MXC to be selected on this Windows host",
+      "Codex requires the MXC Windows sandbox, but it is not selected. Check the Codex sandbox configuration, or ask your administrator if it is managed.",
+    ],
+    [
+      'Error: approval_policy = "untrusted" is no longer supported; remove this setting',
+      "Codex no longer supports the configured ‘untrusted’ approval policy. Check the approval policy in your Codex configuration.",
+    ],
+  ])("rejects initialize exit with diagnostic %s without notifying external handlers", async (diagnostic, message) => {
     const onExit = vi.fn();
     const fixture = clientFixture({ onExit });
-    const { client } = fixture;
-
-    const connecting = client.connect();
-    const { transport } = fixture;
-    transport.emitExit(1);
-
-    await expect(connecting).rejects.toThrow("Codex app-server exited: 1");
-    expect(client.isConnected()).toBe(false);
+    const connecting = fixture.client.connect();
+    fixture.transport.emitLog("private token: do-not-show");
+    if (diagnostic) fixture.transport.emitLog(diagnostic);
+    fixture.transport.emitExit(1);
+    await expect(connecting).rejects.toMatchObject({ message });
+    expect(fixture.client.isConnected()).toBe(false);
     expect(onExit).not.toHaveBeenCalled();
+    const reconnecting = fixture.client.connect();
+    if (diagnostic) fixture.transport.emitLog(`${diagnostic}: private detail`);
+    fixture.transport.emitExit(1);
+    await expect(reconnecting).rejects.toThrow("Codex stopped before the connection was ready.");
   });
 
   it("delivers active transport logs and ignores stale events across reconnect", async () => {
