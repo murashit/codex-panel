@@ -5,7 +5,9 @@ description: Prepare, publish, or repair a Codex Panel release, including versio
 
 # Codex Panel Release
 
-Use [Release](../../../docs/release.md) to prepare the candidate and public notes. Inspect relevant implementation, tests, and callers so the proposed notes describe verified user-visible behavior rather than hidden agent context or protocol metadata.
+Use [Release](../../../docs/release.md) to prepare the candidate and public notes. Inspect relevant implementation, tests, and callers to verify the user-visible change.
+
+Draft for plugin users who have not followed development. Name the affected action and visible change in familiar UI terms. Match the previous three releases’ language, brevity, and level of detail, preferring one concise outcome per bullet. Keep implementation rationale and validation in the work discussion.
 
 Finalize the notes and release-branch history together under the guide, leaving tagpr generation unchanged until that phase. Every release PR must end as one commit directly changing the previous released version to the final target, with subject `chore(release): X.Y.Z` matching that target.
 
