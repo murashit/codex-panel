@@ -527,7 +527,7 @@ describe("AppServerClient", () => {
     expect(onExit).toHaveBeenCalledOnce();
   });
 
-  it("cleans up the active transport when initialize fails", async () => {
+  it.each(["rpc", "permission"] as const)("cleans up a startup %s failure and allows reconnecting", async (failure) => {
     const transports: FakeTransport[] = [];
     const onExit = vi.fn();
     const client = createTestClient({
@@ -544,9 +544,11 @@ describe("AppServerClient", () => {
     const initialize = latestSent(firstTransport);
     if (!("id" in initialize) || typeof initialize.id !== "number") throw new Error("Expected initialize request.");
 
-    firstTransport.emitLine({ id: initialize.id, error: { code: -32000, message: "initialize failed" } });
+    const error = failure === "rpc" ? { code: -32000, message: "initialize failed" } : { code: "EACCES", message: "permission denied" };
+    if (failure === "rpc") firstTransport.emitLine({ id: initialize.id, error });
+    else firstTransport.emitError(Object.assign(new Error(error.message), { code: error.code }));
 
-    await expect(connecting).rejects.toThrow("Codex rejected the connection setup.");
+    await expect(connecting).rejects.toBeInstanceOf(Error);
     expect(client.isConnected()).toBe(false);
     expect(firstTransport.isRunning()).toBe(false);
 
@@ -560,6 +562,7 @@ describe("AppServerClient", () => {
     secondTransport.emitLine({ id: secondInitialize.id, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
 
     await expect(reconnecting).resolves.toMatchObject({ codexHome: "/tmp/codex" });
+    expect(client.isConnected()).toBe(true);
   });
 
   it("cleans up the active transport when initialize times out", async () => {
@@ -574,7 +577,7 @@ describe("AppServerClient", () => {
 
     const connecting = client.connect();
     const { transport } = fixture;
-    await Promise.all([expect(connecting).rejects.toThrow("Codex did not finish connecting."), vi.advanceTimersByTimeAsync(500)]);
+    await Promise.all([expect(connecting).rejects.toBeInstanceOf(Error), vi.advanceTimersByTimeAsync(500)]);
     expect(client.isConnected()).toBe(false);
     expect(transport.isRunning()).toBe(false);
 
@@ -582,37 +585,27 @@ describe("AppServerClient", () => {
     expect(onExit).not.toHaveBeenCalled();
   });
 
-  it.each([
-    [
-      null,
-      "Codex stopped before the connection was ready. Use /reconnect in an editable chat. For a subagent, reconnect its parent chat and select the subagent again. If it fails again, use /doctor in the editable chat for connection details.",
-    ],
-    [
-      "Error: authentication requirements do not permit any usable login method",
-      "Codex cannot use any sign-in method permitted by its requirements. Check the sign-in requirements in your Codex configuration, or ask your administrator if it is managed.",
-    ],
-    [
-      "Error: windows.require_mxc = true requires MXC to be selected on this Windows host",
-      "Codex requires the MXC Windows sandbox, but it is not selected. Check the Codex sandbox configuration, or ask your administrator if it is managed.",
-    ],
-    [
-      'Error: approval_policy = "untrusted" is no longer supported; remove this setting',
-      "Codex no longer supports the configured ‘untrusted’ approval policy. Check the approval policy in your Codex configuration.",
-    ],
-  ])("rejects initialize exit with diagnostic %s without notifying external handlers", async (diagnostic, message) => {
+  it("keeps unrecognized startup logs out of failure guidance and allows reconnecting", async () => {
     const onExit = vi.fn();
     const fixture = clientFixture({ onExit });
     const connecting = fixture.client.connect();
-    fixture.transport.emitLog("private token: do-not-show");
-    if (diagnostic) fixture.transport.emitLog(diagnostic);
     fixture.transport.emitExit(1);
-    await expect(connecting).rejects.toMatchObject({ message });
+    const fallback = await connecting.catch((error: unknown) => error);
+    expect(fallback).toBeInstanceOf(Error);
     expect(fixture.client.isConnected()).toBe(false);
     expect(onExit).not.toHaveBeenCalled();
-    const reconnecting = fixture.client.connect();
-    if (diagnostic) fixture.transport.emitLog(`${diagnostic}: private detail`);
+
+    const retrying = fixture.client.connect();
+    fixture.transport.emitLog("Error: authentication requirements do not permit any usable login method: private detail");
     fixture.transport.emitExit(1);
-    await expect(reconnecting).rejects.toThrow("Codex stopped before the connection was ready.");
+    await expect(retrying).rejects.toEqual(fallback);
+    expect(onExit).not.toHaveBeenCalled();
+
+    const reconnecting = fixture.client.connect();
+    const initialize = latestSent(fixture.transport);
+    if (!("id" in initialize)) throw new Error("Expected initialize request.");
+    fixture.transport.emitLine({ id: initialize.id, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    await expect(reconnecting).resolves.toMatchObject({ codexHome: "/tmp/codex" });
   });
 
   it("delivers active transport logs and ignores stale events across reconnect", async () => {
