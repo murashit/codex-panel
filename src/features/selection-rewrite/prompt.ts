@@ -1,4 +1,4 @@
-import { type SelectionRewriteState, selectionRewriteTextRangeOffsets } from "./model";
+import type { SelectionRewriteInput } from "./model";
 
 const MAX_NOTE_CONTEXT_CHARS = 20_000;
 
@@ -12,7 +12,7 @@ export const SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS = [
   "Preserve Obsidian-specific syntax such as wikilinks, block ids, callouts, frontmatter-like text, and Dataview blocks unless the user's instruction explicitly asks to change them.",
 ].join("\n");
 
-export function buildSelectionRewritePrompt(state: SelectionRewriteState): string {
+export function buildSelectionRewritePrompt(input: SelectionRewriteInput, instruction: string): string {
   return [
     "Rewrite the selected text according to the user's instruction.",
     "",
@@ -23,18 +23,18 @@ export function buildSelectionRewritePrompt(state: SelectionRewriteState): strin
     "- Preserve the language and style of the surrounding note unless instructed otherwise.",
     "",
     "Target:",
-    `- File: ${state.filePath}`,
-    `- Selection: ${positionLabel(state.targetRange.from)} to ${positionLabel(state.targetRange.to)}`,
+    `- File: ${input.filePath}`,
+    `- Selection: ${positionLabel(input.targetRange.from)} to ${positionLabel(input.targetRange.to)}`,
     "- Context mode: Selection + note context",
     "",
     "User instruction:",
-    state.instruction,
+    instruction,
     "",
     "Selected text:",
-    fenced(state.originalText),
+    fenced(input.originalText),
     "",
     "Current note context:",
-    fenced(selectionCenteredNoteContext(state)),
+    fenced(selectionCenteredNoteContext(input)),
     "",
     "Reminder: use the note context only to make the selected-text replacement coherent.",
   ].join("\n");
@@ -54,12 +54,11 @@ function safeBacktickFence(text: string): string {
   return "`".repeat(longestRun + 1);
 }
 
-function selectionCenteredNoteContext(state: SelectionRewriteState): string {
-  const text = state.noteText;
+function selectionCenteredNoteContext(input: SelectionRewriteInput): string {
+  const text = input.noteText;
   if (text.length <= MAX_NOTE_CONTEXT_CHARS) return text;
 
-  const offsets = selectionRewriteTextRangeOffsets(text, state.targetRange, state.originalText);
-  if (!offsets) return `${text.slice(0, MAX_NOTE_CONTEXT_CHARS - 1)}…`;
+  const offsets = input.selectionOffsets;
 
   const prefix = offsets.from > 0 ? "…\n" : "";
   const suffix = offsets.to < text.length ? "\n…" : "";
