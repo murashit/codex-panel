@@ -1,7 +1,7 @@
 import { type Editor, MarkdownView, Notice, type Plugin } from "obsidian";
 import type { SendShortcut } from "../../domain/input/send-shortcut";
 import { retainEditorSelectionEmphasis } from "../../shared/ui/editor-selection-emphasis.obsidian";
-import type { SelectionRewriteRuntimeSettings, SelectionRewriteState } from "./model";
+import type { SelectionRewriteInput, SelectionRewriteRuntimeSettings } from "./model";
 import { SelectionRewritePopover } from "./popover.dom";
 import type { SelectionRewritePort } from "./port";
 
@@ -41,23 +41,20 @@ export function registerSelectionRewriteCommand(
         return false;
       }
 
-      const rewriteState: SelectionRewriteState = {
+      const targetRange = {
+        from: clonePosition(editor.getCursor("from")),
+        to: clonePosition(editor.getCursor("to")),
+      };
+      const input: SelectionRewriteInput = {
         filePath: view.file.path,
-        targetRange: {
-          from: clonePosition(editor.getCursor("from")),
-          to: clonePosition(editor.getCursor("to")),
-        },
+        targetRange,
+        selectionOffsets: { from: editor.posToOffset(targetRange.from), to: editor.posToOffset(targetRange.to) },
         originalText,
         noteText: editor.getValue(),
-        instruction: "",
-        status: "editing",
-        streamText: "",
-        replacementText: null,
-        debugText: null,
       };
 
       activePopover?.close();
-      const releaseSelectionEmphasis = retainEditorSelectionEmphasis(editor, rewriteState.targetRange);
+      const releaseSelectionEmphasis = retainEditorSelectionEmphasis(editor, targetRange);
       const popover = new SelectionRewritePopover({
         editor,
         onClose: () => {
@@ -66,7 +63,7 @@ export function registerSelectionRewriteCommand(
         },
         runtimeSettings: plugin.settings,
         sendShortcut: plugin.settings.sendShortcut,
-        state: rewriteState,
+        input,
         port,
         viewDocument,
         viewWindow,

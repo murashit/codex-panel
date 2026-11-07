@@ -9,12 +9,7 @@ import { renderObsidianUiRoot } from "../../shared/ui/preact-root.obsidian";
 import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow.measure";
 import { textareaCursorAtVisualBoundary } from "../../shared/ui/textarea-caret.measure";
 import { buildSelectionDiffLines } from "./diff";
-import {
-  canApplySelectionRewrite,
-  type SelectionRewriteInstructionHistoryDirection,
-  type SelectionRewriteRuntimeSettings,
-  type SelectionRewriteState,
-} from "./model";
+import type { SelectionRewriteInput, SelectionRewriteInstructionHistoryDirection, SelectionRewriteRuntimeSettings } from "./model";
 import type { SelectionRewritePort } from "./port";
 import { positionSelectionRewritePopover } from "./position.dom";
 import { SelectionRewriteSession, type SelectionRewriteSessionStatus } from "./session";
@@ -38,7 +33,7 @@ export interface SelectionRewritePopoverOptions {
   onClose?: () => void;
   runtimeSettings: SelectionRewriteRuntimeSettings;
   sendShortcut: SendShortcut;
-  state: SelectionRewriteState;
+  input: SelectionRewriteInput;
   port: SelectionRewritePort;
   viewDocument: Document;
   viewWindow: Window;
@@ -155,16 +150,17 @@ export class SelectionRewritePopover {
     if (replacement === null) return;
 
     const { editor } = this.options;
-    const state = this.session.state;
-    const currentText = editor.getRange(state.targetRange.from, state.targetRange.to);
-    if (!canApplySelectionRewrite(currentText, state)) {
-      new Notice("Selection changed. Generate the rewrite again before applying.");
-      this.session.setStatus("Selection changed. Generate the rewrite again before applying.");
+    const input = this.options.input;
+    const currentText = editor.getRange(input.targetRange.from, input.targetRange.to);
+    if (currentText !== input.originalText) {
+      const message = "Selection changed. Select the text again and reopen Rewrite selection.";
+      new Notice(message);
+      this.session.setStatus(message);
       this.renderView();
       return;
     }
 
-    editor.replaceRange(replacement, state.targetRange.from, state.targetRange.to, "codex-panel-rewrite");
+    editor.replaceRange(replacement, input.targetRange.from, input.targetRange.to, "codex-panel-rewrite");
     this.close();
   }
 
@@ -197,7 +193,7 @@ export class SelectionRewritePopover {
           elements.applyButton = element;
         }}
         debugText={state.debugText}
-        diffLines={replacement === null ? null : buildSelectionDiffLines(state.originalText, replacement)}
+        diffLines={replacement === null ? null : buildSelectionDiffLines(this.options.input.originalText, replacement)}
         generating={state.status === "generating"}
         hasInstruction={this.session.hasInstruction}
         hasReplacement={replacement !== null}
@@ -217,7 +213,7 @@ export class SelectionRewritePopover {
         }}
         onInstructionKeyDown={(event) => {
           if (this.handleInstructionHistoryKeyDown(event.currentTarget, event)) return;
-          const hasReplacement = this.options.state.replacementText !== null;
+          const hasReplacement = this.session.state.replacementText !== null;
           if (!(hasReplacement ? isSelectionRewriteActionKey(event) : isComposerSendKey(event, this.options.sendShortcut))) {
             return;
           }

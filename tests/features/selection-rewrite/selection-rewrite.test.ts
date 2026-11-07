@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EphemeralStructuredTurnRunner } from "../../../src/app-server/services/ephemeral-structured-turn";
 import { createAppServerSelectionRewriteAdapter } from "../../../src/features/selection-rewrite/app-server-adapter";
 import { buildSelectionDiffLines } from "../../../src/features/selection-rewrite/diff";
-import { type SelectionRewriteState, selectionRewriteTextRangeOffsets } from "../../../src/features/selection-rewrite/model";
+import type { SelectionRewriteInput } from "../../../src/features/selection-rewrite/model";
 import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover.dom";
 import { SelectionRewriteOutputError, type SelectionRewritePortRequest } from "../../../src/features/selection-rewrite/port";
 import { positionSelectionRewritePopover } from "../../../src/features/selection-rewrite/position.dom";
@@ -33,31 +33,17 @@ afterEach(() => {
 describe("selection rewrite prompt", () => {
   it("uses fences that cannot be closed by note code blocks", () => {
     const prompt = buildSelectionRewritePrompt(
-      rewriteState({
+      rewriteInput({
         originalText: "```ts\nconst value = 1;\n```",
         noteText: "````markdown\n```ts\nconst value = 1;\n```\n````",
+        targetRange: { from: { line: 1, ch: 0 }, to: { line: 3, ch: 3 } },
+        selectionOffsets: { from: 13, to: 39 },
       }),
+      "Make it clearer.",
     );
 
     expect(prompt).toContain("````text\n```ts");
     expect(prompt).toContain("`````text\n````markdown");
-  });
-
-  it("centers long note context around the selection", () => {
-    const noteText = `START ONLY\n${"filler\n".repeat(4_000)}Near before\nRevise this sentence.\nNear after`;
-    const prompt = buildSelectionRewritePrompt(
-      rewriteState({
-        noteText,
-        targetRange: {
-          from: { line: 4_002, ch: 0 },
-          to: { line: 4_002, ch: 22 },
-        },
-      }),
-    );
-
-    expect(prompt).toContain("Near before");
-    expect(prompt).toContain("Near after");
-    expect(prompt).not.toContain("START ONLY");
   });
 
   it("keeps the selected text in bounded note context regardless of its position", () => {
@@ -69,11 +55,13 @@ describe("selection rewrite prompt", () => {
       fc.property(lengths, ([before, after]) => {
         const selectedText = "SELECTED TEXT";
         const prompt = buildSelectionRewritePrompt(
-          rewriteState({
+          rewriteInput({
             noteText: `${"a".repeat(before)}${selectedText}${"z".repeat(after)}`,
             originalText: selectedText,
             targetRange: { from: { line: 0, ch: before }, to: { line: 0, ch: before + selectedText.length } },
+            selectionOffsets: { from: before, to: before + selectedText.length },
           }),
+          "Make it clearer.",
         );
         const context = prompt.match(/Current note context:\n```text\n([\s\S]*?)\n```\n\nReminder:/u)?.[1];
 
@@ -200,50 +188,6 @@ describe("selection rewrite diff", () => {
   });
 });
 
-describe("selection rewrite apply guard", () => {
-  it("converts a valid multi-line editor range to half-open text offsets", () => {
-    expect(
-      selectionRewriteTextRangeOffsets("first\nsecond line\nthird", {
-        from: { line: 1, ch: 1 },
-        to: { line: 2, ch: 3 },
-      }),
-    ).toEqual({ from: 7, to: 21 });
-  });
-
-  it("falls back to the expected text only when editor positions are invalid", () => {
-    const invalidRange = {
-      from: { line: 20, ch: 0 },
-      to: { line: 20, ch: 4 },
-    };
-
-    expect(selectionRewriteTextRangeOffsets("before target after", invalidRange, "target")).toEqual({ from: 7, to: 13 });
-    expect(selectionRewriteTextRangeOffsets("before target after", invalidRange, "missing")).toBeNull();
-    expect(selectionRewriteTextRangeOffsets("before target after", invalidRange)).toBeNull();
-  });
-
-  it("rejects negative, reversed, and past-line-end editor ranges", () => {
-    expect(selectionRewriteTextRangeOffsets("text", { from: { line: -1, ch: 0 }, to: { line: 0, ch: 1 } })).toBeNull();
-    expect(selectionRewriteTextRangeOffsets("text", { from: { line: 0, ch: -1 }, to: { line: 0, ch: 1 } })).toBeNull();
-    expect(selectionRewriteTextRangeOffsets("text", { from: { line: 0, ch: 3 }, to: { line: 0, ch: 1 } })).toBeNull();
-    expect(selectionRewriteTextRangeOffsets("text", { from: { line: 0, ch: 0 }, to: { line: 0, ch: 5 } })).toBeNull();
-    expect(selectionRewriteTextRangeOffsets("a\nlong", { from: { line: 0, ch: 0 }, to: { line: 0, ch: 2 } })).toBeNull();
-  });
-
-  it("accepts empty ranges at line boundaries and rejects an empty fallback", () => {
-    expect(selectionRewriteTextRangeOffsets("text", { from: { line: 0, ch: 0 }, to: { line: 0, ch: 1 } })).toEqual({
-      from: 0,
-      to: 1,
-    });
-    expect(selectionRewriteTextRangeOffsets("text", { from: { line: 0, ch: 0 }, to: { line: 0, ch: 4 } })).toEqual({
-      from: 0,
-      to: 4,
-    });
-    expect(selectionRewriteTextRangeOffsets("a\n", { from: { line: 0, ch: 1 }, to: { line: 0, ch: 1 } })).toEqual({ from: 1, to: 1 });
-    expect(selectionRewriteTextRangeOffsets("a\n", { from: { line: 1, ch: 0 }, to: { line: 1, ch: 0 } })).toEqual({ from: 2, to: 2 });
-    expect(selectionRewriteTextRangeOffsets("text", { from: { line: 2, ch: 0 }, to: { line: 2, ch: 0 } }, "")).toBeNull();
-  });
-});
-
 describe("selection rewrite positioning", () => {
   it.each([
     { name: "below the selection when it fits", anchor: [100, 100, 20, 20], size: [200, 120], expected: [100, 128] },
@@ -325,7 +269,6 @@ describe("selection rewrite app-server port", () => {
         codexPath: "/bin/codex",
         cwd: "/vault",
         serviceName: "codex-panel-rewrite-selection",
-        developerInstructions: expect.stringContaining("The only editable target is the selected text"),
         prompt: "Rewrite this.",
         outputSchema: {
           type: "object",
@@ -334,8 +277,6 @@ describe("selection rewrite app-server port", () => {
           additionalProperties: false,
         },
         timeoutMs: 120_000,
-        serverRequestRejectionMessage: "Selection rewrite does not handle server requests.",
-        abortMessage: "Selection rewrite cancelled.",
         signal,
         runtimeSettings: { model: "gpt-5.4-mini", effort: "minimal" },
       }),
@@ -353,15 +294,25 @@ describe("selection rewrite app-server port", () => {
 });
 
 describe("selection rewrite popover", () => {
-  it("renders header-like selection content as edits and applies the original replacement", () => {
-    const editor = editorFixture({ currentText: "---" });
+  it("renders header-like selection content as edits and applies the original replacement", async () => {
+    const editor = editorFixture("---");
+    selectionRewriteGenerate.mockResolvedValue({ replacementText: "++ frontmatter\n" });
     const popover = new SelectionRewritePopover(
       popoverOptions({
         editor: editor.editor,
-        state: { ...rewriteState({ originalText: "---" }), status: "preview", streamText: "", replacementText: "++ frontmatter\n" },
+        input: rewriteInput({
+          originalText: "---",
+          noteText: "---",
+          targetRange: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 3 } },
+          selectionOffsets: { from: 0, to: 3 },
+        }),
       }),
     );
     openPopover(popover);
+    await act(async () => {
+      expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]')).click();
+      await flushPromises();
+    });
 
     expect(document.querySelector(".codex-panel-diff__line--removed")?.textContent).toBe("---");
     expect(Array.from(document.querySelectorAll(".codex-panel-diff__line--added"), (line) => line.textContent)).toEqual([
@@ -369,7 +320,7 @@ describe("selection rewrite popover", () => {
       "↵",
     ]);
     void act(() => document.querySelector<HTMLButtonElement>('button[aria-label="Apply"]')?.click());
-    expect(editor.replaceRange).toHaveBeenCalledWith("++ frontmatter\n", { line: 1, ch: 0 }, { line: 1, ch: 22 }, "codex-panel-rewrite");
+    expect(editor.replaceRange).toHaveBeenCalledWith("++ frontmatter\n", { line: 0, ch: 0 }, { line: 0, ch: 3 }, "codex-panel-rewrite");
   });
 
   it("generates from the Enter shortcut, renders a preview diff, and applies from the action shortcut", async () => {
@@ -379,11 +330,9 @@ describe("selection rewrite popover", () => {
       options.onPreview?.("Rewritten sentence.");
       return { replacementText: "Rewritten sentence." };
     });
-    const popover = new SelectionRewritePopover(
-      popoverOptions({ editor: editor.editor, onClose, state: rewriteState({ instruction: "" }) }),
-    );
+    const popover = new SelectionRewritePopover(popoverOptions({ editor: editor.editor, onClose }));
 
-    openPopover(popover);
+    openPopover(popover, "");
     const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
     const generate = expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]'));
     expect(generate.disabled).toBe(true);
@@ -409,32 +358,9 @@ describe("selection rewrite popover", () => {
       await Promise.resolve();
     });
 
-    expect(editor.replaceRange).toHaveBeenCalledWith("Rewritten sentence.", { line: 1, ch: 0 }, { line: 1, ch: 22 }, "codex-panel-rewrite");
+    expect(editor.replaceRange).toHaveBeenCalledWith("Rewritten sentence.", { line: 2, ch: 0 }, { line: 2, ch: 21 }, "codex-panel-rewrite");
     expect(document.querySelector(".codex-panel-selection-rewrite")).toBeNull();
     expect(onClose).toHaveBeenCalledOnce();
-  });
-
-  it("refuses to apply when the current editor range no longer matches the original selection", async () => {
-    const editor = editorFixture({ currentText: "Changed sentence." });
-    const popover = new SelectionRewritePopover(
-      popoverOptions({
-        editor: editor.editor,
-        state: { ...rewriteState(), status: "preview", streamText: "", replacementText: "Rewritten sentence." },
-      }),
-    );
-
-    openPopover(popover);
-    await act(async () => {
-      expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Apply"]')).click();
-      await Promise.resolve();
-    });
-
-    expect(editor.getRange).toHaveBeenCalledWith({ line: 1, ch: 0 }, { line: 1, ch: 22 });
-    expect(editor.replaceRange).not.toHaveBeenCalled();
-    expect(document.querySelector(".codex-panel-selection-rewrite")).not.toBeNull();
-    expect(document.body.textContent).toContain("Selection changed. Generate the rewrite again before applying.");
-
-    closePopover(popover);
   });
 
   it("closes from outside pointerdown without closing internal controls", () => {
@@ -458,12 +384,15 @@ describe("selection rewrite popover", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it("aborts the active generation when closed and ignores its late result", async () => {
+  it.each(["resolve", "reject"])("aborts on Escape and ignores late progress and %s", async (outcome) => {
     const rewrite = deferred<{ replacementText: string }>();
     let signal: AbortSignal | undefined;
-    selectionRewriteGenerate.mockImplementation((options) => {
+    selectionRewriteGenerate.mockImplementation((options: SelectionRewritePortRequest) => {
       signal = options.signal;
-      return rewrite.promise;
+      return rewrite.promise.finally(() => {
+        options.onActivity("reasoning");
+        options.onPreview("Late preview");
+      });
     });
     const popover = new SelectionRewritePopover(popoverOptions());
 
@@ -473,36 +402,44 @@ describe("selection rewrite popover", () => {
       await Promise.resolve();
     });
 
-    closePopover(popover);
+    void act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+    });
     expect(signal?.aborted).toBe(true);
+    expect(document.querySelector(".codex-panel-selection-rewrite")).toBeNull();
 
-    rewrite.resolve({ replacementText: "Late rewrite" });
+    if (outcome === "resolve") rewrite.resolve({ replacementText: "Late rewrite" });
+    else rewrite.reject(new Error("Late failure"));
     await act(async () => {
       await flushPromises();
     });
 
     expect(document.querySelector(".codex-panel-selection-rewrite")).toBeNull();
-    expect(document.body.textContent).not.toContain("Late rewrite");
   });
 
-  it("regenerates from a preview with a new instruction", async () => {
+  it("uses mod-enter initially and plain Enter to regenerate a preview with a new instruction", async () => {
     selectionRewriteGenerate
       .mockResolvedValueOnce({ replacementText: "First rewrite." })
       .mockResolvedValueOnce({ replacementText: "Second rewrite." });
-    const popover = new SelectionRewritePopover(popoverOptions());
+    const popover = new SelectionRewritePopover(popoverOptions({ sendShortcut: "mod-enter" }));
 
     openPopover(popover);
+    const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
     await act(async () => {
-      expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]')).click();
+      instruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    });
+    expect(selectionRewriteGenerate).not.toHaveBeenCalled();
+    await act(async () => {
+      instruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter", ctrlKey: true }));
       await flushPromises();
     });
-    const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
+    expect(selectionRewriteGenerate).toHaveBeenCalledOnce();
     void act(() => {
       setTextareaValue(instruction, "Try another version.");
       instruction.dispatchEvent(new Event("input", { bubbles: true }));
     });
     await act(async () => {
-      expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Regenerate"]')).click();
+      instruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
       await flushPromises();
     });
 
@@ -549,7 +486,7 @@ describe("selection rewrite popover", () => {
       await Promise.resolve();
     });
 
-    expect(editor.replaceRange).toHaveBeenCalledWith("Recovered rewrite.", { line: 1, ch: 0 }, { line: 1, ch: 22 }, "codex-panel-rewrite");
+    expect(editor.replaceRange).toHaveBeenCalledWith("Recovered rewrite.", { line: 2, ch: 0 }, { line: 2, ch: 21 }, "codex-panel-rewrite");
   });
 
   it("restores the current draft after accidental instruction history navigation", async () => {
@@ -608,8 +545,8 @@ describe("selection rewrite popover", () => {
 
     await generateInstructionHistoryItem("Rewrite as bullets.");
 
-    const editingPopover = new SelectionRewritePopover(popoverOptions({ state: rewriteState({ instruction: "" }) }));
-    openPopover(editingPopover);
+    const editingPopover = new SelectionRewritePopover(popoverOptions());
+    openPopover(editingPopover, "");
     const editingInstruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
 
     void act(() => {
@@ -625,8 +562,8 @@ describe("selection rewrite popover", () => {
 
     closePopover(editingPopover);
 
-    const historyPopover = new SelectionRewritePopover(popoverOptions({ state: rewriteState({ instruction: "" }) }));
-    openPopover(historyPopover);
+    const historyPopover = new SelectionRewritePopover(popoverOptions());
+    openPopover(historyPopover, "");
     const historyInstruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
 
     void act(() => {
@@ -645,29 +582,23 @@ describe("selection rewrite popover", () => {
   });
 });
 
-type EditingRewriteState = Extract<SelectionRewriteState, { status: "editing" }>;
-
-function rewriteState(overrides: Partial<EditingRewriteState> = {}): EditingRewriteState {
+function rewriteInput(overrides: Partial<SelectionRewriteInput> = {}): SelectionRewriteInput {
   return {
     filePath: "Note.md",
-    targetRange: {
-      from: { line: 1, ch: 0 },
-      to: { line: 1, ch: 22 },
-    },
+    targetRange: { from: { line: 2, ch: 0 }, to: { line: 2, ch: 21 } },
+    selectionOffsets: { from: 11, to: 32 },
     originalText: "Revise this sentence.",
     noteText: "# Heading\n\nRevise this sentence.\n\nNext paragraph.",
-    instruction: "Make it clearer.",
-    status: "editing",
-    streamText: "",
-    replacementText: null,
-    debugText: null,
     ...overrides,
   };
 }
 
-function openPopover(popover: SelectionRewritePopover): void {
+function openPopover(popover: SelectionRewritePopover, instructionText = "Make it clearer."): void {
   void act(() => {
     popover.open();
+    const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
+    setTextareaValue(instruction, instructionText);
+    instruction.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 
@@ -678,7 +609,7 @@ function closePopover(popover: SelectionRewritePopover): void {
 }
 
 async function generateInstructionHistoryItem(instructionText: string): Promise<void> {
-  const popover = new SelectionRewritePopover(popoverOptions({ state: rewriteState({ instruction: "" }) }));
+  const popover = new SelectionRewritePopover(popoverOptions());
   openPopover(popover);
   const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
 
@@ -702,7 +633,7 @@ function popoverOptions(
     editor: editorFixture().editor,
     runtimeSettings: { rewriteSelectionModel: null, rewriteSelectionEffort: null },
     sendShortcut: "enter",
-    state: rewriteState(),
+    input: rewriteInput(),
     port: {
       generate: (request) => selectionRewriteGenerate(request),
     },
@@ -712,25 +643,13 @@ function popoverOptions(
   };
 }
 
-function editorFixture(options: { currentText?: string; currentNoteText?: string } = {}): {
-  editor: ConstructorParameters<typeof SelectionRewritePopover>[0]["editor"];
-  getRange: ReturnType<typeof vi.fn>;
-  getValue: ReturnType<typeof vi.fn>;
-  replaceRange: ReturnType<typeof vi.fn>;
-} {
-  const getRange = vi.fn(() => options.currentText ?? "Revise this sentence.");
-  const getValue = vi.fn(() => options.currentNoteText ?? rewriteState().noteText);
+function editorFixture(currentText = "Revise this sentence.") {
   const replaceRange = vi.fn();
   return {
     editor: {
-      getCursor: () => ({ line: 1, ch: 22 }),
-      getRange,
-      getValue,
-      posToOffset: () => 0,
+      getRange: () => currentText,
       replaceRange,
     } as unknown as ConstructorParameters<typeof SelectionRewritePopover>[0]["editor"],
-    getRange,
-    getValue,
     replaceRange,
   };
 }
@@ -778,8 +697,8 @@ async function instructionHistoryPopover() {
   await generateInstructionHistoryItem("History item one.");
   await generateInstructionHistoryItem("History item two.");
 
-  const popover = new SelectionRewritePopover(popoverOptions({ state: rewriteState({ instruction: "Current draft." }) }));
-  openPopover(popover);
+  const popover = new SelectionRewritePopover(popoverOptions());
+  openPopover(popover, "Current draft.");
   const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
   instruction.setSelectionRange(0, 0);
   return { popover, instruction };

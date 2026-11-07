@@ -1,4 +1,9 @@
-import type { SelectionRewriteInstructionHistoryDirection, SelectionRewriteRuntimeSettings, SelectionRewriteState } from "./model";
+import type {
+  SelectionRewriteInput,
+  SelectionRewriteInstructionHistoryDirection,
+  SelectionRewriteRuntimeSettings,
+  SelectionRewriteState,
+} from "./model";
 import { type SelectionRewriteActivity, SelectionRewriteOutputError, type SelectionRewritePort } from "./port";
 import { buildSelectionRewritePrompt } from "./prompt";
 
@@ -8,7 +13,7 @@ const selectionRewriteInstructionHistory: string[] = [];
 
 export interface SelectionRewriteSessionOptions {
   runtimeSettings: SelectionRewriteRuntimeSettings;
-  state: SelectionRewriteState;
+  input: SelectionRewriteInput;
   port: SelectionRewritePort;
 }
 
@@ -30,14 +35,18 @@ export class SelectionRewriteSession {
   private historyCursor: number | null = null;
   private historyDraft = "";
   private statusState: SelectionRewriteSessionStatus = { text: "", active: false };
-  private instructionDraftValue: string;
+  private instructionDraftValue = "";
+  private stateValue: SelectionRewriteState = {
+    status: "editing",
+    streamText: "",
+    replacementText: null,
+    debugText: null,
+  };
 
-  constructor(private readonly options: SelectionRewriteSessionOptions) {
-    this.instructionDraftValue = options.state.instruction;
-  }
+  constructor(private readonly options: SelectionRewriteSessionOptions) {}
 
   get state(): SelectionRewriteState {
-    return this.options.state;
+    return this.stateValue;
   }
 
   get instructionDraft(): string {
@@ -80,7 +89,7 @@ export class SelectionRewriteSession {
 
     try {
       const output = await this.options.port.generate({
-        prompt: buildSelectionRewritePrompt(this.state),
+        prompt: buildSelectionRewritePrompt(this.options.input, instruction),
         runtimeSettings: this.options.runtimeSettings,
         onActivity: (activity) => {
           if (!this.isActiveGenerationRun(controller)) return;
@@ -155,9 +164,7 @@ export class SelectionRewriteSession {
     rememberSelectionRewriteInstruction(instruction);
     this.historyCursor = null;
     this.historyDraft = "";
-    this.options.state = {
-      ...this.state,
-      instruction,
+    this.stateValue = {
       status: "generating",
       streamText: "",
       replacementText: null,
@@ -167,8 +174,7 @@ export class SelectionRewriteSession {
   }
 
   private updatePreview(text: string): void {
-    this.options.state = {
-      ...this.state,
+    this.stateValue = {
       status: "generating",
       streamText: text,
       replacementText: null,
@@ -182,8 +188,7 @@ export class SelectionRewriteSession {
   }
 
   private showPreview(replacementText: string): void {
-    this.options.state = {
-      ...this.state,
+    this.stateValue = {
       status: "preview",
       streamText: "",
       replacementText,
@@ -193,8 +198,7 @@ export class SelectionRewriteSession {
   }
 
   private showGenerationFailure(error: unknown): void {
-    this.options.state = {
-      ...this.state,
+    this.stateValue = {
       status: "failed",
       streamText: "",
       replacementText: null,
