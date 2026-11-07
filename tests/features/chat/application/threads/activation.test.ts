@@ -345,15 +345,19 @@ describe("ThreadActivation", () => {
 
   it("ignores rollout token usage recovery failures", async () => {
     const response = activation("thread", { rolloutPath: "/tmp/rollout.jsonl" });
-    const recoverTokenUsageFromRollout = vi.fn().mockRejectedValue(new Error("read failed"));
+    const recovery = deferred<ThreadTokenUsage | null>();
+    const recoverTokenUsageFromRollout = vi.fn().mockReturnValue(recovery.promise);
     const { commands, host, stateStore } = createActions(response, { recoverTokenUsageFromRollout });
 
-    const resumed = await commands.resumeThread("thread");
-    await resumed?.hydrate();
-    await Promise.resolve();
+    await expect(commands.activate("thread")).resolves.toBe(true);
+    expect(recoverTokenUsageFromRollout).toHaveBeenCalledWith("/tmp/rollout.jsonl");
+    const publicationsBeforeRecovery = [...vi.mocked(host.addSystemMessage).mock.calls];
+
+    recovery.reject(new Error("read failed"));
+    await recovery.promise.catch(() => undefined);
 
     expect(activeThreadState(stateStore.getState())?.tokenUsage).toBeNull();
-    expect(host.addSystemMessage).not.toHaveBeenCalledWith("read failed");
+    expect(vi.mocked(host.addSystemMessage).mock.calls).toEqual(publicationsBeforeRecovery);
   });
 });
 

@@ -722,7 +722,7 @@ describe("TurnSubmissionCommand", () => {
     await commands.sendTurnText({ preparedInput: preparedText("follow up") });
 
     expect(startTurn).not.toHaveBeenCalled();
-    expect(host.setStatus).not.toHaveBeenCalledWith("Steered current turn.");
+    expect(host.setStatus).not.toHaveBeenCalled();
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
   });
 });

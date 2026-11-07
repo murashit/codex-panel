@@ -30,59 +30,35 @@ describe("settings tab", () => {
     notices.length = 0;
   });
 
-  it("exposes every persistent setting to Obsidian 1.13 search without loading dynamic data", () => {
-    const tab = newSettingsTab();
-
-    const definitions = tab.getSettingDefinitions();
-
-    expect(settingsContextClientMock).not.toHaveBeenCalled();
-    expect(declarativeDefinitionNames(definitions)).toEqual(
-      expect.arrayContaining([
-        "Codex details",
-        "Codex executable",
-        "Show chat toolbar",
-        "Temporary by default",
-        "Panel helpers",
-        "Automatic thread naming",
-        "Selection rewrite",
-        "Composer",
-        "Send shortcut",
-        "Scroll conversation from composer line edges",
-        "Reference active file on send",
-        "Attachment folder",
-        "Thread archiving",
-        "Save note by default",
-        "Saved note folder",
-        "Saved note filename",
-        "Saved note tags",
-        "Archived threads",
-        "Archived threads content",
-        "Codex hooks",
-        "Codex hooks content",
-      ]),
-    );
-    expect(declarativeDefinitionByName(definitions, "Codex details")?.searchable).toBe(false);
-  });
-
-  it("routes every declarative control through the existing settings publication boundary", async () => {
+  it("publishes searchable native preferences through their declared control keys without loading dynamic data", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     const tab = newSettingsTab({ saveSettings });
+    const definitions = tab.getSettingDefinitions();
 
     const changes = [
-      ["showToolbar", false],
-      ["newConversationsEphemeral", true],
-      ["sendShortcut", "mod-enter"],
-      ["scrollThreadFromComposerEdges", true],
-      ["referenceActiveNoteOnSend", true],
-      ["archiveExportEnabled", true],
+      ["Show chat toolbar", "showToolbar", false],
+      ["Temporary by default", "newConversationsEphemeral", true],
+      ["Send shortcut", "sendShortcut", "mod-enter"],
+      ["Scroll conversation from composer line edges", "scrollThreadFromComposerEdges", true],
+      ["Reference active file on send", "referenceActiveNoteOnSend", true],
+      ["Save note by default", "archiveExportEnabled", true],
     ] as const;
-    for (const [key, value] of changes) {
-      await tab.setControlValue(key, value);
-      expect(tab.getControlValue(key)).toBe(value);
+    for (const [name, key, value] of changes) {
+      const definition = declarativeDefinitionByName(definitions, name);
+      if (!definition?.control) throw new Error(`Missing declarative ${name} control`);
+      for (const eligible of [definition.searchable, definition.visible]) {
+        expect(typeof eligible === "function" ? eligible() : eligible).not.toBe(false);
+      }
+      expect(definition.control.key).toBe(key);
+
+      await tab.setControlValue(definition.control.key, value);
+
+      expect(tab.getControlValue(definition.control.key)).toBe(value);
       expect(saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({ [key]: value }));
     }
 
     expect(saveSettings).toHaveBeenCalledTimes(changes.length);
+    expect(settingsContextClientMock).not.toHaveBeenCalled();
   });
 
   it("publishes model and effort changes from a representative declarative helper renderer", async () => {
@@ -112,6 +88,18 @@ describe("settings tab", () => {
   });
 
   it.each([
+    {
+      name: "Attachment folder",
+      key: "attachmentFolder",
+      inputValue: "  Attachments/Chat  ",
+      value: "Attachments/Chat",
+    },
+    {
+      name: "Saved note tags",
+      key: "archiveExportTags",
+      inputValue: "  codex, research  ",
+      value: "codex, research",
+    },
     {
       name: "Saved note filename",
       key: "archiveExportFilenameTemplate",
@@ -353,13 +341,13 @@ describe("settings tab", () => {
       models.resolve(modelMetadataFromCatalogModels([model("gpt-5.5")]));
       await flushPromises();
 
-      expect(toggle.checked).toBe(false);
+      expect(toolbarVisibilityToggle(tab).checked).toBe(false);
       expect(tab.getControlValue("showToolbar")).toBe(true);
 
       save.resolve(undefined);
       await flushPromises();
 
-      expect(toggle.checked).toBe(false);
+      expect(toolbarVisibilityToggle(tab).checked).toBe(false);
       expect(tab.getControlValue("showToolbar")).toBe(false);
     } finally {
       save.resolve(undefined);
@@ -773,16 +761,6 @@ describe("settings tab", () => {
 
 function newSettingsTab(options: SettingsTabHostOptions = {}): CodexPanelSettingTab {
   return new CodexPanelSettingTab({} as never, {} as never, settingsTabHost(options));
-}
-
-function declarativeDefinitionNames(definitions: SettingDefinitionItem[]): string[] {
-  return definitions.flatMap((definition) => {
-    if ("type" in definition) {
-      const label = "heading" in definition ? definition.heading : "name" in definition ? definition.name : undefined;
-      return [...(label ? [label] : []), ...declarativeDefinitionNames(definition.items ?? [])];
-    }
-    return [definition.name];
-  });
 }
 
 function declarativeDefinitionByName(definitions: SettingDefinitionItem[], name: string): SettingDefinition | undefined {

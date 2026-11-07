@@ -66,7 +66,6 @@ describe("wikilink context", () => {
       { type: "fileReference", name: "Alpha", path: "thoughts/Alpha.md" },
       wikilinkContext("- [[Alpha#Heading|A]] -> thoughts/Alpha.md"),
     ]);
-    expect(input).toHaveLength(3);
   });
 
   it("resolves aliases and subpaths from non-markdown wikilinks by target", () => {

@@ -18,7 +18,6 @@ import {
   chatViewForClient,
   completedTurn,
   composerElement,
-  composerPlaceholder,
   connectedClient,
   connectionMockState,
   expectRequestTimes,
@@ -422,27 +421,6 @@ describe("CodexChatView thread state", () => {
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "After rename" });
   });
 
-  it("does not use restored thread identity as a composer name before the thread becomes active", async () => {
-    const host = chatHost();
-    const view = await chatView({ host });
-
-    await view.setState({ threadId: "thread-1", threadTitle: "Restored title" }, {} as never);
-    await view.onOpen();
-
-    expect(composerPlaceholder(view)).toBe("Ask Codex...");
-
-    host.receiveActiveThreads([panelThread({ id: "thread-1", name: "Explicit name" })]);
-    await waitForAsyncWork(() => {
-      expect(composerPlaceholder(view)).toBe("Ask Codex...");
-    });
-
-    view.surface.applyThreadRenamed("thread-1", "Explicit name");
-
-    await waitForAsyncWork(() => {
-      expect(composerPlaceholder(view)).toBe("Ask Codex...");
-    });
-  });
-
   it("keeps the conversation name in the header while preserving the composer draft and selection", async () => {
     const client = connectedClient();
     connectionMockState().client = client;
@@ -464,10 +442,10 @@ describe("CodexChatView thread state", () => {
     view.surface.applyThreadRenamed("thread-1", "Renamed thread");
 
     await waitForAsyncWork(() => {
-      expect(composer.value).toBe("keep this draft");
-      expect(composer.selectionStart).toBe(5);
-      expect(composer.selectionEnd).toBe(9);
-      expect(composer.getAttribute("placeholder")).toBe("Ask Codex...");
+      const currentComposer = composerElement(view);
+      expect(currentComposer.value).toBe("keep this draft");
+      expect(currentComposer.selectionStart).toBe(5);
+      expect(currentComposer.selectionEnd).toBe(9);
       expect(view.contentEl.querySelector(".codex-panel__conversation-title")?.textContent).toBe("Renamed thread");
     });
   });

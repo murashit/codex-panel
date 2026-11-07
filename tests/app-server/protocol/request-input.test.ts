@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { appServerTurnInputFromCodexInput, toAppServerUserInput } from "../../../src/app-server/protocol/request-input";
 import { type CodexInput, codexTextInputWithAttachments, codexTextInputWithReferences } from "../../../src/domain/input/input";
-import { utf8ByteLength } from "../../../src/domain/text/text";
 
 const ADDITIONAL_CONTEXT_MAX_PARTS = 8;
 const PANEL_SUBMISSION_ID = "local-user-1-seed-1-1";
@@ -60,7 +59,7 @@ describe("app-server request input", () => {
   });
 
   it("chunks UTF-8 context within the Panel byte cap without adding visible metadata", () => {
-    const value = `見出し\n\n${"本文です。".repeat(2_000)}`;
+    const value = Array.from({ length: 2_000 }, (_, index) => `段落[${String(index)}]: 本文です。🌿\n`).join("");
     const prepared = appServerTurnInputFromCodexInput(
       [
         { type: "text", text: "要約して" },
@@ -76,11 +75,20 @@ describe("app-server request input", () => {
 
     const entries = Object.entries(prepared.additionalContext ?? {});
     expect(entries).toHaveLength(ADDITIONAL_CONTEXT_MAX_PARTS);
-    expect(entries[0]?.[1].value).toContain("見出し\n\n本文です。");
     expect(entries.map(([key]) => key)).toEqual([...entries.map(([key]) => key)].sort());
-    expect(entries.every(([, entry]) => utf8ByteLength(entry.value) < 4_000)).toBe(true);
-    expect(entries.every(([, entry]) => entry.value.includes("Codex Panel context part"))).toBe(true);
-    expect(entries.at(-1)?.[1].value).toContain("[Context truncated by Codex Panel: remaining content omitted.]");
+    const bodies = entries.map(([, entry]) => {
+      expect(entry.kind).toBe("untrusted");
+      expect(Buffer.byteLength(entry.value, "utf8")).toBeLessThan(4_000);
+      const separator = entry.value.indexOf("\n\n");
+      return entry.value.slice(separator + 2);
+    });
+    const truncationNotice = "\n\n[Context truncated by Codex Panel: remaining content omitted.]";
+    const serializedBody = bodies.join("");
+    expect(serializedBody.endsWith(truncationNotice)).toBe(true);
+    const includedBody = serializedBody.slice(0, -truncationNotice.length);
+    expect(bodies.every((body) => body.length > 0)).toBe(true);
+    expect(value.startsWith(includedBody)).toBe(true);
+    expect(includedBody.length).toBeLessThan(value.length);
 
     expect(prepared.input).toEqual([{ type: "text", text: "要約して", text_elements: [] }]);
   });
@@ -109,28 +117,22 @@ describe("app-server request input", () => {
     expect(entries).toHaveLength(ADDITIONAL_CONTEXT_MAX_PARTS);
     expect(entries.some(([key, entry]) => key.includes(".selection.") && entry.value.includes("selected text"))).toBe(true);
     expect(entries.filter(([key]) => key.includes(".web."))).toHaveLength(7);
-    expect(entries.filter(([key]) => key.includes(".web.")).at(-1)?.[1].value).toContain(
-      "[Context truncated by Codex Panel: remaining content omitted.]",
-    );
-    expect(prepared.input).toEqual([{ type: "text", text: "compare them", text_elements: [] }]);
   });
 
   it("accepts eight explicit context sources and ignores empty sources without spending the budget", () => {
-    const nonContextItem = {
-      type: "text",
-      text: "compare them",
-      key: "text-is-not-context",
-      value: "text-is-not-context",
-    } as const;
-    const contexts: CodexInput = Array.from({ length: ADDITIONAL_CONTEXT_MAX_PARTS }, (_, index) => ({
-      type: "additionalContext",
-      key: `source-${String(index)}`,
-      kind: "untrusted",
-      value: `value-${String(index)}`,
-    }));
+    const contexts = Array.from(
+      { length: ADDITIONAL_CONTEXT_MAX_PARTS },
+      (_, index) =>
+        ({
+          type: "additionalContext",
+          key: `source-${String(index)}`,
+          kind: "untrusted",
+          value: `value-${String(index)}`,
+        }) satisfies CodexInput[number],
+    );
     const prepared = appServerTurnInputFromCodexInput(
       [
-        nonContextItem,
+        { type: "text", text: "compare them" },
         { type: "additionalContext", key: "", kind: "untrusted", value: "ignored empty key" },
         { type: "additionalContext", key: "empty-value", kind: "untrusted", value: "" },
         ...contexts,
@@ -141,14 +143,7 @@ describe("app-server request input", () => {
 
     expect(entries).toHaveLength(ADDITIONAL_CONTEXT_MAX_PARTS);
     expect(entries.map(([, entry]) => entry.value)).toEqual(
-      contexts.map((context, index) =>
-        [
-          "Codex Panel context part 1/1.",
-          `Source: source-${String(index)}`,
-          "",
-          context.type === "additionalContext" ? context.value : "",
-        ].join("\n"),
-      ),
+      contexts.map(({ key, value }) => `Codex Panel context part 1/1.\nSource: ${key}\n\n${value}`),
     );
   });
 

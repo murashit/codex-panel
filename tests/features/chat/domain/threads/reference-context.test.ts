@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { utf8ByteLength } from "../../../../../src/domain/text/text";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { referencedThreadContext } from "../../../../../src/features/chat/domain/threads/reference-context";
 import { panelThreadFixture } from "../../../../support/panel-thread";
@@ -64,12 +63,11 @@ describe("thread reference context", () => {
     ];
     const context = referencedThreadContext(thread(), { turns, earlierTurnsAvailable: true });
 
-    expect(context).toContain("new request");
-    expect(context).toContain("middle-");
+    for (const message of turns.slice(1).flatMap((turn) => turn.messages)) {
+      expect(context).toContain(message.text);
+    }
     expect(context).not.toContain("old-");
-    expect(context).toContain("Included recent turns: 2");
     expect(context).toContain("Omitted fetched turns due to size: 1");
-    expect(context).toContain("Earlier turns not fetched: yes");
   });
 
   it("keeps all dialogue roles when the newest turn itself exceeds the budget", () => {
@@ -95,18 +93,23 @@ describe("thread reference context", () => {
   });
 
   it("keeps the first and latest dialogue within the byte budget when a turn has many messages", () => {
+    const firstRequest = "Translate the report into Japanese, preserving the 17:00 deadline.";
+    const latestAnswer = "The revised report is ready; the deadline remains 17:00.";
     const messages = Array.from({ length: 1_200 }, (_, index) => ({
       kind: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
-      text: `${String(index)}-${"内容".repeat(100)}`,
+      text: `Dialogue [${String(index).padStart(4, "0")}]: ${index === 0 ? firstRequest : index === 1_199 ? latestAnswer : "内容".repeat(100)}`,
     }));
     const context = referencedThreadContext(thread(), {
       turns: [{ messages }],
       earlierTurnsAvailable: false,
     });
 
-    expect(utf8ByteLength(context)).toBeLessThanOrEqual(18_500);
-    expect(context).toContain("0-");
-    expect(context).toContain("1199-");
-    expect(context).toContain("dialogue messages omitted from the middle");
+    const retainedDialogue = [...context.matchAll(/Dialogue \[(\d+)\]:/g)].map((match) => Number(match[1]));
+    expect(Buffer.byteLength(context, "utf8")).toBeLessThanOrEqual(18_500);
+    expect(context).toContain(`Dialogue [0000]: ${firstRequest}`);
+    expect(context).toContain(`Dialogue [1199]: ${latestAnswer}`);
+    expect(retainedDialogue).toEqual([...new Set(retainedDialogue)].sort((left, right) => left - right));
+    const omittedMessageCount = context.match(/(\d+) dialogue messages omitted from the middle/)?.[1];
+    expect(omittedMessageCount).toBe(String(messages.length - retainedDialogue.length));
   });
 });

@@ -63,14 +63,16 @@ describe("thread reference resolver", () => {
       type: "additionalContext",
       key: "codex_panel_referenced_thread",
       kind: "untrusted",
-      value: expect.stringContaining("Referenced thread context for the current user input:"),
     });
-    expect(result?.input[1]).toMatchObject({
-      value: expect.stringContaining("User follow-up:\nAdditional requirement"),
-    });
-    expect(result?.input[1]).toMatchObject({
-      value: expect.stringContaining("Earlier turns not fetched: yes"),
-    });
+    const reference = result.input[1];
+    if (reference?.type !== "additionalContext") throw new Error("Expected referenced thread context");
+    let previousPosition = -1;
+    for (const text of ["Original request", "Intermediate response", "Additional requirement", "Response"]) {
+      const position = reference.value.indexOf(text);
+      expect(position).toBeGreaterThan(previousPosition);
+      previousPosition = position;
+    }
+    expect(reference.value).toContain("Earlier turns not fetched: yes");
     expect(resolveFileReference).toHaveBeenCalledWith("Alpha", "snapshot.md");
     expect(result?.input.slice(2)).toEqual([
       { type: "fileReference", name: "Alpha", path: "notes/Alpha.md" },
