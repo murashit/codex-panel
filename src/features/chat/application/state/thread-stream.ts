@@ -280,6 +280,14 @@ function observeUserMessage(state: ChatThreadStreamViewState, item: UserThreadSt
 }
 
 function appendThreadStreamItemPatch(state: ChatThreadStreamViewState, item: ThreadStreamItem): Partial<ChatThreadStreamViewState> {
+  // Late records stay with their existing turn rather than becoming the newest displayed work.
+  if (item.turnId && item.turnId !== state.activeSegment?.turnId) {
+    for (let index = state.stableItems.length - 1; index >= 0; index--) {
+      if (state.stableItems[index]?.turnId === item.turnId) {
+        return { stableItems: [...state.stableItems.slice(0, index + 1), item, ...state.stableItems.slice(index + 1)] };
+      }
+    }
+  }
   if (shouldUseActiveSegment(state.activeSegment, item)) {
     return { activeSegment: appendActiveSegmentItem(state.activeSegment, item) };
   }

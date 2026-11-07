@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import { appServerApprovalRequest } from "../../../../../../src/features/chat/app-server/inbound/server-request-adapter";
 import { createChatState } from "../../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../../src/features/chat/application/state/store";
+import { localUserDialogueItemFromInput } from "../../../../../../src/features/chat/application/submission/local-user-dialogue";
 import { userInputDraftKey } from "../../../../../../src/features/chat/domain/pending-requests/drafts";
 import type {
   PendingApproval,
@@ -15,9 +15,11 @@ import type { ThreadStreamItem } from "../../../../../../src/features/chat/domai
 import type { PendingRequestBlockContext } from "../../../../../../src/features/chat/ui/thread-stream/context";
 import type { PendingRequestBlockSnapshot } from "../../../../../../src/features/chat/ui/thread-stream/model";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../../src/features/chat/ui/thread-stream/pending-requests";
+import { appServerAgentMessageFixture, appServerTurnFixture, appServerUserMessageFixture } from "../../../../../support/app-server-records";
 import { changeInputValue, textContents } from "../../../../../support/dom";
 import { commandApprovalRequestFixture } from "../../../../../support/server-requests";
 import { pendingRequestFixture } from "../../../support/pending-requests";
+import { chatStateThreadStreamItems } from "../../../support/thread-stream";
 import { setupThreadStreamRendering } from "./setup";
 
 setupThreadStreamRendering();
@@ -38,37 +40,101 @@ import {
 } from "./test-helpers";
 
 describe("panel pending request rendering", () => {
-  it("keeps the command card readable after answering a required human approval", () => {
+  it("keeps a human answer with its work when the turn completes before its start acknowledgement", () => {
     const parent = document.createElement("div");
-    const approval = expectPresent(
-      appServerApprovalRequest(
-        commandApprovalRequestFixture(81, {
-          kind: "humanCommand",
-          availableDecisions: ["accept", "decline", "cancel"],
-          command: "npm test",
-        }),
-      ),
+    const { handler, stateStore, receive, pendingRequests } = pendingRequestFixture();
+    stateStore.dispatch({ type: "turn/scoped-cleared" });
+    stateStore.dispatch({
+      type: "turn/optimistic-started",
+      item: localUserDialogueItemFromInput({
+        id: "local-prompt",
+        clientId: "prompt",
+        text: "Run tests",
+        codexInput: [],
+      }),
+    });
+    handler.handleNotification({
+      method: "turn/started",
+      params: {
+        threadId: "thread-active",
+        turn: appServerTurnFixture({ id: "turn-active", status: "inProgress", itemsView: "full", items: [] }),
+      },
+    });
+    const response = receive(
+      commandApprovalRequestFixture(81, {
+        threadId: "thread-active",
+        turnId: "turn-active",
+        kind: "humanCommand",
+        availableDecisions: ["accept", "decline", "cancel"],
+        command: "npm test",
+      }),
     );
-    const resolveApproval = vi.fn();
-    const actions = pendingRequestActions({ resolveApproval });
-    renderPendingRequestNode(parent, [approval], [], new Map(), new Set(), actions);
-    const title = parent.querySelector(".codex-panel__pending-request-title");
-    expect(title?.textContent).toBe("Command approval");
-    expect(title?.nextElementSibling?.textContent).toBe("This command requires human approval.");
-    expect(title?.nextElementSibling?.nextElementSibling?.textContent).toBe("npm test");
+    renderPendingRequestNode(parent, stateStore.getState().requests.approvals, [], new Map(), new Set(), pendingRequests.actions);
+    expect(textContents(parent, ".codex-panel__pending-request-body")).toContain("npm test");
     const buttons = [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-actions button")];
-    expect(buttons.map((button) => button.textContent)).toEqual(["Allow once", "Deny", "Cancel"]);
-    actEvent(() => buttons[0]?.click());
-    expect(resolveApproval).toHaveBeenCalledWith(81, approval.actionOptions?.[0]?.action);
-    if (approval.kind !== "humanCommand") throw new Error("Expected human command");
-    renderPendingRequestNode(parent, [{ ...approval, responseSent: true }], [], new Map(), new Set(), actions);
-    expect(parent.querySelector('[role="status"]')?.textContent).toBe("Response sent. Waiting for Codex.");
-    expect(parent.querySelectorAll(".codex-panel__pending-request-actions button")).toHaveLength(0);
-    expect(parent.textContent).toContain("npm test");
-    expect(parent.textContent).toContain("This command requires human approval.");
-    const ordinary = expectPresent(appServerApprovalRequest(commandApprovalRequestFixture(82, { command: "npm test" })));
-    renderPendingRequestNode(parent, [ordinary], [], new Map(), new Set(), actions);
-    expect(parent.textContent).not.toContain("This command requires human approval.");
+    expect(buttons.map((item) => item.textContent)).toEqual(["Allow once", "Deny", "Cancel"]);
+    actEvent(() => buttons.find((item) => item.textContent === "Allow once")?.click());
+    expect(stateStore.getState().requests.approvals).toEqual([]);
+    expect(response.respond).toHaveBeenCalledExactlyOnceWith({ decision: "accept" });
+    handler.handleNotification({
+      method: "turn/completed",
+      params: {
+        threadId: "thread-active",
+        turn: appServerTurnFixture({
+          id: "turn-active",
+          status: "completed",
+          itemsView: "full",
+          items: [
+            appServerUserMessageFixture("server-prompt", "Run tests", { clientId: "prompt" }),
+            appServerAgentMessageFixture("answer", "Done"),
+          ],
+        }),
+      },
+    });
+    renderThreadStreamBlocksInAct(parent, projectedThreadStream({ items: chatStateThreadStreamItems(stateStore.getState()) }));
+    const record = expectPresent(parent.querySelector(".codex-panel__stream-item--approval-result"));
+    const group = expectPresent(record.closest(".codex-panel__activity-group"));
+    expect(group.closest("[data-codex-panel-block-key]")?.nextElementSibling?.getAttribute("data-codex-panel-block-key")).toBe(
+      "item:answer",
+    );
+    expect(chatStateThreadStreamItems(stateStore.getState())).toMatchObject([
+      { id: "server-prompt" },
+      { kind: "approvalResult", turnId: "turn-active", approval: { status: "allowed", scope: "command" } },
+      { id: "answer" },
+    ]);
+  });
+
+  it("keeps a failed human response actionable and sends the retry choice through the replayed responder", () => {
+    const parent = document.createElement("div");
+    const { stateStore, receive, pendingRequests } = pendingRequestFixture();
+    const request = commandApprovalRequestFixture(81, {
+      threadId: "thread-active",
+      turnId: "turn-active",
+      kind: "humanCommand",
+      availableDecisions: ["accept", "decline", "cancel"],
+    });
+    const original = receive(request);
+    original.respond.mockImplementationOnce(() => {
+      throw new Error("transport unavailable");
+    });
+    const render = () =>
+      renderPendingRequestNode(parent, stateStore.getState().requests.approvals, [], new Map(), new Set(), pendingRequests.actions);
+    render();
+    actEvent(() => parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-actions button")?.click());
+    render();
+    expect(textContents(parent, ".codex-panel__pending-request-actions button:enabled")).toEqual(["Allow once", "Deny", "Cancel"]);
+    expect(chatStateThreadStreamItems(stateStore.getState()).filter((item) => item.kind === "approvalResult")).toEqual([]);
+
+    const replayed = receive(request);
+    render();
+    const buttons = [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-actions button")];
+    actEvent(() => buttons.find((item) => item.textContent === "Deny")?.click());
+    expect(original.respond).toHaveBeenCalledExactlyOnceWith({ decision: "accept" });
+    expect(replayed.respond).toHaveBeenCalledExactlyOnceWith({ decision: "decline" });
+    expect(stateStore.getState().requests.approvals).toEqual([]);
+    expect(chatStateThreadStreamItems(stateStore.getState()).filter((item) => item.kind === "approvalResult")).toMatchObject([
+      { approval: { status: "denied" } },
+    ]);
   });
 
   it("preserves draft selection and consumed autofocus across deadline updates and remounts", () => {
@@ -404,6 +470,7 @@ describe("panel pending request rendering", () => {
     const parent = document.createElement("div");
     const approval: PendingApproval = {
       requestId: 43,
+      threadId: "thread",
       kind: "command",
       turnId: "turn",
       title: "Command approval",

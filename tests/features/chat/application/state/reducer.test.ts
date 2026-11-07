@@ -607,15 +607,6 @@ describe("chatReducer", () => {
 
     expect(chatStateThreadStreamItems(next)).toEqual([dialogueItem("existing")]);
     expect([...next.ui.disclosures.textDetails]).toEqual(["existing:details"]);
-
-    let running = chatStateFixture({ activeTurn: { lifecycle: { kind: "running", turnId: "current-turn" } } });
-    running = chatStateWith(running, { requests: { approvals: [approval(99)] } });
-    running = withChatStateStableThreadStreamItems(running, [dialogueItem("existing")]);
-    const staleResult = { ...dialogueItem("stale result"), turnId: "old-turn" } satisfies ThreadStreamItem;
-    const settled = chatReducer(running, { type: "request/resolved", requestId: 99, resultItem: staleResult });
-
-    expect(settled.requests.approvals).toEqual([]);
-    expect(chatStateThreadStreamItems(settled)).toEqual([dialogueItem("existing")]);
   });
 
   it("ignores turn start acknowledgements after the turn has already gone idle", () => {
@@ -767,6 +758,7 @@ function suggestion(display: string): ChatState["composer"]["suggestions"][numbe
 function approval(requestId: number): ChatState["requests"]["approvals"][number] {
   return {
     requestId,
+    threadId: "thread",
     kind: "fileChange",
     turnId: "turn",
     title: "File change approval",

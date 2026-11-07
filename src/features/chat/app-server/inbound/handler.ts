@@ -30,6 +30,7 @@ export function createChatInboundHandler(
 ): ChatInboundHandler {
   const requests = new ChatServerRequests({
     stateStore: store,
+    localItemIds,
     executeDynamicTool: effects.executeDynamicTool,
     addSystemMessage: (text) => {
       store.dispatch({ type: "thread-stream/system-item-added", item: createSystemItem(localItemIds.next("system"), text) });

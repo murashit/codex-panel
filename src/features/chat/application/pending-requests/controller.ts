@@ -14,6 +14,7 @@ import {
   createMcpElicitationResultItem,
   createUserInputResultItem,
 } from "../../domain/pending-requests/result-items";
+import type { LocalIdSource } from "../local-id-source";
 import type { ChatStateStore } from "../state/store";
 import { activeTurnId } from "../turns/turn-state";
 
@@ -31,6 +32,7 @@ export interface PendingRequestResponsePort {
 interface PendingRequestsHost {
   stateStore: ChatStateStore;
   responses: PendingRequestResponsePort;
+  localItemIds: LocalIdSource;
   addSystemMessage(text: string): void;
 }
 
@@ -80,16 +82,16 @@ export class PendingRequests {
   resolveApproval(requestId: PendingRequestId, action: ApprovalAction): boolean {
     this.reconcile();
     const approval = this.state.approvals.find((item) => item.requestId === requestId);
-    if (!approval || (approval.kind === "humanCommand" && approval.responseSent)) return false;
+    if (!approval) return false;
     if (!this.host.responses.respondApproval(requestId, action)) {
       this.host.addSystemMessage("Could not send approval response because Codex app-server is not connected.");
       return true;
     }
-    if (approval.kind === "humanCommand") {
-      this.host.stateStore.dispatch({ type: "request/approval-response-sent", requestId });
-    } else {
-      this.host.stateStore.dispatch({ type: "request/resolved", requestId, resultItem: createApprovalResultItem(approval, action) });
-    }
+    this.host.stateStore.dispatch({
+      type: "request/resolved",
+      requestId,
+      resultItem: createApprovalResultItem(approval, action, this.host.localItemIds.next("approval")),
+    });
     return true;
   }
 

@@ -86,7 +86,6 @@ function reduceChatSlice(state: ChatState, action: ChatSliceAction): ChatState {
 
 function reduceGuardedSlice(state: ChatState, action: RequestAction | TurnScopeAction | UiAction): ChatState {
   switch (action.type) {
-    case "request/approval-response-sent":
     case "request/approval-queued":
     case "request/user-input-queued":
     case "request/user-input-auto-resolution-extended":

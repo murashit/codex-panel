@@ -27,6 +27,7 @@ export type PendingCommandApprovalOption = PendingApprovalOption<ApprovalOptionA
 
 interface PendingApprovalBase {
   requestId: PendingRequestId;
+  threadId: string;
   turnId: string | null;
   title: string;
   summary: string;
@@ -38,7 +39,6 @@ export type PendingApproval = PendingApprovalBase &
   (
     | {
         kind: "command" | "humanCommand";
-        responseSent?: boolean;
         actionOptions: readonly [PendingCommandApprovalOption, ...PendingCommandApprovalOption[]];
       }
     | { kind: "fileChange" | "permission"; actionOptions: null }

@@ -127,6 +127,14 @@ export function reduceTurnScope(
     return { activeTurn, threadStream };
   }
 
+  return reduceThreadStream(activeTurn, threadStream, action);
+}
+
+export function reduceThreadStream(
+  activeTurn: ChatActiveTurnState,
+  threadStream: ChatThreadStreamState,
+  action: ThreadStreamAction,
+): TurnScopeResult {
   const nextView = reduceThreadStreamSlice(chatThreadStreamViewState(threadStream, activeTurn), action);
   return splitViewState(activeTurn, threadStream, nextView);
 }

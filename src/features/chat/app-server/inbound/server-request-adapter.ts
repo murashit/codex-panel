@@ -214,6 +214,7 @@ function commandApprovalRequest(requestId: PendingApproval["requestId"], params:
   const fallback = isWriteStdin ? "Terminal input requested." : "Command execution requested.";
   return {
     requestId,
+    threadId: params.threadId,
     kind: humanRequired ? "humanCommand" : "command",
     turnId: nullableString(params.turnId),
     title: isWriteStdin ? "Terminal input approval" : "Command approval",
@@ -229,6 +230,7 @@ function fileChangeApprovalRequest(requestId: PendingApproval["requestId"], para
   const grantRoot = nonEmptyString(params.grantRoot);
   return {
     requestId,
+    threadId: params.threadId,
     kind: "fileChange",
     turnId: nullableString(params.turnId),
     title: "File change approval",
@@ -249,6 +251,7 @@ function permissionsApprovalRequest(requestId: PendingApproval["requestId"], par
   details.push(...permissionRows(params.permissions));
   return {
     requestId,
+    threadId: params.threadId,
     kind: "permission",
     turnId: nullableString(params.turnId),
     title: "Permission approval",

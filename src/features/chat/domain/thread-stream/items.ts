@@ -81,7 +81,7 @@ export interface ThreadStreamNoticeSection {
 
 interface ThreadStreamApprovalResultDetails {
   readonly status: string;
-  readonly scope: "session" | "turn";
+  readonly scope: "session" | "turn" | "command";
   readonly request: string;
   readonly auditFacts: readonly ThreadStreamAuditFact[];
 }

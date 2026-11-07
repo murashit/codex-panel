@@ -35,7 +35,7 @@ import {
   activeTurnWithLifecycle,
   chatThreadStreamViewState,
   initialChatActiveTurnState,
-  reduceTurnScope,
+  reduceThreadStream,
 } from "./turn-scope";
 import { clearAllRequestDisclosures, clearResolvedRequestDisclosures, initialUiState } from "./ui";
 
@@ -144,7 +144,7 @@ export function reduceChatTransition(state: ChatState, action: ChatTransitionAct
         : state;
     case "web-submission/steer-pending": {
       if (state.pendingSubmission?.id !== action.submissionId || state.pendingSubmission.phase !== "committed") return state;
-      const stream = reduceTurnScope(state.activeTurn, state.threadStream, {
+      const stream = reduceThreadStream(state.activeTurn, state.threadStream, {
         type: "thread-stream/pending-steer-added",
         item: action.item,
       });
@@ -320,7 +320,7 @@ function reduceRequestResolvedTransition(state: ChatState, action: RequestResolv
   const requests = resolveChatRequest(state.requests, action.requestId);
   if (requests === state.requests) return state;
   const stream = action.resultItem
-    ? reduceTurnScope(state.activeTurn, state.threadStream, { type: "thread-stream/item-added", item: action.resultItem })
+    ? reduceThreadStream(state.activeTurn, state.threadStream, { type: "thread-stream/item-added", item: action.resultItem })
     : { activeTurn: state.activeTurn, threadStream: state.threadStream };
   return patchObject(state, {
     requests,

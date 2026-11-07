@@ -327,6 +327,7 @@ export function pendingFreeformUserInput(): PendingUserInput {
 export function pendingApproval(): PendingApproval {
   return {
     requestId: 42,
+    threadId: "thread",
     kind: "permission",
     turnId: "turn",
     title: "Permission approval",
