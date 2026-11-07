@@ -951,14 +951,26 @@ describe("ChatInboundHandler", () => {
       expect(handler.currentState().activeTurn.subagents.byThreadId).toEqual(new Map());
     });
 
-    it("keeps different command approval callbacks separate", () => {
-      const handler = handlerForState(activeRunningState());
+    it("delivers independent decisions to concurrent parent and child command callbacks", () => {
+      const respondToServerRequest = vi.fn();
+      const handler = handlerForState(activeRunningState(), { respondToServerRequest });
       trackDirectSubagent(handler, "child", "child-turn");
 
       handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "shared-command", "child-callback"));
       handler.handleServerRequest(commandApprovalRequest(52, "thread-active", "turn-active", "shared-command", "parent-callback"));
 
-      expect(handler.currentState().requests.approvals).toHaveLength(2);
+      handler.pendingRequests.resolveApproval(52, commandApprovalAction(handler, 52, "decline"));
+
+      expect(respondToServerRequest).toHaveBeenCalledExactlyOnceWith(52, { decision: "decline" });
+      expect(handler.currentState().requests.approvals).toEqual([expect.objectContaining({ requestId: 51 })]);
+
+      handler.pendingRequests.resolveApproval(51, commandApprovalAction(handler, 51, "accept"));
+
+      expect(respondToServerRequest.mock.calls).toEqual([
+        [52, { decision: "decline" }],
+        [51, { decision: "accept" }],
+      ]);
+      expect(handler.currentState().requests.approvals).toEqual([]);
     });
 
     it("leaves delayed turn-scoped server requests unclaimed after the active thread returns to idle", () => {
@@ -1107,7 +1119,7 @@ describe("ChatInboundHandler", () => {
                     description: null,
                     type: "string",
                     required: true,
-                    defaultValue: "",
+                    value: "draft",
                   },
                 ],
               },
@@ -1118,7 +1130,6 @@ describe("ChatInboundHandler", () => {
       state = chatStateWith(state, {
         requests: {
           userInputDrafts: new Map([["51:note", "draft"]]),
-          mcpElicitationDrafts: new Map([["52:mcp:title", "draft"]]),
         },
       });
       const handler = handlerForState(state);
@@ -1132,19 +1143,16 @@ describe("ChatInboundHandler", () => {
       expect(handler.currentState().requests.pendingUserInputs).toHaveLength(1);
       expect(handler.currentState().requests.pendingMcpElicitations).toHaveLength(1);
       expect(handler.currentState().requests.userInputDrafts.size).toBe(1);
-      expect(handler.currentState().requests.mcpElicitationDrafts.size).toBe(1);
 
       handler.handleNotification({ method: "serverRequest/resolved", params: { threadId: "thread-active", requestId: 51 } });
       expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
       expect(handler.currentState().requests.userInputDrafts.size).toBe(0);
       expect(handler.currentState().requests.pendingMcpElicitations).toHaveLength(1);
-      expect(handler.currentState().requests.mcpElicitationDrafts.size).toBe(1);
 
       handler.handleNotification({ method: "serverRequest/resolved", params: { threadId: "thread-active", requestId: 52 } });
       expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
       expect(handler.currentState().requests.pendingMcpElicitations).toEqual([]);
       expect(handler.currentState().requests.userInputDrafts.size).toBe(0);
-      expect(handler.currentState().requests.mcpElicitationDrafts.size).toBe(0);
     });
   });
 

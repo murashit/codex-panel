@@ -1,5 +1,5 @@
 import type { TurnDiffViewState } from "../../../turn-diff/model";
-import type { ApprovalAction, McpElicitationAction, PendingRequestId } from "../../domain/pending-requests/model";
+import type { ApprovalAction, McpElicitationAction, McpElicitationFieldEdit, PendingRequestId } from "../../domain/pending-requests/model";
 import type { PlanImplementationTarget } from "../../domain/thread-stream/conversation";
 import type { ThreadStreamForkTarget } from "./model";
 
@@ -20,7 +20,7 @@ export interface PendingRequestBlockActions {
   resolveMcpElicitation: (requestId: PendingRequestId, action: McpElicitationAction) => void;
   setApprovalDetailsExpanded: (requestId: PendingRequestId, expanded: boolean) => void;
   setUserInputDraft: (requestId: PendingRequestId, key: string, value: string) => void;
-  setMcpElicitationDraft: (key: string, value: string) => void;
+  setMcpElicitationField: (requestId: PendingRequestId, fieldId: string, edit: McpElicitationFieldEdit) => void;
 }
 
 export interface TextItemDetailStateContext {

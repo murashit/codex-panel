@@ -4,6 +4,8 @@ import {
   appServerMcpElicitationResponse as mcpElicitationResponse,
   appServerMcpElicitationRequest as toPendingMcpElicitation,
 } from "../../../../../../src/features/chat/app-server/inbound/server-request-adapter";
+import type { JsonValue } from "../../../../../../src/generated/app-server/serde_json/JsonValue";
+import { mcpFormRequestFixture } from "../../../../../support/server-requests";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
@@ -25,14 +27,22 @@ describe("MCP elicitation request model", () => {
     if (input.params.mode !== "form") throw new Error("Expected form mode");
     expect(input.params.fields).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: "title", type: "string", title: "Title", required: true, defaultValue: "Issue" }),
-        expect.objectContaining({ id: "notify", type: "boolean", defaultValue: true }),
-        expect.objectContaining({ id: "count", type: "integer", defaultValue: 2 }),
-        expect.objectContaining({ id: "ratio", type: "number", defaultValue: null }),
+        expect.objectContaining({
+          id: "title",
+          type: "string",
+          title: "Title",
+          required: true,
+          value: "Issue",
+          minLength: 1,
+          maxLength: 30,
+        }),
+        expect.objectContaining({ id: "notify", type: "boolean", value: true }),
+        expect.objectContaining({ id: "count", type: "integer", value: "2", minimum: 0, maximum: 10 }),
+        expect.objectContaining({ id: "ratio", type: "number", value: "" }),
         expect.objectContaining({
           id: "priority",
           type: "single-select",
-          defaultValue: "high",
+          value: "high",
           options: [
             { value: "low", label: "Low" },
             { value: "high", label: "High" },
@@ -41,7 +51,9 @@ describe("MCP elicitation request model", () => {
         expect.objectContaining({
           id: "labels",
           type: "multi-select",
-          defaultValue: ["bug"],
+          value: ["bug"],
+          minItems: 1n,
+          maxItems: 2n,
           options: [
             { value: "bug", label: "Bug" },
             { value: "docs", label: "Docs" },
@@ -50,7 +62,7 @@ describe("MCP elicitation request model", () => {
       ]),
     );
 
-    const content = { title: "Fix bug", priority: "high", labels: ["bug", "docs"], notify: false, count: 3, ratio: null };
+    const content = { title: "Fix bug", priority: "high", labels: ["bug", "docs"], notify: false, count: 3 };
 
     expect(mcpElicitationResponse("accept", content)).toEqual({
       action: "accept",
@@ -58,6 +70,54 @@ describe("MCP elicitation request model", () => {
       _meta: null,
     });
     expect(mcpElicitationResponse("decline", content)).toEqual({ action: "decline", content: null, _meta: null });
+  });
+
+  it.each([
+    [
+      { type: "array", items: { type: "string", enum: ["a"] }, minItems: 0, maxItems: 1 },
+      { type: "multi-select", minItems: 0n, maxItems: 1n },
+    ],
+    [
+      { type: "string", enum: ["a"], minLength: 1, maxLength: 3 },
+      { type: "single-select", minLength: 1, maxLength: 3 },
+    ],
+  ])("retains finite constraints from opaque OpenAI fields", (schema, expected) => {
+    const input = expectPresent(toPendingMcpElicitation(fieldRequest(schema)));
+    if (input.params.mode !== "form") throw new Error("Expected form mode");
+    expect(input.params.fields).toEqual([expect.objectContaining(expected)]);
+  });
+
+  it.each([
+    { schema: { type: "string", enum: ["a", "b"], default: "unknown" }, required: true, value: null },
+    {
+      schema: { type: "array", items: { type: "string", enum: ["a", "b"] }, default: ["unknown", "b", "b"] },
+      required: true,
+      value: ["b"],
+    },
+    { schema: { type: "array", items: { type: "string", enum: ["a"] }, minItems: 1, default: ["unknown"] }, required: true, value: [] },
+    { schema: { type: "string", enum: [], default: "unknown" }, required: false, value: null },
+    { schema: { type: "array", items: { type: "string", enum: [] }, default: ["unknown"] }, required: true, value: [] },
+    { schema: { type: "array", items: { type: "string", enum: [] }, minItems: 1 }, required: false, value: [] },
+    { schema: { type: "string", enum: [""], default: "" }, required: true, value: "" },
+  ])("initializes selections only from offered defaults: %j", ({ schema, required, value }) => {
+    const input = expectPresent(toPendingMcpElicitation(fieldRequest(schema, required)));
+    if (input.params.mode !== "form") throw new Error("Expected form mode");
+    expect(input.params.fields).toEqual([expect.objectContaining({ value })]);
+  });
+
+  it.each([
+    { schema: { type: "string", oneOf: { const: "low", title: "Low" } }, required: false },
+    { schema: { type: "string", minLength: -1 }, required: false },
+    { schema: { type: "array", items: { type: "string", enum: ["a"] }, minItems: 1.5 }, required: false },
+    { schema: { type: "string", oneOf: [] }, required: false },
+    { schema: { type: "string", enum: ["a", 1] }, required: false },
+    { schema: { type: "string", oneOf: [{ const: "a" }, {}] }, required: false },
+    { schema: { type: "array", items: {} }, required: false },
+    { schema: { type: "array", items: { anyOf: [] } }, required: false },
+    { schema: { type: "string", enum: [] }, required: true },
+    { schema: { type: "array", items: { type: "string", enum: [] }, minItems: 1 }, required: true },
+  ])("does not turn an unusable field into an unconstrained control", ({ schema, required }) => {
+    expect(toPendingMcpElicitation(fieldRequest(schema, required))).toBeNull();
   });
 
   it("maps url mode separately from form content", () => {
@@ -87,83 +147,54 @@ describe("MCP elicitation request model", () => {
   });
 
   it("rejects a form instead of dropping unsupported schema fields", () => {
-    expect(toPendingMcpElicitation(malformedSchemaRequest())).toBeNull();
+    expect(toPendingMcpElicitation(fieldRequest({ type: "object" }))).toBeNull();
   });
 
-  it("normalizes malformed primitive schema values without leaking them", () => {
-    const input = expectPresent(toPendingMcpElicitation(malformedSchemaRequest({ includeUnsupported: false })));
-    if (input.params.mode !== "form") throw new Error("Expected form mode");
-
-    expect(input.params.fields.map((field) => field.id)).toEqual(["badDefault", "brokenSelect", "enumSelect", "labels"]);
-    expect(input.params.fields.find((field) => field.id === "badDefault")).toMatchObject({
-      type: "boolean",
-      defaultValue: false,
-    });
-    expect(input.params.fields.find((field) => field.id === "brokenSelect")).toMatchObject({
-      type: "string",
-      defaultValue: "",
-    });
-    expect(input.params.fields.find((field) => field.id === "enumSelect")).toMatchObject({
-      type: "single-select",
-      options: [
-        { value: "low", label: "low" },
-        { value: "high", label: "high" },
-      ],
-    });
-    expect(input.params.fields.find((field) => field.id === "labels")).toMatchObject({
-      type: "multi-select",
-      defaultValue: [],
-      options: [
-        { value: "bug", label: "Bug" },
-        { value: "docs", label: "docs" },
-      ],
-    });
+  it("rejects a form whose required property cannot be presented", () => {
+    const request = formRequest();
+    if (request.method !== "mcpServer/elicitation/request" || request.params.mode !== "form") throw new Error("Expected form request");
+    request.params.requestedSchema.required = ["missing"];
+    expect(toPendingMcpElicitation(request)).toBeNull();
   });
 });
 
 function formRequest(): ServerRequest {
-  return {
-    id: 42,
-    method: "mcpServer/elicitation/request",
-    params: {
-      threadId: "thread",
-      turnId: null,
-      serverName: "github",
-      mode: "form",
-      _meta: null,
-      message: "Provide issue details",
-      requestedSchema: {
-        type: "object",
-        required: ["title"],
-        properties: {
-          title: { type: "string", title: "Title", description: "Issue title", default: "Issue" },
-          priority: {
-            type: "string",
-            title: "Priority",
-            oneOf: [
-              { const: "low", title: "Low" },
-              { const: "high", title: "High" },
-            ],
-            default: "high",
-          },
-          labels: {
-            type: "array",
-            title: "Labels",
-            items: {
-              anyOf: [
-                { const: "bug", title: "Bug" },
-                { const: "docs", title: "Docs" },
-              ],
-            },
-            default: ["bug"],
-          },
-          notify: { type: "boolean", title: "Notify", default: true },
-          count: { type: "integer", title: "Count", default: 2 },
-          ratio: { type: "number", title: "Ratio" },
+  return mcpFormRequestFixture(
+    42,
+    {
+      type: "object",
+      required: ["title"],
+      properties: {
+        title: { type: "string", title: "Title", description: "Issue title", default: "Issue", minLength: 1, maxLength: 30 },
+        priority: {
+          type: "string",
+          title: "Priority",
+          default: "high",
+          oneOf: [
+            { const: "low", title: "Low" },
+            { const: "high", title: "High" },
+          ],
         },
+        labels: {
+          type: "array",
+          title: "Labels",
+          minItems: 1n,
+          maxItems: 2n,
+          items: {
+            anyOf: [
+              { const: "bug", title: "Bug" },
+              { const: "docs", title: "Docs" },
+            ],
+          },
+          default: ["bug"],
+        },
+        notify: { type: "boolean", title: "Notify", default: true },
+        count: { type: "integer", title: "Count", default: 2, minimum: 0, maximum: 10 },
+        ratio: { type: "number", title: "Ratio" },
       },
     },
-  } as unknown as ServerRequest;
+    { turnId: null },
+  );
 }
 
 function urlRequest(): ServerRequest {
@@ -204,35 +235,18 @@ function openAiFormRequest(mode: "openai/form" | "openaiForm"): ServerRequest {
   };
 }
 
-function malformedSchemaRequest({ includeUnsupported = true }: { includeUnsupported?: boolean } = {}): ServerRequest {
+function fieldRequest(schema: JsonValue, required = false): ServerRequest {
   return {
-    id: 44,
+    id: 45,
     method: "mcpServer/elicitation/request",
     params: {
       threadId: "thread",
       turnId: null,
       serverName: "github",
-      mode: "form",
+      mode: "openai/form",
       _meta: null,
       message: "Provide issue details",
-      requestedSchema: {
-        type: "object",
-        required: includeUnsupported ? ["unsupported"] : [],
-        properties: {
-          ...(includeUnsupported ? { unsupported: { type: "object", title: "Unsupported" } } : {}),
-          badDefault: { type: "boolean", title: "Bad default", default: "yes" },
-          brokenSelect: { type: "string", title: "Broken select", oneOf: { const: "low", title: "Low" } },
-          enumSelect: { type: "string", title: "Enum select", enum: ["low", 1, "high"] },
-          labels: {
-            type: "array",
-            title: "Labels",
-            items: {
-              anyOf: [{ const: "bug", title: "Bug" }, { const: 1, title: "One" }, { const: "docs" }],
-            },
-            default: ["bug", 1],
-          },
-        },
-      },
+      requestedSchema: { type: "object", properties: { value: schema }, required: required ? ["value"] : [] },
     },
-  } as unknown as ServerRequest;
+  };
 }

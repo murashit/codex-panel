@@ -51,7 +51,6 @@ function PendingRequestBlock({
   pendingUserInputs,
   pendingMcpElicitations,
   userInputDrafts,
-  mcpElicitationDrafts,
   approvalDetails,
   actions,
   consumeAutoFocus,
@@ -62,7 +61,6 @@ function PendingRequestBlock({
   pendingUserInputs: readonly PendingUserInputViewModel[];
   pendingMcpElicitations: readonly PendingMcpElicitationViewModel[];
   userInputDrafts: ReadonlyMap<string, string>;
-  mcpElicitationDrafts: ReadonlyMap<string, string>;
   approvalDetails: ReadonlySet<string>;
   actions: PendingRequestBlockActions;
   consumeAutoFocus: () => boolean;
@@ -94,7 +92,6 @@ function PendingRequestBlock({
         <McpElicitationCard
           key={String(elicitation.requestId)}
           elicitation={elicitation}
-          mcpElicitationDrafts={mcpElicitationDrafts}
           actions={actions}
           controlNamespace={controlNamespace}
         />
@@ -105,12 +102,10 @@ function PendingRequestBlock({
 
 function McpElicitationCard({
   elicitation,
-  mcpElicitationDrafts,
   actions,
   controlNamespace,
 }: {
   elicitation: PendingMcpElicitationViewModel;
-  mcpElicitationDrafts: ReadonlyMap<string, string>;
   actions: PendingRequestBlockActions;
   controlNamespace: string;
 }): UiNode {
@@ -139,7 +134,7 @@ function McpElicitationCard({
           >
             <McpElicitationFields
               fields={elicitation.fields}
-              drafts={mcpElicitationDrafts}
+              requestId={elicitation.requestId}
               actions={actions}
               controlNamespace={controlNamespace}
             />
@@ -387,19 +382,19 @@ function UserInputQuestions({
 
 function McpElicitationFields({
   fields,
-  drafts,
+  requestId,
   actions,
   controlNamespace,
 }: {
   fields: readonly PendingMcpElicitationFieldViewModel[];
-  drafts: ReadonlyMap<string, string>;
+  requestId: PendingMcpElicitationViewModel["requestId"];
   actions: PendingRequestBlockActions;
   controlNamespace: string;
 }): UiNode {
   return (
     <div className="codex-panel__mcp-elicitation-fields">
       {fields.map((field) => (
-        <McpElicitationField key={field.id} field={field} drafts={drafts} actions={actions} controlNamespace={controlNamespace} />
+        <McpElicitationField key={field.id} field={field} requestId={requestId} actions={actions} controlNamespace={controlNamespace} />
       ))}
     </div>
   );
@@ -407,26 +402,30 @@ function McpElicitationFields({
 
 function McpElicitationField({
   field,
-  drafts,
+  requestId,
   actions,
   controlNamespace,
 }: {
   field: PendingMcpElicitationFieldViewModel;
-  drafts: ReadonlyMap<string, string>;
+  requestId: PendingMcpElicitationViewModel["requestId"];
   actions: PendingRequestBlockActions;
   controlNamespace: string;
 }): UiNode {
-  const current = drafts.get(field.draftKey) ?? field.defaultDraft;
-  const labelId = mcpElicitationFieldElementId(controlNamespace, "label", field.draftKey);
-  const controlId = mcpElicitationFieldElementId(controlNamespace, "control", field.draftKey);
+  const fieldRef = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    fieldRef.current?.querySelector("input")?.setCustomValidity(field.validationMessage);
+  }, [field.validationMessage]);
+  const labelId = mcpElicitationFieldElementId(controlNamespace, "label", requestId, field.id);
+  const controlId = mcpElicitationFieldElementId(controlNamespace, "control", requestId, field.id);
+  const emptySelection = (field.type === "single-select" || field.type === "multi-select") && field.options.length === 0;
   const labelContent = (
     <>
       <span>{field.title}</span>
-      {field.required ? <span className="codex-panel__mcp-elicitation-required">Required</span> : null}
+      {field.required && !emptySelection ? <span className="codex-panel__mcp-elicitation-required">Required</span> : null}
     </>
   );
   return (
-    <div className="codex-panel__mcp-elicitation-field">
+    <div ref={fieldRef} className="codex-panel__mcp-elicitation-field">
       {mcpElicitationFieldHasSingleControl(field) ? (
         <label id={labelId} className="codex-panel__mcp-elicitation-label" htmlFor={controlId}>
           {labelContent}
@@ -437,28 +436,32 @@ function McpElicitationField({
         </div>
       )}
       {field.description ? <div className="codex-panel__mcp-elicitation-description">{field.description}</div> : null}
-      <McpElicitationFieldControl
-        field={field}
-        current={current}
-        actions={actions}
-        controlId={controlId}
-        labelId={labelId}
-        controlNamespace={controlNamespace}
-      />
+      {emptySelection ? (
+        <div className="codex-panel__mcp-elicitation-description">No options available.</div>
+      ) : (
+        <McpElicitationFieldControl
+          field={field}
+          requestId={requestId}
+          actions={actions}
+          controlId={controlId}
+          labelId={labelId}
+          controlNamespace={controlNamespace}
+        />
+      )}
     </div>
   );
 }
 
 function McpElicitationFieldControl({
   field,
-  current,
+  requestId,
   actions,
   controlId,
   labelId,
   controlNamespace,
 }: {
   field: PendingMcpElicitationFieldViewModel;
-  current: string;
+  requestId: PendingMcpElicitationViewModel["requestId"];
   actions: PendingRequestBlockActions;
   controlId: string;
   labelId: string;
@@ -472,9 +475,9 @@ function McpElicitationFieldControl({
             id={controlId}
             className="codex-panel__mcp-elicitation-checkbox"
             type="checkbox"
-            checked={current === "true"}
+            checked={field.value}
             onChange={(event) => {
-              actions.setMcpElicitationDraft(field.draftKey, event.currentTarget.checked ? "true" : "false");
+              actions.setMcpElicitationField(requestId, field.id, { type: field.type, value: event.currentTarget.checked });
             }}
           />
           <span>Enabled</span>
@@ -488,21 +491,30 @@ function McpElicitationFieldControl({
               <input
                 className="codex-panel__mcp-elicitation-radio"
                 type="radio"
-                name={controlName(controlNamespace, "mcp", field.draftKey)}
+                name={controlName(controlNamespace, "mcp", typeof requestId, String(requestId), field.id)}
                 value={option.value}
-                required={field.required}
-                checked={current === option.value}
+                checked={field.value === option.value}
                 onChange={(event) => {
-                  if (event.currentTarget.checked) actions.setMcpElicitationDraft(field.draftKey, option.value);
+                  if (event.currentTarget.checked)
+                    actions.setMcpElicitationField(requestId, field.id, { type: field.type, value: option.value });
                 }}
               />
               <span>{option.label}</span>
             </label>
           ))}
+          {!field.required && field.value !== null ? (
+            <ActionButton
+              label="Clear selection"
+              className=""
+              onClick={() => {
+                actions.setMcpElicitationField(requestId, field.id, { type: field.type, value: null });
+              }}
+            />
+          ) : null}
         </fieldset>
       );
     case "multi-select": {
-      const selected = selectedMcpElicitationValues(current);
+      const selected = new Set(field.value);
       return (
         <fieldset className="codex-panel__mcp-elicitation-options" aria-labelledby={labelId}>
           {field.options.map((option) => {
@@ -520,7 +532,7 @@ function McpElicitationFieldControl({
                     } else {
                       next.delete(option.value);
                     }
-                    actions.setMcpElicitationDraft(field.draftKey, JSON.stringify([...next]));
+                    actions.setMcpElicitationField(requestId, field.id, { type: field.type, value: [...next] });
                   }}
                 />
                 <span>{option.label}</span>
@@ -532,19 +544,16 @@ function McpElicitationFieldControl({
     }
     default: {
       const inputTypeProps = (
-        field.type === "number" || field.type === "integer"
-          ? { type: "number", step: field.type === "integer" ? "1" : "any" }
-          : { type: "text" }
+        field.type === "number" || field.type === "integer" ? { type: "number", step: "any" } : { type: "text" }
       ) satisfies InputHTMLAttributes;
       return (
         <input
           {...inputTypeProps}
           id={controlId}
           className="codex-panel__mcp-elicitation-input"
-          required={field.required}
-          value={current}
+          value={field.value}
           onInput={(event) => {
-            actions.setMcpElicitationDraft(field.draftKey, event.currentTarget.value);
+            actions.setMcpElicitationField(requestId, field.id, { type: field.type, value: event.currentTarget.value });
           }}
         />
       );
@@ -556,18 +565,13 @@ function mcpElicitationFieldHasSingleControl(field: PendingMcpElicitationFieldVi
   return field.type !== "single-select" && field.type !== "multi-select";
 }
 
-function mcpElicitationFieldElementId(namespace: string, kind: "control" | "label", draftKey: string): string {
-  return controlName(namespace, "mcp", kind, draftKey);
-}
-
-function selectedMcpElicitationValues(draft: string): Set<string> {
-  try {
-    const values = JSON.parse(draft) as unknown;
-    if (Array.isArray(values)) return new Set(values.filter((value): value is string => typeof value === "string"));
-  } catch {
-    return new Set();
-  }
-  return new Set();
+function mcpElicitationFieldElementId(
+  namespace: string,
+  kind: "control" | "label",
+  requestId: PendingMcpElicitationViewModel["requestId"],
+  fieldId: string,
+): string {
+  return controlName(namespace, "mcp", kind, typeof requestId, String(requestId), fieldId);
 }
 
 function userInputRadioGroupName(namespace: string, requestId: PendingUserInputViewModel["requestId"], questionId: string): string {

@@ -206,7 +206,6 @@ function emptyPendingRequestSnapshot(): PendingRequestBlockSnapshot {
     pendingUserInputs: [],
     pendingMcpElicitations: [],
     userInputDrafts: new Map(),
-    mcpElicitationDrafts: new Map(),
     approvalDetails: new Set(),
   };
 }

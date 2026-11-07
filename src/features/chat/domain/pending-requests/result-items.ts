@@ -122,6 +122,6 @@ function mcpElicitationResultQuestions(
 
 function formatMcpElicitationContentValue(value: McpElicitationContentValue | undefined): string {
   if (Array.isArray(value)) return value.join(", ");
-  if (value === null || typeof value === "undefined") return "";
+  if (typeof value === "undefined") return "";
   return String(value);
 }

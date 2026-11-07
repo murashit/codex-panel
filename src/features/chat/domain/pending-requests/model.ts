@@ -72,7 +72,7 @@ export interface PendingUserInput {
 
 export type McpElicitationAction = "accept" | "decline" | "cancel";
 
-export type McpElicitationContentValue = string | number | boolean | readonly string[] | null;
+export type McpElicitationContentValue = string | number | boolean | readonly string[];
 
 export interface PendingMcpElicitationOption {
   value: string;
@@ -89,26 +89,40 @@ interface PendingMcpElicitationFieldBase {
 export type PendingMcpElicitationField =
   | (PendingMcpElicitationFieldBase & {
       type: "string";
-      defaultValue: string;
+      value: string;
+      minLength?: number;
+      maxLength?: number;
     })
   | (PendingMcpElicitationFieldBase & {
       type: "number" | "integer";
-      defaultValue: number | null;
+      value: string;
+      minimum?: number;
+      maximum?: number;
     })
   | (PendingMcpElicitationFieldBase & {
       type: "boolean";
-      defaultValue: boolean;
+      value: boolean;
     })
   | (PendingMcpElicitationFieldBase & {
       type: "single-select";
       options: readonly PendingMcpElicitationOption[];
-      defaultValue: string;
+      value: string | null;
+      minLength?: number;
+      maxLength?: number;
     })
   | (PendingMcpElicitationFieldBase & {
       type: "multi-select";
       options: readonly PendingMcpElicitationOption[];
-      defaultValue: readonly string[];
+      value: readonly string[];
+      minItems?: bigint;
+      maxItems?: bigint;
     });
+
+export type McpElicitationFieldEdit =
+  | { type: "string" | "number" | "integer"; value: string }
+  | { type: "boolean"; value: boolean }
+  | { type: "single-select"; value: string | null }
+  | { type: "multi-select"; value: readonly string[] };
 
 interface PendingMcpElicitationFormParams {
   turnId: string | null;

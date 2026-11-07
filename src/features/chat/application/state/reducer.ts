@@ -91,7 +91,7 @@ function reduceGuardedSlice(state: ChatState, action: RequestAction | TurnScopeA
     case "request/user-input-auto-resolution-extended":
     case "request/mcp-elicitation-queued":
     case "request/user-input-draft-set":
-    case "request/mcp-elicitation-draft-set":
+    case "request/mcp-elicitation-field-set":
       return patchObject(state, { requests: reduceRequestSlice(state.requests, action) });
     case "thread-stream/item-added":
     case "thread-stream/system-item-added":

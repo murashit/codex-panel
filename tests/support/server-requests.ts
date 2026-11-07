@@ -65,3 +65,27 @@ export function permissionsApprovalRequestFixture(
     },
   };
 }
+
+type McpElicitationRequest = Extract<ServerRequest, { method: "mcpServer/elicitation/request" }>;
+type McpFormParams = Extract<McpElicitationRequest["params"], { mode: "form" }>;
+
+export function mcpFormRequestFixture(
+  id: string | number,
+  requestedSchema: McpFormParams["requestedSchema"],
+  params: Partial<Omit<McpFormParams, "mode" | "requestedSchema">> = {},
+): McpElicitationRequest {
+  return {
+    id,
+    method: "mcpServer/elicitation/request",
+    params: {
+      threadId: "thread-active",
+      turnId: "turn-active",
+      serverName: "github",
+      mode: "form",
+      _meta: null,
+      message: "Provide issue details",
+      ...params,
+      requestedSchema,
+    },
+  };
+}

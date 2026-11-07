@@ -218,7 +218,6 @@ export function renderPendingRequestNode(
     pendingUserInputs,
     pendingMcpElicitations: [],
     userInputDrafts: drafts,
-    mcpElicitationDrafts: new Map(),
     approvalDetails,
   });
   renderUiRootInAct(
@@ -246,7 +245,6 @@ function emptyPendingRequestSnapshot(): PendingRequestBlockSnapshot {
     pendingUserInputs: [],
     pendingMcpElicitations: [],
     userInputDrafts: new Map(),
-    mcpElicitationDrafts: new Map(),
     approvalDetails: new Set(),
   });
 }

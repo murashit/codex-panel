@@ -46,8 +46,8 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
     setUserInputDraft: (requestId, key, value) => {
       host.requests.setUserInputDraft(requestId, key, value);
     },
-    setMcpElicitationDraft: (key, value) => {
-      host.requests.setMcpElicitationDraft(key, value);
+    setMcpElicitationField: (requestId, fieldId, edit) => {
+      host.requests.setMcpElicitationField(requestId, fieldId, edit);
     },
   };
 

@@ -1,5 +1,12 @@
-import { mcpElicitationDraftKey, userInputDraftKey, userInputOtherDraftKey } from "../../domain/pending-requests/drafts";
-import type { PendingApproval, PendingMcpElicitation, PendingRequestId, PendingUserInput } from "../../domain/pending-requests/model";
+import { userInputDraftKey, userInputOtherDraftKey } from "../../domain/pending-requests/drafts";
+import type {
+  McpElicitationFieldEdit,
+  PendingApproval,
+  PendingMcpElicitation,
+  PendingMcpElicitationField,
+  PendingRequestId,
+  PendingUserInput,
+} from "../../domain/pending-requests/model";
 import { patchObject } from "../state/patch";
 
 export interface ChatRequestState {
@@ -7,7 +14,6 @@ export interface ChatRequestState {
   readonly pendingUserInputs: readonly PendingUserInput[];
   readonly pendingMcpElicitations: readonly PendingMcpElicitation[];
   readonly userInputDrafts: ReadonlyMap<string, string>;
-  readonly mcpElicitationDrafts: ReadonlyMap<string, string>;
 }
 
 export type RequestAction =
@@ -16,7 +22,7 @@ export type RequestAction =
   | { type: "request/user-input-auto-resolution-extended"; requestId: PendingRequestId; autoResolutionAtMs: number }
   | { type: "request/mcp-elicitation-queued"; elicitation: PendingMcpElicitation }
   | { type: "request/user-input-draft-set"; key: string; value: string }
-  | { type: "request/mcp-elicitation-draft-set"; key: string; value: string };
+  | { type: "request/mcp-elicitation-field-set"; requestId: PendingRequestId; fieldId: string; edit: McpElicitationFieldEdit };
 
 export function initialChatRequestState(): ChatRequestState {
   return {
@@ -24,7 +30,6 @@ export function initialChatRequestState(): ChatRequestState {
     pendingUserInputs: [],
     pendingMcpElicitations: [],
     userInputDrafts: new Map(),
-    mcpElicitationDrafts: new Map(),
   };
 }
 
@@ -47,8 +52,21 @@ export function reduceRequestSlice(state: ChatRequestState, action: RequestActio
       return patchObject(state, { pendingMcpElicitations: [...state.pendingMcpElicitations, action.elicitation] });
     case "request/user-input-draft-set":
       return setUserInputDraftSlice(state, action.key, action.value);
-    case "request/mcp-elicitation-draft-set":
-      return setMcpElicitationDraftSlice(state, action.key, action.value);
+    case "request/mcp-elicitation-field-set": {
+      const elicitation = state.pendingMcpElicitations.find((item) => item.requestId === action.requestId);
+      if (elicitation?.params.mode !== "form") return state;
+      const field = elicitation.params.fields.find((item) => item.id === action.fieldId);
+      if (!field) return state;
+      const editedField = editMcpElicitationField(field, action.edit);
+      if (editedField === field) return state;
+      const updated = {
+        ...elicitation,
+        params: { ...elicitation.params, fields: elicitation.params.fields.map((item) => (item === field ? editedField : item)) },
+      };
+      return patchObject(state, {
+        pendingMcpElicitations: state.pendingMcpElicitations.map((item) => (item === elicitation ? updated : item)),
+      });
+    }
   }
 }
 
@@ -66,20 +84,11 @@ export function resolveChatRequest(state: ChatRequestState, requestId: PendingRe
       userInputDrafts.delete(userInputOtherDraftKey(requestId, question.id));
     }
   }
-  let mcpElicitationDrafts: Map<string, string> | null = null;
-  for (const elicitation of resolvedMcpElicitations) {
-    if (elicitation.params.mode !== "form") continue;
-    for (const field of elicitation.params.fields) {
-      mcpElicitationDrafts ??= new Map(state.mcpElicitationDrafts);
-      mcpElicitationDrafts.delete(mcpElicitationDraftKey(requestId, field.id));
-    }
-  }
   return patchObject(state, {
     approvals: state.approvals.filter((approval) => approval.requestId !== requestId),
     pendingUserInputs: state.pendingUserInputs.filter((input) => input.requestId !== requestId),
     pendingMcpElicitations: state.pendingMcpElicitations.filter((elicitation) => elicitation.requestId !== requestId),
     userInputDrafts: userInputDrafts ?? state.userInputDrafts,
-    mcpElicitationDrafts: mcpElicitationDrafts ?? state.mcpElicitationDrafts,
   });
 }
 
@@ -88,7 +97,18 @@ function setUserInputDraftSlice(state: ChatRequestState, key: string, value: str
   return patchObject(state, { userInputDrafts: new Map(state.userInputDrafts).set(key, value) });
 }
 
-function setMcpElicitationDraftSlice(state: ChatRequestState, key: string, value: string): ChatRequestState {
-  if (state.mcpElicitationDrafts.get(key) === value) return state;
-  return patchObject(state, { mcpElicitationDrafts: new Map(state.mcpElicitationDrafts).set(key, value) });
+function editMcpElicitationField(field: PendingMcpElicitationField, edit: McpElicitationFieldEdit): PendingMcpElicitationField {
+  if (field.value === edit.value) return field;
+  switch (field.type) {
+    case "string":
+    case "number":
+    case "integer":
+      return edit.type === field.type ? { ...field, value: edit.value } : field;
+    case "boolean":
+      return edit.type === field.type ? { ...field, value: edit.value } : field;
+    case "single-select":
+      return edit.type === field.type ? { ...field, value: edit.value } : field;
+    case "multi-select":
+      return edit.type === field.type ? { ...field, value: edit.value } : field;
+  }
 }

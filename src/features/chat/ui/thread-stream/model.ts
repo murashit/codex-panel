@@ -48,14 +48,15 @@ interface PendingMcpElicitationFieldViewModelBase {
   title: string;
   description: string | null;
   required: boolean;
-  defaultDraft: string;
-  draftKey: string;
+  validationMessage: string;
 }
 
 export type PendingMcpElicitationFieldViewModel = PendingMcpElicitationFieldViewModelBase &
   (
-    | { type: "single-select" | "multi-select"; options: readonly { value: string; label: string }[] }
-    | { type: Exclude<PendingMcpElicitationField["type"], "single-select" | "multi-select">; options: null }
+    | Pick<Extract<PendingMcpElicitationField, { type: "single-select" }>, "type" | "value" | "options">
+    | Pick<Extract<PendingMcpElicitationField, { type: "multi-select" }>, "type" | "value" | "options">
+    | { type: "boolean"; value: boolean }
+    | { type: "string" | "number" | "integer"; value: string }
   );
 
 interface PendingMcpElicitationViewModelBase {
@@ -72,7 +73,6 @@ export interface PendingRequestBlockSnapshot {
   pendingUserInputs: readonly PendingUserInputViewModel[];
   pendingMcpElicitations: readonly PendingMcpElicitationViewModel[];
   userInputDrafts: ReadonlyMap<string, string>;
-  mcpElicitationDrafts: ReadonlyMap<string, string>;
   approvalDetails: ReadonlySet<string>;
 }
 
