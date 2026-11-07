@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { mcpServerStatusSummariesFromStatuses } from "../../../../../src/app-server/protocol/tool-inventory";
+import { readInstalledPluginInventory } from "../../../../../src/app-server/services/tool-inventory";
 import type { SkillMetadata } from "../../../../../src/domain/runtime/catalog";
 import {
   type DiagnosticProbeId,
@@ -114,6 +115,69 @@ describe("connection diagnostics", () => {
     ]);
   });
 
+  it("shows reported plugin restrictions from the installed inventory without treating enabled as usable", async () => {
+    const request = vi.fn().mockResolvedValue({
+      marketplaces: [
+        {
+          name: "remote-marketplace",
+          path: null,
+          plugins: ["unknown", "required_app_unavailable", "plan_not_eligible", "disabled_by_admin", null].map((disabledReason) => ({
+            id: `${disabledReason ?? "fallback"}@remote-marketplace`,
+            name: disabledReason ?? "fallback",
+            interface: null,
+            localVersion: "2.0.0",
+            installed: true,
+            enabled: true,
+            availability: "DISABLED_BY_ADMIN",
+            disabledReason,
+            source: { type: "remote" },
+          })),
+        },
+        {
+          name: "local-marketplace",
+          path: "/marketplaces/local.json",
+          plugins: [
+            {
+              id: "local-plugin@local-marketplace",
+              name: "local-plugin",
+              interface: { displayName: "Local Plugin" },
+              localVersion: "1.0.0",
+              installed: true,
+              enabled: true,
+              availability: "AVAILABLE",
+              source: { type: "local", path: "/plugins/local-plugin" },
+            },
+          ],
+        },
+      ],
+      marketplaceLoadErrors: [],
+    });
+
+    const result = await readInstalledPluginInventory({ request }, "/vault");
+
+    expect(request.mock.calls).toEqual([["plugin/installed", { cwds: ["/vault"] }]]);
+    const sections = toolInventoryDiagnosticSections(
+      { plugins: result.plugins, pluginsError: null, mcpServers: [], mcpDiagnostics: [], mcpError: null },
+      { value: [], probe: diagnosticProbeOk("0 skills", 1) },
+    );
+    expect(result.plugins.map(({ name, unavailableReason }) => ({ name, unavailableReason }))).toEqual([
+      { name: "disabled_by_admin", unavailableReason: "admin" },
+      { name: "fallback", unavailableReason: "admin" },
+      { name: "local-plugin", unavailableReason: null },
+      { name: "plan_not_eligible", unavailableReason: "plan" },
+      { name: "required_app_unavailable", unavailableReason: "requiredApp" },
+      { name: "unknown", unavailableReason: "unknown" },
+    ]);
+    expect(sections.find((section) => section.title === "Plugins")?.rows.map(({ label, level }) => ({ label, level }))).toEqual([
+      { label: "disabled_by_admin", level: "warning" },
+      { label: "fallback", level: "warning" },
+      { label: "Local Plugin", level: "normal" },
+      { label: "plan_not_eligible", level: "warning" },
+      { label: "required_app_unavailable", level: "warning" },
+      { label: "unknown", level: "warning" },
+    ]);
+  });
+
   it("summarizes usable Codex capabilities and groups skills by provenance", () => {
     const skills = [
       skillFixture("codex-panel-local", "repo"),
@@ -163,15 +227,6 @@ describe("connection diagnostics", () => {
           installed: true,
           enabled: true,
         },
-        ...(["admin", "plan", "requiredApp", "unknown"] as const).map((unavailableReason) => ({
-          id: unavailableReason,
-          name: unavailableReason,
-          displayName: null,
-          unavailableReason,
-          localVersion: "1.0",
-          installed: true,
-          enabled: true,
-        })),
       ],
       pluginsError: null,
       mcpServers: [
@@ -225,10 +280,6 @@ describe("connection diagnostics", () => {
       { label: "Usable Plugin", value: "version 1.2.3", level: "normal" },
       { label: "Disabled Plugin", value: "version 2.0.0, disabled", level: "warning" },
       { label: "Usable Plugin", value: "version unknown", level: "normal" },
-      { label: "admin", value: "version 1.0, disabled by administrator", level: "warning" },
-      { label: "plan", value: "version 1.0, unavailable on this plan", level: "warning" },
-      { label: "requiredApp", value: "version 1.0, required app unavailable", level: "warning" },
-      { label: "unknown", value: "version 1.0, unavailable (reason unknown)", level: "warning" },
     ]);
     expect(toolProviderRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
       "codex_apps: apple_music, github, google_drive",
