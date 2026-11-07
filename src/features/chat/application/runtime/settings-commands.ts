@@ -368,13 +368,10 @@ async function toggleAutoReview(host: RuntimeSettingsCommandsContext): Promise<v
 
 async function setAutoReview(host: RuntimeSettingsCommandsContext, mode: AutoReviewState): Promise<void> {
   if (activePanelOperationBlocked(host, "thread-settings")) return;
-  const { snapshot, config } = runtimeProjection(host);
+  const { config } = runtimeProjection(host);
   const reviewer = mode === "enabled" ? "auto_review" : "user";
   if (config.allowedApprovalsReviewers && !config.allowedApprovalsReviewers.includes(reviewer)) {
-    const current = resolveRuntimeControls(snapshot, config).autoReview.active ? "on" : "off";
-    host.addSystemMessage(
-      `Auto-review remains ${current}. Current requirements do not allow turning it ${mode === "enabled" ? "on" : "off"}.`,
-    );
+    host.addSystemMessage(`Current requirements do not allow turning auto-review ${mode === "enabled" ? "on" : "off"}.`);
     return;
   }
   await runRuntimeUiCommand(

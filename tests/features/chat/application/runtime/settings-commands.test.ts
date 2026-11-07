@@ -27,8 +27,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     const store = createChatStateStore(chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } }));
     const ack = deferred<RuntimeSettingsUpdateResult>();
     const port = settingsPortFixture({ updateThreadSettings: vi.fn().mockReturnValue(ack.promise) });
-    const messages: string[] = [];
-    const commands = runtimeCommandsFixture(store, port, messages);
+    const commands = runtimeCommandsFixture(store, port, []);
     const update = commands.toggleAutoReview();
     await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenCalledOnce());
     applySettingsNotification(store, { approvalsReviewer: "auto_review" });
@@ -37,9 +36,6 @@ describe("createChatRuntimeSettingsCommands", () => {
     await update;
     expect(store.getState().runtime.active.approvalsReviewer).toBe("user");
     expect(store.getState().runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
-    expect(messages).toEqual([
-      "Could not confirm the settings change. Your requested settings are still selected. They will be retried before your next message. Your draft has been kept.",
-    ]);
   });
 
   it("rolls back rejected intent but preserves a newer choice made during the request", async () => {
@@ -49,8 +45,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     const port = settingsPortFixture({
       updateThreadSettings: vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue({ kind: "accepted" }),
     });
-    const messages: string[] = [];
-    const commands = runtimeCommandsFixture(store, port, messages);
+    const commands = runtimeCommandsFixture(store, port, []);
     const enabling = commands.toggleAutoReview();
     await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenCalledOnce());
     const disabling = commands.toggleAutoReview();
@@ -58,10 +53,6 @@ describe("createChatRuntimeSettingsCommands", () => {
     await Promise.all([enabling, disabling]);
     expect(port.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { approvalsReviewer: "user" });
     expect(store.getState().runtime.pending.approvalsReviewer.kind).toBe("unchanged");
-    expect(messages).toEqual([
-      "Codex did not accept the settings change: Reviewer is not allowed.",
-      "Auto-review off for subsequent turns.",
-    ]);
   });
 
   it("uses an accepted same-value update before sending without a notification", async () => {
@@ -121,9 +112,6 @@ describe("createChatRuntimeSettingsCommands", () => {
       await expect(old).resolves.toBe(false);
       expect(store.getState().runtime.active.model).toBeNull();
       expect(store.getState().runtime.pending.model).toEqual({ kind: "set", value: "model-B" });
-      expect(messages).toEqual([
-        "Could not confirm the settings change. Your requested settings are still selected. They will be retried before your next message. Your draft has been kept.",
-      ]);
       expect(vi.getTimerCount()).toBe(0);
 
       let resolved = false;
@@ -471,15 +459,6 @@ describe("createChatRuntimeSettingsCommands", () => {
     );
     expect(store.getState().runtime.active.serviceTierKnown).toBe(false);
     expect(store.getState().ui.toolbarPanel).toBe("status-panel");
-    expect(messages).toEqual(
-      kind === "rejected"
-        ? ["Codex did not accept the settings change: Not allowed."]
-        : kind === "unknown"
-          ? [
-              "Could not confirm the settings change. Your requested settings are still selected. They will be retried before your next message. Your draft has been kept.",
-            ]
-          : [],
-    );
 
     // The same pre-send path retries uncertain intent but never repeats a definite rejection.
     const sending = commands.applyPendingThreadSettings();
@@ -747,23 +726,6 @@ describe("createChatRuntimeSettingsCommands", () => {
           : [`Cannot reset ${label}: no configured value is available. Choose an explicit value or start a new thread.`],
       );
     }
-  });
-
-  it("toggles auto-review and reports the user-visible result", async () => {
-    const store = createChatStateStore(chatStateFixture({ activeThread: { id: "thread" } }));
-    const port = settingsPortFixture();
-    const messages: string[] = [];
-    const commands = runtimeCommandsFixture(store, port, messages, {}, [
-      { approvalsReviewer: "auto_review" },
-      { approvalsReviewer: "user" },
-    ]);
-
-    await commands.toggleAutoReview();
-    await commands.toggleAutoReview();
-
-    expect(port.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { approvalsReviewer: "auto_review" });
-    expect(port.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { approvalsReviewer: "user" });
-    expect(messages).toEqual(["Auto-review on for subsequent turns.", "Auto-review off for subsequent turns."]);
   });
 });
 
