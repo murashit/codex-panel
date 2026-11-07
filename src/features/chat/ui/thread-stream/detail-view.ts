@@ -15,6 +15,7 @@ import type {
   ThreadStreamPrimaryTarget,
   ToolCallThreadStreamItem,
 } from "../../domain/thread-stream/items";
+import { isTerminalTurnErrorItem } from "../../domain/thread-stream/turn-error-notices";
 import { agentMessagePreview } from "./agent-message-preview";
 import type { DetailSection, DetailView } from "./model";
 
@@ -65,7 +66,7 @@ export function detailPreviewSummary(item: DetailItem, workspaceRoot: string): s
   return summary !== "details" ? summary : (outputField(item) ?? label);
 }
 
-export function detailView(item: DetailItem, workspaceRoot: string): DetailView {
+export function detailView(item: DetailItem, workspaceRoot: string, reviewNotification?: string): DetailView {
   switch (item.kind) {
     case "command":
       return commandDetailView(item);
@@ -76,7 +77,7 @@ export function detailView(item: DetailItem, workspaceRoot: string): DetailView 
     case "approvalResult":
       return approvalDetailView(item);
     case "reviewResult":
-      return reviewDetailView(item);
+      return reviewDetailView(item, reviewNotification);
     case "agent":
       return agentDetailView(item);
     case "tool":
@@ -200,31 +201,32 @@ function genericToolDetailView(item: ToolCallThreadStreamItem | HookThreadStream
   );
 }
 
-function reviewDetailView(item: ReviewResultThreadStreamItem): DetailView {
-  return resultDetailView(
+function reviewDetailView(item: ReviewResultThreadStreamItem, notification?: string): DetailView {
+  const sections: DetailSection[] = isTerminalTurnErrorItem(item) && notification !== undefined ? [] : resultDetails(item);
+  if (notification !== undefined) {
+    sections.push({
+      kind: "output",
+      title: item.reviewKind === "automaticResult" ? "Notification with matching assessment" : "Guardian notification",
+      body: notification,
+    });
+  }
+  return detailViewBase(
     item,
+    "codex-panel__detail-item codex-panel__stream-item--review-result codex-panel__detail-item--review",
     "auto-review",
     `${item.id}:review-details`,
-    "codex-panel__stream-item--review-result codex-panel__detail-item--review",
+    sections,
   );
 }
 
 function approvalDetailView(item: ApprovalResultThreadStreamItem): DetailView {
-  return resultDetailView(
+  return detailViewBase(
     item,
+    "codex-panel__detail-item codex-panel__stream-item--approval-result codex-panel__detail-item--approval",
     "approval",
     `${item.id}:approval-details`,
-    "codex-panel__stream-item--approval-result codex-panel__detail-item--approval",
+    resultDetails(item),
   );
-}
-
-function resultDetailView(
-  item: ApprovalResultThreadStreamItem | ReviewResultThreadStreamItem,
-  label: string,
-  detailsKey: string,
-  className: string,
-): DetailView {
-  return detailViewBase(item, `codex-panel__detail-item ${className}`, label, detailsKey, resultDetails(item));
 }
 
 function goalDetails(item: GoalThreadStreamItem): DetailSection[] {
@@ -280,7 +282,10 @@ function resultDetails(item: ApprovalResultThreadStreamItem | ReviewResultThread
       },
     ];
   }
-  return item.review?.auditFacts && item.review.auditFacts.length > 0 ? [{ kind: "kv", rows: item.review.auditFacts }] : [];
+  return [
+    ...(item.review?.auditFacts.length ? [{ kind: "kv" as const, rows: item.review.auditFacts }] : []),
+    ...outputSection(isTerminalTurnErrorItem(item) ? "Message" : "Guardian notification", item.review?.originalMessage),
+  ];
 }
 
 function genericToolDetails(item: ToolCallThreadStreamItem | HookThreadStreamItem): DetailSection[] {

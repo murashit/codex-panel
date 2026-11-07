@@ -134,7 +134,7 @@ function threadStreamActivityItemView(
   input: ThreadStreamBlockProjectionInput,
 ): ThreadStreamActivityItemView {
   if (activity.type === "steering") return activity;
-  return { type: "item", id: activity.id, ...threadStreamRenderedItemView(activity.item, input) };
+  return { type: "item", id: activity.id, ...threadStreamRenderedItemView(activity.item, input, activity.annotations) };
 }
 
 function threadStreamRenderedItemView(
@@ -163,7 +163,7 @@ function threadStreamRenderedItemView(
     case "approvalResult":
     case "reviewResult":
     case "agent":
-      return { kind: "detail", view: detailView(item, input.workspaceRoot) };
+      return { kind: "detail", view: detailView(item, input.workspaceRoot, annotations?.reviewNotification) };
     case "taskProgress":
     case "reasoning":
     case "wait":

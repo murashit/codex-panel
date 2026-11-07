@@ -103,23 +103,7 @@ describe("panel thread stream rendering and action menu", () => {
     unmountUiRootInAct(parent);
   });
 
-  it("renders review result items as compact auto-review tool rows", () => {
-    const { blocks, context } = projectedThreadStream({
-      items: [
-        { reviewKind: "automaticWarning", id: "review-1", kind: "reviewResult", role: "tool", text: "Auto-review denied this command." },
-      ],
-    });
-
-    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
-
-    expect(element.classList.contains("codex-panel__stream-item--review-result")).toBe(true);
-    expect(element.classList.contains("codex-panel__detail--plain")).toBe(true);
-    expect(element.querySelector(".codex-panel__stream-item-role")?.textContent).toBe("auto-review");
-    expect(element.textContent).toContain("Auto-review denied this command.");
-    expect(element.querySelector("details")).toBeNull();
-  });
-
-  it("renders review result details inside one auto-review details block", () => {
+  it("renders multiline review facts in one disclosure", () => {
     const { blocks, context } = projectedThreadStream({
       items: [
         {
@@ -127,7 +111,7 @@ describe("panel thread stream rendering and action menu", () => {
           id: "review-1",
           kind: "reviewResult",
           role: "tool",
-          text: "Auto-review approved: npm test",
+          text: "Auto-review approved: apply patch (2 files)",
           turnId: "turn",
           executionState: "completed",
           review: {
@@ -144,16 +128,13 @@ describe("panel thread stream rendering and action menu", () => {
     const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.classList.contains("codex-panel__execution--completed")).toBe(true);
-    expect(topLevelDetailsSummaries(element)).toEqual(["auto-review"]);
     expect(textContents(element, "details summary")).toEqual(["auto-review"]);
-    expect(element.textContent).not.toContain("Details");
-    expect(element.textContent).not.toContain("▶Review");
-    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statusapproved");
-    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("actionapply patch");
-    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain(
-      "filessrc/shared/ui/detail-view.ts\nsrc/shared/ui/thread-stream.ts",
-    );
-    expect(textContents(element, ".codex-panel__output-title")).toEqual([]);
+    expect(textContents(element, ".codex-panel__meta-grid dt")).toEqual(["status", "action", "files"]);
+    expect(textContents(element, ".codex-panel__meta-grid dd")).toEqual([
+      "approved",
+      "apply patch",
+      "src/shared/ui/detail-view.ts\nsrc/shared/ui/thread-stream.ts",
+    ]);
   });
 
   it("renders structured system result details as visible selectable meta rows", () => {

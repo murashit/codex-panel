@@ -16,13 +16,6 @@ export function isEquivalentTurnErrorNotice(item: ThreadStreamItem, terminal: Th
   ) {
     return false;
   }
-  if (item.kind === "reviewResult" && terminal.kind === "reviewResult") {
-    return (
-      item.text === terminal.text &&
-      (item.provenance.reason === "reviewMessage" || item.provenance.reason === "parsedAutoReview") &&
-      JSON.stringify(item.review?.auditFacts ?? []) === JSON.stringify(terminal.review?.auditFacts ?? [])
-    );
-  }
   if (item.kind !== "system" || terminal.kind !== "system" || item.provenance.reason !== "runtimeError" || item.text !== terminal.text)
     return false;
   const observed = item.noticeSections ?? [];

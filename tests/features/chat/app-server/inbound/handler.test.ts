@@ -1666,115 +1666,6 @@ describe("ChatInboundHandler", () => {
         { id: "turn-error:turn-active", kind: "system", text: error.message, noticeSections: [{ body: "Final detail." }] },
       ]);
     });
-
-    it("keeps one auto-review reason when a Guardian warning preceded an interrupted turn", () => {
-      const handler = handlerForState(activeRunningState());
-      const message = "Auto-review stopped after 3 denials.";
-
-      handler.handleNotification({
-        method: "guardianWarning",
-        params: { threadId: "thread-active", message },
-      } satisfies Extract<ServerNotification, { method: "guardianWarning" }>);
-      completeTurnWithError(handler, "interrupted", {
-        message,
-        codexErrorInfo: "tooManyDenials",
-        additionalDetails: null,
-        misalignment: null,
-      });
-
-      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
-        { id: "turn-error:turn-active", kind: "reviewResult", text: message, reviewKind: "message", executionState: "failed" },
-      ]);
-      expect(handler.currentState().connection.statusText).toBe("Turn interrupted.");
-    });
-  });
-
-  describe("auto-review display", () => {
-    it("renders guardian warnings as review results instead of system messages", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      const handler = handlerForState(state);
-
-      handler.handleNotification({
-        method: "guardianWarning",
-        params: { threadId: "thread-active", message: "Auto-review denied this command." },
-      } satisfies Extract<ServerNotification, { method: "guardianWarning" }>);
-
-      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
-        { reviewKind: "automaticWarning", kind: "reviewResult", role: "tool", text: "Auto-review denied this command." },
-      ]);
-    });
-
-    it("renders auto approval review notifications as upserted review results", () => {
-      const state = activeRunningState();
-      const handler = handlerForState(state);
-
-      handler.handleNotification({
-        method: "item/autoApprovalReview/started",
-        params: {
-          threadId: "thread-active",
-          turnId: "turn-active",
-          startedAtMs: 1,
-          reviewId: "review-1",
-          targetItemId: "cmd-1",
-          review: { status: "inProgress", riskLevel: "low", userAuthorization: null, rationale: null },
-          action: { type: "command", source: "shell", command: "npm test", cwd: "/vault" },
-        },
-      } satisfies Extract<ServerNotification, { method: "item/autoApprovalReview/started" }>);
-      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
-        {
-          id: "review-review-1",
-          kind: "reviewResult",
-          text: "Auto-review started: npm test",
-          executionState: "running",
-          review: { auditFacts: expect.arrayContaining([{ key: "status", value: "inProgress" }]) },
-        },
-      ]);
-      handler.handleNotification(completedAutoReviewFixture());
-
-      expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(1);
-      expect(chatStateThreadStreamItems(handler.currentState())[0]).toMatchObject({
-        id: "review-review-1",
-        kind: "reviewResult",
-        text: "Auto-review approved: npm test",
-        executionState: "completed",
-      });
-      const reviewItem = expectPresent(chatStateThreadStreamItems(handler.currentState())[0]);
-      expect(reviewItem).toMatchObject({ review: { auditFacts: expect.arrayContaining([{ key: "status", value: "approved" }]) } });
-    });
-
-    it("replaces guardian auto-review warnings when structured auto-review notifications arrive", () => {
-      const state = activeRunningState();
-      const handler = handlerForState(state);
-
-      handler.handleNotification({
-        method: "guardianWarning",
-        params: { threadId: "thread-active", message: "Auto-review approved: npm test" },
-      } satisfies Extract<ServerNotification, { method: "guardianWarning" }>);
-      handler.handleNotification(completedAutoReviewFixture());
-
-      expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(1);
-      expect(chatStateThreadStreamItems(handler.currentState())[0]).toMatchObject({
-        id: "review-review-1",
-        kind: "reviewResult",
-        text: "Auto-review approved: npm test",
-        turnId: "turn-active",
-      });
-    });
-
-    it("ignores guardian auto-review warnings after structured auto-review notifications", () => {
-      const state = activeRunningState();
-      const handler = handlerForState(state);
-
-      handler.handleNotification(completedAutoReviewFixture());
-      handler.handleNotification({
-        method: "guardianWarning",
-        params: { threadId: "thread-active", message: "Auto-review approved: npm test" },
-      } satisfies Extract<ServerNotification, { method: "guardianWarning" }>);
-
-      expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(1);
-      expect(chatStateThreadStreamItems(handler.currentState())[0]).toMatchObject({ id: "review-review-1" });
-    });
   });
 });
 
@@ -1933,23 +1824,6 @@ function mcpUrlRequestFixture(): Extract<ServerRequest, { method: "mcpServer/eli
       message: "Confirm in browser",
       url: "https://example.com/confirm",
       elicitationId: "elicit-1",
-    },
-  };
-}
-
-function completedAutoReviewFixture(): Extract<ServerNotification, { method: "item/autoApprovalReview/completed" }> {
-  return {
-    method: "item/autoApprovalReview/completed",
-    params: {
-      threadId: "thread-active",
-      turnId: "turn-active",
-      startedAtMs: 1,
-      completedAtMs: 2,
-      reviewId: "review-1",
-      targetItemId: "cmd-1",
-      decisionSource: "agent",
-      review: { status: "approved", riskLevel: "low", userAuthorization: "medium", rationale: "Allowed by policy." },
-      action: { type: "command", source: "shell", command: "npm test", cwd: "/vault" },
     },
   };
 }

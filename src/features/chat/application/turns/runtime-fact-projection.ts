@@ -1,6 +1,6 @@
 import { reconcileCompletedTurnItems } from "../../domain/thread-stream/completed-turn-reconciliation";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
-import { completeReasoningItems, upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
+import { completeReasoningItems } from "../../domain/thread-stream/updates";
 import type { ChatState } from "../state/model";
 import type { ChatAction } from "../state/reducer";
 import { threadStreamItems } from "../state/thread-stream";
@@ -82,7 +82,7 @@ function runtimeFactProjection(state: ChatState, fact: TurnRuntimeFact): TurnRun
     case "itemCompleted":
       return completedItemProjection(fact.item, fact.turnId);
     case "autoReviewUpdated":
-      return autoReviewUpdatedProjection(state, fact.item);
+      return actionProjection({ type: "thread-stream/item-upserted", item: fact.item });
     case "turnStarted":
       return turnStartedProjection(fact);
     case "turnCompleted":
@@ -187,43 +187,8 @@ function completedItemProjection(item: ThreadStreamItem, turnId: string): TurnRu
 }
 
 function reviewWarningProjection(state: ChatState, item: ThreadStreamItem): TurnRuntimeProjection {
-  if (
-    isUnstructuredAutoReviewWarning(item) &&
-    hasStructuredAutoReviewResult(
-      threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn)),
-      activeTurnId(state.activeTurn),
-    )
-  ) {
-    return EMPTY_PROJECTION;
-  }
   const turnId = activeTurnId(state.activeTurn);
   return actionProjection({ type: "thread-stream/item-upserted", item: turnId ? { ...item, turnId } : item });
-}
-
-function autoReviewUpdatedProjection(state: ChatState, item: ThreadStreamItem): TurnRuntimeProjection {
-  return actionProjection({
-    type: "thread-stream/content-replaced",
-    items: upsertThreadStreamItemById(
-      threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn)).filter(
-        (currentItem) => !isUnstructuredAutoReviewWarning(currentItem),
-      ),
-      item,
-    ),
-  });
-}
-
-function hasStructuredAutoReviewResult(items: readonly ThreadStreamItem[], activeTurnId: string | null): boolean {
-  return items.some(
-    (item) =>
-      item.kind === "reviewResult" &&
-      Boolean(item.turnId) &&
-      (!activeTurnId || item.turnId === activeTurnId) &&
-      item.reviewKind === "automaticResult",
-  );
-}
-
-function isUnstructuredAutoReviewWarning(item: ThreadStreamItem): boolean {
-  return item.kind === "reviewResult" && item.reviewKind === "automaticWarning";
 }
 
 function actionProjection(action: ChatAction): TurnRuntimeProjection {

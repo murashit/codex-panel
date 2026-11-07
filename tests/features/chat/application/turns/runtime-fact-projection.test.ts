@@ -3,13 +3,15 @@ import type { ChatState } from "../../../../../src/features/chat/application/sta
 import { type ChatAction, chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import { projectTurnRuntimeFact } from "../../../../../src/features/chat/application/turns/runtime-fact-projection";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
-import { chatStateFixture, chatStateWith } from "../../support/state";
+import { chatStateFixture } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 
 function activeRunningState(): ChatState {
-  let state = chatStateFixture();
-  state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-  return chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+  return chatReducer(chatStateFixture({ activeThread: { id: "thread-active" } }), {
+    type: "turn/started",
+    threadId: "thread-active",
+    turnId: "turn-active",
+  });
 }
 
 function applyActions(state: ChatState, actions: readonly ChatAction[]): ChatState {
@@ -55,8 +57,9 @@ describe("TurnRuntimeFact projection", () => {
 
   it("treats normal completion items as a summary and clears pending separately", () => {
     let state = activeRunningState();
-    state = withChatStateStableThreadStreamItems(state, [
-      {
+    state = chatReducer(state, {
+      type: "thread-stream/item-upserted",
+      item: {
         id: "before",
         sourceItemId: "before",
         kind: "dialogue",
@@ -66,7 +69,7 @@ describe("TurnRuntimeFact projection", () => {
         dialogueState: "completed",
         turnId: "turn-active",
       },
-    ]);
+    });
     state = chatReducer(state, {
       type: "thread-stream/pending-steer-added",
       item: pendingSteerFixture(),
@@ -96,8 +99,8 @@ describe("TurnRuntimeFact projection", () => {
 
     expect(next.activeTurn.pendingSteers).toEqual([]);
     expect(chatStateThreadStreamItems(next)).toEqual([
-      expect.objectContaining({ id: "before" }),
-      expect.objectContaining({ id: "assistant" }),
+      expect.objectContaining({ id: "before", text: "before" }),
+      expect.objectContaining({ id: "assistant", text: "done" }),
     ]);
   });
 
@@ -127,7 +130,7 @@ describe("TurnRuntimeFact projection", () => {
     state = withChatStateStableThreadStreamItems(state, [
       { id: "m1", kind: "dialogue", dialogueKind: "assistantResponse", role: "assistant", text: "working", dialogueState: "completed" },
       {
-        reviewKind: "automaticWarning",
+        reviewKind: "message",
         id: "warning-1",
         kind: "reviewResult",
         role: "tool",
@@ -172,6 +175,7 @@ describe("TurnRuntimeFact projection", () => {
 
     expect(chatStateThreadStreamItems(next).map((streamItem) => streamItem.id)).toEqual([
       "m1",
+      "warning-1",
       "unrelated",
       "answer",
       "review-1",

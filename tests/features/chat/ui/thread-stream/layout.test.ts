@@ -92,7 +92,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
       {
         id: "review-warning",
         kind: "reviewResult",
-        reviewKind: "automaticWarning",
+        reviewKind: "message",
         role: "tool",
         text: "Auto-review approved: npm test",
         turnId: "t1",
