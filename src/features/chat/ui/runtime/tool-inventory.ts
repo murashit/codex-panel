@@ -181,7 +181,7 @@ function pluginUnavailableLabel(plugin: ToolInventoryPlugin): string | null {
     case "requiredApp":
       return "required app unavailable";
     case "unknown":
-      return "unavailable (reason unknown)";
+      return "disabled";
     case null:
       return plugin.enabled ? null : "disabled";
   }
