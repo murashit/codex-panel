@@ -1,6 +1,4 @@
-import { stat } from "node:fs/promises";
-import { isAbsolute } from "node:path";
-import { AppServerRequestTimeoutError, AppServerRpcError } from "./json-rpc-client";
+import { AppServerRequestTimeoutError } from "./json-rpc-client";
 
 class AppServerStartupError extends Error {
   constructor(message: string, cause?: unknown) {
@@ -32,38 +30,21 @@ export function startupDiagnostic(message: string): string | null {
   }
 }
 
-export async function startupError(error: unknown, executable: string, cwd: string): Promise<AppServerStartupError> {
+export function startupError(error: unknown): AppServerStartupError {
   if (error instanceof AppServerStartupError) return error;
   let message: string;
   const code = error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
   if (code === "ENOENT" || code === "ENOTDIR") {
-    if (await missingPath(cwd, true)) {
-      message = "The vault folder is unavailable. Restore access to the vault, then reconnect to Codex.";
-    } else if (isAbsolute(executable) && (await missingPath(executable))) {
-      message = "The Codex executable was not found. Check ‘Codex executable’ in Settings → Codex Panel.";
-    } else {
-      message =
-        "Codex could not find a required file or folder. Check ‘Codex executable’ in Settings → Codex Panel and access to the vault folder.";
-    }
+    // Spawn errors do not identify the missing component. The vault is already open in Obsidian;
+    // guide the user to the configurable launch command without probing paths after the failure.
+    message =
+      "Obsidian could not start Codex. Check that the Codex CLI is installed, then set ‘Codex executable’ in Settings → Codex Panel to its absolute path.";
   } else if (code === "EACCES" || code === "EPERM") {
     message = "Obsidian was denied access while starting Codex. Check permission to run the Codex executable and access the vault folder.";
   } else if (error instanceof AppServerRequestTimeoutError) {
     message = `Codex did not finish connecting. ${RECONNECT_GUIDANCE}`;
-  } else if (error instanceof AppServerRpcError) {
-    message =
-      "Codex rejected the connection setup. Check that ‘Codex executable’ in Settings → Codex Panel uses a supported Codex CLI version.";
   } else {
     message = `Could not connect to Codex. ${RECONNECT_GUIDANCE} ${DIAGNOSTIC_GUIDANCE}`;
   }
   return new AppServerStartupError(message, error);
-}
-
-async function missingPath(path: string, directory = false): Promise<boolean> {
-  try {
-    const entry = await stat(path);
-    return directory && !entry.isDirectory();
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    return code === "ENOENT" || code === "ENOTDIR";
-  }
 }

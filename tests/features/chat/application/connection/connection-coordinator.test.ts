@@ -255,7 +255,7 @@ describe("ChatConnectionCoordinator", () => {
 
   it("shows the connection boundary's actionable failure without reclassifying it", async () => {
     const { coordinator, connect, host } = createCoordinatorHarness();
-    const message = "The vault folder is unavailable. Restore access to the vault, then reconnect to Codex.";
+    const message = "Connection guidance from the boundary.";
     connect.mockRejectedValueOnce(new Error(message));
 
     await coordinator.ensureConnected();

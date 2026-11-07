@@ -206,7 +206,7 @@ export class AppServerClient {
         this.rpc.rejectAll(normalized);
         transport.stop();
       }
-      throw await startupError(error, this.codexPath, this.cwd);
+      throw startupError(error);
     }
   }
 
