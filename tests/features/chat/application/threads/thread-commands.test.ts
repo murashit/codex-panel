@@ -109,8 +109,8 @@ describe("thread management commands", () => {
     compact.resolve(completed(undefined));
     await pendingCompact;
 
-    expect(host.addSystemMessage).not.toHaveBeenCalledWith("Compaction requested.");
-    expect(host.setStatus).not.toHaveBeenCalledWith("Compaction requested.");
+    expect(host.addSystemMessage).not.toHaveBeenCalled();
+    expect(host.setStatus).not.toHaveBeenCalled();
   });
 
   it("does not report compaction completion when the method rejects the mutation", async () => {
@@ -125,8 +125,8 @@ describe("thread management commands", () => {
     await controller.compactThread("source");
 
     expect(host.effects.compactThread).toHaveBeenCalledWith("source");
-    expect(host.addSystemMessage).not.toHaveBeenCalledWith("Compaction requested.");
-    expect(host.setStatus).not.toHaveBeenCalledWith("Compaction requested.");
+    expect(host.addSystemMessage).not.toHaveBeenCalled();
+    expect(host.setStatus).not.toHaveBeenCalled();
   });
 
   it("prepares a fork at the current latest turn without connecting or mutating server state", async () => {

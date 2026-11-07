@@ -304,13 +304,17 @@ describe("WorkspacePanelCoordinator", () => {
     const firstOpen = coordinator.openThreadInAvailableView("first");
     const secondOpen = coordinator.openThreadInAvailableView("second");
     secondReveal.resolve();
+    await secondOpen;
+    expect(secondFocusThread).toHaveBeenCalledWith("second", { focus: false });
+    expect(secondFocusComposer).toHaveBeenCalledOnce();
+    expect(firstFocusThread).not.toHaveBeenCalled();
+    expect(firstFocusComposer).not.toHaveBeenCalled();
+
     firstReveal.resolve();
-    await Promise.all([firstOpen, secondOpen]);
+    await firstOpen;
 
     expect(firstFocusThread).toHaveBeenCalledWith("first", { focus: false });
-    expect(secondFocusThread).toHaveBeenCalledWith("second", { focus: false });
     expect(firstFocusComposer).toHaveBeenCalledOnce();
-    expect(secondFocusComposer).toHaveBeenCalledOnce();
   });
 
   it.each([false, true])("starts a new chat through the current panel with a competing recent panel=%s", async (hasActivePanel) => {

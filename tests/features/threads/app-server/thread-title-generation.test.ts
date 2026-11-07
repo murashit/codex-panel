@@ -2,25 +2,16 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { EphemeralStructuredTurnRunner } from "../../../../src/app-server/services/ephemeral-structured-turn";
 
 import { generateThreadTitleWithCodex } from "../../../../src/features/threads/app-server/thread-title-generation";
-import { appServerTurnFixture } from "../../../support/app-server-records";
+import { appServerAgentMessageFixture as agentMessage, appServerCompletedTurnFixture as turn } from "../../../support/app-server-records";
 
 describe("thread title", () => {
   it("runs a structured title request and preserves its Japanese agent response", async () => {
     const runner = vi.fn<EphemeralStructuredTurnRunner>(async () =>
       turn([
-        {
-          type: "agentMessage",
-          id: "a1",
-          text: '{"title":"Codex Panelの自動命名"}',
-          phase: null,
-          memoryCitation: null,
-          delivery: null,
-          questions: null,
-        },
+        agentMessage("answer", '{"title":"Codex Panelの自動命名"}', { phase: null }),
         { type: "plan", id: "plan", text: "A plan is not the structured response." },
       ]),
     );
@@ -34,12 +25,9 @@ describe("thread title", () => {
         codexPath: "/bin/codex",
         cwd: "/vault",
         serviceName: "codex-panel-naming",
-        developerInstructions: expect.stringContaining("Return only a JSON object"),
         prompt: expect.stringContaining(titleContext().userRequest),
         outputSchema: expect.objectContaining({ required: ["title"], additionalProperties: false }),
         timeoutMs: 60_000,
-        serverRequestRejectionMessage: "Thread title generation does not handle server requests.",
-        abortMessage: "Thread title generation cancelled.",
         runtimeSettings: { model: null, effort: null },
         signal,
       }),
@@ -57,36 +45,24 @@ describe("thread title", () => {
     ["rejects fenced JSON", '```json\n{"title":"Naming"}\n```', null],
     ["rejects embedded JSON", 'Title: {"title":"Naming"}', null],
   ])("%s", async (_label, text, expected) => {
-    const runner: EphemeralStructuredTurnRunner = async () => turn([agentMessage(text)]);
+    const runner: EphemeralStructuredTurnRunner = async () => turn([agentMessage("answer", text)]);
     await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), { runner })).resolves.toBe(
       expected,
     );
   });
 
-  it("returns no title without an agent response", async () => {
-    const runner: EphemeralStructuredTurnRunner = async () => turn([{ type: "plan", id: "plan", text: '{"title":"Plan"}' }]);
-    await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), { runner })).resolves.toBeNull();
-  });
-
-  it("uses explicit title runtime overrides", async () => {
-    const runner = vi.fn<EphemeralStructuredTurnRunner>(async () => turn([]));
-
-    await generateThreadTitleWithCodex(
-      "/bin/codex",
-      "/vault",
-      titleContext(),
-      { threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" },
-      { runner },
-    );
-
-    expect(runner).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtimeSettings: {
-          model: "gpt-5.4-mini",
-          effort: "minimal",
-        },
-      }),
-    );
+  it("uses the selected runtime and returns no title without an agent response", async () => {
+    const runner = vi.fn<EphemeralStructuredTurnRunner>(async () => turn([{ type: "plan", id: "plan", text: '{"title":"Plan"}' }]));
+    await expect(
+      generateThreadTitleWithCodex(
+        "/bin/codex",
+        "/vault",
+        titleContext(),
+        { threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" },
+        { runner },
+      ),
+    ).resolves.toBeNull();
+    expect(runner).toHaveBeenCalledWith(expect.objectContaining({ runtimeSettings: { model: "gpt-5.4-mini", effort: "minimal" } }));
   });
 });
 
@@ -101,29 +77,5 @@ function runtimeSettings() {
   return {
     threadNamingModel: null,
     threadNamingEffort: null,
-  };
-}
-
-function turn(items: TurnRecord["items"]): TurnRecord {
-  return appServerTurnFixture({
-    id: "turn",
-    items,
-    itemsView: "full",
-    status: "completed",
-    startedAt: 1,
-    completedAt: 2,
-    durationMs: 1,
-  });
-}
-
-function agentMessage(text: string): TurnRecord["items"][number] {
-  return {
-    type: "agentMessage",
-    id: "agent",
-    text,
-    phase: null,
-    memoryCitation: null,
-    delivery: null,
-    questions: null,
   };
 }

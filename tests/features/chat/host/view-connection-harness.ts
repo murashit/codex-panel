@@ -325,10 +325,6 @@ export function composerElement(view: { containerEl: HTMLElement }): HTMLTextAre
   return composer;
 }
 
-export function composerPlaceholder(view: { containerEl: HTMLElement }): string | null {
-  return composerElement(view).getAttribute("placeholder");
-}
-
 function mockThreadStreamViewportOffsetMetrics(metrics: { clientHeight: number; clientWidth: number }): () => void {
   const offsetHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
   const offsetWidthDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth");
