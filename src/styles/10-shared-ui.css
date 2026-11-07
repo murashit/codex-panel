@@ -172,12 +172,35 @@
   --codex-panel-nav-item-background-hover: transparent;
 
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: var(--codex-panel-panel-gap);
+  grid-template-columns: minmax(0, 1fr) 0;
+  gap: 0;
   align-items: center;
   min-width: 0;
   padding-inline-end: var(--size-4-2);
   border-radius: var(--nav-item-radius, var(--radius-s));
+}
+
+.codex-panel-ui__nav-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--codex-panel-panel-gap);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+}
+
+.codex-panel-ui__nav-row--actions-visible,
+.codex-panel-ui__nav-row:hover,
+.codex-panel-ui__nav-row:focus-within {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--codex-panel-panel-gap);
+}
+
+.codex-panel-ui__nav-row--actions-visible > .codex-panel-ui__nav-row-actions,
+.codex-panel-ui__nav-row:hover > .codex-panel-ui__nav-row-actions,
+.codex-panel-ui__nav-row:focus-within > .codex-panel-ui__nav-row-actions {
+  overflow: visible;
 }
 
 .codex-panel-ui__nav-row:hover,

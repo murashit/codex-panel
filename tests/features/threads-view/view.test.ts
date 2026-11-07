@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { Thread } from "../../../src/domain/threads/model";
 import type { ThreadTitleContext } from "../../../src/domain/threads/title";
 import type { ArchiveThreadResult, ThreadTitlePort } from "../../../src/features/threads/workflows/ports";
@@ -12,6 +12,7 @@ import { DEFAULT_SETTINGS } from "../../../src/settings/preferences";
 import type { ObservedPaginatedResult } from "../../../src/shared/async/observed-result";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
+import { mountAuthoredStyles } from "../../support/authored-styles";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 import { threadMutationCommandsMock } from "../../support/thread-mutations";
 
@@ -253,16 +254,23 @@ describe("CodexThreadsView", () => {
   });
 
   it("lets a completed archive settle after the threads view closes", async () => {
+    mountAuthoredStyles();
     const archived = deferred<ArchiveThreadResult>();
     const archiveThread = vi.fn<ThreadsViewHost["threadMutations"]["archiveThread"]>(() => archived.promise);
 
     const view = await threadsView(threadsHost({ threadMutations: threadMutationCommandsMock({ archiveThread }) }));
+    document.body.append(view.containerEl);
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
+    moveOutsideThreadsView();
+    expectExposedThreadActions(view);
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Save and archive thread"]')?.click();
     await waitForAsyncWork(() => expect(archiveThread).toHaveBeenCalledWith("thread", { saveMarkdown: true }));
+    moveOutsideThreadsView();
+    expectExposedThreadActions(view);
     expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Save and archive thread"]')?.disabled).toBe(true);
+    expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.disabled).toBe(true);
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Save and archive thread"]')?.click();
     expect(archiveThread).toHaveBeenCalledOnce();
 
@@ -499,15 +507,18 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.textContent).not.toContain("Late title");
   });
 
-  it("cancels auto-name without applying a late generated title", async () => {
+  it("keeps auto-name cancellation available off-row and preserves the draft against a late title", async () => {
+    mountAuthoredStyles();
     const generatedTitle = deferred<string | null>();
     const titlePort = titlePortFixture();
     titlePort.persistedContext.mockResolvedValue({ userRequest: "Name this", assistantResponse: "Done." });
     titlePort.generateTitle.mockReturnValue(generatedTitle.promise);
-    const view = await threadsView(threadsHost({ threadTitlePort: titlePort }));
+    const host = threadsHost({ threadTitlePort: titlePort });
+    const view = await threadsView(host);
     document.body.append(view.containerEl);
 
     await openRenameEditor(view);
+    changeInputValue(renameInput(view), "My title draft");
     await startAutoName(view);
     await waitForAsyncWork(() => {
       expect(titlePort.generateTitle).toHaveBeenCalledOnce();
@@ -517,20 +528,27 @@ describe("CodexThreadsView", () => {
 
     const input = renameInput(view);
     expect(input.disabled).toBe(true);
+    moveOutsideThreadsView();
+    expectExposedThreadActions(view);
+    const cancel = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]');
+    expect(cancel?.disabled).toBe(false);
     const generationSignal = titlePort.generateTitle.mock.calls[0]?.[1];
     expect(generationSignal?.aborted).toBe(false);
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]')?.click();
+    cancel?.click();
     const editableInput = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
     expect(generationSignal?.aborted).toBe(true);
     expect(editableInput?.disabled).toBe(false);
-    expect(editableInput?.value).toBe("Thread preview");
+    expect(editableInput?.value).toBe("My title draft");
     expect(document.activeElement).toBe(editableInput);
     generatedTitle.resolve("Generated title");
     for (let index = 0; index < 10; index += 1) await Promise.resolve();
 
-    expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Thread preview");
+    expect(renameInput(view).value).toBe("My title draft");
     expect(view.containerEl.textContent).not.toContain("Generated title");
-    view.containerEl.remove();
+    renameInput(view).dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(view.containerEl.querySelector(".codex-panel-threads__rename-input")).toBeNull();
+    expect(view.containerEl.querySelector(".codex-panel-threads__row-title")?.textContent).toBe("Thread preview");
+    expect(host.threadMutations.renameThread).not.toHaveBeenCalled();
   });
 
   it("accepts a replacement runtime after an observer fails during detachment", async () => {
@@ -669,6 +687,28 @@ function renameInput(view: CodexThreadsView): HTMLInputElement {
   const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
   if (!input) throw new Error("Missing rename input");
   return input;
+}
+
+function moveOutsideThreadsView(): void {
+  const outside = document.body.appendChild(document.createElement("button"));
+  onTestFinished(() => outside.remove());
+  outside.focus();
+  // jsdom retains :hover after .click(); move the pointer as well as focus off-row.
+  outside.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+}
+
+function expectExposedThreadActions(view: CodexThreadsView): void {
+  const row = view.containerEl.querySelector<HTMLElement>(".codex-panel-threads__row");
+  const slot = row?.querySelector<HTMLElement>(".codex-panel-ui__nav-row-actions");
+  if (!row || !slot) throw new Error("Missing thread row actions");
+  expect(row.contains(document.activeElement)).toBe(false);
+  expect(row.matches(":hover")).toBe(false);
+  expect(getComputedStyle(row).gridTemplateColumns).toBe("minmax(0, 1fr) auto");
+  expect(getComputedStyle(slot).overflow).toBe("visible");
+  for (const element of [slot, ...slot.querySelectorAll("button")]) {
+    expect(getComputedStyle(element).opacity).not.toBe("0");
+    expect(getComputedStyle(element).pointerEvents).not.toBe("none");
+  }
 }
 
 async function openRenameEditor(view: CodexThreadsView): Promise<void> {

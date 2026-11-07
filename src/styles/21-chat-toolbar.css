@@ -299,36 +299,6 @@
   overflow-wrap: anywhere;
 }
 
-.codex-panel__thread-row {
-  grid-template-columns: minmax(0, 1fr) 0;
-  gap: 0;
-}
-
-.codex-panel__thread-row:hover,
-.codex-panel__thread-row:focus-within {
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--codex-panel-panel-gap);
-}
-
-.codex-panel__thread-row--renaming {
-  grid-template-columns: minmax(0, 1fr) 0;
-}
-
-.codex-panel__thread-row--renaming:hover,
-.codex-panel__thread-row--renaming:focus-within {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.codex-panel__thread-row--auto-name-running {
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--codex-panel-panel-gap);
-}
-
-.codex-panel__thread-row--archive-confirming {
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--codex-panel-panel-gap);
-}
-
 .codex-panel__thread-rename {
   box-sizing: border-box;
   min-height: var(--codex-panel-size-nav-item);
@@ -358,44 +328,7 @@
   box-shadow: none;
 }
 
-.codex-panel__thread-action {
-  min-width: 0;
-  width: 0;
-  padding: var(--codex-panel-control-gap) 0;
-  overflow: hidden;
-  opacity: 0;
-}
-
-.codex-panel__thread-actions {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  width: 0;
-  min-width: 0;
-  overflow: hidden;
-  pointer-events: none;
-  opacity: 0;
-}
-
-.codex-panel__thread-row--archive-confirming .codex-panel__thread-actions,
-.codex-panel__thread-row:hover .codex-panel__thread-actions,
-.codex-panel__thread-row:focus-within .codex-panel__thread-actions {
-  gap: var(--codex-panel-panel-gap);
-  width: auto;
-  overflow: visible;
-  pointer-events: auto;
-  opacity: 1;
-}
-
-.codex-panel__thread-row--archive-confirming .codex-panel__thread-action,
-.codex-panel__thread-row--auto-name-running .codex-panel__thread-action,
-.codex-panel__thread-row:hover .codex-panel__thread-action,
-.codex-panel__thread-row:focus-within .codex-panel__thread-action,
-.codex-panel__thread-action:focus-visible {
-  min-width: calc(var(--icon-size) + var(--codex-panel-control-gap) * 2);
-  width: auto;
-  padding: var(--codex-panel-control-gap);
-  overflow: visible;
+.codex-panel__thread-action:disabled {
   opacity: 1;
 }
 

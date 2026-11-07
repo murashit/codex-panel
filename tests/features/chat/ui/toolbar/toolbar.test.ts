@@ -1,14 +1,18 @@
 // @vitest-environment jsdom
 
 import { h } from "preact";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { ToolbarThreadRow, ToolbarViewModel } from "../../../../../src/features/chat/ui/toolbar/model";
 import { Toolbar, type ToolbarActions } from "../../../../../src/features/chat/ui/toolbar/toolbar";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
+import { mountAuthoredStyles } from "../../../../support/authored-styles";
 import { changeInputValue, installObsidianDomShims } from "../../../../support/dom";
 import { toolbarActionsFixture } from "../../support/toolbar-actions";
 
 installObsidianDomShims();
+beforeEach(() => {
+  mountAuthoredStyles();
+});
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
@@ -20,7 +24,14 @@ function mountToolbar(parent: HTMLElement, model: ToolbarViewModel, actions: Too
     unmountUiRoot(parent);
     parent.remove();
   });
+  document.body.append(parent);
   renderUiRoot(parent, h(Toolbar, { model, actions }));
+}
+
+function toolbarItem(parent: HTMLElement, label: string): HTMLElement {
+  return expectPresent(
+    [...parent.querySelectorAll<HTMLElement>(".codex-panel__toolbar-panel-item")].find((item) => item.textContent === label),
+  );
 }
 
 describe("Toolbar decisions", () => {
@@ -30,28 +41,25 @@ describe("Toolbar decisions", () => {
 
     mountToolbar(parent, toolbarModel({ openPanel: "chat-actions" }), actions);
 
-    const items = [...parent.querySelectorAll<HTMLElement>(".codex-panel__chat-actions-panel-item")];
-    expect(items).toHaveLength(4);
-    items[0]?.click();
-    items[1]?.click();
-    items[2]?.click();
-    items[3]?.click();
-    expect(actions.chat.startNewThread).toHaveBeenCalledOnce();
-    expect(actions.chat.startSideChat).toHaveBeenCalledOnce();
-    expect(actions.chat.compactContext).toHaveBeenCalledOnce();
-    expect(actions.chat.setGoal).toHaveBeenCalledOnce();
+    for (const [label, expectedAction] of [
+      ["Start new chat", actions.chat.startNewThread],
+      ["Start side chat", actions.chat.startSideChat],
+      ["Compact context", actions.chat.compactContext],
+      ["Set goal...", actions.chat.setGoal],
+    ] as const) {
+      toolbarItem(parent, label).click();
+      for (const action of Object.values(actions.chat)) {
+        expect(action).toHaveBeenCalledTimes(action === expectedAction ? 1 : 0);
+        vi.mocked(action).mockClear();
+      }
+    }
 
     mountToolbar(parent, toolbarModel({ openPanel: "chat-actions", newChatDisabled: true }), actions);
-    const disabledStart = expectPresent(
-      [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__chat-actions-panel-item")].find(
-        (item) => item.textContent === "Start new chat",
-      ),
-    );
-    disabledStart.click();
-    expect(actions.chat.startNewThread).toHaveBeenCalledOnce();
+    toolbarItem(parent, "Start new chat").click();
+    expect(actions.chat.startNewThread).not.toHaveBeenCalled();
   });
 
-  it("keeps context out of the toolbar and Codex limits inside the status menu", () => {
+  it("shows usage limits and reset times with accessible meters in the status menu", () => {
     const parent = document.createElement("div");
 
     mountToolbar(
@@ -129,40 +137,45 @@ describe("Toolbar decisions", () => {
 
   it("renders runtime permissions in the status menu without severity styling", () => {
     const parent = document.createElement("div");
+    const permissionsAndApprovals = [
+      {
+        title: "Permissions",
+        rows: [
+          { label: "Profile", value: ":workspace" },
+          { label: "Sandbox", value: "workspace-write" },
+          { label: "Sandbox network", value: "blocked" },
+          { label: "Extra writable roots", value: "Vault" },
+        ],
+      },
+      {
+        title: "Approvals",
+        rows: [
+          { label: "Approval policy", value: "on-request" },
+          { label: "Auto review", value: "on" },
+        ],
+      },
+    ];
 
     mountToolbar(
       parent,
       toolbarModel({
         openPanel: "status",
-        permissionsAndApprovals: [
-          {
-            title: "Permissions",
-            rows: [
-              { label: "Profile", value: ":workspace" },
-              { label: "Sandbox", value: "workspace-write" },
-              { label: "Sandbox network", value: "blocked" },
-              { label: "Extra writable roots", value: "Vault" },
-            ],
-          },
-          {
-            title: "Approvals",
-            rows: [
-              { label: "Approval policy", value: "on-request" },
-              { label: "Auto review", value: "on" },
-            ],
-          },
-        ],
+        permissionsAndApprovals,
         toolInventory: [{ title: "Tool providers", rows: [{ label: "Tool providers", value: "loaded" }] }],
       }),
       toolbarActionsFixture(),
     );
 
-    expect(parent.textContent).toContain("Permissions & Approvals");
-    expect(parent.textContent).toContain("Permissions");
-    expect(parent.textContent).toContain("Approvals");
-    expect(parent.textContent).toContain(":workspace");
-    expect(parent.textContent).toContain("workspace-write");
-    expect(parent.textContent).toContain("on");
+    const panel = expectPresent(
+      [...parent.querySelectorAll(".codex-panel__status-diagnostics")].find(
+        (section) => section.querySelector(".codex-panel__status-diagnostics-title")?.textContent === "Permissions & Approvals",
+      ),
+    );
+    const rows = [...panel.querySelectorAll(".codex-panel__status-diagnostics-row")].map((row) => ({
+      label: row.querySelector("dt")?.textContent,
+      value: row.querySelector("dd")?.textContent,
+    }));
+    expect(rows).toEqual(permissionsAndApprovals.flatMap((section) => section.rows));
     expect(parent.querySelector(".codex-panel__status-diagnostics-row--warning")).toBeNull();
     expect(parent.querySelector(".codex-panel__status-diagnostics-row--error")).toBeNull();
   });
@@ -173,7 +186,7 @@ describe("Toolbar decisions", () => {
 
     mountToolbar(parent, toolbarModel({ openPanel: "status" }), actions);
 
-    parent.querySelectorAll<HTMLButtonElement>(".codex-panel__status-panel-item")[2]?.click();
+    toolbarItem(parent, "Copy debug details").click();
     expect(actions.status.copyDebugDetails).toHaveBeenCalledOnce();
   });
 
@@ -226,7 +239,12 @@ describe("Toolbar decisions", () => {
     parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
     expect(actions.threads.rename.autoName).toHaveBeenCalledWith("editing");
     const cancelAutoNameButton = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]'));
-    expect(cancelAutoNameButton.closest(".codex-panel__thread-row--auto-name-running")).not.toBeNull();
+    input.blur();
+    const generatingRow = expectPresent(cancelAutoNameButton.closest(".codex-panel__thread-row"));
+    expect(generatingRow.contains(document.activeElement)).toBe(false);
+    expect(getComputedStyle(expectPresent(cancelAutoNameButton.parentElement)).overflow).toBe("visible");
+    expect(getComputedStyle(cancelAutoNameButton).width).not.toBe("0px");
+    expect(getComputedStyle(cancelAutoNameButton).opacity).not.toBe("0");
     cancelAutoNameButton.click();
     expect(actions.threads.rename.cancelAutoName).toHaveBeenCalledWith("generating");
   });
@@ -286,7 +304,9 @@ describe("Toolbar decisions", () => {
     );
 
     const confirm = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__archive-confirm"));
-    const archiveActions = expectPresent(confirm.querySelector<HTMLElement>(".codex-panel__thread-actions"));
+    const archiveActions = expectPresent(confirm.querySelector<HTMLElement>(".codex-panel-ui__nav-row-actions"));
+    expect(confirm.contains(document.activeElement)).toBe(false);
+    expect(getComputedStyle(archiveActions).overflow).toBe("visible");
     const defaultArchiveButton = expectPresent(archiveActions.querySelector<HTMLButtonElement>(".codex-panel__archive-default"));
     const alternateArchiveButton = expectPresent(archiveActions.querySelector<HTMLButtonElement>(".codex-panel__archive-alternate"));
     expectPresent(confirm.querySelector<HTMLElement>(".codex-panel__thread")).click();
@@ -295,6 +315,19 @@ describe("Toolbar decisions", () => {
     expect(actions.threads.archive.confirm).toHaveBeenCalledWith("thread", true);
     alternateArchiveButton.click();
     expect(actions.threads.archive.confirm).toHaveBeenCalledWith("thread", false);
+
+    mountToolbar(
+      parent,
+      toolbarModel({
+        openPanel: "history",
+        threads: [toolbarThreadRowFixture({ archiveDisabled: true, archiveConfirm: { active: true, defaultSaveMarkdown: true } })],
+      }),
+      actions,
+    );
+    expect(getComputedStyle(archiveActions).overflow).toBe("visible");
+    expect(defaultArchiveButton.disabled).toBe(true);
+    defaultArchiveButton.click();
+    expect(actions.threads.archive.confirm).toHaveBeenCalledTimes(2);
   });
 
   it("renders shared history expansion as a nav-list item", () => {
