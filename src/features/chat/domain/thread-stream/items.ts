@@ -139,12 +139,14 @@ interface AssistantResponseThreadStreamDialogueItem extends ThreadStreamDialogue
   readonly dialogueKind: "assistantResponse";
   readonly role: "assistant";
   readonly dialogueState: DialogueState;
+  readonly executionState?: never;
 }
 
 interface ProposedPlanThreadStreamDialogueItem extends ThreadStreamDialogueBase {
   readonly dialogueKind: "proposedPlan";
   readonly role: "assistant";
   readonly dialogueState: DialogueState;
+  readonly executionState?: never;
 }
 
 export type ThreadStreamDialogueItem =

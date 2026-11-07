@@ -5,6 +5,7 @@ import { planChatInboundNotification } from "../../../../../src/features/chat/ap
 import type { RuntimeFactSource } from "../../../../../src/features/chat/app-server/inbound/runtime-fact-adapter";
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
 import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
+import { subagentActivityPreview } from "../../../../../src/features/chat/ui/thread-stream/subagent-preview";
 import { appServerAgentMessageFixture, appServerTurnFixture, appServerUserMessageFixture } from "../../../../support/app-server-records";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
@@ -158,6 +159,24 @@ describe("normalized child runtime facts", () => {
       expect(state.activeTurn.subagents.byThreadId.get("child")).toMatchObject({ liveness: "stopped", outcome: "completed" });
     },
   );
+
+  it("advances a child preview to a completed plan even without plan deltas", () => {
+    let state = receive(trackedParent(), completedReasoning("before-plan"));
+    state = receive(state, {
+      method: "item/started",
+      params: { ...childScope, startedAtMs: 3, item: { type: "plan", id: "plan", text: "" } },
+    });
+    state = receive(state, {
+      method: "item/completed",
+      params: { ...childScope, completedAtMs: 4, item: { type: "plan", id: "plan", text: "Final plan" } },
+    });
+    state = receive(state, {
+      method: "turn/completed",
+      params: { threadId: "child", turn: { ...childTurn, status: "completed", itemsView: "notLoaded", items: [] } },
+    });
+
+    expect(subagentActivityPreview(preview(state) ?? null, "/vault")).toBe("Final plan");
+  });
 
   it("ignores older child turn updates, including completed canonical items", () => {
     let state = receive(trackedParent(), { method: "turn/started", params: { threadId: "child", turn: { ...childTurn, id: "new-turn" } } });
