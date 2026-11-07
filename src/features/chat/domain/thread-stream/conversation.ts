@@ -15,22 +15,12 @@ export function threadStreamUserRoles(items: readonly ThreadStreamItem[]): ("ini
 }
 
 // Includes proposed plans; item completion does not imply that its turn has ended or succeeded.
-export function isCompletedAssistantDialogue(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { turnId: string } {
-  return (
-    item.kind === "dialogue" &&
-    item.dialogueKind !== "user" &&
-    !!item.turnId &&
-    item.dialogueState === "completed" &&
-    (item.executionState ?? "completed") === "completed"
-  );
+function isCompletedAssistantDialogue(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { turnId: string } {
+  return item.kind === "dialogue" && item.dialogueKind !== "user" && !!item.turnId && item.dialogueState === "completed";
 }
 
-export function isCompletedPlanCandidate(item: ThreadStreamItem): boolean {
-  return (
-    item.kind === "dialogue" &&
-    item.dialogueKind === "proposedPlan" &&
-    (item.executionState ? item.executionState === "completed" : item.dialogueState === "completed")
-  );
+function isCompletedPlanCandidate(item: ThreadStreamItem): boolean {
+  return item.kind === "dialogue" && item.dialogueKind === "proposedPlan" && item.dialogueState === "completed";
 }
 
 export interface ForkCandidate {

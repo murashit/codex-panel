@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   forkCandidatesFromItems,
-  isCompletedAssistantDialogue,
-  isCompletedPlanCandidate,
   lastCompletedAssistantDialoguesByTurn,
+  latestImplementablePlanTargetFromItems,
   threadStreamUserRoles,
 } from "../../../../../src/features/chat/domain/thread-stream/conversation";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
@@ -40,32 +39,6 @@ describe("shared conversation rules", () => {
     ).toEqual(["steer", "steer", "initiator", "steer"]);
   });
 
-  it("preserves execution-state precedence and the difference between plan and outcome eligibility", () => {
-    const cases = [
-      { kind: "assistantResponse", state: "completed", execution: undefined, turn: "turn", outcome: true, plan: false },
-      { kind: "assistantResponse", state: "completed", execution: null, turn: "turn", outcome: true, plan: false },
-      { kind: "assistantResponse", state: "completed", execution: "running", turn: "turn", outcome: false, plan: false },
-      { kind: "assistantResponse", state: "completed", execution: "failed", turn: "turn", outcome: false, plan: false },
-      { kind: "assistantResponse", state: "streaming", execution: "completed", turn: "turn", outcome: false, plan: false },
-      { kind: "assistantResponse", state: "completed", execution: "completed", turn: undefined, outcome: false, plan: false },
-      { kind: "proposedPlan", state: "completed", execution: undefined, turn: "turn", outcome: true, plan: true },
-      { kind: "proposedPlan", state: "completed", execution: null, turn: undefined, outcome: false, plan: true },
-      { kind: "proposedPlan", state: "streaming", execution: "completed", turn: "turn", outcome: false, plan: true },
-      { kind: "proposedPlan", state: "streaming", execution: undefined, turn: "turn", outcome: false, plan: false },
-      { kind: "proposedPlan", state: "completed", execution: "failed", turn: "turn", outcome: false, plan: false },
-    ] as const;
-    for (const { kind, state, execution, turn, outcome, plan } of cases) {
-      const item: ThreadStreamItem = {
-        ...assistantDialogue("candidate", kind, state, turn),
-        ...(execution !== undefined ? { executionState: execution } : {}),
-      };
-      expect(isCompletedPlanCandidate(item), JSON.stringify(item)).toBe(plan);
-      expect(isCompletedAssistantDialogue(item), JSON.stringify(item)).toBe(outcome);
-    }
-    expect(isCompletedAssistantDialogue(userMessage("user", "request", "turn"))).toBe(false);
-    expect(isCompletedPlanCandidate(userMessage("user", "request", "turn"))).toBe(false);
-  });
-
   it("selects the last eligible outcome with original item identity and first-seen turn order", () => {
     const first = assistantDialogue("first", "assistantResponse", "completed", "one");
     const second = assistantDialogue("second", "assistantResponse", "completed", "two");
@@ -77,13 +50,13 @@ describe("shared conversation rules", () => {
       userMessage("user", "request", "one"),
       { id: "tool", kind: "tool" as const, role: "tool" as const, text: "work", turnId: "two" },
       assistantDialogue("draft-plan", "proposedPlan", "streaming", "two"),
-      { ...first, id: "failed", executionState: "failed" as const },
       assistantDialogue("draft", "assistantResponse", "streaming", "two"),
     ];
     const outcomes = lastCompletedAssistantDialoguesByTurn(items);
     expect([...outcomes.keys()]).toEqual(["one", "two"]);
     expect(outcomes.get("one")).toBe(plan);
     expect(outcomes.get("two")).toBe(second);
+    expect(latestImplementablePlanTargetFromItems(items)).toEqual({ itemId: "plan" });
     expect(forkCandidatesFromItems(items)).toEqual([
       { itemId: "plan", turnId: "one" },
       { itemId: "second", turnId: "two" },

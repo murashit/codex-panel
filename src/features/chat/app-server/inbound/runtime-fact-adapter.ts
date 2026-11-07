@@ -11,7 +11,6 @@ import { taskProgressThreadStreamItem } from "../mappers/thread-stream/task-prog
 import {
   type AppServerTurnItem,
   completedTurnTranscriptSummaryFromAppServerTurn,
-  shouldSuppressLifecycleItem,
   threadStreamItemFromTurnItem,
   threadStreamItemsFromTurns,
 } from "../mappers/thread-stream/turn-items";
@@ -153,8 +152,11 @@ export function turnRuntimeFactFromNotification(
 
 function startedItemFact(item: AppServerTurnItem, turnId: string): TurnRuntimeFact | null {
   if (item.type === "userMessage") return observedUserMessageFact(item, turnId);
-  if (shouldSuppressLifecycleItem(item)) return null;
+  if (item.type === "agentMessage") return null;
   const streamItem = threadStreamItemFromTurnItem(item, turnId);
+  if (streamItem?.kind === "dialogue" && streamItem.dialogueKind === "proposedPlan") {
+    return { type: "itemStarted", item: { ...streamItem, dialogueState: "streaming" } };
+  }
   return streamItem ? { type: "itemStarted", item: streamItem } : null;
 }
 

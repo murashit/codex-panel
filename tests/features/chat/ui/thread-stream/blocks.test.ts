@@ -169,7 +169,7 @@ function assistantDialogue(id: string, turnId: string): ThreadStreamItem {
   return { id, kind: "dialogue", dialogueKind: "assistantResponse", dialogueState: "completed", role: "assistant", text: "done", turnId };
 }
 
-function taskProgressItem(id: string, turnId: string): ThreadStreamItem {
+function taskProgressItem(id: string, turnId: string): Extract<ThreadStreamItem, { kind: "taskProgress" }> {
   return {
     id,
     kind: "taskProgress",

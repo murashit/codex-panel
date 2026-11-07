@@ -499,10 +499,6 @@ function fileChangeThreadStreamItem(item: FileChangeItem, turnId?: string): Thre
   };
 }
 
-export function shouldSuppressLifecycleItem(item: TurnItem): boolean {
-  return item.type === "agentMessage" || item.type === "userMessage";
-}
-
 function jsonTargetLabel(value: unknown): string | null {
   const direct = jsonTargetPrimitive(value);
   if (direct) return direct;

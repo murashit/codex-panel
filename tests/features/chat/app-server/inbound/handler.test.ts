@@ -19,6 +19,7 @@ import { chatThreadStreamViewState } from "../../../../../src/features/chat/appl
 import { localUserDialogueItemFromInput } from "../../../../../src/features/chat/application/submission/local-user-dialogue";
 import { captureForkDisplaySnapshot } from "../../../../../src/features/chat/application/threads/fork-display-snapshot";
 import { panelThreadSubscriptions } from "../../../../../src/features/chat/application/threads/thread-subscriptions";
+import { projectThreadStream, selectChatPanelThreadStream } from "../../../../../src/features/chat/host/thread-stream/view-projection";
 import {
   appServerAgentMessageFixture,
   appServerThreadFixture,
@@ -32,6 +33,7 @@ import {
 } from "../../../../support/server-requests";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
+import { threadStreamDependenciesFixture } from "../../support/thread-stream-dependencies";
 
 type ThreadStartedNotification = Extract<ServerNotification, { method: "thread/started" }>;
 
@@ -86,6 +88,26 @@ function activeRunningState(): ChatState {
   });
 }
 
+function projectedTextViews(handler: TestChatInboundHandler) {
+  return projectThreadStream(selectChatPanelThreadStream(handler.currentState()), threadStreamDependenciesFixture()).blocks.flatMap(
+    (block) => (block.kind === "text" ? [block.view] : []),
+  );
+}
+
+function startedPlanHandler(): TestChatInboundHandler {
+  const handler = handlerForState(chatStateWith(activeRunningState(), { runtime: { active: { collaborationMode: "plan" } } }));
+  handler.handleNotification({
+    method: "item/started",
+    params: {
+      threadId: "thread-active",
+      turnId: "turn-active",
+      startedAtMs: 1,
+      item: { type: "plan", id: "p1", text: "" },
+    },
+  });
+  return handler;
+}
+
 function activeRequestState(): ChatState {
   return chatStateFixture({
     activeThread: { id: "thread" },
@@ -114,16 +136,49 @@ function commandApprovalAction(handler: TestChatInboundHandler, requestId: numbe
 
 describe("ChatInboundHandler", () => {
   describe("active turn routing", () => {
-    it("applies matching streaming deltas as assistant markdown", () => {
-      const state = activeRunningState();
-      const handler = handlerForState(state);
+    it("offers the completed assistant response as a fork target after streaming", () => {
+      const handler = handlerForState(activeRunningState());
+      handler.handleNotification({
+        method: "item/started",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          startedAtMs: 1,
+          item: appServerAgentMessageFixture("a1", ""),
+        },
+      });
+      expect(projectedTextViews(handler)).toEqual([]);
 
       handler.handleNotification({
         method: "item/agentMessage/delta",
-        params: { threadId: "thread-active", turnId: "turn-active", itemId: "a1", delta: "hello" },
-      } satisfies Extract<ServerNotification, { method: "item/agentMessage/delta" }>);
+        params: { threadId: "thread-active", turnId: "turn-active", itemId: "a1", delta: "Partial answer" },
+      });
+      expect(projectedTextViews(handler)).toEqual([
+        expect.objectContaining({ body: "Partial answer", renderMode: "streamMarkdown", actionTargets: {} }),
+      ]);
 
-      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([{ id: "a1", text: "hello" }]);
+      const completed = appServerAgentMessageFixture("a1", "Final answer");
+      handler.handleNotification({
+        method: "item/completed",
+        params: { threadId: "thread-active", turnId: "turn-active", completedAtMs: 2, item: completed },
+      });
+      expect(projectedTextViews(handler)).toEqual([
+        expect.objectContaining({ body: "Final answer", renderMode: "obsidianMarkdown", actionTargets: {} }),
+      ]);
+      handler.handleNotification(
+        turnNotification("turn/completed", "thread-active", {
+          id: "turn-active",
+          status: "completed",
+          itemsView: "summary",
+          items: [completed],
+        }),
+      );
+      expect(projectedTextViews(handler)).toEqual([
+        expect.objectContaining({
+          body: "Final answer",
+          actionTargets: { fork: { itemId: "a1", turnId: "turn-active" } },
+        }),
+      ]);
     });
 
     it("accumulates command output from inbound notifications", () => {
@@ -289,44 +344,61 @@ describe("ChatInboundHandler", () => {
       );
     });
 
-    it("preserves streamed plan text and reconciles its completed turn", () => {
-      const state = activeRunningState();
-      const handler = handlerForState(state);
-
+    it.each([null, "# Draft plan"])("offers the finalized plan after item completion (delta=%s)", (delta) => {
+      const handler = startedPlanHandler();
+      expect(projectedTextViews(handler)).toEqual([expect.objectContaining({ body: "", renderMode: "text", actionTargets: {} })]);
+      if (delta !== null) {
+        handler.handleNotification({
+          method: "item/plan/delta",
+          params: { threadId: "thread-active", turnId: "turn-active", itemId: "p1", delta },
+        });
+      }
+      expect(projectedTextViews(handler)).toEqual([expect.objectContaining({ body: delta ?? "", renderMode: "text", actionTargets: {} })]);
       handler.handleNotification({
-        method: "item/plan/delta",
-        params: { threadId: "thread-active", turnId: "turn-active", itemId: "p1", delta: "<proposed_plan>\n# Plan" },
-      } satisfies Extract<ServerNotification, { method: "item/plan/delta" }>);
-
-      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
-        {
-          id: "p1",
-          kind: "dialogue",
-          dialogueKind: "proposedPlan",
-          role: "assistant",
-          text: "<proposed_plan>\n# Plan",
-          dialogueState: "streaming",
+        method: "item/completed",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          completedAtMs: 2,
+          item: { type: "plan", id: "p1", text: "# Final plan" },
         },
+      });
+      expect(projectedTextViews(handler)).toEqual([
+        expect.objectContaining({ body: "# Final plan", renderMode: "obsidianMarkdown", actionTargets: {} }),
       ]);
       handler.handleNotification(
         turnNotification("turn/completed", "thread-active", {
           id: "turn-active",
           status: "completed",
-          itemsView: "full",
-          items: [{ type: "plan", id: "p1", text: "<proposed_plan>\n# Plan\n</proposed_plan>" }],
+          itemsView: "notLoaded",
+          items: [],
         }),
       );
-
-      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([
+      expect(projectedTextViews(handler)).toEqual([
         expect.objectContaining({
-          id: "p1",
-          kind: "dialogue",
-          role: "assistant",
-          text: "# Plan",
-          dialogueKind: "proposedPlan",
-          dialogueState: "completed",
+          body: "# Final plan",
+          actionTargets: { fork: { itemId: "p1", turnId: "turn-active" }, implementPlan: { itemId: "p1" } },
         }),
       ]);
+    });
+
+    it.each([null, "# Unfinished plan"])("does not offer an interrupted plan as a completed outcome (delta=%s)", (delta) => {
+      const handler = startedPlanHandler();
+      if (delta !== null) {
+        handler.handleNotification({
+          method: "item/plan/delta",
+          params: { threadId: "thread-active", turnId: "turn-active", itemId: "p1", delta },
+        });
+      }
+      handler.handleNotification(
+        turnNotification("turn/completed", "thread-active", {
+          id: "turn-active",
+          status: "interrupted",
+          itemsView: "notLoaded",
+          items: [],
+        }),
+      );
+      expect(projectedTextViews(handler)).toEqual([expect.objectContaining({ body: delta ?? "", renderMode: "text", actionTargets: {} })]);
     });
 
     it("updates structured turn plan progress", () => {
