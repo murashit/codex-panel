@@ -7,58 +7,35 @@ import { pendingRequestFixture } from "../../support/pending-requests";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
 describe("pending request actions", () => {
-  it.each(["accept", "decline", "cancel"] as const)("keeps human command approval after sending %s until resolved", (decision) => {
-    const { handler, stateStore, receive, pendingRequests } = pendingRequestFixture();
-    stateStore.dispatch({ type: "turn/scoped-cleared" });
-    const request = commandApprovalRequestFixture(81, {
-      threadId: "thread-active",
-      turnId: "earlier-turn",
-      kind: "humanCommand",
-      availableDecisions: [decision],
-    });
-    const response = receive(request);
-    const approval = stateStore.getState().requests.approvals[0];
-    const action = approval?.actionOptions?.[0]?.action;
-    if (!action) throw new Error("Expected command approval");
-    stateStore.dispatch({ type: "turn/started", threadId: "thread-active", turnId: "next-turn" });
-    pendingRequests.actions.resolveApproval(81, action);
-    pendingRequests.actions.resolveApproval(81, action);
-    stateStore.dispatch({ type: "turn/scoped-cleared" });
-    expect(response.respond).toHaveBeenCalledExactlyOnceWith({ decision });
-    expect(stateStore.getState().requests.approvals).toEqual([expect.objectContaining({ requestId: 81, responseSent: true })]);
-    expect(chatStateThreadStreamItems(stateStore.getState()).some((item) => item.kind === "approvalResult")).toBe(false);
-    handler.handleNotification({ method: "serverRequest/resolved", params: { threadId: "thread-active", requestId: 81 } });
-    expect(stateStore.getState().requests.approvals).toEqual([]);
-  });
-
-  it.each([false, true])("replays human approvals across disconnect without rejecting them (answered=%s)", (answered) => {
-    const { handler, stateStore, receive, pendingRequests } = pendingRequestFixture();
-    const request = commandApprovalRequestFixture(81, {
-      threadId: "thread-active",
-      turnId: "turn-active",
-      kind: "humanCommand",
-      availableDecisions: ["accept"],
-    });
-    const original = receive(request);
-    const action = stateStore.getState().requests.approvals[0]?.actionOptions?.[0]?.action;
-    if (!action) throw new Error("Expected command approval");
-    if (answered) pendingRequests.actions.resolveApproval(81, action);
-    stateStore.dispatch({ ...threadActivationFixture(panelThreadFixture({ id: "thread-active" })), type: "active-thread/resumed" });
-    expect(stateStore.getState().requests.approvals).toEqual([
-      expect.objectContaining({ requestId: 81, ...(answered ? { responseSent: true } : {}) }),
-    ]);
-    handler.clearServerRequests("disconnect");
-    stateStore.dispatch({ type: "connection/scoped-cleared" });
-    expect(stateStore.getState().requests.approvals).toEqual([]);
-    stateStore.dispatch({ ...threadActivationFixture(panelThreadFixture({ id: "thread-active" })), type: "active-thread/resumed" });
-    expect(original.reject).not.toHaveBeenCalled();
-    const replayed = receive(request);
-    expect(stateStore.getState().requests.approvals).toHaveLength(1);
-    pendingRequests.actions.resolveApproval(81, action);
-    expect(replayed.respond).toHaveBeenCalledExactlyOnceWith({ decision: "accept" });
-    stateStore.dispatch({ type: "active-thread/cleared" });
-    expect(stateStore.getState().requests.approvals).toEqual([]);
-  });
+  it.each(["disconnect", "close"] as const)(
+    "retains unanswered human requests across resume and leaves %s without rejecting them",
+    (reason) => {
+      const { handler, stateStore, receive, pendingRequests } = pendingRequestFixture();
+      const request = commandApprovalRequestFixture(81, {
+        threadId: "thread-active",
+        turnId: "turn-active",
+        kind: "humanCommand",
+        availableDecisions: ["accept"],
+      });
+      const original = receive(request);
+      const action = stateStore.getState().requests.approvals[0]?.actionOptions?.[0]?.action;
+      if (!action) throw new Error("Expected command approval");
+      stateStore.dispatch({ ...threadActivationFixture(panelThreadFixture({ id: "thread-active" })), type: "active-thread/resumed" });
+      expect(stateStore.getState().requests.approvals).toEqual([expect.objectContaining({ requestId: 81 })]);
+      handler.clearServerRequests(reason);
+      stateStore.dispatch({ type: "connection/scoped-cleared" });
+      expect(stateStore.getState().requests.approvals).toEqual([]);
+      stateStore.dispatch({ ...threadActivationFixture(panelThreadFixture({ id: "thread-active" })), type: "active-thread/resumed" });
+      expect(original.respond).not.toHaveBeenCalled();
+      expect(original.reject).not.toHaveBeenCalled();
+      const replayed = receive(request);
+      pendingRequests.actions.resolveApproval(81, action);
+      expect(replayed.respond).toHaveBeenCalledExactlyOnceWith({ decision: "accept" });
+      expect(stateStore.getState().requests.approvals).toEqual([]);
+      expect(chatStateThreadStreamItems(stateStore.getState()).at(-1)).toMatchObject({ kind: "approvalResult" });
+      expect(chatStateThreadStreamItems(stateStore.getState()).at(-1)?.turnId).toBe("turn-active");
+    },
+  );
 
   it("submits the latest answer draft, clears it, records the result and restores focus", () => {
     const { stateStore, receive, pendingRequests, focusComposer } = pendingRequestFixture();
@@ -103,7 +80,11 @@ describe("pending request actions", () => {
     expect(focusComposer).toHaveBeenCalledTimes(2);
   });
 
-  it.each(["accept", "decline"] as const)("answers an approval with %s and records the choice", (action) => {
+  it.each([
+    { action: "accept", status: "allowed" },
+    { action: "decline", status: "denied" },
+    { action: "cancel", status: "cancelled" },
+  ] as const)("answers an approval with $action and records the choice", ({ action, status }) => {
     const { stateStore, receive, pendingRequests, focusComposer } = pendingRequestFixture();
     const response = receive(approvalRequest());
     pendingRequests.actions.resolveApproval(1, action);
@@ -113,8 +94,7 @@ describe("pending request actions", () => {
     expect(chatStateThreadStreamItems(stateStore.getState()).at(-1)).toMatchObject({
       kind: "approvalResult",
       executionState: action === "accept" ? "completed" : "failed",
-      text: expect.stringMatching(action === "accept" ? /^Allowed:/ : /^Denied:/),
-      approval: { status: action === "accept" ? "allowed" : "denied", scope: "turn" },
+      approval: { status, scope: "turn" },
     });
     expect(focusComposer).toHaveBeenCalledOnce();
   });
@@ -130,15 +110,24 @@ describe("pending request actions", () => {
     const original = receive(request);
     const action = stateStore.getState().requests.approvals[0]?.actionOptions?.[0]?.action;
     if (!action) throw new Error("Expected an offered approval action");
-    if (kind === "humanCommand") pendingRequests.actions.resolveApproval(51, action);
     const replayed = receive(request);
     expect(stateStore.getState().requests.approvals).toHaveLength(1);
     pendingRequests.actions.resolveApproval(51, action);
     pendingRequests.actions.resolveApproval(51, action);
-    expect(original.respond).toHaveBeenCalledTimes(kind === "humanCommand" ? 1 : 0);
+    expect(original.respond).not.toHaveBeenCalled();
     expect(original.reject).not.toHaveBeenCalled();
     expect(replayed.respond).toHaveBeenCalledExactlyOnceWith({ decision: "accept" });
-    expect(stateStore.getState().requests.approvals).toHaveLength(kind === "humanCommand" ? 1 : 0);
+    expect(stateStore.getState().requests.approvals).toEqual([]);
+    const repeated = receive(request);
+    pendingRequests.actions.resolveApproval(51, action);
+    expect(repeated.respond).toHaveBeenCalledExactlyOnceWith({ decision: "accept" });
+    const results = chatStateThreadStreamItems(stateStore.getState()).filter((item) => item.kind === "approvalResult");
+    expect(results).toHaveLength(2);
+    expect(new Set(results.map((item) => item.id)).size).toBe(2);
+    expect(results.map((item) => item.provenance)).toEqual([
+      expect.objectContaining({ source: "localUser", sourceId: "51" }),
+      expect.objectContaining({ source: "localUser", sourceId: "51" }),
+    ]);
   });
 
   it("cancels user input without publishing an answer", () => {
@@ -185,13 +174,28 @@ describe("pending request actions", () => {
 
   it("ignores actions for resolved requests and keeps blocking questions unskippable", () => {
     const { handler, stateStore, receive, pendingRequests, focusComposer } = pendingRequestFixture();
-    const responses = [receive(approvalRequest()), receive(inputRequest()), receive(mcpRequest())];
+    const responses = [
+      receive(approvalRequest()),
+      receive(inputRequest()),
+      receive(mcpRequest()),
+      receive(
+        commandApprovalRequestFixture(81, {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          kind: "humanCommand",
+          availableDecisions: ["accept"],
+        }),
+      ),
+    ];
+    const humanAction = stateStore.getState().requests.approvals.find((item) => item.requestId === 81)?.actionOptions?.[0]?.action;
+    if (!humanAction) throw new Error("Expected human command approval");
     pendingRequests.actions.skipUserInput(7);
     expect(stateStore.getState().requests.pendingUserInputs).toHaveLength(1);
-    for (const requestId of [1, 7, 9])
+    for (const requestId of [1, 7, 9, 81])
       handler.handleNotification({ method: "serverRequest/resolved", params: { threadId: "thread-active", requestId } });
 
     pendingRequests.actions.resolveApproval(1, "accept");
+    pendingRequests.actions.resolveApproval(81, humanAction);
     pendingRequests.actions.resolveUserInput(7);
     pendingRequests.actions.cancelUserInput(7);
     pendingRequests.actions.skipUserInput(7);

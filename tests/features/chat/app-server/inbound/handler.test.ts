@@ -13,7 +13,11 @@ import {
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { activeThreadState, type ChatState } from "../../../../../src/features/chat/application/state/model";
 import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
-import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { threadStreamRollbackCandidate } from "../../../../../src/features/chat/application/state/thread-stream";
+import { chatThreadStreamViewState } from "../../../../../src/features/chat/application/state/turn-scope";
+import { localUserDialogueItemFromInput } from "../../../../../src/features/chat/application/submission/local-user-dialogue";
+import { captureForkDisplaySnapshot } from "../../../../../src/features/chat/application/threads/fork-display-snapshot";
 import { panelThreadSubscriptions } from "../../../../../src/features/chat/application/threads/thread-subscriptions";
 import {
   appServerAgentMessageFixture,
@@ -34,6 +38,7 @@ type ThreadStartedNotification = Extract<ServerNotification, { method: "thread/s
 type TestChatInboundHandler = Omit<ChatInboundHandler, "handleServerRequest"> & {
   handleServerRequest(request: ServerRequest): boolean;
   currentState(): ChatState;
+  stateStore: ChatStateStore;
 };
 
 function handlerForState(
@@ -61,6 +66,7 @@ function handlerForState(
         reject: (code, message) => actions.rejectServerRequest?.(request.id, code, message),
       }),
     currentState: () => store.getState(),
+    stateStore: store,
   };
 }
 
@@ -73,9 +79,10 @@ function turnNotification(
 }
 
 function activeRunningState(): ChatState {
-  return chatStateFixture({
-    activeThread: { id: "thread-active" },
-    activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } },
+  return chatReducer(chatStateFixture({ activeThread: { id: "thread-active" } }), {
+    type: "turn/started",
+    threadId: "thread-active",
+    turnId: "turn-active",
   });
 }
 
@@ -448,12 +455,10 @@ describe("ChatInboundHandler", () => {
     it("keeps prompt submit hooks with their server turn id through completed-turn reconciliation", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, {
-        activeTurn: { lifecycle: { kind: "starting", anchorItemId: "local-user-1" } },
+      state = chatReducer(state, {
+        type: "turn/optimistic-started",
+        item: localUserDialogueItemFromInput({ id: "local-user-1", text: "hello", codexInput: [] }),
       });
-      state = withChatStateStableThreadStreamItems(state, [
-        { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" },
-      ]);
       const handler = handlerForState(state);
 
       handler.handleNotification(
@@ -637,8 +642,8 @@ describe("ChatInboundHandler", () => {
       });
       expect(handler.currentState().requests.approvals).toEqual([]);
       expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
-        id: "approval-12",
         kind: "approvalResult",
+        provenance: { source: "localUser", channel: "response", sourceId: "12" },
         role: "tool",
         text: "Allowed for this session: Need access",
         turnId: "turn",
@@ -741,7 +746,8 @@ describe("ChatInboundHandler", () => {
     it("leaves server requests for a different active thread or turn unclaimed", () => {
       const state = activeRunningState();
       const rejectServerRequest = vi.fn();
-      const handler = handlerForState(state, { rejectServerRequest });
+      const respondToServerRequest = vi.fn();
+      const handler = handlerForState(state, { rejectServerRequest, respondToServerRequest });
 
       const otherThread = handler.handleServerRequest(
         userInputRequestFixture(51, {
@@ -758,53 +764,58 @@ describe("ChatInboundHandler", () => {
         }),
       );
 
+      const otherHumanThread = handler.handleServerRequest(
+        commandApprovalRequestFixture(53, {
+          threadId: "thread-other",
+          turnId: "turn-active",
+          kind: "humanCommand",
+          availableDecisions: ["accept"],
+        }),
+      );
+      handler.pendingRequests.resolveApproval(53, "accept");
+      expect(otherHumanThread).toBe(false);
+      expect(handler.currentState().requests.approvals).toEqual([]);
+      expect(respondToServerRequest).not.toHaveBeenCalled();
       expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
       expect(otherThread).toBe(false);
       expect(otherTurn).toBe(false);
       expect(rejectServerRequest).not.toHaveBeenCalled();
     });
 
-    it("presents tracked-child approvals in the parent turn and answers their original request ID", () => {
+    it.each(["command", "humanCommand"] as const)("records tracked-child %s responses using the original request ID", (kind) => {
       const respondToServerRequest = vi.fn();
       const handler = handlerForState(activeRunningState(), { respondToServerRequest });
       trackDirectSubagent(handler, "child", "child-turn");
+      handler.handleNotification({
+        method: "item/started",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          startedAtMs: 1,
+          item: appServerUserMessageFixture("parent-prompt", "Continue"),
+        },
+      });
 
-      handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "command"));
+      handler.handleServerRequest(
+        commandApprovalRequestFixture(51, { threadId: "child", turnId: "child-turn", kind, availableDecisions: ["accept"] }),
+      );
 
       expect(handler.currentState().requests.approvals).toEqual([expect.objectContaining({ requestId: 51, turnId: "turn-active" })]);
       handler.pendingRequests.resolveApproval(51, commandApprovalAction(handler, 51, "accept"));
 
       expect(respondToServerRequest).toHaveBeenCalledExactlyOnceWith(51, { decision: "accept" });
       expect(handler.currentState().requests.approvals).toEqual([]);
-      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
-        kind: "approvalResult",
-        turnId: "turn-active",
-      });
+      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
+        { id: "parent-prompt", turnId: "turn-active" },
+        { kind: "approvalResult" },
+      ]);
+      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)?.turnId).toBe("turn-active");
     });
 
-    it("retains a failed approval for an explicit retry using the user's current choice", () => {
-      const respondToServerRequest = vi.fn().mockImplementationOnce(() => {
-        throw new Error("transport unavailable");
-      });
-      const handler = handlerForState(activeRunningState(), { respondToServerRequest });
-      const request = commandApprovalRequest(51, "thread-active", "turn-active", "command");
-      handler.handleServerRequest(request);
-      handler.pendingRequests.resolveApproval(51, commandApprovalAction(handler, 51, "accept"));
-
-      expect(handler.currentState().requests.approvals).toHaveLength(1);
-      expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toEqual([]);
-      handler.handleServerRequest(request);
-      expect(respondToServerRequest).toHaveBeenCalledTimes(1);
-      handler.pendingRequests.resolveApproval(51, commandApprovalAction(handler, 51, "decline"));
-
-      expect(respondToServerRequest).toHaveBeenNthCalledWith(2, 51, { decision: "decline" });
-      expect(handler.currentState().requests.approvals).toEqual([]);
-      expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toHaveLength(1);
-    });
-
-    it("retains a sent human approval from a child until resolution after the parent turn completes", () => {
+    it.each(["running", "starting"] as const)("keeps a child answer with its parent work while newer work is %s", (phase) => {
       const respondToServerRequest = vi.fn();
       const handler = handlerForState(activeRunningState(), { respondToServerRequest });
+      const { stateStore } = handler;
       trackDirectSubagent(handler, "child", "child-turn");
       handler.handleServerRequest(
         commandApprovalRequestFixture(81, {
@@ -814,24 +825,58 @@ describe("ChatInboundHandler", () => {
           availableDecisions: ["accept"],
         }),
       );
-      handler.pendingRequests.resolveApproval(81, commandApprovalAction(handler, 81, "accept"));
-      handler.handleNotification(
-        turnNotification("turn/completed", "thread-active", {
-          id: "turn-active",
-          status: "completed",
-          startedAt: 1,
-          completedAt: 2,
-          durationMs: 1,
-          itemsView: "full",
-          items: [],
-        }),
-      );
-      expect(handler.currentState().requests.approvals).toEqual([
-        expect.objectContaining({ requestId: 81, turnId: "child-turn", responseSent: true }),
-      ]);
-      handler.handleNotification({ method: "serverRequest/resolved", params: { threadId: "child", requestId: 81 } });
-      expect(handler.currentState().requests.approvals).toEqual([]);
+      const action = commandApprovalAction(handler, 81, "accept");
+      const completeParent = (turnId: string) =>
+        handler.handleNotification({
+          method: "turn/completed",
+          params: {
+            threadId: "thread-active",
+            turn: appServerTurnFixture({
+              id: turnId,
+              status: "completed",
+              itemsView: "full",
+              items: [
+                appServerUserMessageFixture(`${turnId}-prompt`, "Continue"),
+                appServerAgentMessageFixture(`${turnId}-answer`, "Done"),
+              ],
+            }),
+          },
+        });
+      completeParent("turn-active");
+      handler.handleNotification({
+        method: "turn/started",
+        params: {
+          threadId: "thread-active",
+          turn: appServerTurnFixture({ id: "next-turn", status: "inProgress", itemsView: "full", items: [] }),
+        },
+      });
+      if (phase === "starting") {
+        completeParent("next-turn");
+        stateStore.dispatch({
+          type: "turn/optimistic-started",
+          item: localUserDialogueItemFromInput({
+            id: "pending-prompt",
+            text: "Continue again",
+            codexInput: [],
+          }),
+        });
+      }
+      handler.pendingRequests.resolveApproval(81, action);
+      handler.pendingRequests.resolveApproval(81, action);
+      if (phase === "starting") {
+        stateStore.dispatch({ type: "turn/start-failed", threadId: "thread-active", anchorItemId: "pending-prompt" });
+      } else {
+        completeParent("next-turn");
+      }
       expect(respondToServerRequest).toHaveBeenCalledExactlyOnceWith(81, { decision: "accept" });
+      expect(stateStore.getState().requests.approvals).toEqual([]);
+      const state = stateStore.getState();
+      const stream = chatThreadStreamViewState(state.threadStream, state.activeTurn);
+      const result = chatStateThreadStreamItems(state).find((item) => item.kind === "approvalResult");
+      expect(result).toMatchObject({ turnId: "turn-active", approval: { status: "allowed", scope: "command" } });
+      expect(threadStreamRollbackCandidate(stream)).toMatchObject({ turnId: "next-turn", itemId: "next-turn-prompt" });
+      expect(captureForkDisplaySnapshot(stream, { kind: "through-turn", turnId: "turn-active" }).items).toContain(result);
+      expect(captureForkDisplaySnapshot(stream, { kind: "before-turn", turnId: "turn-active" }).items).not.toContain(result);
     });
 
     it("clears a tracked-child approval when its request resolves outside the active thread", () => {

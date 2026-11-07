@@ -11,7 +11,6 @@ export interface ChatRequestState {
 }
 
 export type RequestAction =
-  | { type: "request/approval-response-sent"; requestId: PendingRequestId }
   | { type: "request/approval-queued"; approval: PendingApproval }
   | { type: "request/user-input-queued"; input: PendingUserInput }
   | { type: "request/user-input-auto-resolution-extended"; requestId: PendingRequestId; autoResolutionAtMs: number }
@@ -31,20 +30,8 @@ export function initialChatRequestState(): ChatRequestState {
 
 export function reduceRequestSlice(state: ChatRequestState, action: RequestAction): ChatRequestState {
   switch (action.type) {
-    case "request/approval-response-sent":
-      return patchObject(state, {
-        approvals: state.approvals.map((approval) =>
-          approval.requestId === action.requestId && approval.kind === "humanCommand" ? { ...approval, responseSent: true } : approval,
-        ),
-      });
     case "request/approval-queued":
-      if (state.approvals.some((existing) => existing.requestId === action.approval.requestId)) {
-        return action.approval.kind === "humanCommand"
-          ? patchObject(state, {
-              approvals: state.approvals.map((approval) => (approval.requestId === action.approval.requestId ? action.approval : approval)),
-            })
-          : state;
-      }
+      if (state.approvals.some((existing) => existing.requestId === action.approval.requestId)) return state;
       return patchObject(state, { approvals: [...state.approvals, action.approval] });
     case "request/user-input-queued":
       if (state.pendingUserInputs.some((existing) => existing.requestId === action.input.requestId)) return state;

@@ -10,19 +10,19 @@ import {
   type PendingUserInput,
 } from "./model";
 
-export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction): ThreadStreamItem {
+export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction, id: string): ThreadStreamItem {
   const kind = approvalActionKind(action);
   return {
-    id: `approval-${String(approval.requestId)}`,
+    id,
     kind: "approvalResult",
     role: "tool",
     text: approvalResultText(approval, action),
-    ...definedProp("turnId", approval.turnId ?? undefined),
+    ...definedProp("turnId", approval.turnId),
     provenance: { source: "localUser", channel: "response", interaction: "approvalResponse", sourceId: String(approval.requestId) },
     executionState: kind === "accept" || kind === "accept-session" ? "completed" : "failed",
     approval: {
       status: approvalResultStatus(kind),
-      scope: kind === "accept-session" ? "session" : "turn",
+      scope: approval.kind === "humanCommand" ? "command" : kind === "accept-session" ? "session" : "turn",
       request: approval.title,
       auditFacts: [...approval.details],
     },

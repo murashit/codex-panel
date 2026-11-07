@@ -1,15 +1,17 @@
 // @vitest-environment jsdom
 
 import { Notice } from "obsidian";
+import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { ConnectionManagerHandlers } from "../../../../src/app-server/connection/connection-manager";
 import { AppServerContextConnection } from "../../../../src/app-server/connection/context-connection";
-import type { ServerNotification, ServerRequest } from "../../../../src/app-server/connection/rpc-messages";
+import type { ServerNotification } from "../../../../src/app-server/connection/rpc-messages";
 import { createChatState } from "../../../../src/features/chat/application/state/model";
 import { notices } from "../../../mocks/obsidian";
 import { appServerTurnFixture } from "../../../support/app-server-records";
 import { deferred, waitForAsyncWork } from "../../../support/async";
+import { commandApprovalRequestFixture } from "../../../support/server-requests";
 import {
   chatHost,
   chatView,
@@ -102,7 +104,7 @@ describe("CodexChatView thread state", () => {
     shared.connection.dispose();
   });
 
-  it("answers child approvals in the parent after the child panel navigates away and closes", async () => {
+  it("keeps child approval subscriptions until their presentation ends", async () => {
     const client = connectedClient({
       "thread/resume": vi.fn((params: unknown) => {
         const threadId = (params as { threadId: string }).threadId;
@@ -143,26 +145,12 @@ describe("CodexChatView thread state", () => {
       for (const id of [51, 52]) {
         const responder = { respond: vi.fn(), reject: vi.fn() };
         transport.handlers?.onServerRequest(
-          {
-            id,
-            method: "item/commandExecution/requestApproval",
-            params: {
-              kind: "command",
-              command: "npm test",
-              cwd: "/vault",
-              threadId: "child",
-              turnId: "child-turn",
-              itemId: `command-${id}`,
-              approvalId: null,
-              environmentId: null,
-              startedAtMs: 1,
-              reason: null,
-              commandActions: [],
-              proposedExecpolicyAmendment: null,
-              proposedNetworkPolicyAmendments: [],
-              availableDecisions: ["accept", "decline"],
-            },
-          } satisfies ServerRequest,
+          commandApprovalRequestFixture(id, {
+            threadId: "child",
+            turnId: "child-turn",
+            itemId: `command-${id}`,
+            availableDecisions: ["accept", "decline"],
+          }),
           responder,
         );
         await waitForAsyncWork(() => expect(parent.containerEl.textContent).toContain("npm test"));
@@ -174,14 +162,44 @@ describe("CodexChatView thread state", () => {
         expect(responder.reject).not.toHaveBeenCalled();
         await child.onClose();
       }
+      const humanResponder = { respond: vi.fn(), reject: vi.fn() };
+      transport.handlers?.onServerRequest(
+        commandApprovalRequestFixture(81, {
+          threadId: "child",
+          turnId: "child-turn",
+          kind: "humanCommand",
+          availableDecisions: ["accept", "decline", "cancel"],
+        }),
+        humanResponder,
+      );
+      await waitForAsyncWork(() =>
+        expect(
+          parent.containerEl.querySelectorAll(".codex-panel__approval .codex-panel__pending-request-actions button:enabled"),
+        ).toHaveLength(3),
+      );
       expectRequestTimes(client, "thread/unsubscribe", 0);
-      transport.handlers?.onNotification({
-        method: "turn/completed",
-        params: { threadId: "parent", turn: completedTurn("parent-turn") },
-      } as ServerNotification);
+      await act(() => {
+        transport.handlers?.onNotification({
+          method: "turn/completed",
+          params: {
+            threadId: "parent",
+            turn: appServerTurnFixture({ id: "parent-turn", status: "completed", itemsView: "full", items: [] }),
+          },
+        });
+      });
+      expectRequestTimes(client, "thread/unsubscribe", 0);
+      expect(parent.surface.openPanelSnapshot().turnBusy).toBe(false);
+      expect(
+        parent.containerEl.querySelectorAll(".codex-panel__approval .codex-panel__pending-request-actions button:enabled"),
+      ).toHaveLength(3);
+      transport.handlers?.onNotification({ method: "serverRequest/resolved", params: { threadId: "child", requestId: 81 } });
+      await waitForAsyncWork(() => expect(parent.containerEl.querySelector(".codex-panel__approval")).toBeNull());
+      expect(humanResponder.respond).not.toHaveBeenCalled();
+      expect(humanResponder.reject).not.toHaveBeenCalled();
       await waitForAsyncWork(() =>
         expect(client.request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "child" }, expect.anything()),
       );
+      expectRequestTimes(client, "thread/unsubscribe", 1);
       expect(client.request).not.toHaveBeenCalledWith("thread/unsubscribe", { threadId: "parent" }, expect.anything());
       expect(requestMethods(client)).not.toContain("turn/interrupt");
       expect(disconnect).not.toHaveBeenCalled();

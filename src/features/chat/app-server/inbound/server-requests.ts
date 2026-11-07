@@ -2,6 +2,7 @@ import type { AppServerServerRequestResponder } from "../../../../app-server/con
 import type { RequestId, ServerRequest } from "../../../../app-server/connection/rpc-messages";
 import type { DynamicToolCallResponse } from "../../../../generated/app-server/v2/DynamicToolCallResponse";
 import { dynamicToolFailure, type PanelDynamicToolCall, type PanelDynamicToolResponse } from "../../application/dynamic-tools";
+import type { LocalIdSource } from "../../application/local-id-source";
 import { type PendingRequestResponsePort, PendingRequests } from "../../application/pending-requests/controller";
 import { activeThreadId, type ChatState } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
@@ -17,6 +18,7 @@ import { routeServerRequest, serverRequestCurrentTimeResponse } from "./server-r
 
 interface ServerRequestsHost {
   stateStore: ChatStateStore;
+  localItemIds: LocalIdSource;
   addSystemMessage(text: string): void;
   executeDynamicTool(call: PanelDynamicToolCall): PanelDynamicToolResponse;
 }
@@ -49,6 +51,7 @@ export class ChatServerRequests {
     };
     this.pending = new PendingRequests({
       stateStore: host.stateStore,
+      localItemIds: host.localItemIds,
       responses,
       addSystemMessage: (text) => {
         host.addSystemMessage(text);
@@ -78,9 +81,7 @@ export class ChatServerRequests {
           this.rejectUnsupported(request, `Rejected approval without a turn: ${request.method}`);
           break;
         }
-        this.pending.queueApproval(
-          trackedSubagent && route.approval.kind !== "humanCommand" ? { ...route.approval, turnId: parentTurnId } : route.approval,
-        );
+        this.pending.queueApproval(trackedSubagent ? { ...route.approval, turnId: parentTurnId } : route.approval);
         break;
       }
       case "userInput":

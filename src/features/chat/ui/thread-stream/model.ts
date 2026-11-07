@@ -11,7 +11,6 @@ export function threadStreamExecutionClassName(state: ExecutionState | null): st
 
 export interface PendingApprovalViewModel {
   requiresHumanApproval?: boolean;
-  responseSent?: boolean;
   requestId: PendingRequestId;
   title: string;
   summary: string;

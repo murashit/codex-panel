@@ -184,11 +184,6 @@ function ApprovalCard({
           <div className="codex-panel__pending-request-body">This command requires human approval.</div>
         ) : null}
         <div className="codex-panel__pending-request-body">{approval.summary}</div>
-        {approval.responseSent ? (
-          <div className="codex-panel__pending-request-body" role="status">
-            Response sent. Waiting for Codex.
-          </div>
-        ) : null}
         <ApprovalDetails approval={approval} approvalDetails={approvalDetails} actions={actions} />
       </div>
       <div className="codex-panel__pending-request-actions">
