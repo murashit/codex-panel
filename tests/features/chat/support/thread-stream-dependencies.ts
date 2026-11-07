@@ -21,7 +21,7 @@ export function serverRequestActionsFixture() {
     resolveMcpElicitation: vi.fn(),
     setApprovalDetailsExpanded: vi.fn(),
     setUserInputDraft: vi.fn(),
-    setMcpElicitationDraft: vi.fn(),
+    setMcpElicitationField: vi.fn(),
   };
 }
 

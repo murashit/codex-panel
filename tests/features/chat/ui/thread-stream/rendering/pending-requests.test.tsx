@@ -17,7 +17,7 @@ import type { PendingRequestBlockSnapshot } from "../../../../../../src/features
 import { pendingRequestBlockSnapshotFromState } from "../../../../../../src/features/chat/ui/thread-stream/pending-requests";
 import { appServerAgentMessageFixture, appServerTurnFixture, appServerUserMessageFixture } from "../../../../../support/app-server-records";
 import { changeInputValue, textContents } from "../../../../../support/dom";
-import { commandApprovalRequestFixture } from "../../../../../support/server-requests";
+import { commandApprovalRequestFixture, mcpFormRequestFixture } from "../../../../../support/server-requests";
 import { pendingRequestFixture } from "../../../support/pending-requests";
 import { chatStateThreadStreamItems } from "../../../support/thread-stream";
 import { setupThreadStreamRendering } from "./setup";
@@ -612,31 +612,6 @@ describe("panel pending request rendering", () => {
     expect(element.querySelector(".codex-panel__auto-reviews")?.textContent).toContain("Auto-review approved: npm test");
   });
 
-  it("renders MCP elicitation fields and resolves them separately from Plan mode input", () => {
-    const parent = document.createElement("div");
-    const resolveMcpElicitation = vi.fn();
-    const setMcpElicitationDraft = vi.fn();
-
-    renderMcpRequest(
-      parent,
-      pendingMcpElicitationSnapshot(pendingMcpElicitation()),
-      pendingRequestActions({ resolveMcpElicitation, setMcpElicitationDraft }),
-    );
-
-    expect(parent.querySelector(".codex-panel__pending-request-title")?.textContent).toBe("MCP request from github");
-    const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input"));
-    const label = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__mcp-elicitation-label"));
-    expect(label.getAttribute("for")).toBe(input.id);
-    changeInputValue(input, "Updated");
-    actEvent(() => {
-      expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")).click();
-    });
-
-    expect(setMcpElicitationDraft).toHaveBeenCalledWith("51:mcp:title", "Updated");
-    expect(resolveMcpElicitation).toHaveBeenCalledWith(51, "accept");
-    unmountUiRootInAct(parent);
-  });
-
   it("associates MCP field labels with their own panel when the same request is shown twice", () => {
     const parents = [document.createElement("div"), document.createElement("div")];
     document.body.append(...parents);
@@ -682,162 +657,142 @@ describe("panel pending request rendering", () => {
     }
   });
 
-  it("does not accept invalid MCP elicitation forms", () => {
+  it("keeps an invalid MCP form editable and submits the corrected control values", () => {
     const parent = document.createElement("div");
-    const resolveMcpElicitation = vi.fn();
-
-    renderMcpRequest(
-      parent,
-      pendingMcpElicitationSnapshot(pendingMcpElicitation({ requestId: 52, defaultValue: "" })),
-      pendingRequestActions({ resolveMcpElicitation }),
-    );
-
-    actEvent(() => {
-      expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")).click();
-    });
-    expect(resolveMcpElicitation).not.toHaveBeenCalled();
-
-    changeInputValue(expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input")), "Ready");
-    actEvent(() => {
-      expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")).click();
-    });
-    expect(resolveMcpElicitation).toHaveBeenCalledWith(52, "accept");
-    unmountUiRootInAct(parent);
-  });
-
-  it.each([true, false])("submits edited MCP multi-select choices with a remaining selection=%s", (keepSelection) => {
-    const parent = document.createElement("div");
-    const { stateStore, receive, pendingRequests } = pendingRequestFixture();
-    const responder = receive({
-      id: 53,
-      method: "mcpServer/elicitation/request",
-      params: {
-        threadId: "thread-active",
-        turnId: "turn-active",
-        serverName: "github",
-        mode: "form",
-        _meta: null,
-        message: "Choose labels",
-        requestedSchema: {
+    const fixture = pendingRequestFixture();
+    const response = fixture.receive(
+      mcpFormRequestFixture(
+        52,
+        {
           type: "object",
-          required: ["labels"],
+          required: ["title", "labels"],
           properties: {
-            labels: { type: "array", title: "Labels", items: { type: "string", enum: ["bug", "docs"] }, minItems: 1n },
+            title: { type: "string", title: "Title", default: "Hi", minLength: 3, maxLength: 5 },
+            labels: {
+              type: "array",
+              title: "Labels",
+              items: { type: "string", enum: ["bug", "docs"] },
+              minItems: 1n,
+              default: ["outdated"],
+            },
+            notify: { type: "boolean", title: "Notify", default: false },
+            priority: { type: "string", title: "Priority", enum: ["low", "high"], default: "low" },
+            estimate: { type: "number", title: "Estimate", default: 1.5 },
+            count: { type: "integer", title: "Count", default: 1 },
           },
         },
-      },
-    });
-    const render = () => {
-      const snapshot = pendingRequestBlockSnapshotFromState({ ...stateStore.getState().requests, approvalDetails: new Set() });
-      renderThreadStreamBlocksInAct(
-        parent,
-        projectedThreadStream({
-          items: [{ id: "prompt", kind: "dialogue", role: "user", dialogueKind: "user", text: "Apply labels to the issue" }],
-          pendingRequests: pendingRequestContext({ signature: "mcp:53", snapshot, actions: pendingRequests.actions }),
-        }),
-      );
-    };
-    const toggle = (value: string) => {
-      actEvent(() => {
-        expectPresent(parent.querySelector<HTMLInputElement>(`input[value="${value}"]`)).click();
-      });
-      render();
-    };
+        { serverName: "issue-tracker" },
+      ),
+    );
     try {
-      render();
-      toggle("bug");
-      toggle("docs");
-      expect([...parent.querySelectorAll<HTMLInputElement>("input:checked")].map((input) => input.value)).toEqual(["bug", "docs"]);
-      toggle("bug");
-      if (!keepSelection) toggle("docs");
+      renderMcpWorkflow(parent, fixture);
+      expect(parent.querySelector(".codex-panel__pending-request-title")?.textContent).toContain("issue-tracker");
+      const title = expectPresent(parent.querySelector<HTMLInputElement>('input[type="text"]'));
+      const [estimateInput, countInput] = parent.querySelectorAll<HTMLInputElement>('input[type="number"]');
+      const estimate = expectPresent(estimateInput);
+      const count = expectPresent(countInput);
+      const label = expectPresent(parent.querySelector<HTMLInputElement>('input[value="docs"]'));
+      const labelControls = [...expectPresent(label.closest("fieldset")).querySelectorAll("input")];
+      expect(title.value).toBe("Hi");
+      expect(estimate.value).toBe("1.5");
+      expect(label.checked).toBe(false);
+      expect(parent.querySelector<HTMLInputElement>('input[value="low"]')?.checked).toBe(true);
+      actEvent(() => expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")).click());
+      expect(title.validity.customError).toBe(true);
+      expect(labelControls.some((control) => !control.validity.valid)).toBe(true);
+      expect(response.respond).not.toHaveBeenCalled();
+      expect(fixture.focusComposer).not.toHaveBeenCalled();
 
+      changeInputValue(title, "Ready");
+      changeInputValue(estimate, "3.5");
+      changeInputValue(count, "2");
       actEvent(() => {
-        expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")).click();
+        label.click();
+        expectPresent(parent.querySelector<HTMLInputElement>('input[value="high"]')).click();
+        expectPresent(
+          [...parent.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')].find((input) => input.value === "on"),
+        ).click();
       });
-
-      expect(responder.respond).toHaveBeenCalledExactlyOnceWith({
+      renderMcpWorkflow(parent, fixture);
+      expect(title.value).toBe("Ready");
+      expect(estimate.value).toBe("3.5");
+      expect(label.checked).toBe(true);
+      expect(parent.querySelector<HTMLInputElement>('input[value="high"]')?.checked).toBe(true);
+      expect(title.validity.valid).toBe(true);
+      expect(labelControls.every((control) => control.validity.valid)).toBe(true);
+      actEvent(() => expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")).click());
+      expect(response.respond).toHaveBeenCalledExactlyOnceWith({
         action: "accept",
-        content: { labels: keepSelection ? ["docs"] : [] },
+        content: { title: "Ready", labels: ["docs"], notify: true, priority: "high", estimate: 3.5, count: 2 },
         _meta: null,
       });
-      expect(stateStore.getState().requests.pendingMcpElicitations).toEqual([]);
+      expect(fixture.stateStore.getState().requests.pendingMcpElicitations).toEqual([]);
+      expect(fixture.focusComposer).toHaveBeenCalledOnce();
     } finally {
       unmountUiRootInAct(parent);
     }
   });
 
-  it("keeps mixed MCP form fields wired to their drafts and supports declining the request", () => {
+  it("lets the user decline an MCP request without supplying its required answer", () => {
     const parent = document.createElement("div");
-    const resolveMcpElicitation = vi.fn();
-    const setMcpElicitationDraft = vi.fn();
-    const elicitation = pendingMcpElicitationSnapshot({
-      requestId: 54,
-      params: {
-        turnId: null,
-        serverName: "github",
-        mode: "form",
-        message: "Configure the issue",
-        fields: [
-          { id: "notify", title: "Notify", description: null, type: "boolean", required: false, defaultValue: false },
-          {
-            id: "priority",
-            title: "Priority",
-            description: null,
-            type: "single-select",
-            required: true,
-            options: [
-              { value: "low", label: "Low" },
-              { value: "high", label: "High" },
-            ],
-            defaultValue: "low",
-          },
-          { id: "estimate", title: "Estimate", description: null, type: "number", required: false, defaultValue: 1.5 },
-          { id: "note", title: "Note", description: null, type: "string", required: false, defaultValue: "" },
-          { id: "count", title: "Count", description: null, type: "integer", required: false, defaultValue: 1 },
-        ],
-      },
-    });
-
-    renderThreadStreamBlocksInAct(
-      parent,
-      projectedThreadStream({
-        items: [
-          { id: "a1", kind: "dialogue", role: "assistant", text: "Done", dialogueKind: "assistantResponse", dialogueState: "completed" },
-        ],
-        pendingRequests: pendingRequestContext({
-          signature: "mcp:54",
-          snapshot: emptyPendingRequestBlockSnapshot({ pendingMcpElicitations: [elicitation] }),
-          actions: pendingRequestActions({ resolveMcpElicitation, setMcpElicitationDraft }),
-        }),
+    const fixture = pendingRequestFixture();
+    const response = fixture.receive(
+      mcpFormRequestFixture(52, {
+        type: "object",
+        required: ["title"],
+        properties: { title: { type: "string", title: "Title", minLength: 1 } },
       }),
     );
+    try {
+      renderMcpWorkflow(parent, fixture);
+      actEvent(() => expectPresent([...parent.querySelectorAll("button")].find((button) => button.textContent === "Decline")).click());
+      expect(response.respond).toHaveBeenCalledExactlyOnceWith({ action: "decline", content: null, _meta: null });
+    } finally {
+      unmountUiRootInAct(parent);
+    }
+  });
 
-    const fields = [...parent.querySelectorAll<HTMLElement>(".codex-panel__mcp-elicitation-field")];
-    expect(fields[2]?.querySelector("input")?.getAttribute("step")).toBe("any");
-    expect(fields[3]?.querySelector("input")?.hasAttribute("step")).toBe(false);
-    expect(fields[4]?.querySelector("input")?.getAttribute("step")).toBe("1");
-    actEvent(() => {
-      expectPresent(fields[0]?.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-checkbox")).click();
-      expectPresent(fields[1]?.querySelectorAll<HTMLInputElement>(".codex-panel__mcp-elicitation-radio").item(1)).click();
-      changeInputValue(expectPresent(fields[2]?.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input")), "3.5");
-      changeInputValue(expectPresent(fields[3]?.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input")), "Ship today");
-      changeInputValue(expectPresent(fields[4]?.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input")), "2");
-      expectPresent(
-        [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-button")].find(
-          (button) => button.textContent === "Decline",
-        ),
-      ).click();
-    });
+  it("updates checkbox groups and clears an empty-valued single choice", () => {
+    const parent = document.createElement("div");
+    const fixture = pendingRequestFixture();
+    const response = fixture.receive(
+      mcpFormRequestFixture(51, {
+        type: "object",
+        properties: {
+          choice: { type: "string", title: "Choice", oneOf: [{ const: "", title: "Empty label" }] },
+          labels: { type: "array", title: "Labels", items: { type: "string", enum: ["bug", "docs"] }, default: ["bug"] },
+        },
+      }),
+    );
+    try {
+      renderMcpWorkflow(parent, fixture);
+      expect(parent.querySelector('input[type="radio"]:checked')).toBeNull();
+      actEvent(() => expectPresent(parent.querySelector<HTMLInputElement>('input[value=""]')).click());
+      renderMcpWorkflow(parent, fixture);
+      expect(parent.querySelector<HTMLInputElement>('input[type="radio"]:checked')?.value).toBe("");
+      actEvent(() =>
+        expectPresent([...parent.querySelectorAll("button")].find((button) => button.textContent === "Clear selection")).click(),
+      );
+      renderMcpWorkflow(parent, fixture);
+      expect(parent.querySelector('input[type="radio"]:checked')).toBeNull();
+      expect([...parent.querySelectorAll("button")].some((button) => button.textContent === "Clear selection")).toBe(false);
 
-    expect(setMcpElicitationDraft.mock.calls).toEqual([
-      ["54:mcp:notify", "true"],
-      ["54:mcp:priority", "high"],
-      ["54:mcp:estimate", "3.5"],
-      ["54:mcp:note", "Ship today"],
-      ["54:mcp:count", "2"],
-    ]);
-    expect(resolveMcpElicitation).toHaveBeenCalledWith(54, "decline");
-    unmountUiRootInAct(parent);
+      actEvent(() => expectPresent(parent.querySelector<HTMLInputElement>('input[value="docs"]')).click());
+      renderMcpWorkflow(parent, fixture);
+      expect([...parent.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:checked')].map((input) => input.value)).toEqual([
+        "bug",
+        "docs",
+      ]);
+      actEvent(() => expectPresent(parent.querySelector<HTMLInputElement>('input[value="bug"]')).click());
+      renderMcpWorkflow(parent, fixture);
+      expect([...parent.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:checked')].map((input) => input.value)).toEqual([
+        "docs",
+      ]);
+      actEvent(() => expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")).click());
+      expect(response.respond).toHaveBeenCalledExactlyOnceWith({ action: "accept", content: { labels: ["docs"] }, _meta: null });
+    } finally {
+      unmountUiRootInAct(parent);
+    }
   });
 
   it("routes user-input cancellation and approval detail expansion from the shared request block", () => {
@@ -923,7 +878,6 @@ function emptyPendingRequestBlockSnapshot(overrides: Partial<PendingRequestBlock
     pendingUserInputs: [],
     pendingMcpElicitations: [],
     userInputDrafts: new Map(),
-    mcpElicitationDrafts: new Map(),
     approvalDetails: new Set(),
     ...overrides,
   };
@@ -931,10 +885,10 @@ function emptyPendingRequestBlockSnapshot(overrides: Partial<PendingRequestBlock
 
 function pendingMcpElicitation({
   requestId = 51,
-  defaultValue = "Issue",
+  value = "Issue",
 }: {
   requestId?: PendingMcpElicitation["requestId"];
-  defaultValue?: string;
+  value?: string;
 } = {}): PendingMcpElicitation {
   return {
     requestId,
@@ -950,7 +904,7 @@ function pendingMcpElicitation({
           description: "Issue title",
           type: "string",
           required: true,
-          defaultValue,
+          value,
         },
       ],
     },
@@ -964,7 +918,6 @@ function pendingApprovalSnapshot(approval: PendingApproval): PendingRequestBlock
       pendingUserInputs: [],
       pendingMcpElicitations: [],
       userInputDrafts: new Map(),
-      mcpElicitationDrafts: new Map(),
       approvalDetails: new Set(),
     }).approvals[0],
   );
@@ -977,7 +930,6 @@ function pendingMcpElicitationSnapshot(elicitation: PendingMcpElicitation): Pend
       pendingUserInputs: [],
       pendingMcpElicitations: [elicitation],
       userInputDrafts: new Map(),
-      mcpElicitationDrafts: new Map(),
       approvalDetails: new Set(),
     }).pendingMcpElicitations[0],
   );
@@ -994,22 +946,13 @@ function controlledOtherInput(parent = document.createElement("div")) {
   return { parent, drafts, render };
 }
 
-function renderMcpRequest(
-  parent: HTMLElement,
-  elicitation: PendingRequestBlockSnapshot["pendingMcpElicitations"][number],
-  actions: ReturnType<typeof pendingRequestActions>,
-): void {
+function renderMcpWorkflow(parent: HTMLElement, fixture: ReturnType<typeof pendingRequestFixture>): void {
+  const snapshot = pendingRequestBlockSnapshotFromState({ ...fixture.stateStore.getState().requests, approvalDetails: new Set() });
   renderThreadStreamBlocksInAct(
     parent,
     projectedThreadStream({
-      items: [
-        { id: "a1", kind: "dialogue", role: "assistant", text: "Done", dialogueKind: "assistantResponse", dialogueState: "completed" },
-      ],
-      pendingRequests: pendingRequestContext({
-        signature: `mcp:${String(elicitation.requestId)}`,
-        snapshot: emptyPendingRequestBlockSnapshot({ pendingMcpElicitations: [elicitation] }),
-        actions,
-      }),
+      items: [{ id: "prompt", kind: "dialogue", role: "user", dialogueKind: "user", text: "Configure the issue" }],
+      pendingRequests: pendingRequestContext({ signature: "mcp", snapshot, actions: fixture.pendingRequests.actions }),
     }),
   );
 }

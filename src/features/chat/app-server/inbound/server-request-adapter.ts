@@ -1,5 +1,6 @@
 import type { ServerRequest } from "../../../../app-server/connection/rpc-messages";
 import { pathRelativeToRoot } from "../../../../domain/files/paths";
+import { definedProp } from "../../../../domain/objects/optional-properties";
 import type { CommandExecutionRequestApprovalResponse } from "../../../../generated/app-server/v2/CommandExecutionRequestApprovalResponse";
 import type { FileChangeRequestApprovalResponse } from "../../../../generated/app-server/v2/FileChangeRequestApprovalResponse";
 import type { GrantedPermissionProfile } from "../../../../generated/app-server/v2/GrantedPermissionProfile";
@@ -41,35 +42,6 @@ type PermissionsApprovalParams = PermissionsApprovalRequest["params"];
 type UserInputParams = UserInputRequest["params"];
 type UserInputQuestion = UserInputParams["questions"][number];
 type McpElicitationParams = McpElicitationRequest["params"];
-
-type AppServerMcpElicitationPrimitiveSchema =
-  | {
-      type: "boolean";
-      title?: unknown;
-      description?: unknown;
-      default?: unknown;
-    }
-  | {
-      type: "number" | "integer";
-      title?: unknown;
-      description?: unknown;
-      default?: unknown;
-    }
-  | {
-      type: "array";
-      title?: unknown;
-      description?: unknown;
-      default?: unknown;
-      items?: unknown;
-    }
-  | {
-      type: "string";
-      title?: unknown;
-      description?: unknown;
-      default?: unknown;
-      oneOf?: unknown;
-      enum?: unknown;
-    };
 
 interface NormalizedMcpElicitationParamsBase {
   turnId: string | null;
@@ -530,97 +502,115 @@ function mcpElicitationFieldsFromRequestedSchema(schema: unknown): PendingMcpEli
   const required = new Set(
     Array.isArray(record["required"]) ? record["required"].filter((item): item is string => typeof item === "string") : [],
   );
+  if ([...required].some((id) => !Object.hasOwn(properties, id))) return null;
   const fields: PendingMcpElicitationField[] = [];
   for (const [id, fieldSchema] of Object.entries(properties)) {
-    if (!isMcpElicitationPrimitiveSchema(fieldSchema)) return null;
-    fields.push(mcpElicitationFieldFromSchema(id, fieldSchema, required.has(id)));
+    const field = mcpElicitationFieldFromSchema(id, fieldSchema, required.has(id));
+    if (!field) return null;
+    fields.push(field);
   }
   return fields;
 }
 
-function isMcpElicitationPrimitiveSchema(schema: unknown): schema is AppServerMcpElicitationPrimitiveSchema {
-  const record = asRecordOrNull(schema);
-  if (!record) return false;
-  const type = record["type"];
-  return type === "boolean" || type === "number" || type === "integer" || type === "array" || type === "string";
-}
-
-function mcpElicitationFieldFromSchema(
-  id: string,
-  schema: AppServerMcpElicitationPrimitiveSchema,
-  required: boolean,
-): PendingMcpElicitationField {
+function mcpElicitationFieldFromSchema(id: string, value: unknown, required: boolean): PendingMcpElicitationField | null {
+  const schema = asRecordOrNull(value);
+  if (!schema) return null;
   const base = {
     id,
-    title: nonEmptyString(schema.title) ?? id,
-    description: nonEmptyString(schema.description),
+    title: nonEmptyString(schema["title"]) ?? id,
+    description: nonEmptyString(schema["description"]),
     required,
   };
-  switch (schema.type) {
+  const defaultValue = schema["default"];
+  const type = schema["type"];
+  switch (type) {
     case "boolean":
-      return { ...base, type: "boolean", defaultValue: schema.default === true };
+      return { ...base, type, value: defaultValue === true };
     case "number":
-    case "integer":
+    case "integer": {
+      const minimum = optionalMcpNumber(schema["minimum"]);
+      const maximum = optionalMcpNumber(schema["maximum"]);
+      if (minimum === null || maximum === null) return null;
       return {
         ...base,
-        type: schema.type,
-        defaultValue: typeof schema.default === "number" && Number.isFinite(schema.default) ? schema.default : null,
+        type,
+        ...definedProp("minimum", minimum),
+        ...definedProp("maximum", maximum),
+        value: typeof defaultValue === "number" && Number.isFinite(defaultValue) ? String(defaultValue) : "",
       };
+    }
     case "array": {
-      const items = asRecordOrNull(schema.items);
+      const items = asRecordOrNull(schema["items"]);
+      const options = selectOptions(items?.["anyOf"], items?.["enum"]);
+      const minItems = optionalMcpCardinality(schema["minItems"]);
+      const maxItems = optionalMcpCardinality(schema["maxItems"]);
+      if (!options || minItems === null || maxItems === null) return null;
+      if (options.length === 0 && required && (minItems ?? 0n) > 0n) return null;
+      const allowed = new Set(options.map((option) => option.value));
       return {
         ...base,
         type: "multi-select",
-        options: selectOptions(items?.["anyOf"], items?.["enum"]),
-        defaultValue: stringArrayOrEmpty(schema.default),
+        options,
+        value: Array.isArray(defaultValue)
+          ? [...new Set(defaultValue.filter((item): item is string => typeof item === "string" && allowed.has(item)))]
+          : [],
+        ...definedProp("minItems", minItems),
+        ...definedProp("maxItems", maxItems),
       };
     }
     case "string": {
-      const options = selectOptions(schema.oneOf, schema.enum);
-      if (options.length > 0) {
+      const minLength = optionalMcpLength(schema["minLength"]);
+      const maxLength = optionalMcpLength(schema["maxLength"]);
+      if (minLength === null || maxLength === null) return null;
+      const stringBase = { ...base, ...definedProp("minLength", minLength), ...definedProp("maxLength", maxLength) };
+      if (schema["oneOf"] !== undefined || schema["enum"] !== undefined) {
+        const options = selectOptions(schema["oneOf"], schema["enum"]);
+        if (!options || (options.length === 0 && required)) return null;
         return {
-          ...base,
+          ...stringBase,
           type: "single-select",
           options,
-          defaultValue: typeof schema.default === "string" ? schema.default : (options[0]?.value ?? ""),
+          value: typeof defaultValue === "string" && options.some((option) => option.value === defaultValue) ? defaultValue : null,
         };
       }
-      return {
-        ...base,
-        type: "string",
-        defaultValue: typeof schema.default === "string" ? schema.default : "",
-      };
+      return { ...stringBase, type: "string", value: typeof defaultValue === "string" ? defaultValue : "" };
     }
+    default:
+      return null;
   }
 }
 
-function selectOptions(choices: unknown, enumValues: unknown): PendingMcpElicitationOption[] {
-  if (Array.isArray(choices)) {
-    const options = choices.flatMap((option) => {
-      const selected = selectOption(option);
-      return selected ? [selected] : [];
-    });
-    if (options.length > 0) return options;
-  }
-  return enumOptions(enumValues);
+function optionalMcpNumber(value: unknown): number | undefined | null {
+  if (value === undefined) return undefined;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-function stringArrayOrEmpty(value: unknown): readonly string[] {
-  if (!Array.isArray(value)) return [];
-  const strings: string[] = [];
-  for (const item of value) {
-    if (typeof item !== "string") return [];
-    strings.push(item);
-  }
-  return strings;
+function optionalMcpLength(value: unknown): number | undefined | null {
+  if (value === undefined) return undefined;
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 
-function enumOptions(values: unknown): PendingMcpElicitationOption[] {
-  if (!Array.isArray(values)) return [];
-  return values.flatMap((value) => {
-    if (typeof value !== "string") return [];
-    return [{ value, label: value }];
-  });
+function optionalMcpCardinality(value: unknown): bigint | undefined | null {
+  if (value === undefined) return undefined;
+  if (typeof value === "bigint") return value >= 0n ? value : null;
+  // JSON transport supplies numbers even though the generated Rust u64 binding is bigint.
+  const count = optionalMcpLength(value);
+  return count === null || count === undefined ? count : BigInt(count);
+}
+
+function selectOptions(choices: unknown, enumValues: unknown): PendingMcpElicitationOption[] | null {
+  if (choices !== undefined) {
+    if (!Array.isArray(choices) || choices.length === 0) return null;
+    const options: PendingMcpElicitationOption[] = [];
+    for (const choice of choices) {
+      const option = selectOption(choice);
+      if (!option) return null;
+      options.push(option);
+    }
+    return options;
+  }
+  if (!Array.isArray(enumValues) || !enumValues.every((value): value is string => typeof value === "string")) return null;
+  return enumValues.map((value) => ({ value, label: value }));
 }
 
 function selectOption(value: unknown): PendingMcpElicitationOption | null {
@@ -632,7 +622,5 @@ function selectOption(value: unknown): PendingMcpElicitationOption | null {
 
 function toJsonContent(content: Record<string, McpElicitationContentValue> | null): McpServerElicitationRequestResponse["content"] {
   if (!content) return null;
-  return Object.fromEntries(
-    Object.entries(content).map(([key, value]) => [key, value !== null && typeof value === "object" ? Array.from(value) : value]),
-  );
+  return Object.fromEntries(Object.entries(content).map(([key, value]) => [key, typeof value === "object" ? Array.from(value) : value]));
 }

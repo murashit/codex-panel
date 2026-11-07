@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import { panelThreadFixture } from "../../../../support/panel-thread";
-import { commandApprovalRequestFixture, userInputRequestFixture } from "../../../../support/server-requests";
+import { commandApprovalRequestFixture, mcpFormRequestFixture, userInputRequestFixture } from "../../../../support/server-requests";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { pendingRequestFixture } from "../../support/pending-requests";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
@@ -148,28 +148,72 @@ describe("pending request actions", () => {
     expect(focusComposer).toHaveBeenCalledOnce();
   });
 
-  it("submits an MCP draft through the same request workflow", () => {
+  it("keeps failed MCP replies editable and retries with current values", () => {
     const { stateStore, receive, pendingRequests, focusComposer } = pendingRequestFixture();
     const response = receive(mcpRequest());
-    pendingRequests.actions.setMcpElicitationDraft("9:mcp:title", "Fix tests");
-    pendingRequests.actions.setMcpElicitationDraft("9:mcp:notify", "false");
+    const onChange = vi.fn();
+    const unsubscribe = stateStore.subscribe(onChange);
+    pendingRequests.actions.setMcpElicitationField(9, "title", { type: "string", value: "" });
+    expect(onChange).not.toHaveBeenCalled();
+    pendingRequests.actions.setMcpElicitationField(9, "title", { type: "string", value: "x" });
+    expect(onChange).toHaveBeenCalledOnce();
+    unsubscribe();
     pendingRequests.actions.resolveMcpElicitation(9, "accept");
+    expect(response.respond).not.toHaveBeenCalled();
+    expect(stateStore.getState().requests.pendingMcpElicitations).toHaveLength(1);
+    expect(focusComposer).not.toHaveBeenCalled();
 
+    response.respond.mockImplementationOnce(() => {
+      throw new Error("transport unavailable");
+    });
+    pendingRequests.actions.setMcpElicitationField(9, "title", { type: "string", value: "Fix tests" });
+    pendingRequests.actions.setMcpElicitationField(9, "notify", { type: "boolean", value: false });
+    pendingRequests.actions.resolveMcpElicitation(9, "accept");
     expect(response.respond).toHaveBeenCalledExactlyOnceWith({
       action: "accept",
       content: { title: "Fix tests", notify: false },
       _meta: null,
     });
-    expect(stateStore.getState().requests.mcpElicitationDrafts.size).toBe(0);
-    expect(stateStore.getState().requests.pendingMcpElicitations).toEqual([]);
-    expect(chatStateThreadStreamItems(stateStore.getState()).at(-1)).toMatchObject({
-      kind: "userInputResult",
-      questions: [
-        { id: "title", answer: "Fix tests" },
-        { id: "notify", answer: "false" },
-      ],
+    expect(stateStore.getState().requests.pendingMcpElicitations).toMatchObject([
+      {
+        requestId: 9,
+        params: {
+          fields: [
+            { id: "title", value: "Fix tests" },
+            { id: "notify", value: false },
+          ],
+        },
+      },
+    ]);
+    expect(chatStateThreadStreamItems(stateStore.getState()).filter((item) => item.kind === "userInputResult")).toEqual([]);
+
+    pendingRequests.actions.setMcpElicitationField(9, "title", { type: "string", value: "Retry tests" });
+    pendingRequests.actions.resolveMcpElicitation(9, "accept");
+    expect(response.respond).toHaveBeenNthCalledWith(2, {
+      action: "accept",
+      content: { title: "Retry tests", notify: false },
+      _meta: null,
     });
-    expect(focusComposer).toHaveBeenCalledOnce();
+    expect(stateStore.getState().requests.pendingMcpElicitations).toEqual([]);
+    expect(chatStateThreadStreamItems(stateStore.getState()).filter((item) => item.kind === "userInputResult")).toMatchObject([
+      {
+        kind: "userInputResult",
+        questions: [
+          { id: "title", answer: "Retry tests" },
+          { id: "notify", answer: "false" },
+        ],
+      },
+    ]);
+    expect(focusComposer).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["decline", "cancel"] as const)("allows %s with an invalid MCP draft", (action) => {
+    const { stateStore, receive, pendingRequests } = pendingRequestFixture();
+    const response = receive(mcpRequest());
+    pendingRequests.actions.setMcpElicitationField(9, "title", { type: "string", value: "x" });
+    pendingRequests.actions.resolveMcpElicitation(9, action);
+    expect(response.respond).toHaveBeenCalledExactlyOnceWith({ action, content: null, _meta: null });
+    expect(stateStore.getState().requests.pendingMcpElicitations).toEqual([]);
   });
 
   it("ignores actions for resolved requests and keeps blocking questions unskippable", () => {
@@ -336,21 +380,12 @@ function approvalRequest(): ServerRequest {
 }
 
 function mcpRequest(): ServerRequest {
-  return {
-    id: 9,
-    method: "mcpServer/elicitation/request",
-    params: {
-      threadId: "thread-active",
-      turnId: "turn-active",
-      serverName: "github",
-      mode: "form",
-      _meta: null,
-      message: "Provide issue details",
-      requestedSchema: {
-        type: "object",
-        properties: { title: { type: "string", title: "Title" }, notify: { type: "boolean", title: "Notify", default: true } },
-        required: ["title"],
-      },
+  return mcpFormRequestFixture(9, {
+    type: "object",
+    properties: {
+      title: { type: "string", title: "Title", minLength: 2 },
+      notify: { type: "boolean", title: "Notify", default: true },
     },
-  };
+    required: ["title"],
+  });
 }

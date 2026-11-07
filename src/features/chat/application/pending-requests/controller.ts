@@ -1,8 +1,10 @@
-import { answersForPendingUserInput, contentForPendingMcpElicitation } from "../../domain/pending-requests/drafts";
+import { answersForPendingUserInput } from "../../domain/pending-requests/drafts";
+import { contentForPendingMcpElicitation } from "../../domain/pending-requests/mcp-elicitation";
 import {
   type ApprovalAction,
   type McpElicitationAction,
   type McpElicitationContentValue,
+  type McpElicitationFieldEdit,
   NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS,
   type PendingApproval,
   type PendingMcpElicitation,
@@ -144,14 +146,16 @@ export class PendingRequests {
     this.scheduleUserInputAutoResolution({ ...input, autoResolutionAtMs });
   }
 
-  setMcpElicitationDraft(key: string, value: string): void {
-    this.host.stateStore.dispatch({ type: "request/mcp-elicitation-draft-set", key, value });
+  setMcpElicitationField(requestId: PendingRequestId, fieldId: string, edit: McpElicitationFieldEdit): void {
+    this.host.stateStore.dispatch({ type: "request/mcp-elicitation-field-set", requestId, fieldId, edit });
   }
 
   resolveMcpElicitation(requestId: PendingRequestId, action: McpElicitationAction): boolean {
     const elicitation = this.state.pendingMcpElicitations.find((item) => item.requestId === requestId);
     if (!elicitation) return false;
-    const content = action === "accept" ? contentForPendingMcpElicitation(elicitation, this.state.mcpElicitationDrafts) : null;
+    const result = action === "accept" ? contentForPendingMcpElicitation(elicitation) : { valid: true as const, content: null };
+    if (!result.valid) return false;
+    const content = result.content;
     if (!this.host.responses.respondMcpElicitation(requestId, action, content)) {
       this.host.addSystemMessage("Could not send MCP request response because Codex app-server is not connected.");
       return true;

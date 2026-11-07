@@ -1,11 +1,10 @@
 import {
   defaultPendingApprovalOptions,
-  mcpElicitationDraftKey,
-  mcpElicitationFieldDefaultDraft,
   questionDefaultAnswer,
   userInputDraftKey,
   userInputOtherDraftKey,
 } from "../../domain/pending-requests/drafts";
+import { contentForPendingMcpElicitation, type McpElicitationFieldIssue } from "../../domain/pending-requests/mcp-elicitation";
 import {
   type ApprovalAction,
   approvalActionKind,
@@ -28,7 +27,6 @@ interface PendingRequestBlockSnapshotSource {
   pendingUserInputs: readonly PendingUserInput[];
   pendingMcpElicitations: readonly PendingMcpElicitation[];
   userInputDrafts: ReadonlyMap<string, string>;
-  mcpElicitationDrafts: ReadonlyMap<string, string>;
   approvalDetails: ReadonlySet<string>;
 }
 
@@ -48,7 +46,6 @@ export function pendingRequestBlockSnapshotFromState(source: PendingRequestBlock
     pendingUserInputs: source.pendingUserInputs.map(pendingUserInputViewModel),
     pendingMcpElicitations: source.pendingMcpElicitations.map(pendingMcpElicitationViewModel),
     userInputDrafts: source.userInputDrafts,
-    mcpElicitationDrafts: source.mcpElicitationDrafts,
     approvalDetails: source.approvalDetails,
   };
 }
@@ -117,22 +114,57 @@ function pendingMcpElicitationViewModel(elicitation: PendingMcpElicitation): Pen
       url: elicitation.params.url,
     };
   }
+  const result = contentForPendingMcpElicitation(elicitation);
   return {
     requestId: elicitation.requestId,
     title,
     body: elicitation.params.message,
     mode: "form",
-    fields: elicitation.params.fields.map((field) => ({
-      id: field.id,
-      title: field.title,
-      description: field.description,
-      required: field.required,
-      defaultDraft: mcpElicitationFieldDefaultDraft(field),
-      draftKey: mcpElicitationDraftKey(elicitation.requestId, field.id),
-      ...(field.type === "single-select" || field.type === "multi-select"
-        ? { type: field.type, options: field.options }
-        : { type: field.type, options: null }),
-    })),
+    fields: elicitation.params.fields.map((field) => {
+      const base = {
+        id: field.id,
+        title: field.title,
+        description: field.description,
+        required: field.required,
+        validationMessage: mcpElicitationValidationMessage(result.valid ? undefined : result.issues.get(field.id)),
+      };
+      switch (field.type) {
+        case "single-select":
+          return { ...base, type: field.type, value: field.value, options: field.options };
+        case "multi-select":
+          return { ...base, type: field.type, value: field.value, options: field.options };
+        case "boolean":
+          return { ...base, type: field.type, value: field.value };
+        default:
+          return { ...base, type: field.type, value: field.value };
+      }
+    }),
     url: null,
   };
+}
+
+function mcpElicitationValidationMessage(issue: McpElicitationFieldIssue | undefined): string {
+  if (!issue) return "";
+  switch (issue.kind) {
+    case "required":
+      return "Enter a value.";
+    case "number":
+      return "Enter a finite number.";
+    case "integer":
+      return "Enter a whole number.";
+    case "selection":
+      return "Choose from the available options.";
+    case "minLength":
+      return `Enter at least ${String(issue.limit)} character${issue.limit === 1 ? "" : "s"}.`;
+    case "maxLength":
+      return `Enter no more than ${String(issue.limit)} character${issue.limit === 1 ? "" : "s"}.`;
+    case "minimum":
+      return `Enter a value of at least ${String(issue.limit)}.`;
+    case "maximum":
+      return `Enter a value no greater than ${String(issue.limit)}.`;
+    case "minItems":
+      return `Select at least ${String(issue.limit)} option${issue.limit === 1n ? "" : "s"}.`;
+    case "maxItems":
+      return `Select no more than ${String(issue.limit)} option${issue.limit === 1n ? "" : "s"}.`;
+  }
 }
