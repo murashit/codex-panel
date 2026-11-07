@@ -95,6 +95,8 @@ export interface ThreadStreamUserInputQuestionResult {
 
 interface ThreadStreamReviewResultDetails {
   readonly auditFacts: readonly ThreadStreamAuditFact[];
+  readonly originalMessage?: string;
+  readonly assessmentMessage?: string;
 }
 
 export type CommandThreadStreamTarget =
@@ -190,7 +192,7 @@ export interface ApprovalResultThreadStreamItem extends ThreadStreamBase {
 }
 
 export interface ReviewResultThreadStreamItem extends ThreadStreamBase {
-  readonly reviewKind: "automaticResult" | "automaticWarning" | "message";
+  readonly reviewKind: "automaticResult" | "message";
   readonly kind: "reviewResult";
   readonly role: "tool";
   readonly text: string;

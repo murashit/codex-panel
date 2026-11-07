@@ -4,12 +4,15 @@ import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/th
 import { threadStreamIsAutoReviewDecision } from "../../domain/thread-stream/review-items";
 import { isTerminalTurnErrorItem } from "../../domain/thread-stream/turn-error-notices";
 
+import { reviewNotificationPresentation } from "./review-notifications";
+
 const STEERING_ACTIVITY_LABEL = "steering";
 
 export interface ThreadStreamItemAnnotations {
   editedFiles?: string[];
   turnDiff?: { diff: string };
   autoReviewSummaries?: string[];
+  reviewNotification?: string;
 }
 
 type ThreadStreamActivityGroupItem =
@@ -17,6 +20,7 @@ type ThreadStreamActivityGroupItem =
       type: "item";
       id: string;
       item: ThreadStreamItem;
+      annotations?: ThreadStreamItemAnnotations;
     }
   | {
       type: "steering";
@@ -45,7 +49,8 @@ export function threadStreamLayoutBlocks(
   workspaceRoot: string,
   turnDiffs: ReadonlyMap<string, string>,
 ): ThreadStreamLayoutBlock[] {
-  const visibleItems = items.filter((item) => !isEmptyCompletedReasoningItem(item));
+  const { notificationByResultId, foldedNotificationIds } = reviewNotificationPresentation(items);
+  const visibleItems = items.filter((item) => !foldedNotificationIds.has(item.id) && !isEmptyCompletedReasoningItem(item));
   const roles = threadStreamUserRoles(visibleItems);
   const editedFilesByTurn = editedFilesForTurns(visibleItems, workspaceRoot);
   const autoReviewSummariesByTurn = autoReviewSummariesForTurns(visibleItems);
@@ -61,7 +66,13 @@ export function threadStreamLayoutBlocks(
       activity = steeringActivityGroupItem(item);
     } else {
       if (!isCompletedTurnDetailItem(item, roles[index], completedOutcomes)) continue;
-      activity = { type: "item", id: item.id, item };
+      const notification = notificationByResultId.get(item.id);
+      activity = {
+        type: "item",
+        id: item.id,
+        item,
+        ...(notification === undefined ? {} : { annotations: { reviewNotification: notification } }),
+      };
     }
     const group = groupedActivities.get(turnId) ?? [];
     group.push(activity);
@@ -84,7 +95,11 @@ export function threadStreamLayoutBlocks(
         items: groupItems,
       });
     }
-    const annotations = annotationsForTurnOutcome(item, editedFilesByTurn, autoReviewSummariesByTurn, completedOutcomes, turnDiffs);
+    const notification = notificationByResultId.get(item.id);
+    const annotations =
+      notification === undefined
+        ? annotationsForTurnOutcome(item, editedFilesByTurn, autoReviewSummariesByTurn, completedOutcomes, turnDiffs)
+        : { reviewNotification: notification };
     blocks.push({ type: "item", item, ...(annotations === undefined ? {} : { annotations }) });
   }
 

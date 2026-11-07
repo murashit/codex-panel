@@ -163,14 +163,6 @@ describe("app-server turn runtime fact adapter", () => {
     expect(fact).toMatchObject({ type: "turnCompleted", outcome: status, completedItems: [] });
   });
 
-  it.each([
-    ["Automatic approval review approved: safe operation", "automaticWarning"],
-    ["Auto-review warning", "automaticWarning"],
-    ["Please check the command", "message"],
-  ])("classifies review warning meaning at the input boundary: %s", (message, reviewKind) => {
-    const fact = turnRuntimeFactFromNotification({ method: "guardianWarning", params: { threadId: "thread", message } }, () => "warning");
-    expect(fact).toMatchObject({ type: "reviewWarning", item: { reviewKind } });
-  });
   it("does not treat items accompanying an unacquired completion as a replacement snapshot", () => {
     const fact = turnRuntimeFactFromNotification(
       {

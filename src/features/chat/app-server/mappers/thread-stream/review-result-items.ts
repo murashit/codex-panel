@@ -59,10 +59,10 @@ export function createReviewResultItem(id: string, text: string): ReviewResultTh
       kind: "reviewResult",
       role: "tool",
       text: parsed.summary,
-      reviewKind: "automaticWarning",
+      reviewKind: "message",
       provenance: { source: "panel", channel: "notice", reason: "parsedAutoReview", sourceId: id },
       executionState: autoReviewExecutionState(parsed.status),
-      review: { auditFacts: parsed.rows },
+      review: { auditFacts: parsed.rows, originalMessage: text },
     };
   }
   return {
@@ -70,8 +70,9 @@ export function createReviewResultItem(id: string, text: string): ReviewResultTh
     kind: "reviewResult",
     role: "tool",
     text,
-    reviewKind: /^Auto-review\b/i.test(text.trim()) ? "automaticWarning" : "message",
+    reviewKind: "message",
     provenance: { source: "panel", channel: "notice", reason: "reviewMessage", sourceId: id },
+    review: { auditFacts: [], originalMessage: text },
   };
 }
 
@@ -80,6 +81,7 @@ export function createAutoReviewResultItem(params: AutoReviewNotification): Revi
   const status = params.review.status;
   const action = autoReviewActionLabel(params.action);
   const text = completed ? `Auto-review ${status}: ${action}` : `Auto-review started: ${action}`;
+  const assessmentMessage = completed ? autoReviewAssessmentMessage(params.review) : null;
   const rows = [
     { key: "status", value: status },
     ...("decisionSource" in params ? [{ key: "source", value: params.decisionSource }] : []),
@@ -98,34 +100,44 @@ export function createAutoReviewResultItem(params: AutoReviewNotification): Revi
     turnId: params.turnId,
     provenance: { source: "appServer", channel: "notification", event: "autoReview", sourceItemId: params.reviewId },
     executionState: completed ? autoReviewExecutionState(status) : RUNNING_EXECUTION_STATE,
-    review: { auditFacts: rows },
+    review: { auditFacts: rows, ...(assessmentMessage === null ? {} : { assessmentMessage }) },
   };
 }
 
 function parseAutomaticApprovalReviewMessage(
   text: string,
 ): { status: string; summary: string; rows: { key: string; value: string }[] } | null {
-  const match = /^Automatic approval review\s+([a-zA-Z][\w-]*)(?:\s+\(([^)]*)\))?:\s*(.+)$/i.exec(text.trim());
+  const match =
+    /^Automatic approval review (approved|denied) \(risk: (low|medium|high|critical), authorization: (unknown|low|medium|high)\): ([\s\S]*)$/.exec(
+      text,
+    );
   if (!match) return null;
-
-  const statusText = match[1];
-  const messageText = match[3];
-  if (statusText === undefined || messageText === undefined) return null;
-  const status = statusText.trim();
-  const fieldText = match.at(2)?.trim();
-  const message = messageText.trim();
-  const rows = [{ key: "status", value: status }];
-  for (const field of fieldText?.split(",") ?? []) {
-    const fieldMatch = /^\s*([^:]+):\s*(.+?)\s*$/.exec(field);
-    if (fieldMatch?.[1] && fieldMatch[2]) rows.push({ key: fieldMatch[1].trim(), value: fieldMatch[2].trim() });
-  }
-  if (message) rows.push({ key: "message", value: message });
-
+  const [, status, risk, authorization, message] = match;
+  if (status === undefined || risk === undefined || authorization === undefined || message === undefined) return null;
   return {
     status,
     summary: message ? `Auto-review ${status}: ${message}` : `Auto-review ${status}`,
-    rows,
+    rows: [
+      { key: "status", value: status },
+      { key: "risk", value: risk },
+      { key: "authorization", value: authorization },
+      { key: "message", value: message },
+    ],
   };
+}
+
+function autoReviewAssessmentMessage(review: AutoReview): string | null {
+  if (
+    (review.status !== "approved" && review.status !== "denied") ||
+    review.riskLevel === null ||
+    !["low", "medium", "high", "critical"].includes(review.riskLevel) ||
+    review.userAuthorization === null ||
+    !["unknown", "low", "medium", "high"].includes(review.userAuthorization) ||
+    review.rationale === null
+  )
+    return null;
+  // The completed assessment and warning share this exact upstream template, not an event identity.
+  return `Automatic approval review ${review.status} (risk: ${review.riskLevel}, authorization: ${review.userAuthorization}): ${review.rationale}`;
 }
 
 function autoReviewActionRows(action: AutoReviewAction): ThreadStreamAuditFact[] {
