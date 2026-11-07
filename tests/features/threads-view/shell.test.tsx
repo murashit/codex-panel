@@ -1,13 +1,19 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { Thread } from "../../../src/domain/threads/model";
-import { renderThreadsViewShell } from "../../../src/features/threads-view/shell.dom";
+import { renderThreadsViewShell, unmountThreadsViewShell } from "../../../src/features/threads-view/shell.dom";
 import { type ThreadsRowModel, type ThreadsViewPanelActivity, threadRows } from "../../../src/features/threads-view/state";
 import { installObsidianDomShims } from "../../support/dom";
 import { panelThreadFixture } from "../../support/panel-thread";
 
 installObsidianDomShims();
+
+function mountParent(): HTMLElement {
+  const parent = document.createElement("div");
+  onTestFinished(() => unmountThreadsViewShell(parent));
+  return parent;
+}
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
@@ -71,7 +77,7 @@ describe("threads view renderer decisions", () => {
     { kind: "error", message: "Could not load threads." },
     { kind: "loading", message: "Loading threads..." },
   ] as const)("announces $kind status instead of an empty list", ({ kind, message }) => {
-    const parent = document.createElement("div");
+    const parent = mountParent();
 
     renderThreadsViewShell(parent, { status: { kind, message }, loading: kind === "loading", rows: [] }, threadsViewActions());
 
@@ -82,7 +88,7 @@ describe("threads view renderer decisions", () => {
   });
 
   it("reserves the empty state for a successfully loaded empty list", () => {
-    const parent = document.createElement("div");
+    const parent = mountParent();
 
     renderThreadsViewShell(parent, { status: null, loading: false, rows: [] }, threadsViewActions());
 
@@ -112,7 +118,7 @@ describe("threads view renderer decisions", () => {
   });
 
   it("shows unread only for open panels without changing selection or row actions", () => {
-    const parent = document.createElement("div");
+    const parent = mountParent();
     const rows = threadRows([threadFixture()], [panelActivity({ unread: true, selected: true })], new Map());
     expect(rows[0]?.live).toEqual({ status: "unread" });
     renderThreadsViewShell(parent, { status: null, loading: false, rows }, threadsViewActions());
@@ -123,7 +129,7 @@ describe("threads view renderer decisions", () => {
   });
 
   it("renders live thread rows and toolbar controls", () => {
-    const parent = document.createElement("div");
+    const parent = mountParent();
     const rows = threadRows(
       [threadFixture({ id: "closed", preview: "Closed thread" }), threadFixture({ id: "open", preview: "Open thread", updatedAt: 2 })],
       [panelActivity({ threadId: "open", pending: true, selected: true })],
@@ -139,7 +145,7 @@ describe("threads view renderer decisions", () => {
   });
 
   it("groups mixed pinned rows and routes the rightmost star action", () => {
-    const parent = document.createElement("div");
+    const parent = mountParent();
     const actions = threadsViewActions();
     const rows = [
       rowFixture({ threadId: "pinned", title: "Pinned thread", isPinned: true }),
@@ -149,7 +155,7 @@ describe("threads view renderer decisions", () => {
     renderThreadsViewShell(parent, { status: null, loading: false, rows }, actions);
 
     expect(parent.querySelector(".codex-panel-threads__group-divider")).not.toBeNull();
-    const firstRowActions = expectPresent(parent.querySelector(".codex-panel-threads__actions"));
+    const firstRowActions = expectPresent(parent.querySelector(".codex-panel-ui__nav-row-actions"));
     const buttons = [...firstRowActions.querySelectorAll<HTMLButtonElement>("button")];
     expect(buttons.at(-1)?.getAttribute("aria-label")).toBe("Unpin thread");
     expect(buttons.at(-1)?.getAttribute("aria-pressed")).toBe("true");
@@ -158,7 +164,7 @@ describe("threads view renderer decisions", () => {
   });
 
   it("disables history expansion during any shared thread fetch", () => {
-    const parent = document.createElement("div");
+    const parent = mountParent();
     const actions = threadsViewActions();
 
     renderThreadsViewShell(parent, { status: null, loading: false, fetching: true, hasMore: true, rows: [rowFixture()] }, actions);

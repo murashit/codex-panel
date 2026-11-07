@@ -46,10 +46,20 @@ describe("shared thread controls", () => {
     const buttons = [...parent.querySelectorAll<HTMLButtonElement>("button")];
     expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual(["Rename thread", "Archive thread", "Pin thread"]);
     expect(buttons.at(-1)?.getAttribute("aria-pressed")).toBe("false");
-    for (const button of buttons) button.click();
+    expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).click();
     expect(props.onRename).toHaveBeenCalledExactlyOnceWith();
+    expect(props.onArchiveStart).not.toHaveBeenCalled();
+    expect(props.onPinChange).not.toHaveBeenCalled();
+
+    expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')).click();
     expect(props.onArchiveStart).toHaveBeenCalledOnce();
-    expect(props.onPinChange).toHaveBeenCalledWith(true);
+    expect(props.onRename).toHaveBeenCalledOnce();
+    expect(props.onPinChange).not.toHaveBeenCalled();
+
+    expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Pin thread"]')).click();
+    expect(props.onPinChange).toHaveBeenCalledExactlyOnceWith(true);
+    expect(props.onRename).toHaveBeenCalledOnce();
+    expect(props.onArchiveStart).toHaveBeenCalledOnce();
     expect(rowClick).not.toHaveBeenCalled();
 
     renderUiRoot(parent, <ThreadActionControls {...props} isPinned={true} />);

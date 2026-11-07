@@ -1,5 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 import { ToolbarIconAction, type ToolbarIconActionProps } from "../../shared/ui/icon.dom";
+import { NavRow } from "../../shared/ui/nav-row.dom";
 import { unmountUiRoot } from "../../shared/ui/preact-root.dom";
 import { renderObsidianUiRoot } from "../../shared/ui/preact-root.obsidian";
 import { pinnedThreadGroups } from "../threads/list/pinned-groups";
@@ -106,12 +107,10 @@ function ThreadsViewState({ status }: { status: ThreadsViewShellModel["status"] 
 function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsViewShellActions }): UiNode {
   const archiveConfirm = row.archiveConfirm;
   const rowClassName = [
-    "codex-panel-ui__nav-row",
     "codex-panel-threads__row",
     row.selected ? "codex-panel-threads__row--selected" : "",
     row.selected ? "is-selected" : "",
     row.rename.active ? "codex-panel-threads__row--renaming" : "",
-    archiveConfirm.active ? "codex-panel-threads__row--archive-confirming" : "",
     archiveConfirm.active ? "codex-panel-threads__archive-confirm" : "",
   ]
     .filter(Boolean)
@@ -130,85 +129,86 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
     actions.openThread(row.threadId);
   };
   return (
-    <div className={rowClassName}>
-      {row.rename.active ? (
-        <RenameRow row={row} actions={actions} className={mainClassName} />
-      ) : (
-        <>
-          {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: Thread rows intentionally follow Obsidian's native file explorer nav rows: pointer-first div items with selection represented by classes, while row actions stay as real icon buttons. */}
+    <NavRow
+      className={rowClassName}
+      persistentActions={row.rename.active || archiveConfirm.active}
+      main={
+        row.rename.active ? (
+          <RenameField row={row} actions={actions} className={mainClassName} />
+        ) : (
+          // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: Thread rows intentionally follow Obsidian's native file explorer nav rows: pointer-first div items with selection represented by classes, while row actions stay as real icon buttons.
           <div className={mainClassName} onClick={open}>
             <span className="codex-panel-threads__row-title">{row.title}</span>
           </div>
-          <div className="codex-panel-threads__actions">
-            <ThreadActionControls
-              isPinned={row.isPinned}
-              archiveDisabled={row.archiveDisabled}
-              archiveConfirm={archiveConfirm}
-              classNames={{
-                action: "codex-panel-threads__row-button",
-                pin: "codex-panel-threads__row-button codex-panel-threads__pin-button",
-                pinned: "codex-panel-threads__pin-button--pinned",
-                archivePrimary: "codex-panel-threads__archive-default",
-                archiveAlternate: "codex-panel-threads__archive-alternate",
-              }}
-              onRename={() => {
-                actions.startRename(row.threadId);
-              }}
-              onPinChange={(isPinned) => {
-                actions.setThreadPinned(row.threadId, isPinned);
-              }}
-              onArchiveStart={() => {
-                actions.startArchive(row.threadId);
-              }}
-              onArchiveConfirm={(saveMarkdown) => {
-                actions.archiveThread(row.threadId, saveMarkdown);
-              }}
-            />
-          </div>
-        </>
-      )}
-    </div>
+        )
+      }
+      actions={
+        row.rename.active ? (
+          <ThreadAutoNameButton
+            className="codex-panel-threads__row-button"
+            generating={row.rename.generating}
+            saving={row.rename.saving}
+            autoNameDisabled={row.rename.autoNameDisabled}
+            onStart={() => {
+              actions.autoNameThread(row.threadId);
+            }}
+            onCancel={() => {
+              actions.cancelAutoName(row.threadId);
+            }}
+          />
+        ) : (
+          <ThreadActionControls
+            isPinned={row.isPinned}
+            archiveDisabled={row.archiveDisabled}
+            archiveConfirm={archiveConfirm}
+            classNames={{
+              action: "codex-panel-threads__row-button",
+              pin: "codex-panel-threads__row-button codex-panel-threads__pin-button",
+              pinned: "codex-panel-threads__pin-button--pinned",
+              archivePrimary: "codex-panel-threads__archive-default",
+              archiveAlternate: "codex-panel-threads__archive-alternate",
+            }}
+            onRename={() => {
+              actions.startRename(row.threadId);
+            }}
+            onPinChange={(isPinned) => {
+              actions.setThreadPinned(row.threadId, isPinned);
+            }}
+            onArchiveStart={() => {
+              actions.startArchive(row.threadId);
+            }}
+            onArchiveConfirm={(saveMarkdown) => {
+              actions.archiveThread(row.threadId, saveMarkdown);
+            }}
+          />
+        )
+      }
+    />
   );
 }
 
-function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions: ThreadsViewShellActions; className: string }): UiNode {
+function RenameField({ row, actions, className }: { row: ThreadsRowModel; actions: ThreadsViewShellActions; className: string }): UiNode {
   const renameBusy = row.rename.generating || row.rename.saving;
 
   return (
-    <>
-      <div className={`${className} codex-panel-threads__rename-form`}>
-        <div className="codex-panel-threads__rename-field">
-          <ThreadRenameInput
-            className="codex-panel-threads__rename-input"
-            value={row.rename.draft}
-            busy={renameBusy}
-            onUpdate={(value) => {
-              actions.updateRename(row.threadId, value);
-            }}
-            onSave={(value) => {
-              actions.saveRename(row.threadId, value);
-            }}
-            onCancel={() => {
-              actions.cancelRename(row.threadId);
-            }}
-          />
-        </div>
-      </div>
-      <div className="codex-panel-threads__actions codex-panel-threads__rename-actions">
-        <ThreadAutoNameButton
-          className="codex-panel-threads__row-button"
-          generating={row.rename.generating}
-          saving={row.rename.saving}
-          autoNameDisabled={row.rename.autoNameDisabled}
-          onStart={() => {
-            actions.autoNameThread(row.threadId);
+    <div className={`${className} codex-panel-threads__rename-form`}>
+      <div className="codex-panel-threads__rename-field">
+        <ThreadRenameInput
+          className="codex-panel-threads__rename-input"
+          value={row.rename.draft}
+          busy={renameBusy}
+          onUpdate={(value) => {
+            actions.updateRename(row.threadId, value);
+          }}
+          onSave={(value) => {
+            actions.saveRename(row.threadId, value);
           }}
           onCancel={() => {
-            actions.cancelAutoName(row.threadId);
+            actions.cancelRename(row.threadId);
           }}
         />
       </div>
-    </>
+    </div>
   );
 }
 
