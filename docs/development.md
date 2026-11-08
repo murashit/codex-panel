@@ -14,9 +14,7 @@ Obsidian loads the generated `main.js` and `styles.css`, not the TypeScript or a
 
 ## Choose the Owner of a Change
 
-Before choosing an implementation, trace the required user behavior through existing owners, callers, boundary contracts, and tests, including relevant paths and fixtures outside the expected diff. Establish which guarantees the change needs and which existing mechanisms already provide them. Distinguish related design work from independent defects or additional guarantees that need their own justification; a real neighboring problem does not automatically become a condition of this fix.
-
-Compare keeping or repairing the current structure with concrete alternatives using existing boundaries or consolidating related responsibility. Weigh responsibilities, state, dependencies, coordination, duplication, and test guarantees added against what is removed or improved across the whole behavior path. Prefer the simplest total structure meeting the required behavior, whether that calls for a narrow repair or a broader reorganization. Before rejecting an alternative for cost or missing guarantees, check whether those are inherent to the problem or only to that formulation, including guarantees already supplied by existing owners. Use enough source tracing to make the comparison credible without fully designing every candidate. Revisit it when implementation evidence or review findings invalidate an assumption; use `AGENTS.md` and the change workflow for review roles and timing.
+Choose ownership from the required behavior and the guarantees already supplied by existing contracts. Compare repair, removal, or consolidation where the choice materially affects maintenance cost; assess the complete behavior path, not just the patch. Keep unrelated defects and additional guarantees separate from the requested outcome. Use [Design](design.md) for product boundaries and [AGENTS.md](../AGENTS.md#review-and-completion) for review requirements.
 
 Keep feature-specific behavior with its feature. Extract shared values and rules, including the pure calculations they need, to root `domain/`, and reusable execution or UI support to `shared/`; neither should depend on a feature's implementation. Group those roots by responsibility and keep related types and helpers together, even when a directory contains only one cohesive module.
 
@@ -26,52 +24,49 @@ In Chat, keep state and workflows in application code and connect them to the ho
 
 Name modules by their owned responsibility. Use lifecycle or boundary nouns only for objects that own that lifecycle or boundary, and passive-data names for values. Prefer functions and factories; reserve classes for mutable resource ownership, external class APIs, and `Error` types.
 
-Source-policy diagnostics come from `biome.jsonc`, `eslint.config.mjs`, `scripts/grit/`, and the CSS checks. Fix the code rather than suppressing a diagnostic. When a concrete constraint prevents a conforming implementation, keep the suppression local and explain the constraint, including why an Obsidian UI pattern needs to differ from a generic browser rule.
+Source-policy diagnostics come from [Biome](../biome.jsonc), [ESLint](../eslint.config.mjs), [Grit matchers](../scripts/grit/), and the CSS checks. These enforce source patterns and import boundaries, not semantic ownership. Fix the code rather than suppressing a diagnostic. When a concrete constraint prevents a conforming implementation, keep the suppression local and explain the constraint, including why an Obsidian UI pattern needs to differ from a generic browser rule.
 
 ## Design a UI Change
 
-Before proposing or changing UI, inspect the affected flow in the current components, styles, settings, and related actions. Establish what the user needs to understand or do, how existing controls and feedback serve that need, and what remains missing. Reuse or reshape those surfaces when appropriate; a new message, banner, or button needs a distinct purpose in the flow.
+Inspect the existing flow before proposing or changing UI. Give each control or message a distinct purpose in what the user needs to understand or do, and prefer improving existing interaction and state over adding explanatory copy.
 
-Consider the complete interaction: placement among existing actions, icon and accessible name, visibility settings, narrow widths, keyboard access, and the resulting selection, input, and recovery state. Apply the relevant dimensions to the change rather than treating this as a checklist requiring new mechanisms. For failures, distinguish the operation's result from the resource's state and check existing feedback before adding another display.
-
-Prefer correcting behavior or state structure when that resolves the confusion. Add explanatory copy only when it supports a concrete user decision or action; describing an implementation detail does not itself justify product copy or a README addition. Use source inspection and automated checks first; live Obsidian validation is needed only for material integration behavior those checks cannot establish.
+Design the complete interaction, including relevant placement, accessible names, keyboard access, narrow widths, visibility settings, and resulting selection, input, and recovery state. Failure feedback should distinguish the operation's result from the resource's state. Implementation details belong in product copy only when they support a user decision or action. Use [live Obsidian validation](#validate-in-obsidian) for material integration behavior that source inspection and automation cannot establish.
 
 ## Review and Simplify a Change
 
-Review behavior, responsibility boundaries, implementation quality, and regression risk against the required outcome. Bound the review by that behavior and its related responsibilities, rather than the patch or unrelated repository-wide exploration. Select angles according to the behavior and risk; not every angle applies to every change. Look beyond the diff at paired or analogous paths, callers, boundary definitions, and configuration. Check unintended asymmetry, duplicated sources of truth, ineffective indirection, and changed defaults affecting untouched consumers. Verify consequential claims in the change description and tests against implementation, relevant history, or authoritative documentation for the actual dependency version.
+Review the required behavior across its owners, callers, contracts, tests, and relevant paths outside the diff. Include consequential failure, interruption, and concurrency behavior; assess performance risks against expected data size, frequency, and measurements. Make non-obvious intent and coupled assumptions discoverable where they affect maintenance.
 
-Follow failures and interrupted or concurrent operations through state changes to what users can see and do: can an error become apparent success, lose useful context, leave inconsistent data, or allow a conflicting action? Check that validation exercises the real contract and isolates external side effects. Assess relevant performance risks using expected data size, call frequency, and measurements. Keep non-obvious intent and coupled assumptions discoverable through explicit dependencies and explanation where the rationale would otherwise be lost.
+A behavioral finding needs a reachable user or lifecycle path, a violated contract, and a material consequence. A structural finding needs a concrete maintenance activity and cost. Verify consequential assumptions against real producers and authoritative contracts for the dependency version; a synthetic reproduction establishes behavior under its assumptions, not whether those assumptions describe supported use.
 
-Before acting on a behavioral finding, establish the reachable user or lifecycle path, violated contract and owner, and material consequence. For structural findings, identify the concrete maintenance activity and cost. A synthetic reproduction proves only the exercised behavior; check its assumptions against real producers and supported use. Separate demonstrated problems from hypotheses and optional improvements, and explain why material findings are addressed, rejected, or unresolved.
-
-Use findings to reconsider the shared assumption or ownership that allowed the problem. Trace other paths relying on it and compare a correction at its owner with local guards, including the state and coordination each would add. Resolving one reproduction does not establish that the affected paths were reviewed; investigate according to consequence and uncertainty rather than enumerating every imaginable edge case.
-
-During implementation and final review, reconsider the complete behavior path, including production code, tests, fixtures, documentation, and relevant pre-existing parts. Compare concrete alternatives meeting the same requirements, including removing a mechanism or consolidating responsibility in an existing owner. Trace what would concretely break or become harder to maintain without that mechanism, at responsibility boundaries and down to functions, types, data flow, and repeated setup. A role for each piece, reviewer agreement, or passing checks does not establish the simplest coherent choice. Implementation and test line counts are prompts for investigation, not reduction targets. Implement worthwhile improvements, then review and validate the result; retain a structure when the comparison supports it.
+Assess improvements against the strongest keep-current case and plausible alternatives, including guarantees already supplied by existing owners. Favor a simpler complete model over local guards that add state or coordination. Apply the same criteria to existing and new code, tests, and fixtures; line counts and coverage are investigation signals, not targets. Distinguish demonstrated problems, optional improvements, and material questions blocked by specific missing evidence.
 
 ### Investigate Duplication
 
 Run `npm run review:duplication` during review after implementation and during daily simplification review.
 
-Read both matches and their callers, applying the criteria above equally to existing and new code. Extract shared setup or rules when that improves ownership and maintenance; preserve independent test expectations and meaningful operation and observation order. Use matches as review evidence and retain useful local repetition.
+Read both matches and their callers, applying the criteria above equally to existing and new code. Extract shared setup or rules when that improves ownership and maintenance; preserve independent test expectations and meaningful operation and observation order. Use matches as review evidence and retain useful local repetition. Reuse the report for an unchanged source state; generated app-server code is excluded by the script.
 
 ## Validate a Change
 
-Before handoff, run `npm run fix`, review its diff, then run `npm run check`. Also run `npm run api:baseline` and `npm run release:check`.
+Before handoff, run `npm run fix`, review its diff, then run `npm run check`. Select additional local checks for the affected contracts below; metadata checks and CI test mode are not extra gates for every ordinary change.
 
-`api:baseline` checks compatibility declarations and dependency pins; `release:check` checks version-file consistency and the last-compatible release boundary using Git tags. During iteration, run these metadata checks when changing those inputs. They do not establish runtime API compatibility or readiness to publish.
+`api:baseline` checks compatibility declarations and dependency pins; `release:check` checks version-file consistency and the last-compatible release boundary using Git tags. They do not establish runtime API compatibility or readiness to publish.
 
 Run additional checks for the affected contracts:
 
 | Change | Additional validation |
 | --- | --- |
+| Compatibility declarations (including the README Compatibility table), related dependency or lockfile inputs, or API-baseline validation logic | `npm run api:baseline` |
+| Version files, Obsidian runtime floor or compatibility history, or release validation logic | `npm run release:check` |
+| Release preparation | Both metadata checks; follow [Release](release.md) |
 | Biome configuration or version, Grit matchers, policy scenarios/runner, or their Node.js version | `npm run test:policies` |
 | API baselines or generated bindings | Follow the compatibility procedure below |
 
-GitHub Actions runs `check`, both metadata checks, and source-policy scenarios as separate steps on every change. The scenarios validate the policy configuration against fixed examples; Biome within `check` applies those policies to the source.
+[GitHub Actions](../.github/workflows/check.yml) runs `check`, both metadata checks, and source-policy scenarios as separate steps on every change. The scenarios validate policy configuration against fixed examples; Biome within `check` applies those policies to the source. CI also checks generated bindings on main and recovery runs, and on PRs changing binding-generation inputs: the Check workflow, Node version, package manifests, app-server scripts, compatibility metadata, or generated bindings. These CI conditions are distinct from the local validation requirements above.
 
 ### Diagnose a CI Failure
 
-Local `check` uses Vitest's default worker count for the available CPUs. GitHub Actions uses one worker and shuffles files and tests. To reproduce a CI test failure locally, use `npm run test:order -- --sequence.seed <reported-seed>`. On POSIX shells, `CI=1 npm run check` runs that test mode alongside the other local checks when diagnosis requires them.
+Local `check` uses Vitest's default worker count for the available CPUs. GitHub Actions uses one worker and shuffles files and tests. To reproduce a CI test failure locally, use `npm run test:order -- --sequence.seed <reported-seed>`. On POSIX shells, `CI=1 npm run check` runs that test mode alongside the other local checks when diagnosis requires them. Use shuffled single-worker tests when investigating order dependence or relevant changes to shared test setup or runner configuration; a successful ordinary check does not routinely require a second run in CI mode.
 
 ### Validate in Obsidian
 
@@ -101,11 +96,13 @@ Use focused Codex Panel-owned selectors found in the relevant implementation or 
 
 ### Write Tests That Survive Refactoring
 
-Prefer tests that exercise real production code and its ordinary dependencies. Avoid test doubles, including internal module replacements and reimplementations of available libraries. Use minimal doubles only where a real external effect or meaningful failure, timing, or ordering cannot be exercised reliably at reasonable cost. Explain the protected regression, why the real alternative is unsuitable, and the remaining verification limits in the change discussion. Self-authored responses do not establish API compatibility.
+Protect reachable user actions, external contracts, and meaningful state transitions with tests that exercise production code and its ordinary dependencies. Use minimal doubles only when real external effects or meaningful failure, timing, or ordering cannot be exercised reliably at reasonable cost; explain the protected regression, reason for the double, and verification limits in the change discussion. Self-authored responses do not establish API compatibility.
 
-Tie each case to a reachable user action, external boundary, or distinct state transition. Read existing and changed cases together and identify the concrete production failure each would detect: would its setup reach that failure and would its assertion fail? For timing or captured-state claims, vary the relevant value across the actual capture or wait boundary and observe the consequential result. Assess independent failure signals alongside the maintenance cost of fixtures, setup, and implementation coupling. Prefer strengthening an existing case or parameterizing a shared flow to adding another setup. Remove cases that only check test doubles, impossible configurations, or internal structure without a durable contract, or repeat a covered outcome without a distinct failure signal. Extracting code, passing tests, and increased coverage alone do not justify a suite.
+Evaluate existing, added, and changed tests as a suite: protect important behavior with maintainable coverage. Consider strengthening, combining, or parameterizing existing cases before retaining separate setups. A distinct failure signal is evidence of value, not by itself a reason to keep a standalone case; weigh the importance of the protected guarantee against setup cost and implementation coupling. Remove or consolidate low-value tests, including redundant cases and those protecting unreachable situations or incidental structure, even when they are not duplicates. Preserve important guarantees through the resulting suite rather than preserving individual cases.
 
-Do not add permanent tests for development scripts by default. Validate changes with real tools and representative inputs. Add or retain a suite only when an independent check protects a concrete product or source-policy risk that direct change validation would miss, and its value justifies ongoing maintenance.
+Timing and captured-state assertions must exercise the actual capture or wait boundary and observe the consequential result. A test suite should protect durable behavior without freezing implementation choices.
+
+Do not add permanent tests for development scripts by default. Validate with real tools and representative inputs; retain a suite only when it protects a concrete product or source-policy risk that direct validation would miss and justifies its maintenance cost.
 
 Vitest reuses workers with `isolate: false`. Restore boundary spies, timers, globals, and DOM overrides after each test. Shared setup modules that register hooks must export an installer called by each test file, because importing a cached module does not register its hooks again.
 
