@@ -106,25 +106,49 @@ describe("selection rewrite command", () => {
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
-  it("replaces the previous popover and releases selection emphasis on close and unload", () => {
-    const { run, controller, lifetime } = commandHarness();
+  it.each(["resolve", "reject"])("replaces a pending rewrite and ignores its late %s", async (outcome) => {
+    const pending = deferred<{ replacementText: string }>();
+    const generate = vi
+      .fn<SelectionRewritePort["generate"]>()
+      .mockImplementationOnce(() => pending.promise)
+      .mockResolvedValueOnce({ replacementText: "Fresh rewrite." });
+    const { run, controller, lifetime, cm } = commandHarness({ generate });
     void act(() => {
       run();
     });
     const first = document.querySelector('[role="dialog"]');
     expect(document.querySelector(".codex-panel-selection-emphasis")?.textContent).toBe("Revise this sentence.");
+    await startGeneration();
+    const previousRequest = generate.mock.calls[0]?.[0];
+    expect(previousRequest?.signal.aborted).toBe(false);
 
     void act(() => {
       run();
     });
+    expect(previousRequest?.signal.aborted).toBe(true);
     expect(first?.isConnected).toBe(false);
     expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
     expect(document.querySelectorAll(".codex-panel-selection-emphasis")).toHaveLength(1);
+    await startGeneration();
 
-    void act(() => controller.closeAll());
+    await act(async () => {
+      previousRequest?.onActivity("reasoning");
+      previousRequest?.onPreview("Old preview");
+      if (outcome === "resolve") pending.resolve({ replacementText: "Old rewrite." });
+      else pending.reject(new Error("Old failure"));
+    });
+    expect(document.querySelector(".codex-panel-selection-rewrite__diff")?.textContent).toContain("Fresh rewrite.");
+    void act(() => button("Apply").click());
+    expect(cm.state.doc.toString()).toBe("Fresh rewrite.");
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.querySelector(".codex-panel-selection-emphasis")).toBeNull();
 
+    void act(() => {
+      run();
+    });
+    void act(() => controller.closeAll());
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.querySelector(".codex-panel-selection-emphasis")).toBeNull();
     void act(() => {
       run();
     });
@@ -133,6 +157,25 @@ describe("selection rewrite command", () => {
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.querySelector(".codex-panel-selection-emphasis")).toBeNull();
     lifetime.unload();
+  });
+
+  it("releases an interaction closed during opening and allows a fresh command", () => {
+    const { run, cm, controller } = commandHarness();
+    cm.dom.remove();
+    void act(() => {
+      expect(run()).toBe(true);
+    });
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    document.body.appendChild(cm.dom);
+    expect(document.querySelector(".codex-panel-selection-emphasis")).toBeNull();
+    void act(() => {
+      run();
+    });
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.querySelectorAll(".codex-panel-selection-emphasis")).toHaveLength(1);
+    void act(() => controller.closeAll());
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.querySelector(".codex-panel-selection-emphasis")).toBeNull();
   });
 
   it("keeps the command unavailable without a non-empty markdown selection", () => {
