@@ -2,6 +2,7 @@ import { type Editor, Notice } from "obsidian";
 import type { TargetedKeyboardEvent, ComponentChild as UiNode } from "preact";
 import { isComposerSendKey, type SendShortcut } from "../../domain/input/send-shortcut";
 import { type DiffDisplayLine, DiffLineList } from "../../shared/ui/diff-view";
+import { retainEditorSelectionEmphasis, type SelectionEmphasis } from "../../shared/ui/editor-selection-emphasis.obsidian";
 import { listenDomEscapeKey, listenDomEvent, listenOutsideDomEvent } from "../../shared/ui/events.dom";
 import { IconButton } from "../../shared/ui/icon.dom";
 import { unmountUiRoot } from "../../shared/ui/preact-root.dom";
@@ -9,12 +10,48 @@ import { renderObsidianUiRoot } from "../../shared/ui/preact-root.obsidian";
 import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow.measure";
 import { textareaCursorAtVisualBoundary } from "../../shared/ui/textarea-caret.measure";
 import { buildSelectionDiffLines } from "./diff";
-import type { SelectionRewriteInput, SelectionRewriteInstructionHistoryDirection, SelectionRewriteRuntimeSettings } from "./model";
-import type { SelectionRewritePort } from "./port";
+import type { SelectionRewriteInput, SelectionRewriteRuntimeSettings } from "./model";
+import { SelectionRewriteOutputError, type SelectionRewritePort } from "./port";
 import { positionSelectionRewritePopover } from "./position.dom";
-import { SelectionRewriteSession, type SelectionRewriteSessionStatus } from "./session";
+import { buildSelectionRewritePrompt } from "./prompt";
+
+type SelectionRewriteInstructionHistoryDirection = -1 | 1;
+
+type SelectionRewriteState = Readonly<
+  | {
+      status: "editing";
+      streamText: string;
+      replacementText: null;
+      debugText: null;
+    }
+  | {
+      status: "generating";
+      streamText: string;
+      replacementText: null;
+      debugText: null;
+    }
+  | {
+      status: "preview";
+      streamText: "";
+      replacementText: string;
+      debugText: null;
+    }
+  | {
+      status: "failed";
+      streamText: "";
+      replacementText: null;
+      debugText: string | null;
+    }
+>;
 
 const POPOVER_MARGIN = 8;
+const MAX_INSTRUCTION_HISTORY = 20;
+const instructionHistory: string[] = [];
+
+interface RewriteStatus {
+  text: string;
+  active: boolean;
+}
 
 function isSelectionRewriteActionKey(event: {
   key: string;
@@ -30,7 +67,6 @@ function isSelectionRewriteActionKey(event: {
 
 export interface SelectionRewritePopoverOptions {
   editor: Editor;
-  onClose?: () => void;
   runtimeSettings: SelectionRewriteRuntimeSettings;
   sendShortcut: SendShortcut;
   input: SelectionRewriteInput;
@@ -47,18 +83,41 @@ interface SelectionRewriteElements {
   applyButton: HTMLButtonElement | null;
 }
 
-export class SelectionRewritePopover {
-  private readonly session: SelectionRewriteSession;
+export interface SelectionRewritePopoverHandle {
+  close(): void;
+}
+
+export function openSelectionRewritePopover(options: SelectionRewritePopoverOptions): SelectionRewritePopoverHandle {
+  let popover: SelectionRewritePopover | null = new SelectionRewritePopover(options, () => {
+    popover = null;
+  });
+  popover.open();
+  return { close: () => popover?.close() };
+}
+
+class SelectionRewritePopover {
+  private readonly lifetime = new AbortController();
+  private selectionEmphasis: SelectionEmphasis | null = null;
   private elements: SelectionRewriteElements | null = null;
   private readonly cleanups: Cleanup[] = [];
+  private historyCursor: number | null = null;
+  private historyDraft = "";
+  private instructionDraft = "";
+  private status: RewriteStatus = { text: "", active: false };
+  private state: SelectionRewriteState = {
+    status: "editing",
+    streamText: "",
+    replacementText: null,
+    debugText: null,
+  };
 
-  constructor(private readonly options: SelectionRewritePopoverOptions) {
-    this.session = new SelectionRewriteSession(options);
-  }
+  constructor(
+    private readonly options: SelectionRewritePopoverOptions,
+    private readonly onClose: () => void,
+  ) {}
 
   open(): void {
-    this.close();
-
+    this.selectionEmphasis = retainEditorSelectionEmphasis(this.options.editor, this.options.input.targetRange);
     const elements = this.createElements();
     this.elements = elements;
 
@@ -80,7 +139,7 @@ export class SelectionRewritePopover {
     this.cleanups.push(
       listenDomEscapeKey(this.options.viewDocument, (event) => {
         event.preventDefault();
-        this.cancel();
+        this.close();
       }),
     );
     this.cleanups.push(
@@ -88,53 +147,87 @@ export class SelectionRewritePopover {
         elements.root,
         "pointerdown",
         () => {
-          this.cancel();
+          this.close();
         },
         true,
       ),
     );
 
-    this.session.setStatus("");
     this.syncInstructionHeight();
     this.renderView();
     this.position();
-    elements.instruction?.focus();
+    if (!this.isClosed()) elements.instruction?.focus();
   }
 
   close(): void {
-    const hadElements = this.elements !== null;
-    if (!hadElements && !this.session.isGenerating) return;
-    if (this.session.isGenerating) this.session.cancel();
+    if (this.isClosed()) return;
+    this.lifetime.abort();
     for (const cleanup of this.cleanups.splice(0)) cleanup();
     if (this.elements) {
       unmountUiRoot(this.elements.root);
       this.elements.root.remove();
     }
     this.elements = null;
-    this.options.onClose?.();
+    this.selectionEmphasis?.release();
+    this.onClose();
+  }
+
+  private isClosed(): boolean {
+    return this.lifetime.signal.aborted;
   }
 
   private async generate(): Promise<void> {
-    const result = await this.session.generate({
-      render: () => {
-        this.renderView();
-      },
-      position: () => {
-        this.position();
-      },
-      focusApplyButton: () => {
-        this.focusApplyButton();
-      },
-    });
-    if (result === "missing-instruction") {
+    const signal = this.lifetime.signal;
+    if (this.isClosed() || this.state.status === "generating") return;
+    const instruction = this.instructionDraft.trim();
+    if (!instruction) {
       new Notice("Enter a rewrite instruction first.");
       this.elements?.instruction?.focus();
+      return;
     }
-  }
 
-  private cancel(): void {
-    this.session.cancel();
-    this.close();
+    rememberInstruction(instruction);
+    this.historyCursor = null;
+    this.historyDraft = "";
+    this.state = { status: "generating", streamText: "", replacementText: null, debugText: null };
+    this.status = { text: "Generating", active: true };
+    this.renderView();
+
+    try {
+      const output = await this.options.port.generate({
+        prompt: buildSelectionRewritePrompt(this.options.input, instruction),
+        runtimeSettings: this.options.runtimeSettings,
+        onActivity: (activity) => {
+          if (this.isClosed()) return;
+          this.status = { text: activity === "reasoning" ? "Reasoning" : "Writing replacement", active: true };
+          this.renderView();
+        },
+        onPreview: (text) => {
+          if (this.isClosed()) return;
+          this.state = { status: "generating", streamText: text, replacementText: null, debugText: null };
+          this.status = { text: "Writing replacement", active: true };
+          this.renderView();
+          this.position();
+        },
+        signal,
+      });
+      if (this.isClosed()) return;
+      this.state = { status: "preview", streamText: "", replacementText: output.replacementText, debugText: null };
+      this.status = { text: "", active: false };
+    } catch (error) {
+      if (this.isClosed()) return;
+      this.state = {
+        status: "failed",
+        streamText: "",
+        replacementText: null,
+        debugText: error instanceof SelectionRewriteOutputError ? error.rawText : null,
+      };
+      this.status = { text: error instanceof Error ? error.message : String(error), active: false };
+    }
+    if (this.isClosed()) return;
+    this.renderView();
+    if (this.state.status === "preview") this.focusApplyButton();
+    this.position();
   }
 
   private createElements(): SelectionRewriteElements {
@@ -146,7 +239,7 @@ export class SelectionRewritePopover {
   }
 
   private apply(): void {
-    const replacement = this.session.state.replacementText;
+    const replacement = this.state.replacementText;
     if (replacement === null) return;
 
     const { editor } = this.options;
@@ -155,7 +248,7 @@ export class SelectionRewritePopover {
     if (currentText !== input.originalText) {
       const message = "Selection changed. Select the text again and reopen Rewrite selection.";
       new Notice(message);
-      this.session.setStatus(message);
+      this.status = { text: message, active: false };
       this.renderView();
       return;
     }
@@ -184,7 +277,7 @@ export class SelectionRewritePopover {
 
   private renderView(elements: SelectionRewriteElements | null = this.elements): void {
     if (!elements) return;
-    const state = this.session.state;
+    const state = this.state;
     const replacement = state.replacementText;
     renderObsidianUiRoot(
       elements.root,
@@ -195,9 +288,9 @@ export class SelectionRewritePopover {
         debugText={state.debugText}
         diffLines={replacement === null ? null : buildSelectionDiffLines(this.options.input.originalText, replacement)}
         generating={state.status === "generating"}
-        hasInstruction={this.session.hasInstruction}
+        hasInstruction={Boolean(this.instructionDraft.trim())}
         hasReplacement={replacement !== null}
-        instruction={this.session.instructionDraft}
+        instruction={this.instructionDraft}
         instructionRef={(element) => {
           elements.instruction = element;
         }}
@@ -206,14 +299,15 @@ export class SelectionRewritePopover {
         }}
         onGenerate={() => void this.generate()}
         onInstructionInput={(value) => {
-          this.session.setInstructionDraft(value);
+          this.instructionDraft = value;
+          this.historyDraft = this.historyCursor === null ? "" : value;
           this.syncInstructionHeight();
           this.renderView();
           this.position();
         }}
         onInstructionKeyDown={(event) => {
           if (this.handleInstructionHistoryKeyDown(event.currentTarget, event)) return;
-          const hasReplacement = this.session.state.replacementText !== null;
+          const hasReplacement = this.state.replacementText !== null;
           if (!(hasReplacement ? isSelectionRewriteActionKey(event) : isComposerSendKey(event, this.options.sendShortcut))) {
             return;
           }
@@ -226,7 +320,7 @@ export class SelectionRewritePopover {
           event.preventDefault();
           this.apply();
         }}
-        status={this.session.status}
+        status={this.status}
         streamPreview={state.streamText.trim()}
       />,
     );
@@ -234,7 +328,7 @@ export class SelectionRewritePopover {
 
   private handleInstructionHistoryKeyDown(instruction: HTMLTextAreaElement, event: TargetedKeyboardEvent<HTMLTextAreaElement>): boolean {
     const direction = selectionRewriteInstructionHistoryDirection(event, instruction);
-    if (direction === null || !this.session.navigateInstructionHistory(direction)) return false;
+    if (direction === null || !this.navigateInstructionHistory(direction)) return false;
 
     event.preventDefault();
     event.stopPropagation();
@@ -243,6 +337,37 @@ export class SelectionRewritePopover {
     this.position();
     this.focusInstructionEnd();
     return true;
+  }
+
+  private navigateInstructionHistory(direction: SelectionRewriteInstructionHistoryDirection): boolean {
+    if (instructionHistory.length === 0) return false;
+
+    if (this.historyCursor === null) {
+      if (direction === 1) return false;
+      this.historyCursor = instructionHistory.length;
+      this.historyDraft = this.instructionDraft;
+    }
+
+    if (direction === -1 && this.historyCursor > 0) {
+      this.historyCursor -= 1;
+      this.instructionDraft = instructionHistory[this.historyCursor] ?? "";
+      return true;
+    }
+
+    if (direction === 1) {
+      if (this.historyCursor < instructionHistory.length - 1) {
+        this.historyCursor += 1;
+        this.instructionDraft = instructionHistory[this.historyCursor] ?? "";
+        return true;
+      }
+
+      this.historyCursor = null;
+      this.instructionDraft = this.historyDraft;
+      this.historyDraft = "";
+      return true;
+    }
+
+    return false;
   }
 
   private focusInstructionEnd(): void {
@@ -305,7 +430,7 @@ interface SelectionRewritePopoverViewProps {
   onGenerate: () => void;
   onInstructionInput: (value: string) => void;
   onInstructionKeyDown: (event: TargetedKeyboardEvent<HTMLTextAreaElement>) => void;
-  status: SelectionRewriteSessionStatus;
+  status: RewriteStatus;
   streamPreview: string;
 }
 
@@ -380,7 +505,7 @@ function SelectionRewritePopoverView({
   );
 }
 
-function SelectionRewriteStatus({ status }: { status: SelectionRewriteSessionStatus }): UiNode {
+function SelectionRewriteStatus({ status }: { status: RewriteStatus }): UiNode {
   const { text, active } = status;
   if (!text && !active) return <div className="codex-panel-selection-rewrite__status" />;
   return (
@@ -395,4 +520,13 @@ function SelectionRewriteStatus({ status }: { status: SelectionRewriteSessionSta
       ) : null}
     </div>
   );
+}
+
+function rememberInstruction(instruction: string): void {
+  const existingIndex = instructionHistory.indexOf(instruction);
+  if (existingIndex !== -1) instructionHistory.splice(existingIndex, 1);
+  instructionHistory.push(instruction);
+  if (instructionHistory.length > MAX_INSTRUCTION_HISTORY) {
+    instructionHistory.splice(0, instructionHistory.length - MAX_INSTRUCTION_HISTORY);
+  }
 }

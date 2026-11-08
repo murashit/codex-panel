@@ -1,6 +1,6 @@
 import type { SelectionRewriteRuntimeSettings } from "./model";
 
-export type SelectionRewriteActivity = "reasoning" | "writing";
+type SelectionRewriteActivity = "reasoning" | "writing";
 
 export interface SelectionRewriteOutput {
   replacementText: string;

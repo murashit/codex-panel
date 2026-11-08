@@ -1,8 +1,7 @@
 import { type Editor, MarkdownView, Notice, type Plugin } from "obsidian";
 import type { SendShortcut } from "../../domain/input/send-shortcut";
-import { retainEditorSelectionEmphasis } from "../../shared/ui/editor-selection-emphasis.obsidian";
 import type { SelectionRewriteInput, SelectionRewriteRuntimeSettings } from "./model";
-import { SelectionRewritePopover } from "./popover.dom";
+import { openSelectionRewritePopover, type SelectionRewritePopoverHandle } from "./popover.dom";
 import type { SelectionRewritePort } from "./port";
 
 export interface SelectionRewriteCommandHost extends Plugin {
@@ -17,10 +16,10 @@ export function registerSelectionRewriteCommand(
   plugin: SelectionRewriteCommandHost,
   port: SelectionRewritePort,
 ): SelectionRewriteCommandController {
-  let activePopover: SelectionRewritePopover | null = null;
+  let popover: SelectionRewritePopoverHandle | null = null;
   const closeAll = (): void => {
-    activePopover?.close();
-    activePopover = null;
+    popover?.close();
+    popover = null;
   };
 
   plugin.register(closeAll);
@@ -53,14 +52,9 @@ export function registerSelectionRewriteCommand(
         noteText: editor.getValue(),
       };
 
-      activePopover?.close();
-      const releaseSelectionEmphasis = retainEditorSelectionEmphasis(editor, targetRange);
-      const popover = new SelectionRewritePopover({
+      popover?.close();
+      popover = openSelectionRewritePopover({
         editor,
-        onClose: () => {
-          releaseSelectionEmphasis?.release();
-          if (activePopover === popover) activePopover = null;
-        },
         runtimeSettings: plugin.settings,
         sendShortcut: plugin.settings.sendShortcut,
         input,
@@ -68,8 +62,6 @@ export function registerSelectionRewriteCommand(
         viewDocument,
         viewWindow,
       });
-      activePopover = popover;
-      popover.open();
       return true;
     },
   });
