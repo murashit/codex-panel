@@ -85,6 +85,9 @@ describe("thread rename editor", () => {
 
     expect(states.get("first")?.kind).toBe("editing");
     expect(states.get("second")?.kind).toBe("editing");
+    expect(states.get("second")?.autoName.kind).toBe("checking");
+    await editor.autoNameDraft("second");
+    expect(generateTitle).not.toHaveBeenCalled();
     firstContext.resolve(readyContext);
     secondContext.resolve(null);
     await flushPromises();
@@ -96,35 +99,10 @@ describe("thread rename editor", () => {
     expect(reportError).not.toHaveBeenCalled();
   });
 
-  it("aborts replaced title work for an exclusive chat editor", async () => {
-    const generated = deferred<string>();
-    let signal: AbortSignal | undefined;
-    const { editor, states } = fixture({
-      exclusive: true,
-      resolveTitleContext: vi.fn().mockResolvedValue({ userRequest: "Request", assistantResponse: "Response" }),
-      generateTitle: vi.fn((_context, generationSignal) => {
-        signal = generationSignal;
-        return generated.promise;
-      }),
-    });
-
-    editor.start("first");
-    await flushPromises();
-    const generation = editor.autoNameDraft("first");
-    await flushPromises();
-    editor.start("second");
-
-    expect(signal?.aborted).toBe(true);
-    generated.resolve("Stale title");
-    await generation;
-    expect(states.has("first")).toBe(false);
-    expect(states.get("second")?.kind).toBe("editing");
-  });
-
-  it("does not replace an active title generation", async () => {
+  it("keeps the current draft and title generation until the result arrives", async () => {
     const generated = deferred<string>();
     const generateTitle = vi.fn(() => generated.promise);
-    const { editor } = fixture({
+    const { editor, states } = fixture({
       resolveTitleContext: vi.fn().mockResolvedValue({ userRequest: "Request", assistantResponse: "Response" }),
       generateTitle,
     });
@@ -134,10 +112,13 @@ describe("thread rename editor", () => {
     const generation = editor.autoNameDraft("thread");
     await flushPromises();
     await editor.autoNameDraft("thread");
+    editor.updateDraft("thread", "Manual draft");
 
     expect(generateTitle).toHaveBeenCalledOnce();
+    expect(states.get("thread")).toMatchObject({ kind: "generating", draft: "thread draft" });
     generated.resolve("Title");
     await generation;
+    expect(states.get("thread")).toMatchObject({ kind: "editing", draft: "Title" });
   });
 
   it("ignores a generated title after the same list editor restarts", async () => {
@@ -156,20 +137,6 @@ describe("thread rename editor", () => {
     await generation;
 
     expect(states.get("thread")?.draft).toBe("thread draft");
-  });
-
-  it("does not replace an exclusive editor while another thread save is pending", async () => {
-    const saved = deferred<void>();
-    const { editor, states } = fixture({ exclusive: true, renameThread: vi.fn(() => saved.promise) });
-
-    expect(editor.start("first")).toBe(true);
-    const save = editor.save("first", "Saved title");
-    expect(editor.start("second")).toBe(false);
-
-    expect(states.get("first")?.kind).toBe("saving");
-    expect(states.has("second")).toBe(false);
-    saved.resolve();
-    await save;
   });
 
   it("reports an unusable generated title and keeps the editable draft", async () => {
@@ -199,6 +166,9 @@ describe("thread rename editor", () => {
 
     editor.start("first");
     const save = editor.save("first", "Stale title");
+    expect(editor.start("second")).toBe(false);
+    expect(states.get("first")?.kind).toBe("saving");
+    expect(states.has("second")).toBe(false);
     await Promise.resolve();
     expect(renameThread).toHaveBeenCalledOnce();
     states.delete("first");
