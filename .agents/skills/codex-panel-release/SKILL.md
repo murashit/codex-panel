@@ -5,16 +5,11 @@ description: Prepare, publish, or repair a Codex Panel release, including versio
 
 # Codex Panel Release
 
-Use [Release](../../../docs/release.md) to prepare the candidate and public notes. Inspect relevant implementation, tests, and callers to verify the user-visible change.
+Follow [Release](../../../docs/release.md), including its [authorization boundaries](../../../docs/release.md#authorization), from candidate preparation through publication verification or recovery.
 
-Draft for plugin users who have not followed development. Name the affected action and visible change in familiar UI terms. Match the previous three releases’ language, brevity, and level of detail, preferring one concise outcome per bullet. Keep implementation rationale and validation in the work discussion.
+- For preparation, use [Prepare the release PR and notes](../../../docs/release.md#prepare-the-release-pr-and-notes) to audit the range, choose the version, and finalize user-facing notes and release history.
+- For publication, apply [Make the publication decision](../../../docs/release.md#make-the-publication-decision) to the approved contents and final remote state.
+- For an interrupted or failed release, use [Verify the result or recover](../../../docs/release.md#verify-the-result-or-recover) before retrying.
+- For Community publication, use [Verify Community publication](../../../docs/release.md#verify-community-publication); it is distinct from GitHub publication.
 
-Finalize the notes and release-branch history together under the guide, leaving tagpr generation unchanged until that phase. Every release PR must end as one commit directly changing the previous released version to the final target, with subject `chore(release): X.Y.Z` matching that target.
-
-Present the exact final notes, selected version, previous tag, and proposed head/range to the user and obtain explicit approval before merging the release PR or initiating tagging/publication. A general release request authorizes preparation only; do not enable auto-merge while waiting.
-
-Apply the guide's finalization checks immediately before merging, including successful required CI for the exact final remote head. Compare the re-fetched body byte-for-byte with the approved text and verify the approved version and included changes still match. After any head or main/base change or tagpr regeneration, repeat the affected finalization and verification; reuse approval if the exact notes, version, and included changes are unchanged. Neither a SHA match nor passing CI proves body approval. Present changed release contents for renewed approval; if exact-content verification is uncertain, stop and resolve it with the user.
-
-Follow the guide through merged-body verification and the publication result before reporting completion. On a content mismatch, stop publication/recovery and resolve it with the user. Inspect uncertain merge or publication outcomes before retrying.
-
-Recover only within valid approval of the exact release contents and recovery action. Reuse that approval; ask only if it is absent or uncertain, or the scope changes. Do not infer permission to move tags or overwrite published releases from release preparation approval.
+Report the prepared candidate or observed publication result, verification evidence, and any remaining approval, review, or recovery work.

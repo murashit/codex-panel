@@ -5,11 +5,14 @@ description: Update Codex Panel's CLI compatibility baseline and generated app-s
 
 # Codex Panel App-Server Update
 
-Compare the recorded, installed, and target CLI versions with the README Compatibility section. Use `docs/development.md` for generation and validation, and `docs/design.md` when protocol changes affect ownership or product behavior.
+Compare recorded, installed, and target CLI versions with the README Compatibility section. Follow [Codex App-Server compatibility](../../../docs/development.md#codex-app-server) for exact-version generation, affected runtime paths, and validation. Use [Design](../../../docs/design.md) when protocol changes affect ownership or product behavior.
 
-- Regenerate bindings using the Codex App-Server procedure in `docs/development.md`; do not patch generated output by hand.
-- Trace protocol changes into the affected runtime paths. Prefer current supported CLI behavior; retain compatibility code only for a concrete supported need.
-- Complete required compatibility changes and validation before reporting the target version as verified. Keep optional follow-ups separate from the update.
-- When the task includes evaluating upstream changes for follow-ups, assess user benefit, internal simplification, and obsolete responsibilities before reporting optional [follow-up proposals](references/follow-up-proposals.md). A bindings-only update does not require an opportunity audit.
+Complete required compatibility work before reporting the target baseline as verified. Report the tested CLI version, changed compatibility behavior, and material verification limits. Keep optional follow-ups separate from required compatibility work; a bindings-only update does not require an opportunity audit.
 
-Follow the validation requirements in `docs/development.md`, including Update API Compatibility for baseline and binding changes. Use live Obsidian validation only for material integration behavior not covered by automation. Report the tested CLI version and changed compatibility behavior.
+## Optional follow-up proposals
+
+When the task includes evaluating upstream changes, assess concrete user benefits, internal simplification, and obsolete responsibilities under the [shared review criteria](../../../docs/development.md#review-and-simplify-a-change). A new API name or easy implementation alone does not establish value. Consider supported users, including managed deployments, and whether existing Codex or Obsidian functionality already serves the need.
+
+Trace relevant current paths and contracts to establish what becomes possible, what is added or removed, and which maintenance work becomes easier. For UI proposals, apply [Design a UI Change](../../../docs/development.md#design-a-ui-change); release notes and generated bindings alone are insufficient. Resolve material unknowns where possible and state remaining uncertainty without turning it into an unsupported recommendation.
+
+Present worthwhile proposals in familiar behavior or maintenance terms: current limitation, proposed change, benefit and cost, integration point, and prerequisites. Rank by concrete benefit and cost, including compatibility impacts of removals. No proposals is a valid outcome.
