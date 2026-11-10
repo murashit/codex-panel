@@ -81,7 +81,7 @@ function activeContextReferenceSuggestions(
       activeNoteContext: references.activeNote,
     });
   }
-  if (references?.selection && "selection".startsWith(query) && query !== "selection") {
+  if (references?.selection && "selection".startsWith(query)) {
     suggestions.push({
       display: `Selection · ${references.selection.name}`,
       detail: selectionSuggestionPreview(references.selection),
