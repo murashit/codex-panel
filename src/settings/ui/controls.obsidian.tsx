@@ -82,7 +82,7 @@ export function ObsidianCommitTextInput({
     return disposeDomListeners(
       listenDomEvent(text.inputEl, "blur", commit),
       listenDomEvent(text.inputEl, "keydown", (event) => {
-        if (event.key !== "Enter") return;
+        if (event.key !== "Enter" || event.isComposing) return;
         event.preventDefault();
         commit();
       }),

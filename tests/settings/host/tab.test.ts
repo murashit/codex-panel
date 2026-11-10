@@ -122,6 +122,13 @@ describe("settings tab", () => {
     if (!input) throw new Error(`Missing declarative ${name} input`);
 
     input.value = inputValue;
+    const composingEnter = new KeyboardEvent("keydown", { key: "Enter", isComposing: true, cancelable: true });
+    input.dispatchEvent(composingEnter);
+    await flushPromises();
+
+    expect(composingEnter.defaultPrevented).toBe(false);
+    expect(saveSettings).not.toHaveBeenCalled();
+    expect(input.value).toBe(inputValue);
     input.dispatchEvent(new Event("blur"));
     await flushPromises();
 
