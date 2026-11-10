@@ -293,28 +293,18 @@ describe("panel pending request rendering", () => {
     }
   });
 
-  it("selects the other Plan mode answer from controlled drafts", () => {
-    const { parent, drafts, render } = controlledOtherInput();
-
-    render();
-    actEvent(() => {
-      changeInputValue(expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")), "Custom scope");
-    });
-
-    expect(drafts().get("99:scope:other")).toBe("Custom scope");
-    expect(drafts().get("99:scope")).toBe("Custom scope");
-
-    render();
-    const radios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
-    expect(radios.map((radio) => radio.checked)).toEqual([false, true]);
-  });
-
-  it("keeps an empty other Plan mode answer selected and updates its tab order", () => {
-    const { parent, drafts, render } = controlledOtherInput();
+  it.each([
+    { isSecret: false, type: "text" },
+    { isSecret: true, type: "password" },
+  ])("selects and edits the other answer from controlled $type drafts", ({ isSecret, type }) => {
+    const input = pendingOtherUserInput();
+    input.params.questions = input.params.questions.map((question) => ({ ...question, isSecret }));
+    const { parent, drafts, render } = controlledOtherInput(document.createElement("div"), input);
 
     render();
     const radios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
     expect(radios.map((radio) => radio.checked)).toEqual([true, false]);
+    expect(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")?.type).toBe(type);
     expect(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")?.tabIndex).toBe(-1);
 
     actEvent(() => {
@@ -327,6 +317,18 @@ describe("panel pending request rendering", () => {
     const rerenderedRadios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
     expect(rerenderedRadios.map((radio) => radio.checked)).toEqual([false, true]);
     expect(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")?.tabIndex).toBe(0);
+
+    actEvent(() => {
+      changeInputValue(expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")), "Custom scope");
+    });
+
+    expect(drafts().get("99:scope:other")).toBe("Custom scope");
+    expect(drafts().get("99:scope")).toBe("Custom scope");
+    render();
+    expect([...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")].map((radio) => radio.checked)).toEqual([
+      false,
+      true,
+    ]);
   });
 
   it.each(["main document", "iframe"])("commits other Plan mode IME answers in the %s", (target) => {
@@ -935,9 +937,9 @@ function pendingMcpElicitationSnapshot(elicitation: PendingMcpElicitation): Pend
   );
 }
 
-function controlledOtherInput(parent = document.createElement("div")) {
+function controlledOtherInput(parent = document.createElement("div"), input = pendingOtherUserInput()) {
   const { stateStore, pendingRequests } = pendingRequestFixture();
-  stateStore.dispatch({ type: "request/user-input-queued", input: pendingOtherUserInput() });
+  stateStore.dispatch({ type: "request/user-input-queued", input });
   const drafts = () => stateStore.getState().requests.userInputDrafts;
   const render = () => {
     const state = stateStore.getState().requests;

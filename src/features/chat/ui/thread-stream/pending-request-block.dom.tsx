@@ -605,6 +605,7 @@ function OtherUserInputOption({
   const [inputValue, setInputValue] = useState(otherValue);
   const composingRef = useRef(false);
   const otherSelected = userInputDrafts.has(draftKey) && current === otherValue && !optionLabels.has(current);
+  const inputTypeProps = (question.isSecret ? { type: "password" } : { type: "text" }) satisfies InputHTMLAttributes;
   useEffect(() => {
     if (!composingRef.current) setInputValue(otherValue);
   }, [otherValue]);
@@ -644,8 +645,8 @@ function OtherUserInputOption({
       />
       <span className="codex-panel__user-input-option-label">Other</span>
       <input
+        {...inputTypeProps}
         className="codex-panel__user-input-text codex-panel__user-input-other-text"
-        type="text"
         value={inputValue}
         tabIndex={otherSelected ? 0 : -1}
         placeholder="Other answer"
