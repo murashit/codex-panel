@@ -98,7 +98,7 @@ function pendingUserInputViewModel(input: PendingUserInput): PendingUserInputVie
 function approvalActionClassName(action: ApprovalAction): string {
   const kind = approvalActionKind(action);
   if (kind === "accept") return "mod-cta";
-  if (kind === "decline") return "mod-warning";
+  if (kind === "decline" || kind === "decline-rule") return "mod-warning";
   return "";
 }
 

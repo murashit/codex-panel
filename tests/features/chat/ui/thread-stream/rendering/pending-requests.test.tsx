@@ -486,7 +486,7 @@ describe("panel pending request rendering", () => {
         {
           id: "approval-option:0:network-allow",
           label: "Allow network rule",
-          action: { kind: "approval-option", optionId: "approval-option:0:network-allow", intent: "accept-session" },
+          action: { kind: "approval-option", optionId: "approval-option:0:network-allow", intent: "accept-rule" },
         },
         {
           id: "approval-option:1:decline",
@@ -509,7 +509,7 @@ describe("panel pending request rendering", () => {
     expect(resolveApproval).toHaveBeenCalledWith(approval.requestId, {
       kind: "approval-option",
       optionId: "approval-option:0:network-allow",
-      intent: "accept-session",
+      intent: "accept-rule",
     });
   });
 

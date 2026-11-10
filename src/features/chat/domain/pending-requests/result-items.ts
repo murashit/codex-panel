@@ -2,6 +2,7 @@ import { definedProp } from "../../../../domain/objects/optional-properties";
 import type { ThreadStreamItem, ThreadStreamUserInputQuestionResult } from "../thread-stream/items";
 import {
   type ApprovalAction,
+  type ApprovalActionIntent,
   approvalActionKind,
   type McpElicitationAction,
   type McpElicitationContentValue,
@@ -10,19 +11,30 @@ import {
   type PendingUserInput,
 } from "./model";
 
+const approvalResultLabels = {
+  accept: { prefix: "Allowed", status: "allowed" },
+  "accept-session": { prefix: "Allowed for this session", status: "allowed for session" },
+  "accept-rule": { prefix: "Allowed with rule", status: "allowed with rule" },
+  "decline-rule": { prefix: "Denied with rule", status: "denied with rule" },
+  cancel: { prefix: "Cancelled", status: "cancelled" },
+  decline: { prefix: "Denied", status: "denied" },
+} satisfies Record<ApprovalActionIntent, { prefix: string; status: string }>;
+
 export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction, id: string): ThreadStreamItem {
   const kind = approvalActionKind(action);
+  const { prefix, status } = approvalResultLabels[kind];
+  const rule = kind === "accept-rule" || kind === "decline-rule";
   return {
     id,
     kind: "approvalResult",
     role: "tool",
-    text: approvalResultText(approval, action),
+    text: `${prefix}: ${approval.resultSummary}`,
     ...definedProp("turnId", approval.turnId),
     provenance: { source: "localUser", channel: "response", interaction: "approvalResponse", sourceId: String(approval.requestId) },
-    executionState: kind === "accept" || kind === "accept-session" ? "completed" : "failed",
+    executionState: kind === "accept" || kind === "accept-session" || kind === "accept-rule" ? "completed" : "failed",
     approval: {
-      status: approvalResultStatus(kind),
-      scope: approval.kind === "humanCommand" ? "command" : kind === "accept-session" ? "session" : "turn",
+      status,
+      scope: rule ? "rule" : approval.kind === "humanCommand" ? "command" : kind === "accept-session" ? "session" : "turn",
       request: approval.title,
       auditFacts: [...approval.details],
     },
@@ -70,24 +82,6 @@ export function createMcpElicitationResultItem(
     executionState: accepted ? "completed" : "failed",
     questions: mcpElicitationResultQuestions(elicitation, accepted, accepted ? content : null),
   };
-}
-
-function approvalResultText(approval: PendingApproval, action: ApprovalAction): string {
-  return `${approvalResultPrefix(approvalActionKind(action))}: ${approval.resultSummary}`;
-}
-
-function approvalResultPrefix(kind: ReturnType<typeof approvalActionKind>): string {
-  if (kind === "accept") return "Allowed";
-  if (kind === "accept-session") return "Allowed for this session";
-  if (kind === "cancel") return "Cancelled";
-  return "Denied";
-}
-
-function approvalResultStatus(kind: ReturnType<typeof approvalActionKind>): string {
-  if (kind === "accept") return "allowed";
-  if (kind === "accept-session") return "allowed for session";
-  if (kind === "cancel") return "cancelled";
-  return "denied";
 }
 
 function mcpElicitationResultText(elicitation: PendingMcpElicitation, action: McpElicitationAction): string {
