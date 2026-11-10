@@ -242,9 +242,11 @@ export class ItemView extends Component {
   }
 }
 
-export class MarkdownView {
+export class FileView {
   file: TFile | null = null;
 }
+
+export class MarkdownView extends FileView {}
 
 export class Plugin extends Component {
   constructor(readonly app: App) {

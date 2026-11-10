@@ -174,10 +174,11 @@ describe("ComposerInput", () => {
     expect(dailyNoteReferences).toHaveBeenCalledWith("Inbox.md");
   });
 
-  it("freezes active file context when inserting the active suggestion", () => {
+  it("rejects a closed @active candidate, resolves the open note at acceptance, then preserves that reference for sending", () => {
     const stateStore = createChatStateStore();
+    const alpha = { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" };
     let references: ComposerContextReferences = {
-      activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
+      activeNote: alpha,
       selection: null,
     };
     const { prepareInput, input, edit, insertFirstSuggestion } = createInput({
@@ -188,23 +189,36 @@ describe("ComposerInput", () => {
     });
 
     edit("@active");
+    references = { activeNote: null, selection: null };
+    insertFirstSuggestion();
+    expect(input.draft).toBe("@active");
+    expect(stateStore.getState().composer.suggestions).toEqual([]);
+    expect(input.captureInputSnapshot().activeNoteSnapshots).toEqual([]);
+
+    references = { activeNote: alpha, selection: null };
+    edit("@active");
+    expect(stateStore.getState().composer.suggestions[0]?.replacement).toBe("[[Alpha]]");
+    references = {
+      activeNote: { name: "Beta", path: "notes/Beta.md", linktext: "Beta" },
+      selection: null,
+    };
     insertFirstSuggestion();
     const completedActiveNoteReference = input.draft;
     const snapshot = input.captureInputSnapshot();
     references = { activeNote: null, selection: null };
 
-    expect(completedActiveNoteReference).toBe("[[Alpha]]");
+    expect(completedActiveNoteReference).toBe("[[Beta]]");
     expect(prepareInput(completedActiveNoteReference).input).toContainEqual({
       type: "fileReference",
-      name: "Alpha",
-      path: "notes/Alpha.md",
+      name: "Beta",
+      path: "notes/Beta.md",
     });
 
     input.setDraft("", { clearSuggestions: true });
     expect(prepareInput(completedActiveNoteReference, snapshot).input).toContainEqual({
       type: "fileReference",
-      name: "Alpha",
-      path: "notes/Alpha.md",
+      name: "Beta",
+      path: "notes/Beta.md",
     });
   });
 

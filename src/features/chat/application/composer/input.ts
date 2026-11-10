@@ -361,6 +361,15 @@ export class ComposerInput {
     const source = this.options.view.selection();
     if (!source) return;
 
+    if (suggestion.activeNoteContext) {
+      const activeNote = this.options.contextReferenceProvider.contextReferences(this.options.sourcePath()).activeNote;
+      if (!activeNote) {
+        this.updateSuggestions();
+        return;
+      }
+      suggestion = { ...suggestion, activeNoteContext: activeNote, replacement: activeNoteContextReferenceMarker(activeNote) };
+    }
+
     const selection = suggestion.selectionContext;
     if (selection?.range === null) {
       const current = this.options.contextReferenceProvider.contextReferences(this.options.sourcePath()).selection;

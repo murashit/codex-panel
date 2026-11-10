@@ -5,7 +5,7 @@ import {
   threadTitlePortFixture,
   workspacePanelsFixture,
 } from "../features/chat/support/host-contracts";
-import { chatMetadataCacheFixture, chatVaultFixture } from "./chat-obsidian";
+import { chatMetadataCacheFixture, chatVaultFixture, chatWorkspaceFixture } from "./chat-obsidian";
 // @vitest-environment jsdom
 
 import { FileSystemAdapter } from "obsidian";
@@ -35,6 +35,7 @@ export async function pluginWithLeaves(
     {
       vault: { adapter },
       workspace: {
+        ...chatWorkspaceFixture(),
         getLeavesOfType: vi.fn((type: string) => {
           if (type === VIEW_TYPE_CODEX_PANEL) return leaves;
           if (type === VIEW_TYPE_CODEX_THREADS) return options.threadsLeaves ?? [];
@@ -45,9 +46,7 @@ export async function pluginWithLeaves(
         getRightLeaf: vi.fn(() => null),
         createLeafInParent: vi.fn(() => null),
         getMostRecentLeaf: vi.fn(() => null),
-        getActiveViewOfType: vi.fn(() => null),
         ensureSideLeaf: vi.fn(() => Promise.reject(new Error("Unexpected ensureSideLeaf call."))),
-        on: vi.fn(() => ({})),
         onLayoutReady: vi.fn((callback: () => void) => callback()),
         activeLeaf: null,
         rightSplit: {},
@@ -100,10 +99,7 @@ export function chatView(
       ...leaf,
       app: {
         workspace: {
-          getActiveFile: vi.fn(() => null),
-          getLastOpenFiles: vi.fn(() => []),
-          on: vi.fn(() => ({})),
-          openLinkText: vi.fn(),
+          ...chatWorkspaceFixture(),
           requestSaveLayout: vi.fn(),
         },
         vault: chatVaultFixture(),
@@ -114,9 +110,8 @@ export function chatView(
     runtimeOwner,
   );
   const workspace = view.app.workspace as unknown as {
-    getActiveViewOfType?: ReturnType<typeof vi.fn>;
+    getActiveViewOfType: ReturnType<typeof vi.fn>;
   };
-  workspace.getActiveViewOfType ??= vi.fn();
   workspace.getActiveViewOfType.mockReturnValue(view);
   return view;
 }
