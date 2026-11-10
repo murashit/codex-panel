@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, Ref, TargetedMouseEvent, ComponentChild as UiNode } from "preact";
+import type { ButtonHTMLAttributes, Ref, TargetedFocusEvent, TargetedMouseEvent, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import { IconButton } from "../../../shared/ui/icon.dom";
 
@@ -111,7 +111,69 @@ export function ThreadActionControls({
   );
 }
 
-export function ThreadRenameInput({
+export interface ThreadRenameControlActions {
+  updateDraft: (threadId: string, value: string) => void;
+  save: (threadId: string, value: string) => void;
+  cancel: (threadId: string) => void;
+  autoName: (threadId: string) => void;
+  cancelAutoName: (threadId: string) => void;
+}
+
+export function threadRenameControls({
+  threadId,
+  state,
+  classNames,
+  actions,
+}: {
+  threadId: string;
+  state: { draft: string; generating: boolean; saving: boolean; autoNameDisabled: boolean };
+  classNames: { input: string; action: string };
+  actions: ThreadRenameControlActions;
+}): { input: UiNode; action: UiNode; onFocusOut: (event: TargetedFocusEvent<HTMLElement>) => void } {
+  const busy = state.generating || state.saving;
+  const save = (value: string) => {
+    actions.save(threadId, value);
+  };
+  return {
+    input: (
+      <ThreadRenameInput
+        className={classNames.input}
+        value={state.draft}
+        busy={busy}
+        onUpdate={(value) => {
+          actions.updateDraft(threadId, value);
+        }}
+        onSave={save}
+        onCancel={() => {
+          actions.cancel(threadId);
+        }}
+      />
+    ),
+    action: (
+      <ThreadControlButton
+        icon={state.generating ? "x" : "sparkles"}
+        label={state.generating ? "Cancel auto-name" : "Auto-name thread"}
+        className={classNames.action}
+        disabled={state.saving || (!state.generating && state.autoNameDisabled)}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+        onAction={() => {
+          if (state.generating) actions.cancelAutoName(threadId);
+          else actions.autoName(threadId);
+        }}
+      />
+    ),
+    onFocusOut: (event) => {
+      const next = event.relatedTarget;
+      if (busy || (next && "nodeType" in next && event.currentTarget.contains(next as Node))) return;
+      save(state.draft);
+    },
+  };
+}
+
+function ThreadRenameInput({
   className,
   value,
   busy,
@@ -159,44 +221,8 @@ export function ThreadRenameInput({
             if (!busy) onCancel();
           }
         }}
-        onBlur={(event) => {
-          if (!busy) onSave(event.currentTarget.value);
-        }}
       />
     </>
-  );
-}
-
-export function ThreadAutoNameButton({
-  className,
-  generating,
-  saving,
-  autoNameDisabled,
-  onStart,
-  onCancel,
-}: {
-  className: string;
-  generating: boolean;
-  saving: boolean;
-  autoNameDisabled: boolean;
-  onStart: () => void;
-  onCancel: () => void;
-}): UiNode {
-  return (
-    <ThreadControlButton
-      icon={generating ? "x" : "sparkles"}
-      label={generating ? "Cancel auto-name" : "Auto-name thread"}
-      className={className}
-      disabled={saving || (!generating && autoNameDisabled)}
-      onPointerDown={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
-      onAction={() => {
-        if (generating) onCancel();
-        else onStart();
-      }}
-    />
   );
 }
 

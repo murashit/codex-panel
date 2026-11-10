@@ -356,13 +356,14 @@ describe("CodexThreadsView", () => {
       .mockResolvedValueOnce(true);
     const host = threadsHost({ threadMutations: threadMutationCommandsMock({ renameThread: renameThreadRequest }) });
     const view = await threadsView(host);
+    document.body.append(view.containerEl);
 
     await openRenameEditor(view);
     const firstInput = renameInput(view);
     firstInput.click();
     expect(host.openThreadInAvailableView).not.toHaveBeenCalled();
     changeInputValue(firstInput, "  Saved   title  ");
-    firstInput.dispatchEvent(new FocusEvent("blur"));
+    firstInput.blur();
     await waitForAsyncWork(() =>
       expect(renameThreadRequest).toHaveBeenCalledExactlyOnceWith("thread", "  Saved   title  ", { shouldStart: expect.any(Function) }),
     );
@@ -379,7 +380,7 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
     expect(notices).toContain("Rename failed.");
 
-    renameInput(view).dispatchEvent(new FocusEvent("blur"));
+    renameInput(view).blur();
     await waitForAsyncWork(() => expect(renameThreadRequest).toHaveBeenCalledTimes(2));
     expect(renameThreadRequest).toHaveBeenLastCalledWith("thread", "  Saved   title  ", { shouldStart: expect.any(Function) });
     await waitForAsyncWork(() => expect(view.containerEl.querySelector(".codex-panel-threads__rename-input")).toBeNull());
@@ -417,21 +418,39 @@ describe("CodexThreadsView", () => {
     await view.onClose();
   });
 
-  it("auto-names a thread rename draft from completed history", async () => {
+  it("allows keyboard focus to auto-name a draft and saves the generated title when leaving the editor", async () => {
     const context = { userRequest: "Fix thread renaming in the threads view", assistantResponse: "Updated the rename UI." };
     const titlePort = titlePortFixture();
     titlePort.persistedContext.mockResolvedValue(context);
     titlePort.generateTitle.mockResolvedValue("Threads rename UI");
-    const view = await threadsView(threadsHost({ threadTitlePort: titlePort }));
+    const host = threadsHost({ threadTitlePort: titlePort });
+    const view = await threadsView(host);
+    document.body.append(view.containerEl);
 
     await openRenameEditor(view);
-    await startAutoName(view);
+    await waitForAsyncWork(() =>
+      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(false),
+    );
+    const autoName = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]');
+    if (!autoName) throw new Error("Missing auto-name button");
+    autoName.focus();
+    expect(document.activeElement).toBe(autoName);
+    expect(host.threadMutations.renameThread).not.toHaveBeenCalled();
+    autoName.click();
 
     await waitForAsyncWork(() => {
       expect(titlePort.persistedContext).toHaveBeenCalledExactlyOnceWith("thread");
       expect(titlePort.generateTitle).toHaveBeenCalledExactlyOnceWith(context, expect.any(AbortSignal));
       expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Threads rename UI");
     });
+    const input = renameInput(view);
+    expect(document.activeElement).toBe(input);
+    input.blur();
+    await waitForAsyncWork(() =>
+      expect(host.threadMutations.renameThread).toHaveBeenCalledExactlyOnceWith("thread", "Threads rename UI", {
+        shouldStart: expect.any(Function),
+      }),
+    );
   });
 
   it("disables auto-name while completed history is loading", async () => {
@@ -464,11 +483,12 @@ describe("CodexThreadsView", () => {
         threadMutations: threadMutationCommandsMock({ renameThread: vi.fn(() => saved.promise) }),
       }),
     );
+    document.body.append(view.containerEl);
 
     await openRenameEditor(view);
     await waitForAsyncWork(() => expect(titlePort.persistedContext).toHaveBeenCalledOnce());
     const input = renameInput(view);
-    input.dispatchEvent(new FocusEvent("blur"));
+    input.blur();
     changeInputValue(input, "Changed while saving");
     history.resolve({ userRequest: "Name this", assistantResponse: "Done." });
     saved.reject(new Error("Rename failed."));

@@ -230,6 +230,13 @@ describe("Toolbar decisions", () => {
     const input = parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input");
     if (!input) throw new Error("Missing thread rename input");
     expect(input.value).toBe("Draft title");
+    const autoName = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]'));
+    input.focus();
+    autoName.focus();
+    expect(actions.threads.rename.save).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(autoName);
+    autoName.blur();
+    expect(actions.threads.rename.save).toHaveBeenCalledExactlyOnceWith("editing", "Draft title");
     changeInputValue(input, "New title");
     expect(actions.threads.rename.updateDraft).toHaveBeenCalledWith("editing", "New title");
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));

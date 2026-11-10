@@ -4,8 +4,42 @@ import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { ConversationHeader } from "../../../../../src/features/chat/ui/header/header";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
+import { toolbarActionsFixture } from "../../support/toolbar-actions";
 
 describe("conversation header", () => {
+  it("keeps the rename draft while focusing auto-name and saves when focus leaves the header", () => {
+    const parent = document.body.appendChild(document.createElement("div"));
+    const actions = toolbarActionsFixture().threads;
+    try {
+      renderUiRoot(
+        parent,
+        <ConversationHeader
+          title="Thread"
+          persistence={{ kind: "fixed", ephemeral: false }}
+          actions={actions}
+          thread={{
+            threadId: "thread",
+            renameDisabled: false,
+            archiveDisabled: false,
+            archiveConfirm: { active: false, defaultSaveMarkdown: false },
+            rename: { draft: "Draft title", generating: false, saving: false, autoNameDisabled: false },
+          }}
+        />,
+      );
+      const autoName = parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]');
+      if (!autoName) throw new Error("Missing auto-name button");
+      autoName.focus();
+      expect(document.activeElement).toBe(autoName);
+      expect(actions.rename.save).not.toHaveBeenCalled();
+      autoName.click();
+      expect(actions.rename.autoName).toHaveBeenCalledExactlyOnceWith("thread");
+      autoName.blur();
+      expect(actions.rename.save).toHaveBeenCalledExactlyOnceWith("thread", "Draft title");
+    } finally {
+      unmountUiRoot(parent);
+      parent.remove();
+    }
+  });
   it("exposes a draft choice and disables it while creation is pending", async () => {
     const parent = document.createElement("div");
     const onToggle = vi.fn();

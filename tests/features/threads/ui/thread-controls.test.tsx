@@ -4,8 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   ThreadActionControls,
   type ThreadActionControlsProps,
-  ThreadAutoNameButton,
-  ThreadRenameInput,
+  threadRenameControls,
 } from "../../../../src/features/threads/ui/thread-controls.dom";
 import { renderUiRoot, unmountUiRoot } from "../../../../src/shared/ui/preact-root.dom";
 import { changeInputValue } from "../../../support/dom";
@@ -32,6 +31,32 @@ function threadActionProps(overrides: Partial<ThreadActionControlsProps> = {}): 
     onArchiveConfirm: vi.fn(),
     ...overrides,
   };
+}
+
+function renameProps(): Parameters<typeof threadRenameControls>[0] {
+  return {
+    state: { draft: "Title", generating: false, saving: false, autoNameDisabled: false },
+    classNames: { input: "surface-input", action: "surface-action" },
+    threadId: "thread",
+    actions: {
+      updateDraft: vi.fn(),
+      save: vi.fn(),
+      cancel: vi.fn(),
+      autoName: vi.fn(),
+      cancelAutoName: vi.fn(),
+    },
+  };
+}
+
+function renderRename(parent: HTMLElement, props: Parameters<typeof threadRenameControls>[0]): void {
+  const controls = threadRenameControls(props);
+  renderUiRoot(
+    parent,
+    <div onFocusOut={controls.onFocusOut}>
+      {controls.input}
+      {controls.action}
+    </div>,
+  );
 }
 
 describe("shared thread controls", () => {
@@ -115,17 +140,17 @@ describe("shared thread controls", () => {
     }
   });
 
-  it("keeps distinct accessible-name references across separate roots", () => {
+  it("keeps accessible names and action targets distinct across separate roots", () => {
     const first = document.body.appendChild(document.createElement("div"));
     const second = document.body.appendChild(document.createElement("div"));
+    const props = renameProps();
     try {
-      for (const parent of [first, second]) {
-        renderUiRoot(
-          parent,
-          <ThreadRenameInput className="surface-input" value="Title" busy={false} onUpdate={vi.fn()} onSave={vi.fn()} onCancel={vi.fn()} />,
-        );
-      }
+      renderRename(first, { ...props, threadId: "first" });
+      renderRename(second, { ...props, threadId: "second" });
       const inputs = [first, second].map((parent) => expectPresent(parent.querySelector<HTMLInputElement>("input")));
+      for (const input of inputs) changeInputValue(input, "New title");
+      expect(props.actions.updateDraft).toHaveBeenNthCalledWith(1, "first", "New title");
+      expect(props.actions.updateDraft).toHaveBeenNthCalledWith(2, "second", "New title");
       const ids = inputs.map((input) => input.getAttribute("aria-labelledby"));
       expect(ids[0]).not.toBe(ids[1]);
       for (const id of ids) {
@@ -139,90 +164,65 @@ describe("shared thread controls", () => {
     }
   });
 
-  it("owns the rename input focus, IME, save, cancel, and busy protocol", () => {
-    const parent = document.createElement("div");
-    document.body.append(parent);
-    const onUpdate = vi.fn();
-    const onSave = vi.fn();
-    const onCancel = vi.fn();
-    const render = (value: string, busy = false) => {
-      renderUiRoot(
-        parent,
-        <ThreadRenameInput className="surface-input" value={value} busy={busy} onUpdate={onUpdate} onSave={onSave} onCancel={onCancel} />,
-      );
-    };
-
-    render("Old name");
-    let input = expectPresent(parent.querySelector<HTMLInputElement>("input"));
-    expect(document.activeElement).toBe(input);
-    expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length]);
-    changeInputValue(input, "New name");
-    expect(onUpdate).toHaveBeenCalledWith("New name");
-
-    render("New name");
-    input = expectPresent(parent.querySelector<HTMLInputElement>("input"));
-    input.dispatchEvent(new FocusEvent("blur"));
-    expect(onSave).toHaveBeenCalledWith("New name");
-    onSave.mockClear();
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, isComposing: true }));
-    expect(onSave).not.toHaveBeenCalled();
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    expect(onSave).toHaveBeenCalledWith("New name");
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    expect(onCancel).toHaveBeenCalledOnce();
-
-    onSave.mockClear();
-    onCancel.mockClear();
-    render("New name", true);
-    input = expectPresent(parent.querySelector<HTMLInputElement>("input"));
-    expect(input.disabled).toBe(true);
-    input.dispatchEvent(new FocusEvent("blur"));
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    expect(onSave).not.toHaveBeenCalled();
-    expect(onCancel).not.toHaveBeenCalled();
-    parent.remove();
-  });
-
-  it("keeps auto-name pointer focus in the editor and switches between start and cancel", () => {
-    const parent = document.createElement("div");
+  it("owns rename focus, keyboard and pointer actions, and auto-name busy transitions", () => {
+    const parent = document.body.appendChild(document.createElement("div"));
+    const props = renameProps();
     const rowPointerDown = vi.fn();
     const rowClick = vi.fn();
-    const onStart = vi.fn();
-    const onCancel = vi.fn();
     parent.addEventListener("pointerdown", rowPointerDown);
     parent.addEventListener("click", rowClick);
-    const render = (generating: boolean, saving = false, autoNameDisabled = false) => {
-      renderUiRoot(
-        parent,
-        <ThreadAutoNameButton
-          className="surface-action"
-          generating={generating}
-          saving={saving}
-          autoNameDisabled={autoNameDisabled}
-          onStart={onStart}
-          onCancel={onCancel}
-        />,
-      );
+    const render = (state: Partial<typeof props.state>) => {
+      props.state = { ...props.state, ...state };
+      renderRename(parent, props);
     };
 
-    render(false);
-    let button = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]'));
-    const pointerDown = new Event("pointerdown", { bubbles: true, cancelable: true });
-    button.dispatchEvent(pointerDown);
-    button.click();
-    expect(pointerDown.defaultPrevented).toBe(true);
-    expect(rowPointerDown).not.toHaveBeenCalled();
-    expect(rowClick).not.toHaveBeenCalled();
-    expect(onStart).toHaveBeenCalledExactlyOnceWith();
+    try {
+      render({ draft: "Old name" });
+      const input = expectPresent(parent.querySelector<HTMLInputElement>("input"));
+      expect(document.activeElement).toBe(input);
+      expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length]);
+      changeInputValue(input, "New name");
+      expect(props.actions.updateDraft).toHaveBeenCalledWith("thread", "New name");
 
-    render(true, false, true);
-    button = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]'));
-    expect(button.disabled).toBe(false);
-    button.click();
-    expect(onCancel).toHaveBeenCalledOnce();
+      render({ draft: "New name" });
+      const autoName = expectPresent(parent.querySelector<HTMLButtonElement>("button"));
+      autoName.focus();
+      expect(document.activeElement).toBe(autoName);
+      expect(props.actions.save).not.toHaveBeenCalled();
+      autoName.blur();
+      expect(props.actions.save).toHaveBeenCalledExactlyOnceWith("thread", "New name");
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, isComposing: true }));
+      expect(props.actions.save).toHaveBeenCalledOnce();
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      expect(props.actions.save).toHaveBeenNthCalledWith(2, "thread", "New name");
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      expect(props.actions.cancel).toHaveBeenCalledExactlyOnceWith("thread");
 
-    render(false, true);
-    button = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]'));
-    expect(button.disabled).toBe(true);
+      const pointerDown = new Event("pointerdown", { bubbles: true, cancelable: true });
+      autoName.dispatchEvent(pointerDown);
+      autoName.click();
+      expect(pointerDown.defaultPrevented).toBe(true);
+      expect(rowPointerDown).not.toHaveBeenCalled();
+      expect(rowClick).not.toHaveBeenCalled();
+      expect(props.actions.autoName).toHaveBeenCalledExactlyOnceWith("thread");
+
+      render({ generating: true, autoNameDisabled: true });
+      expect(input.disabled).toBe(true);
+      const cancelAutoName = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]'));
+      expect(cancelAutoName.disabled).toBe(false);
+      cancelAutoName.focus();
+      cancelAutoName.blur();
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      expect(props.actions.save).toHaveBeenCalledTimes(2);
+      expect(props.actions.cancel).toHaveBeenCalledExactlyOnceWith("thread");
+      cancelAutoName.click();
+      expect(props.actions.cancelAutoName).toHaveBeenCalledExactlyOnceWith("thread");
+
+      render({ generating: false, saving: true });
+      expect(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(true);
+    } finally {
+      unmountUiRoot(parent);
+      parent.remove();
+    }
   });
 });
