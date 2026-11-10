@@ -281,31 +281,33 @@ describe("composer suggestions", () => {
         },
       }),
     ).toEqual([]);
-    expect(
-      activeComposerSuggestions("@sel", notes, [], [], [], null, {
-        contextReferences: {
-          activeNote: null,
-          selection: {
-            name: "Beta Note",
-            path: "topics/Beta Note.md",
-            linktext: "Beta Note",
-            range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
-            text: "  selected\n\ttext  ",
+    for (const selectionQuery of ["@sel", "@selection"]) {
+      expect(
+        activeComposerSuggestions(selectionQuery, notes, [], [], [], null, {
+          contextReferences: {
+            activeNote: null,
+            selection: {
+              name: "Beta Note",
+              path: "topics/Beta Note.md",
+              linktext: "Beta Note",
+              range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
+              text: "  selected\n\ttext  ",
+            },
           },
+        })[0],
+      ).toMatchObject({
+        display: "Selection · Beta Note",
+        detail: "selected text",
+        replacement: '[[Beta Note]] "  selected  text  "',
+        selectionContext: {
+          name: "Beta Note",
+          path: "topics/Beta Note.md",
+          linktext: "Beta Note",
+          range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
+          text: "  selected\n\ttext  ",
         },
-      })[0],
-    ).toMatchObject({
-      display: "Selection · Beta Note",
-      detail: "selected text",
-      replacement: '[[Beta Note]] "  selected  text  "',
-      selectionContext: {
-        name: "Beta Note",
-        path: "topics/Beta Note.md",
-        linktext: "Beta Note",
-        range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
-        text: "  selected\n\ttext  ",
-      },
-    });
+      });
+    }
     expect(activeComposerSuggestions("/pla", notes, [])[0]?.replacement).toBe("/plan");
     expect(activeComposerSuggestions("/status", notes, [])).toEqual([]);
   });
