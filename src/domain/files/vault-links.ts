@@ -13,8 +13,7 @@ export function parseFileHref(href: string): ParsedFileHref | null {
   const withoutFragment = fragmentIndex === -1 ? trimmed : trimmed.slice(0, fragmentIndex);
   if (!withoutFragment) return null;
 
-  const decoded = decodeFileHref(withoutFragment);
-  const path = decoded.replace(/:(\d+)(?::\d+)?$/, "");
+  const path = decodeFileHref(withoutFragment.replace(/:(\d+)(?::\d+)?$/, ""));
   const subpath = fragmentIndex === -1 ? "" : decodeFileHref(trimmed.slice(fragmentIndex));
   return path ? { path, subpath } : null;
 }
@@ -37,6 +36,8 @@ export function isAbsoluteFileHref(href: string): boolean {
 export function vaultRelativeFileHref(vaultPath: string, configDir: string, href: string): { path: string; subpath: string } | null {
   const parsed = parseFileHref(href);
   if (!parsed) return null;
+  // Obsidian linktext treats # as a subpath delimiter, even inside a filename.
+  if (parsed.path.includes("#")) return null;
 
   const relativePath = vaultRelativePath(vaultPath, parsed.path, { allowRelative: true });
   if (!relativePath) return null;
@@ -48,7 +49,7 @@ export function vaultRelativeFileHref(vaultPath: string, configDir: string, href
 
 function decodeFileHref(href: string): string {
   try {
-    return decodeURI(href);
+    return decodeURIComponent(href);
   } catch {
     return href;
   }

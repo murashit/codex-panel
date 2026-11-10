@@ -28,9 +28,19 @@ describe("file path helpers", () => {
       path: "docs/Guide Book.md",
       subpath: "#Heading 1",
     });
+    expect(parseFileHref("docs/R%26D%2Bnotes.md:12:4#Costs%3A%202026")).toEqual({
+      path: "docs/R&D+notes.md",
+      subpath: "#Costs: 2026",
+    });
+    expect(parseFileHref("docs/Note%3A123")).toEqual({ path: "docs/Note:123", subpath: "" });
+    expect(parseFileHref("docs/100%25.md#50%25")).toEqual({ path: "docs/100%.md", subpath: "#50%" });
+    expect(parseFileHref("docs/100%.md")).toEqual({ path: "docs/100%.md", subpath: "" });
+    expect(parseFileHref("docs/A%23B.md#Heading")).toEqual({ path: "docs/A#B.md", subpath: "#Heading" });
     expect(vaultRelativeFileLinkTarget("/Vault", ".obsidian", "/Vault/docs/Missing%20Note.md:12#Heading%201")).toBe(
       "docs/Missing Note.md#Heading 1",
     );
+    // A literal filename hash cannot be represented in Obsidian linktext.
+    expect(vaultRelativeFileLinkTarget("/Vault", ".obsidian", "docs/A%23B.md#Heading")).toBeNull();
   });
 
   it("keeps external hrefs out of file path handling", () => {
@@ -69,5 +79,7 @@ describe("file path helpers", () => {
     expect(isVaultConfigPath("", "")).toBe(false);
     expect(vaultRelativeFileHref("/Vault", ".obsidian", "/Vault/docs/../.obsidian/plugins/example/main.js")).toBeNull();
     expect(vaultRelativeFileHref("C:\\Vault", ".obsidian", "C:\\Vault\\.OBSIDIAN\\plugins\\example\\main.js")).toBeNull();
+    expect(vaultRelativeFileHref("/Vault", ".obsidian", "docs%2F..%2F.obsidian%2Fplugins%2Fexample%2Fmain.js")).toBeNull();
+    expect(vaultRelativeFileHref("/Vault", ".obsidian", "%2E%2E%2Foutside.md")).toBeNull();
   });
 });

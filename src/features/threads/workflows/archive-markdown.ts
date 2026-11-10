@@ -112,10 +112,12 @@ function normalizedExportedMarkdownLink(
   if (!parsed) return null;
   const vaultRelative = vaultRelativePath(vaultPath, parsed.path);
   if (vaultRelative && !archiveExportShouldKeepAbsolute(vaultRelative, vaultConfigDir, vaultPath)) {
+    const path = vaultRelative.split("/").map(encodeURIComponent).join("/");
+    const fragment = parsed.subpath ? `#${encodeURIComponent(parsed.subpath.slice(1))}` : "";
     return {
       start,
       end,
-      value: markdownNodeSource({ ...link, url: `${vaultRelative}${parsed.subpath}` }),
+      value: markdownNodeSource({ ...link, url: `${path}${fragment}` }),
     };
   }
 

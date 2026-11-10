@@ -151,6 +151,8 @@ describe("thread archive export", () => {
               "[Vault note with bare parens](/Users/example/Vault/topics/My_(Note).md)",
               '[**Titled vault note**](/Users/example/Vault/topics/Titled.md "Reference")',
               "[Vault source line](/Users/example/Vault/src/main.ts:12:4#L12)",
+              "[Encoded vault note](/Users/example/Vault/topics/R%26D%2Bnotes.md#Costs%3A%202026)",
+              "[Literal delimiters](/Users/example/Vault/topics/Part%231%3F%2526%3A123#Cost%20%231%3A%2050%2526)",
               "[Vault config](/Users/example/Vault/vault-config/plugins/codex-panel/main.js)",
               "[Canonical vault config](/Users/example/Vault/docs/../vault-config/plugins/codex-panel/main.js)",
               "[External file](/Users/example/Repos/project/README.md)",
@@ -179,11 +181,13 @@ describe("thread archive export", () => {
 
     expect(output).toContain(
       [
-        "[Vault note](<topics/My Note.md>)",
-        "[Vault note with parens](<topics/My (Note).md>)",
+        "[Vault note](topics/My%20Note.md)",
+        "[Vault note with parens](topics/My%20\\(Note\\).md)",
         "[Vault note with bare parens](topics/My_\\(Note\\).md)",
         '[**Titled vault note**](topics/Titled.md "Reference")',
         "[Vault source line](src/main.ts#L12)",
+        "[Encoded vault note](topics/R%26D%2Bnotes.md#Costs%3A%202026)",
+        "[Literal delimiters](topics/Part%231%3F%2526%3A123#Cost%20%231%3A%2050%2526)",
         "Vault config (`/Users/example/Vault/vault-config/plugins/codex-panel/main.js`)",
         "Canonical vault config (`/Users/example/Vault/docs/../vault-config/plugins/codex-panel/main.js`)",
         "External file (`/Users/example/Repos/project/README.md`)",
