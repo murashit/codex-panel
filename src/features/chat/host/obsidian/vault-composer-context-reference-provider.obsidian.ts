@@ -1,5 +1,5 @@
 import type { App, EditorPosition, TAbstractFile } from "obsidian";
-import { Component, MarkdownView, TFile } from "obsidian";
+import { Component, FileView, MarkdownView, TFile } from "obsidian";
 import { retainEditorSelectionEmphasis, type SelectionEmphasis } from "../../../../shared/ui/editor-selection-emphasis.obsidian";
 import type {
   ActiveNoteContextReference,
@@ -188,17 +188,19 @@ class VaultComposerContextTracker extends Component {
   contextReferences(sourcePath: string): ComposerContextReferences {
     this.syncSelectionTarget();
     this.refreshReadingEmphases();
-    const view = this.validLastMarkdownView();
-    const activeFile = view?.file ?? this.activeFile();
-    const activeNote = activeFile
-      ? {
-          name: displayNameForFile(activeFile),
-          path: activeFile.path,
-          linktext: linktextForFile(this.app, activeFile, sourcePath || activeFile.path),
-        }
+    const activeFile = this.openActiveFile();
+    const noteReference = (file: TFile): ActiveNoteContextReference => ({
+      name: displayNameForFile(file),
+      path: file.path,
+      linktext: linktextForFile(this.app, file, sourcePath || file.path),
+    });
+    const activeNote = activeFile ? noteReference(activeFile) : null;
+    const selectionTarget = this.selectionTarget;
+    const selectionView = selectionTarget?.view;
+    const selection = selectionTarget
+      ? selectionContextReference(selectionTarget.view, noteReference(selectionTarget.file), this.readingSelection)
       : null;
-    const selection = view && activeNote ? selectionContextReference(view, activeNote, this.readingSelection) : null;
-    if (selection?.range && view) this.selectionViews.set(selection, view);
+    if (selection?.range && selectionView) this.selectionViews.set(selection, selectionView);
     return { activeNote, selection };
   }
 
@@ -227,7 +229,7 @@ class VaultComposerContextTracker extends Component {
   }
 
   private refreshLastMarkdownView(): void {
-    const view = this.activeMarkdownView();
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
     if (view?.file) this.lastMarkdownView = view;
     this.syncSelectionTarget();
     this.syncCandidateVisibility();
@@ -273,7 +275,7 @@ class VaultComposerContextTracker extends Component {
       emphases.dispose();
     });
     lifecycle.registerDomEvent(target.document, "selectionchange", () => {
-      if (!this.readingSelection || this.activeMarkdownView() !== view) return;
+      if (!this.readingSelection || this.app.workspace.getActiveViewOfType(MarkdownView) !== view) return;
       const selection = target.document.getSelection();
       if (selection?.anchorNode && root.contains(selection.anchorNode) && selection.focusNode && root.contains(selection.focusNode)) {
         const activeElement = target.document.activeElement;
@@ -404,14 +406,14 @@ class VaultComposerContextTracker extends Component {
     if (this.readingSelection) this.readingSelection.range = null;
   }
 
-  private activeMarkdownView(): MarkdownView | null {
-    const workspace = this.app.workspace as Partial<Pick<App["workspace"], "getActiveViewOfType">>;
-    return workspace.getActiveViewOfType?.(MarkdownView) ?? null;
-  }
-
-  private activeFile(): TFile | null {
-    const workspace = this.app.workspace as Partial<Pick<App["workspace"], "getActiveFile">>;
-    return workspace.getActiveFile?.() ?? null;
+  private openActiveFile(): TFile | null {
+    const file = this.app.workspace.getActiveFile();
+    if (!file || this.app.vault.getAbstractFileByPath(file.path) !== file) return null;
+    let openFile: TFile | null = null;
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (leaf.view instanceof FileView && leaf.view.file === file) openFile = file;
+    });
+    return openFile;
   }
 
   private validLastMarkdownView(): MarkdownView | null {

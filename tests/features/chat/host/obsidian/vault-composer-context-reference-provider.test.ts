@@ -2,6 +2,7 @@
 
 import { EditorView } from "@codemirror/view";
 import type { App, EventRef, TFile } from "obsidian";
+import { FileView, MarkdownView } from "obsidian";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { VaultComposerContextReferenceProvider } from "../../../../../src/features/chat/host/obsidian/vault-composer-context-reference-provider.obsidian";
 import { editorSelectionEmphasisExtension } from "../../../../../src/shared/ui/editor-selection-emphasis.obsidian";
@@ -12,6 +13,31 @@ afterEach(() => {
   for (const cleanup of cleanups.splice(0).reverse()) cleanup();
   document.getSelection()?.removeAllRanges();
   vi.restoreAllMocks();
+});
+
+describe("Composer active note context", () => {
+  it("tracks the current open file through switches and closure independently of the last Markdown selection", () => {
+    const fixture = readingFixture();
+    fixture.select("Alpha excerpt");
+    fixture.setActive(null);
+    expect(fixture.provider.contextReferences("").activeNote?.path).toBe("Alpha.md");
+    const file = markdownFileFixture("Beta.pdf");
+    const view = Object.assign(Object.create(FileView.prototype) as FileView, { file });
+    const openViews: FileView[] = [fixture.view, view];
+    vi.spyOn(fixture.app.workspace, "getActiveFile").mockReturnValue(file);
+    vi.spyOn(fixture.app.workspace, "iterateAllLeaves").mockImplementation((visit) => {
+      for (const openView of openViews) visit({ view: openView } as never);
+    });
+    vi.spyOn(fixture.app.vault, "getAbstractFileByPath").mockImplementation((path) => (path === file.path ? file : fixture.view.file));
+
+    const references = fixture.provider.contextReferences("");
+    expect(references.activeNote).toEqual({ name: "Beta.pdf", path: "Beta.pdf", linktext: "Beta.pdf" });
+    expect(references.selection).toMatchObject({ path: "Alpha.md", text: "Alpha excerpt" });
+    openViews.pop();
+    const afterClose = fixture.provider.contextReferences("");
+    expect(afterClose.activeNote).toBeNull();
+    expect(afterClose.selection).toEqual(references.selection);
+  });
 });
 
 describe("Composer selection context", () => {
@@ -141,9 +167,13 @@ describe("Composer selection context", () => {
     const fixture = editorFixture("prefix\nalpha\nbeta");
     fixture.cm.contentDOM.focus();
     fixture.cm.dispatch({ selection: { anchor: 9, head: 15 } });
-    fixture.provider.dispose();
-    expect(fixture.view.containerEl.querySelector(".codex-panel-selection-emphasis")).toBeNull();
     fixture.panel.focus();
+    fixture.setActive(null);
+    expect(fixture.view.containerEl.querySelector(".codex-panel-selection-emphasis")).not.toBeNull();
+    fixture.provider.dispose();
+    fixture.cm.contentDOM.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: fixture.panel }));
+    expect(fixture.view.containerEl.querySelector(".codex-panel-selection-emphasis")).toBeNull();
+    fixture.setActive(fixture.view);
     let foreground = false;
     const provider = new VaultComposerContextReferenceProvider(fixture.app, () => foreground);
     cleanups.push(() => provider.dispose());
@@ -227,20 +257,28 @@ describe("Composer selection context", () => {
     expect(painting()).toEqual([]);
   });
 
-  it.each(["mode", "file", "detach", "window-close", "dispose"])("drops an editor candidate on %s without recreation", (change) => {
+  it.each([
+    ["mode", null],
+    ["file", "Beta.md"],
+    ["detach", null],
+    ["remove-leaf", null],
+    ["window-close", null],
+  ])("drops editor highlighting on %s and revalidates the current selection", (change, selectionPath) => {
     const fixture = editorFixture();
     fixture.cm.contentDOM.focus();
     fixture.cm.dispatch({ selection: { anchor: 0, head: 5 } });
     fixture.panel.focus();
     fixture.setActive(null);
     expect(fixture.view.containerEl.querySelector(".codex-panel-selection-emphasis")).not.toBeNull();
+    expect(fixture.provider.contextReferences("").selection?.text).toBe("alpha");
     if (change === "mode") fixture.setMode("preview");
     if (change === "file") fixture.view.file = markdownFileFixture("Beta.md");
     if (change === "detach") fixture.view.containerEl.remove();
+    if (change === "remove-leaf") vi.spyOn(fixture.app.workspace, "getLeavesOfType").mockReturnValue([]);
     if (change === "window-close") fixture.emit("window-close", {}, document.defaultView);
-    if (change === "dispose") fixture.provider.dispose();
-    if (change !== "dispose") fixture.provider.contextReferences("");
-    if (change === "window-close" || change === "dispose") {
+    fixture.emit("layout-change");
+    expect(fixture.provider.contextReferences("").selection?.path ?? null).toBe(selectionPath);
+    if (change === "window-close") {
       fixture.cm.contentDOM.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: fixture.panel }));
     }
     expect(fixture.view.containerEl.querySelector(".codex-panel-selection-emphasis")).toBeNull();
@@ -534,13 +572,13 @@ function readingFixture(ownerDocument = document) {
   });
   let mode: "source" | "preview" = "preview";
   const getEditorSelection = vi.fn(() => "stale editor selection");
-  const view = {
+  const view = Object.assign(new MarkdownView({} as never), {
     file: markdownFileFixture("Alpha.md"),
     containerEl,
     previewMode: { containerEl: root },
     getMode: () => mode,
     editor: { getSelection: getEditorSelection },
-  };
+  });
   let active: typeof view | null = view;
   let panelForeground = false;
   const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -554,7 +592,15 @@ function readingFixture(ownerDocument = document) {
     for (const callback of [...(listeners.get(name) ?? [])]) callback(...args);
   };
   const app = {
-    workspace: { on, getActiveViewOfType: () => active, getActiveFile: () => view.file, getLeavesOfType: () => [{ view }] },
+    workspace: {
+      on,
+      getActiveViewOfType: () => active,
+      getActiveFile: () => view.file,
+      getLeavesOfType: () => [{ view }],
+      iterateAllLeaves: (visit: (leaf: { view: typeof view }) => void) => {
+        visit({ view });
+      },
+    },
     vault: { on, getAbstractFileByPath: (path: string) => (view.file.path === path ? view.file : null) },
     metadataCache: { fileToLinktext: (file: TFile) => file.basename },
   } as unknown as App;
