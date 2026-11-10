@@ -63,10 +63,11 @@ function threadSearchScore(title: string, query: string): number {
 }
 
 function fuzzySubsequenceMatches(title: string, query: string): boolean {
+  const queryCharacters = Array.from(query);
   let queryIndex = 0;
   for (const character of title) {
-    if (character === query[queryIndex]) queryIndex += 1;
-    if (queryIndex === query.length) return true;
+    if (character === queryCharacters[queryIndex]) queryIndex += 1;
+    if (queryIndex === queryCharacters.length) return true;
   }
   return false;
 }

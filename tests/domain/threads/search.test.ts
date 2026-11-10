@@ -81,13 +81,15 @@ describe("thread search", () => {
     expect(resolveThreadSearchQuery(threads, "  missing  ")).toEqual({ kind: "none", query: "missing" });
   });
 
-  it("ranks a substring above a newer fuzzy match", () => {
-    const threads = [
-      thread({ id: "substring", name: "Pre alpha notes", updatedAt: 1 }),
-      thread({ id: "fuzzy", name: "a-l-p-h-a", updatedAt: 100 }),
-    ];
+  it.each([
+    ["alpha", "Pre alpha notes", "a-l-p-h-a", "ahpla"],
+    ["🚀plan", "Pre 🚀plan notes", "🚀 Launch Plan", "nalp🚀"],
+    ["𠮷計画", "𠮷計画案", "𠮷野家の計画", "画計𠮷"],
+  ])("ranks a contiguous match above a newer fuzzy match (%s)", (query, contiguous, fuzzy, reversedQuery) => {
+    const threads = [thread({ id: "contiguous", name: contiguous, updatedAt: 1 }), thread({ id: "fuzzy", name: fuzzy, updatedAt: 100 })];
 
-    expect(threadSearchMatches(threads, "alpha").map((match) => match.thread.id)).toEqual(["substring", "fuzzy"]);
+    expect(threadSearchMatches(threads, query).map((match) => match.thread.id)).toEqual(["contiguous", "fuzzy"]);
+    expect(threadSearchMatches(threads, reversedQuery)).toEqual([]);
   });
 
   it("keeps input order when search score and recency tie", () => {
