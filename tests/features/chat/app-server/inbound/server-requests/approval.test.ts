@@ -134,55 +134,6 @@ describe("approval model", () => {
     expect(approvalResponseAt(request, approval, 2)).toEqual({ decision: "decline" });
   });
 
-  it("preserves amendment intent alongside command approval responses", () => {
-    const allowNetworkDecision = {
-      applyNetworkPolicyAmendment: { network_policy_amendment: { host: "registry.npmjs.org", action: "allow" } },
-    } as const;
-    const denyNetworkDecision = {
-      applyNetworkPolicyAmendment: { network_policy_amendment: { host: "example.com", action: "deny" } },
-    } as const;
-    const acceptExecpolicyDecision = {
-      acceptWithExecpolicyAmendment: { execpolicy_amendment: ["npm", "test"] as string[] },
-    } as const;
-    const request: ApprovalRequest = commandApprovalRequestFixture(33, {
-      proposedExecpolicyAmendment: ["npm", "test"],
-      proposedNetworkPolicyAmendments: [
-        { host: "registry.npmjs.org", action: "allow" },
-        { host: "example.com", action: "deny" },
-      ],
-      availableDecisions: [allowNetworkDecision, denyNetworkDecision, acceptExecpolicyDecision],
-    });
-    const approval = expectPresent(toPendingApproval(request));
-    const options = approvalActionOptions(approval);
-
-    expect(options).toEqual([
-      expect.objectContaining({
-        label: "Allow network rule",
-        action: {
-          kind: "approval-option",
-          optionId: options[0]?.id,
-          intent: "accept-session",
-        },
-      }),
-      expect.objectContaining({
-        label: "Deny network rule",
-        action: {
-          kind: "approval-option",
-          optionId: options[1]?.id,
-          intent: "decline",
-        },
-      }),
-      expect.objectContaining({
-        label: "Allow rule",
-        action: {
-          kind: "approval-option",
-          optionId: options[2]?.id,
-          intent: "accept-session",
-        },
-      }),
-    ]);
-  });
-
   it.each([
     { name: "missing", decisions: undefined },
     { name: "empty", decisions: [] },

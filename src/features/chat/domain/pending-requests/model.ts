@@ -2,7 +2,8 @@ export type PendingRequestId = string | number;
 
 export const NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS = 120_000;
 
-export type ApprovalActionIntent = "accept" | "accept-session" | "decline" | "cancel";
+type SimpleApprovalAction = "accept" | "accept-session" | "decline" | "cancel";
+export type ApprovalActionIntent = SimpleApprovalAction | "accept-rule" | "decline-rule";
 
 export interface ApprovalDetailRow {
   key: string;
@@ -15,7 +16,7 @@ interface ApprovalOptionAction {
   intent: ApprovalActionIntent;
 }
 
-export type ApprovalAction = ApprovalActionIntent | ApprovalOptionAction;
+export type ApprovalAction = SimpleApprovalAction | ApprovalOptionAction;
 
 export interface PendingApprovalOption<Action extends ApprovalAction = ApprovalAction> {
   id: string;
@@ -145,6 +146,6 @@ export interface PendingMcpElicitation {
   params: PendingMcpElicitationFormParams | PendingMcpElicitationUrlParams;
 }
 
-export function approvalActionKind(action: ApprovalAction): "accept" | "accept-session" | "decline" | "cancel" {
+export function approvalActionKind(action: ApprovalAction): ApprovalActionIntent {
   return typeof action === "object" ? action.intent : action;
 }

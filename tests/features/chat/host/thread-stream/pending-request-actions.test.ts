@@ -144,6 +144,69 @@ describe("pending request actions", () => {
     ]);
   });
 
+  it.each([
+    {
+      name: "session approval",
+      decision: "acceptForSession" as const,
+      label: "Allow session",
+      text: "Allowed for this session",
+      status: "allowed for session",
+      scope: "session",
+      executionState: "completed",
+    },
+    {
+      name: "command rule",
+      decision: { acceptWithExecpolicyAmendment: { execpolicy_amendment: ["npm", "test"] } },
+      label: "Allow rule",
+      text: "Allowed with rule",
+      status: "allowed with rule",
+      scope: "rule",
+      executionState: "completed",
+    },
+    {
+      name: "network allow rule",
+      decision: { applyNetworkPolicyAmendment: { network_policy_amendment: { host: "example.com", action: "allow" as const } } },
+      label: "Allow network rule",
+      text: "Allowed with rule",
+      status: "allowed with rule",
+      scope: "rule",
+      executionState: "completed",
+    },
+    {
+      name: "network deny rule",
+      decision: { applyNetworkPolicyAmendment: { network_policy_amendment: { host: "example.com", action: "deny" as const } } },
+      label: "Deny network rule",
+      text: "Denied with rule",
+      status: "denied with rule",
+      scope: "rule",
+      executionState: "failed",
+    },
+  ])("sends the offered $name and records its actual scope", ({ decision, label, text, status, scope, executionState }) => {
+    const { stateStore, receive, pendingRequests } = pendingRequestFixture();
+    const response = receive(
+      commandApprovalRequestFixture(52, {
+        threadId: "thread-active",
+        turnId: "turn-active",
+        reason: "Needs access",
+        availableDecisions: [decision],
+      }),
+    );
+    const option = stateStore.getState().requests.approvals[0]?.actionOptions?.[0];
+    if (!option) throw new Error("Expected an offered approval action");
+    expect(option.label).toBe(label);
+
+    pendingRequests.actions.resolveApproval(52, option.action);
+
+    expect(response.respond).toHaveBeenCalledExactlyOnceWith({ decision });
+    expect(stateStore.getState().requests.approvals).toEqual([]);
+    expect(chatStateThreadStreamItems(stateStore.getState()).at(-1)).toMatchObject({
+      kind: "approvalResult",
+      text: `${text}: Needs access`,
+      executionState,
+      approval: { status, scope },
+    });
+  });
+
   it("cancels user input without publishing an answer", () => {
     const { stateStore, receive, pendingRequests, focusComposer } = pendingRequestFixture();
     const response = receive(inputRequest());

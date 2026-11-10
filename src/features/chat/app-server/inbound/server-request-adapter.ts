@@ -338,8 +338,8 @@ function isCommandApprovalDecision(value: unknown): value is CommandApprovalDeci
 
 function commandDecisionIntent(decision: CommandApprovalDecision): ApprovalActionIntent {
   if (typeof decision === "string") return simpleCommandDecisionIntent(decision);
-  if ("acceptWithExecpolicyAmendment" in decision) return "accept-session";
-  return decision.applyNetworkPolicyAmendment.network_policy_amendment.action === "allow" ? "accept-session" : "decline";
+  if ("acceptWithExecpolicyAmendment" in decision) return "accept-rule";
+  return decision.applyNetworkPolicyAmendment.network_policy_amendment.action === "allow" ? "accept-rule" : "decline-rule";
 }
 
 function simpleCommandDecisionIntent(decision: SimpleApprovalDecision): ApprovalActionIntent {
