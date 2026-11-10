@@ -58,6 +58,7 @@
 
 .codex-panel__goal-objective {
   position: relative;
+  max-height: var(--codex-panel-size-goal-objective-collapse-max-height);
   overflow: hidden;
   font-family: var(--codex-panel-content-font);
   font-size: var(--codex-panel-content-font-size);
@@ -67,8 +68,8 @@
   white-space: pre-wrap;
 }
 
-.codex-panel__goal-objective--collapsed {
-  max-height: var(--codex-panel-size-goal-objective-collapse-max-height);
+.codex-panel__goal-objective-collapse--expanded .codex-panel__goal-objective {
+  max-height: none;
 }
 
 .codex-panel__goal-objective--collapsed::after,
