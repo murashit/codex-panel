@@ -41,17 +41,10 @@ export function GoalPanel({ goal, actions, sendShortcut, editor, readOnly, objec
   const objectiveContentRef = useRef<HTMLDivElement | null>(null);
   const objectiveRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const resetThreadId = goal?.threadId ?? null;
-  const resetObjective = goal?.objective ?? "";
-  const resetStatus = goal?.status ?? null;
-  const resetTokenBudget = goal?.tokenBudget ?? null;
+  const goalObjective = goal?.objective ?? "";
   const editing = editor !== null && !readOnly;
   const objective = editor?.objectiveDraft ?? goal?.objective ?? "";
   const tokenBudget = editor ? editor.tokenBudgetDraft : (goal?.tokenBudget ?? null);
-
-  useLayoutEffect(() => {
-    setObjectiveOverflows(false);
-  }, [resetThreadId, resetObjective, resetStatus, resetTokenBudget]);
 
   useLayoutEffect(() => {
     if (editing) syncGoalObjectiveHeight(objectiveRef.current);
@@ -67,7 +60,7 @@ export function GoalPanel({ goal, actions, sendShortcut, editor, readOnly, objec
     const content = objectiveContentRef.current;
     if (!content) return;
     return observeGoalObjectiveOverflow(content, setObjectiveOverflows);
-  }, [editing, resetObjective]);
+  }, [editing, goalObjective, objectiveExpanded]);
 
   useLayoutEffect(() => {
     if (!editing) return;
@@ -172,11 +165,7 @@ export function GoalPanel({ goal, actions, sendShortcut, editor, readOnly, objec
         ) : (
           <>
             <div
-              className={[
-                "codex-panel__goal-objective-collapse",
-                objectiveOverflows ? "codex-panel__goal-objective-collapse--overflow" : "",
-                objectiveOverflows && objectiveExpanded ? "codex-panel__goal-objective-collapse--expanded" : "",
-              ]
+              className={["codex-panel__goal-objective-collapse", objectiveExpanded ? "codex-panel__goal-objective-collapse--expanded" : ""]
                 .filter(Boolean)
                 .join(" ")}
             >
@@ -257,7 +246,7 @@ function observeGoalObjectiveOverflow(content: HTMLElement, onOverflowChange: (o
   let frame = 0;
   const update = () => {
     frame = 0;
-    onOverflowChange(content.scrollHeight > goalObjectiveCollapseHeight(content) + 1);
+    onOverflowChange(content.scrollHeight > content.clientHeight + 1);
   };
   update();
   frame = win.requestAnimationFrame(update);
@@ -277,17 +266,4 @@ function closeGoalEditorOnOutsidePointer(root: HTMLElement, onCancel: () => void
     listenOutsideDomEvent(root, "pointerdown", onCancel, true),
     listenDomEscapeKey(root.ownerDocument, closeOnEscape),
   );
-}
-
-function goalObjectiveCollapseHeight(element: HTMLElement): number {
-  const lineHeight = computedLineHeight(element);
-  return lineHeight * 3;
-}
-
-function computedLineHeight(element: HTMLElement): number {
-  const style = element.win.getComputedStyle(element);
-  const lineHeight = Number.parseFloat(style.lineHeight);
-  if (Number.isFinite(lineHeight) && lineHeight > 0) return lineHeight;
-  const fontSize = Number.parseFloat(style.fontSize);
-  return Number.isFinite(fontSize) && fontSize > 0 ? fontSize * 1.5 : 24;
 }

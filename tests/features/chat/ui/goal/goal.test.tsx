@@ -64,77 +64,59 @@ describe("GoalPanel", () => {
     expect(parent.querySelector('[aria-label="Pause goal"]')).not.toBeNull();
   });
 
-  it("collapses long objectives, expands from the message-style control, and recollapses on outside pointer", async () => {
-    const parent = document.createElement("div");
-    document.body.appendChild(parent);
-
+  it("offers expansion only while clipped through resizing, status changes, and outside-pointer collapse", async () => {
+    const parent = document.body.appendChild(document.createElement("div"));
     const callbacks = actions();
     const currentGoal = goal({ objective: "line 1\nline 2\nline 3\nline 4" });
-    await withGoalObjectiveScrollHeight(100, async () => {
-      await act(async () => {
-        renderGoal(parent, currentGoal, callbacks);
-      });
+    const measurements = { scrollHeight: 80, clientHeight: 80 };
+    mockGoalObjectiveMeasurements(measurements);
+    const notifyResize = mockResizeObserver();
+    await act(async () => renderGoal(parent, currentGoal, callbacks));
+    const content = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__goal-objective"));
+    const details = expectPresent(parent.querySelector<HTMLDetailsElement>(".codex-panel__goal-objective-collapse-details"));
+    expect(details.hidden).toBe(true);
+    expect(content.classList.contains("codex-panel__goal-objective--collapsed")).toBe(false);
 
-      const content = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__goal-objective"));
-      const details = expectPresent(parent.querySelector<HTMLDetailsElement>(".codex-panel__goal-objective-collapse-details"));
+    // A narrower layout now clips the same objective; jsdom supplies no geometry.
+    measurements.scrollHeight = 120;
+    measurements.clientHeight = 90;
+    await act(async () => notifyResize());
+    expect(details.hidden).toBe(false);
+    expect(content.classList.contains("codex-panel__goal-objective--collapsed")).toBe(true);
+    expect(details.querySelector("summary")?.textContent).toBe("Show more");
 
-      expect(content.classList.contains("codex-panel__goal-objective--collapsed")).toBe(true);
-      expect(details.hidden).toBe(false);
-      expect(details.querySelector("summary")?.textContent).toBe("Show more");
+    await act(async () => renderGoal(parent, { ...currentGoal, status: "paused", tokenBudget: 100 }, callbacks));
+    expect(details.hidden).toBe(false);
+    expect(content.classList.contains("codex-panel__goal-objective--collapsed")).toBe(true);
 
-      await act(async () => {
-        details.open = true;
-        details.dispatchEvent(new Event("toggle"));
-      });
-      expect(callbacks.onObjectiveExpandedChange).toHaveBeenCalledWith(true);
-      await act(async () => renderGoal(parent, currentGoal, callbacks, "enter", null, true));
-      expect(content.classList.contains("codex-panel__goal-objective--collapsed")).toBe(false);
-      expect(details.hidden).toBe(true);
-
-      await outsidePointerDown();
-      expect(callbacks.onObjectiveExpandedChange).toHaveBeenLastCalledWith(false);
-      await act(async () => renderGoal(parent, currentGoal, callbacks));
-      expect(content.classList.contains("codex-panel__goal-objective--collapsed")).toBe(true);
-      expect(details.hidden).toBe(false);
+    await act(async () => {
+      details.open = true;
+      details.dispatchEvent(new Event("toggle"));
     });
+    expect(callbacks.onObjectiveExpandedChange).toHaveBeenCalledWith(true);
+    measurements.clientHeight = 120;
+    await act(async () => renderGoal(parent, currentGoal, callbacks, "enter", null, true));
+    expect(details.hidden).toBe(true);
+    expect(content.classList.contains("codex-panel__goal-objective--collapsed")).toBe(false);
 
-    unmountUiRoot(parent);
-    parent.remove();
-  });
+    await outsidePointerDown();
+    expect(callbacks.onObjectiveExpandedChange).toHaveBeenLastCalledWith(false);
+    measurements.clientHeight = 90;
+    await act(async () => renderGoal(parent, currentGoal, callbacks));
+    expect(details.hidden).toBe(false);
+    expect(content.classList.contains("codex-panel__goal-objective--collapsed")).toBe(true);
 
-  it("recomputes objective overflow when its rendered size changes", async () => {
-    const parent = document.createElement("div");
-    let scrollHeight = 40;
-
-    await withResizeObserver(async (notifyResize) => {
-      await withGoalObjectiveScrollHeight(
-        () => scrollHeight,
-        async () => {
-          await act(async () => {
-            renderGoal(parent, goal({ objective: "resizable" }), actions());
-          });
-          const details = expectPresent(parent.querySelector<HTMLDetailsElement>(".codex-panel__goal-objective-collapse-details"));
-          expect(details.hidden).toBe(true);
-          const objective = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__goal-objective"));
-          expect(objective.classList.contains("codex-panel__goal-objective--collapsed")).toBe(false);
-
-          scrollHeight = 100;
-          await act(async () => {
-            notifyResize();
-          });
-
-          expect(details.hidden).toBe(false);
-          expect(objective.classList.contains("codex-panel__goal-objective--collapsed")).toBe(true);
-
-          scrollHeight = 40;
-          await act(async () => {
-            notifyResize();
-          });
-          expect(details.hidden).toBe(true);
-          expect(objective.classList.contains("codex-panel__goal-objective--collapsed")).toBe(false);
-        },
-      );
-    });
+    measurements.clientHeight = 120;
+    await act(async () => renderGoal(parent, currentGoal, callbacks, "enter", null, true));
+    measurements.scrollHeight = 80;
+    measurements.clientHeight = 80;
+    await act(async () => notifyResize());
+    expect(details.hidden).toBe(true);
+    // Closing the expanded view after widening must not offer a needless expansion.
+    await outsidePointerDown();
+    await act(async () => renderGoal(parent, currentGoal, callbacks));
+    expect(details.hidden).toBe(true);
+    expect(content.classList.contains("codex-panel__goal-objective--collapsed")).toBe(false);
   });
 
   it("requests cancellation from Escape and an outside pointer", async () => {
@@ -288,51 +270,41 @@ async function outsidePointerDown(): Promise<void> {
   });
 }
 
-async function withGoalObjectiveScrollHeight<T>(scrollHeight: number | (() => number), fn: () => Promise<T>): Promise<T> {
-  const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollHeight");
-  Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
-    configurable: true,
-    get() {
-      return this.classList.contains("codex-panel__goal-objective")
-        ? typeof scrollHeight === "function"
-          ? scrollHeight()
-          : scrollHeight
-        : 0;
-    },
+function mockGoalObjectiveMeasurements(measurements: { scrollHeight: number; clientHeight: number }): void {
+  const scrollHeight = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(() => measurements.scrollHeight);
+  const clientHeight = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(() => measurements.clientHeight);
+  onTestFinished(() => {
+    scrollHeight.mockRestore();
+    clientHeight.mockRestore();
   });
-  try {
-    return await fn();
-  } finally {
-    if (descriptor) {
-      Object.defineProperty(HTMLElement.prototype, "scrollHeight", descriptor);
-    } else {
-      Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
-    }
-  }
 }
 
-async function withResizeObserver<T>(fn: (notifyResize: () => void) => Promise<T>): Promise<T> {
+function mockResizeObserver(): () => void {
   const original = window.ResizeObserver;
-  const callbacks: (() => void)[] = [];
+  const callbacks = new Set<() => void>();
   class TestResizeObserver implements ResizeObserver {
+    private readonly notify: () => void;
     constructor(callback: ResizeObserverCallback) {
-      callbacks.push(() => {
-        callback([], this);
-      });
+      this.notify = () => callback([], this);
     }
 
-    observe(): void {}
-    unobserve(): void {}
-    disconnect(): void {}
+    observe(): void {
+      callbacks.add(this.notify);
+    }
+    unobserve(): void {
+      callbacks.delete(this.notify);
+    }
+    disconnect(): void {
+      callbacks.delete(this.notify);
+    }
   }
   window.ResizeObserver = TestResizeObserver;
-  try {
-    return await fn(() => {
-      for (const callback of callbacks) callback();
-    });
-  } finally {
+  onTestFinished(() => {
     window.ResizeObserver = original;
-  }
+  });
+  return () => {
+    for (const callback of callbacks) callback();
+  };
 }
 
 async function textareaKeydown(
