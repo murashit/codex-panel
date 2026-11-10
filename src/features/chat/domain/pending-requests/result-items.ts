@@ -40,7 +40,7 @@ export function createUserInputResultItem(
     id: question.id,
     header: question.header || question.id,
     question: question.question,
-    ...(status === "submitted" ? { answer: answers[question.id] ?? "" } : {}),
+    ...(status === "submitted" && !question.isSecret ? { answer: answers[question.id] ?? "" } : {}),
   }));
   return {
     id: `user-input-${status}-${String(input.requestId)}`,

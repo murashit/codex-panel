@@ -37,23 +37,37 @@ describe("pending request actions", () => {
     },
   );
 
-  it("submits the latest answer draft, clears it, records the result and restores focus", () => {
+  it("submits the latest answers, omits secret values from the result, clears drafts and restores focus", () => {
     const { stateStore, receive, pendingRequests, focusComposer } = pendingRequestFixture();
-    const response = receive(inputRequest());
+    const request = inputRequest();
+    request.params.questions.push({
+      id: "secret",
+      header: "Secret",
+      question: "Enter the secret value",
+      isOther: false,
+      isSecret: true,
+      options: null,
+    });
+    const response = receive(request);
     pendingRequests.actions.setUserInputDraft(7, "7:direction", "Left");
     pendingRequests.actions.setUserInputDraft(7, "7:direction", "Right");
+    pendingRequests.actions.setUserInputDraft(7, "7:secret", "sensitive-answer");
 
     pendingRequests.actions.resolveUserInput(7);
 
-    expect(response.respond).toHaveBeenCalledExactlyOnceWith({ answers: { direction: { answers: ["Right"] } } });
+    expect(response.respond).toHaveBeenCalledExactlyOnceWith({
+      answers: { direction: { answers: ["Right"] }, secret: { answers: ["sensitive-answer"] } },
+    });
     expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);
     expect(stateStore.getState().requests.userInputDrafts.size).toBe(0);
     expect(chatStateThreadStreamItems(stateStore.getState()).at(-1)).toMatchObject({
       kind: "userInputResult",
       turnId: "turn-active",
-      questions: [{ id: "direction", answer: "Right" }],
+      text: "Input submitted for 2 questions.",
+      questions: [{ id: "direction", answer: "Right" }, { id: "secret" }],
       executionState: "completed",
     });
+    expect(JSON.stringify(chatStateThreadStreamItems(stateStore.getState()))).not.toContain("sensitive-answer");
     expect(focusComposer).toHaveBeenCalledOnce();
   });
 
