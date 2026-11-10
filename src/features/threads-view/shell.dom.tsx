@@ -4,7 +4,7 @@ import { NavRow } from "../../shared/ui/nav-row.dom";
 import { unmountUiRoot } from "../../shared/ui/preact-root.dom";
 import { renderObsidianUiRoot } from "../../shared/ui/preact-root.obsidian";
 import { pinnedThreadGroups } from "../threads/list/pinned-groups";
-import { ThreadActionControls, ThreadAutoNameButton, ThreadRenameInput } from "../threads/ui/thread-controls.dom";
+import { ThreadActionControls, threadRenameControls } from "../threads/ui/thread-controls.dom";
 import type { ThreadsRowModel } from "./state";
 
 export interface ThreadsViewShellModel {
@@ -106,6 +106,20 @@ function ThreadsViewState({ status }: { status: ThreadsViewShellModel["status"] 
 
 function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsViewShellActions }): UiNode {
   const archiveConfirm = row.archiveConfirm;
+  const rename = row.rename.active
+    ? threadRenameControls({
+        state: row.rename,
+        classNames: { input: "codex-panel-threads__rename-input", action: "codex-panel-threads__row-button" },
+        threadId: row.threadId,
+        actions: {
+          updateDraft: actions.updateRename,
+          save: actions.saveRename,
+          cancel: actions.cancelRename,
+          autoName: actions.autoNameThread,
+          cancelAutoName: actions.cancelAutoName,
+        },
+      })
+    : null;
   const rowClassName = [
     "codex-panel-threads__row",
     row.selected ? "codex-panel-threads__row--selected" : "",
@@ -130,11 +144,14 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
   };
   return (
     <NavRow
+      onFocusOut={rename?.onFocusOut}
       className={rowClassName}
       persistentActions={row.rename.active || archiveConfirm.active}
       main={
-        row.rename.active ? (
-          <RenameField row={row} actions={actions} className={mainClassName} />
+        rename ? (
+          <div className={`${mainClassName} codex-panel-threads__rename-form`}>
+            <div className="codex-panel-threads__rename-field">{rename.input}</div>
+          </div>
         ) : (
           // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: Thread rows intentionally follow Obsidian's native file explorer nav rows: pointer-first div items with selection represented by classes, while row actions stay as real icon buttons.
           <div className={mainClassName} onClick={open}>
@@ -143,19 +160,8 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
         )
       }
       actions={
-        row.rename.active ? (
-          <ThreadAutoNameButton
-            className="codex-panel-threads__row-button"
-            generating={row.rename.generating}
-            saving={row.rename.saving}
-            autoNameDisabled={row.rename.autoNameDisabled}
-            onStart={() => {
-              actions.autoNameThread(row.threadId);
-            }}
-            onCancel={() => {
-              actions.cancelAutoName(row.threadId);
-            }}
-          />
+        rename ? (
+          rename.action
         ) : (
           <ThreadActionControls
             isPinned={row.isPinned}
@@ -184,31 +190,6 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
         )
       }
     />
-  );
-}
-
-function RenameField({ row, actions, className }: { row: ThreadsRowModel; actions: ThreadsViewShellActions; className: string }): UiNode {
-  const renameBusy = row.rename.generating || row.rename.saving;
-
-  return (
-    <div className={`${className} codex-panel-threads__rename-form`}>
-      <div className="codex-panel-threads__rename-field">
-        <ThreadRenameInput
-          className="codex-panel-threads__rename-input"
-          value={row.rename.draft}
-          busy={renameBusy}
-          onUpdate={(value) => {
-            actions.updateRename(row.threadId, value);
-          }}
-          onSave={(value) => {
-            actions.saveRename(row.threadId, value);
-          }}
-          onCancel={() => {
-            actions.cancelRename(row.threadId);
-          }}
-        />
-      </div>
-    </div>
   );
 }
 

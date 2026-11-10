@@ -2,7 +2,7 @@ import type { ComponentChild as UiNode } from "preact";
 import { ToolbarIconAction, type ToolbarIconActionProps } from "../../../../shared/ui/icon.dom";
 import { NavRow } from "../../../../shared/ui/nav-row.dom";
 import { pinnedThreadGroups } from "../../../threads/list/pinned-groups";
-import { ThreadActionControls, ThreadAutoNameButton, ThreadRenameInput } from "../../../threads/ui/thread-controls.dom";
+import { ThreadActionControls, type ThreadRenameControlActions, threadRenameControls } from "../../../threads/ui/thread-controls.dom";
 import type { RateLimitSummary, ToolbarStatusRow, ToolbarStatusSection, ToolbarThreadRow, ToolbarViewModel } from "./model";
 
 interface ToolbarPrimaryActions {
@@ -32,14 +32,7 @@ export interface ToolbarThreadActions {
     start: (threadId: string) => void;
     confirm: (threadId: string, saveMarkdown: boolean) => void;
   };
-  rename: {
-    start: (threadId: string) => boolean;
-    updateDraft: (threadId: string, value: string) => void;
-    save: (threadId: string, value: string) => void;
-    cancel: (threadId: string) => void;
-    cancelAutoName: (threadId: string) => void;
-    autoName: (threadId: string) => void;
-  };
+  rename: ThreadRenameControlActions & { start: (threadId: string) => boolean };
 }
 
 export interface ToolbarActions {
@@ -341,8 +334,17 @@ function ThreadList({
 
 function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarThreadActions }): UiNode {
   const archiveConfirm = thread.archiveConfirm;
+  const rename = thread.rename
+    ? threadRenameControls({
+        state: thread.rename,
+        classNames: { input: "codex-panel__thread-rename-input", action: "codex-panel__thread-action" },
+        threadId: thread.threadId,
+        actions: actions.rename,
+      })
+    : null;
   return (
     <NavRow
+      onFocusOut={rename?.onFocusOut}
       className={[
         "codex-panel__thread-row",
         thread.selected ? "codex-panel__thread-row--selected" : "",
@@ -353,8 +355,13 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
         .join(" ")}
       persistentActions={thread.rename?.generating === true || archiveConfirm.active}
       main={
-        thread.rename ? (
-          <ThreadRenameField thread={thread} actions={actions} />
+        rename ? (
+          <ToolbarPanelItem
+            label={thread.title}
+            className="codex-panel__thread codex-panel__thread-rename"
+            interactive={false}
+            renderContent={() => <div className="codex-panel__thread-rename-field">{rename.input}</div>}
+          />
         ) : (
           <ToolbarPanelItem
             label={thread.title}
@@ -368,19 +375,8 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
         )
       }
       actions={
-        thread.rename ? (
-          <ThreadAutoNameButton
-            className="codex-panel__thread-action"
-            generating={thread.rename.generating}
-            saving={thread.rename.saving}
-            autoNameDisabled={thread.rename.autoNameDisabled}
-            onStart={() => {
-              actions.rename.autoName(thread.threadId);
-            }}
-            onCancel={() => {
-              actions.rename.cancelAutoName(thread.threadId);
-            }}
-          />
+        rename ? (
+          rename.action
         ) : (
           <ThreadActionControls
             isPinned={thread.isPinned === true}
@@ -409,39 +405,6 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
           />
         )
       }
-    />
-  );
-}
-
-function ThreadRenameField({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarThreadActions }): UiNode {
-  const generating = thread.rename?.generating ?? false;
-  const saving = thread.rename?.saving ?? false;
-  const renameBusy = generating || saving;
-  const draft = thread.rename?.draft ?? thread.title;
-
-  return (
-    <ToolbarPanelItem
-      label={thread.title}
-      className="codex-panel__thread codex-panel__thread-rename"
-      interactive={false}
-      renderContent={() => (
-        <div className="codex-panel__thread-rename-field">
-          <ThreadRenameInput
-            className="codex-panel__thread-rename-input"
-            value={draft}
-            busy={renameBusy}
-            onUpdate={(value) => {
-              actions.rename.updateDraft(thread.threadId, value);
-            }}
-            onSave={(value) => {
-              actions.rename.save(thread.threadId, value);
-            }}
-            onCancel={() => {
-              actions.rename.cancel(thread.threadId);
-            }}
-          />
-        </div>
-      )}
     />
   );
 }
