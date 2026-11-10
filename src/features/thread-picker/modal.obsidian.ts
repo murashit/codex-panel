@@ -74,7 +74,7 @@ function threadPickerSuggestions(threads: readonly Thread[], queryText: string):
 }
 
 function threadOpenModeFromEvent(evt: MouseEvent | KeyboardEvent): ThreadOpenMode {
-  if (evt instanceof KeyboardEvent && (evt.metaKey || evt.ctrlKey)) return "available";
+  if ("key" in evt && (evt.metaKey || evt.ctrlKey)) return "available";
   return "current";
 }
 

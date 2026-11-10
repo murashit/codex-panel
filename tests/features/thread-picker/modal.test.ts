@@ -89,20 +89,28 @@ describe("threadOpenModeFromEvent", () => {
 
     modal.onChooseSuggestion(await firstSuggestion(modal), new KeyboardEvent("keydown", { key: "Enter" }));
     modal.onChooseSuggestion(await firstSuggestion(modal), new MouseEvent("click"));
+    modal.onChooseSuggestion(await firstSuggestion(modal), new MouseEvent("click", { ctrlKey: true }));
 
-    expect(host.openedCurrent).toEqual(["thread", "thread"]);
+    expect(host.openedCurrent).toEqual(["thread", "thread", "thread"]);
     expect(host.openedAvailable).toEqual([]);
   });
 
-  it("uses an available panel for Cmd/Ctrl+Enter", async () => {
+  it.each(["main window", "popout window"])("uses an available panel for Cmd/Ctrl+Enter from the %s", async (target) => {
     const host = threadPickerHost([thread({ id: "thread" })]);
     const modal = await openedThreadPicker(host);
+    const frame = target === "popout window" ? document.body.appendChild(document.createElement("iframe")) : null;
+    const viewWindow = frame?.contentWindow ?? window;
 
-    modal.onChooseSuggestion(await firstSuggestion(modal), new KeyboardEvent("keydown", { key: "Enter", metaKey: true }));
-    modal.onChooseSuggestion(await firstSuggestion(modal), new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true }));
+    try {
+      const EventConstructor = (viewWindow as Window & { KeyboardEvent: typeof KeyboardEvent }).KeyboardEvent;
+      modal.onChooseSuggestion(await firstSuggestion(modal), new EventConstructor("keydown", { key: "Enter", metaKey: true }));
+      modal.onChooseSuggestion(await firstSuggestion(modal), new EventConstructor("keydown", { key: "Enter", ctrlKey: true }));
 
-    expect(host.openedCurrent).toEqual([]);
-    expect(host.openedAvailable).toEqual(["thread", "thread"]);
+      expect(host.openedCurrent).toEqual([]);
+      expect(host.openedAvailable).toEqual(["thread", "thread"]);
+    } finally {
+      frame?.remove();
+    }
   });
 });
 
