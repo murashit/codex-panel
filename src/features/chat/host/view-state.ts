@@ -1,8 +1,10 @@
+import { isObjectValue } from "../../../domain/objects/object-value";
+
 export type ParsedChatPanelViewState = { kind: "empty" } | { kind: "thread"; threadId: string; fallbackTitle: string | null };
 
 export function parseChatPanelViewState(state: unknown): ParsedChatPanelViewState {
-  if (!state || typeof state !== "object") return { kind: "empty" };
-  const record = state as Record<string, unknown>;
+  if (!isObjectValue(state)) return { kind: "empty" };
+  const record = state;
   if (isEphemeralSourceState(record["ephemeralSource"])) return { kind: "empty" };
 
   const threadId = record["threadId"];
@@ -16,7 +18,7 @@ export function parseChatPanelViewState(state: unknown): ParsedChatPanelViewStat
 }
 
 function isEphemeralSourceState(source: unknown): boolean {
-  if (!source || typeof source !== "object") return false;
-  const threadId = (source as { threadId?: unknown }).threadId;
+  if (!isObjectValue(source)) return false;
+  const threadId = source["threadId"];
   return typeof threadId === "string" && threadId.length > 0;
 }

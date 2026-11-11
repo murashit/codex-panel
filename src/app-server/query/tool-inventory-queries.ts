@@ -127,7 +127,8 @@ export class AppServerToolInventoryQueries {
     if (this.scope.isDisposed()) return;
     const queries = this.scope.client.getQueryCache().findAll({ queryKey: MCP_SERVERS_QUERY_KEY });
     for (const query of queries) {
-      this.revalidateMcpServersForThread((query.queryKey[2] as string | null | undefined) ?? null);
+      const threadId = query.queryKey[2];
+      this.revalidateMcpServersForThread(typeof threadId === "string" ? threadId : null);
     }
   }
 

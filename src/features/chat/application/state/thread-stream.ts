@@ -1,3 +1,4 @@
+import { definedPatch } from "../../../../domain/objects/optional-properties";
 import { threadStreamUserRoles } from "../../domain/thread-stream/conversation";
 import type { ThreadStreamDialogueItem, ThreadStreamItem, UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
 import { isOptimisticUserDialogue, optimisticDialogueClientId } from "../../domain/thread-stream/local-dialogue-ids";
@@ -9,7 +10,7 @@ import {
   streamedItemOutputThreadStreamItem,
 } from "../../domain/thread-stream/streaming-items";
 import { completeReasoningItems, mergeThreadStreamItem, upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
-import { definedPatch, patchObject } from "./patch";
+import { patchObject } from "./patch";
 
 interface ChatThreadStreamActiveSegment {
   readonly turnId: string | null;

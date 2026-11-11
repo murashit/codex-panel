@@ -71,6 +71,7 @@ export function initialChatRuntimeState(): ChatRuntimeState {
 
 export function confirmRuntimeIntentState(state: ChatRuntimeState, intents: Partial<PendingRuntimeIntentState>): ChatRuntimeState {
   const pending = { ...state.pending };
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Confirmation intents are owned patches constructed from PendingRuntimeIntentState fields, not unparsed records.
   for (const key of Object.keys(intents) as (keyof PendingRuntimeIntentState)[]) {
     // Keep requests made while the confirmed update was in flight.
     if (pending[key] === intents[key]) pending[key] = unchangedRuntimeIntent();

@@ -1,3 +1,4 @@
+import { definedPatch } from "../../../../domain/objects/optional-properties";
 import type { ServerInitialization } from "../../../../domain/runtime/metadata";
 import type { ThreadTokenUsage } from "../../../../domain/runtime/usage";
 import type { ThreadReadReceipt } from "../../../../domain/threads/model";
@@ -5,7 +6,7 @@ import { type ChatRuntimeState, confirmRuntimeIntentState, type PendingRuntimeIn
 import { type RequestAction, reduceRequestSlice } from "../pending-requests/state";
 import { type ComposerAction, reduceComposerSlice } from "./composer";
 import type { ChatConnectionPhase, ChatConnectionState, ChatPanelThreadState, ChatState } from "./model";
-import { definedPatch, patchObject } from "./patch";
+import { patchObject } from "./patch";
 import type { ChatTransitionAction } from "./transition-actions";
 import { reduceChatTransition } from "./transitions";
 import { reduceTurnScope, type TurnScopeAction } from "./turn-scope";

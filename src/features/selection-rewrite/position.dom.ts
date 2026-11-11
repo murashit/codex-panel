@@ -39,12 +39,11 @@ function editorCursorRect(editor: Editor, viewWindow: Window): DOMRect | null {
 }
 
 function editorViewFromEditor(editor: Editor): { coordsAtPos?: (pos: number, side?: -1 | 1) => DOMRect | null; dom?: unknown } | null {
-  const candidate = editor as {
-    cm?: unknown;
-    editor?: { cm?: unknown };
-  };
-  if (isEditorView(candidate.cm)) return candidate.cm;
-  if (isEditorView(candidate.editor?.cm)) return candidate.editor.cm;
+  if ("cm" in editor && isEditorView(editor.cm)) return editor.cm;
+  if ("editor" in editor) {
+    const nested = editor.editor;
+    if (nested && typeof nested === "object" && "cm" in nested && isEditorView(nested.cm)) return nested.cm;
+  }
   return null;
 }
 
@@ -53,7 +52,8 @@ function isEditorView(value: unknown): value is { coordsAtPos?: (pos: number, si
 }
 
 function isViewHTMLElement(value: unknown, viewWindow: Window): value is HTMLElement {
-  return value instanceof (viewWindow as Window & { HTMLElement: typeof HTMLElement }).HTMLElement;
+  const domWindow = viewWindow.document.defaultView;
+  return domWindow !== null && value instanceof domWindow.HTMLElement;
 }
 
 function clamp(value: number, min: number, max: number): number {

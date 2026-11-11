@@ -4,6 +4,7 @@ import {
   type TurnRecord,
   turnUserItemText,
 } from "../../../../../app-server/protocol/turn";
+import { isObjectValue } from "../../../../../domain/objects/object-value";
 import { definedProp } from "../../../../../domain/objects/optional-properties";
 import type { TurnTranscriptSummary } from "../../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../../shared/ui/json-preview";
@@ -502,9 +503,9 @@ function fileChangeThreadStreamItem(item: FileChangeItem, turnId?: string): Thre
 function jsonTargetLabel(value: unknown): string | null {
   const direct = jsonTargetPrimitive(value);
   if (direct) return direct;
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  if (!isObjectValue(value) || Array.isArray(value)) return null;
 
-  const record = value as Record<string, unknown>;
+  const record = value;
   const priorityKeys = [
     "q",
     "query",

@@ -1,3 +1,4 @@
+import { isObjectValue } from "../../domain/objects/object-value";
 import { normalizeReasoningEffort } from "../../domain/runtime/catalog";
 import type { RuntimeApprovalPolicy, RuntimePermissionState, RuntimeSandboxPolicy } from "../../domain/runtime/permissions";
 import type { ReasoningSummary, RuntimeConfigSnapshot, Verbosity } from "../../domain/runtime/settings";
@@ -18,7 +19,7 @@ export interface ConfigReadResult {
 
 export function runtimeConfigSnapshotFromAppServerConfig(response: ConfigReadResult): RuntimeConfigSnapshot {
   const rawConfig = response.config;
-  const config = rawConfig && typeof rawConfig === "object" ? (rawConfig as Record<string, unknown>) : {};
+  const config = isObjectValue(rawConfig) ? rawConfig : {};
   const effort = config["model_reasoning_effort"];
   return {
     profile: selectedConfigProfile(response.layers),
@@ -67,10 +68,9 @@ function sandboxPolicyFromConfig(config: Record<string, unknown>): RuntimeSandbo
 
 function approvalPolicyOrNull(value: unknown): RuntimeApprovalPolicy | null {
   if (value === "untrusted" || value === "on-request" || value === "never") return value;
-  if (!value || typeof value !== "object") return null;
-  const granular = (value as Record<string, unknown>)["granular"];
-  if (!granular || typeof granular !== "object") return null;
-  const granularRecord = granular as Record<string, unknown>;
+  if (!isObjectValue(value)) return null;
+  const granularRecord = value["granular"];
+  if (!isObjectValue(granularRecord)) return null;
   return {
     granular: {
       sandbox_approval: granularRecord["sandbox_approval"] === true,
@@ -103,7 +103,7 @@ function numberOrNull(value: unknown): number | null {
 }
 
 function recordOrNull(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+  return isObjectValue(value) ? value : null;
 }
 
 function stringArrayOrEmpty(value: unknown): string[] {

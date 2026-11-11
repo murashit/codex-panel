@@ -42,8 +42,8 @@ export function unmountThreadsViewShell(parent: HTMLElement | null): void {
 
 export function isThreadsArchiveConfirmPointer(event: PointerEvent, root: HTMLElement, viewWindow: Window): boolean {
   const target = event.target;
-  const domWindow = viewWindow as Window & { Element: typeof Element };
-  if (!(target instanceof domWindow.Element)) return false;
+  const domWindow = viewWindow.document.defaultView;
+  if (!domWindow || !(target instanceof domWindow.Element)) return false;
   const archiveConfirm = target.closest(".codex-panel-threads__archive-confirm");
   return Boolean(archiveConfirm && root.contains(archiveConfirm));
 }

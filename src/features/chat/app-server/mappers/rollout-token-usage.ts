@@ -1,3 +1,4 @@
+import { isObjectValue } from "../../../../domain/objects/object-value";
 import type { ThreadTokenUsage, TokenUsageBreakdown } from "../../../../domain/runtime/usage";
 
 const ROLLOUT_TOKEN_USAGE_READ_TIMEOUT_MS = 2_000;
@@ -97,7 +98,7 @@ function isAbsolutePath(path: string): boolean {
 }
 
 function objectRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  return isObjectValue(value) && !Array.isArray(value) ? value : null;
 }
 
 function nonNegativeNumber(value: unknown): number | null {

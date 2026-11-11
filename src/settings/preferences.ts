@@ -1,5 +1,6 @@
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { SendShortcut } from "../domain/input/send-shortcut";
+import { isObjectValue } from "../domain/objects/object-value";
 import type { ReasoningEffort } from "../domain/runtime/catalog";
 import { normalizeReasoningEffort } from "../domain/runtime/catalog";
 
@@ -43,7 +44,12 @@ export const DEFAULT_SETTINGS: CodexPanelSettings = {
   archiveExportTags: "",
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- This owned object literal defines every settings key and contains no external properties.
 const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof CodexPanelSettings)[];
+
+export function isCodexPanelSettingsKey(key: string): key is keyof CodexPanelSettings {
+  return Object.hasOwn(DEFAULT_SETTINGS, key);
+}
 
 export function normalizeSettings(storedSettings: unknown): CodexPanelSettings {
   const record = asRecord(storedSettings);
@@ -95,7 +101,7 @@ export function settingsMatchStoredSettings(storedSettings: unknown, settings: C
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  return isObjectValue(value) ? value : {};
 }
 
 function stringOrDefault(value: unknown, fallback: string): string {

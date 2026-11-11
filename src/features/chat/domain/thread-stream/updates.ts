@@ -2,14 +2,15 @@ import type { ThreadStreamFileChange, ThreadStreamItem } from "./items";
 
 export function upsertThreadStreamItemById(items: readonly ThreadStreamItem[], next: ThreadStreamItem): ThreadStreamItem[] {
   const index = items.findIndex((item) => item.id === next.id);
-  if (index === -1) return [...items, next];
+  const previous = items[index];
+  if (!previous) return [...items, next];
   const copy = [...items];
-  const previous = items[index] as ThreadStreamItem;
   copy[index] = mergeThreadStreamItem(previous, next);
   return copy;
 }
 
 export function mergeThreadStreamItem(previous: ThreadStreamItem, next: ThreadStreamItem): ThreadStreamItem {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Updates retain their item kind; next supplies the discriminant and required fields while these overlays retain accumulated content.
   return {
     ...previous,
     ...next,

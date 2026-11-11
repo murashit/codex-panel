@@ -33,7 +33,7 @@ export function startupDiagnostic(message: string): string | null {
 export function startupError(error: unknown): AppServerStartupError {
   if (error instanceof AppServerStartupError) return error;
   let message: string;
-  const code = error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
+  const code = error instanceof Error && "code" in error ? error.code : undefined;
   if (code === "ENOENT" || code === "ENOTDIR") {
     // Spawn errors do not identify the missing component. The vault is already open in Obsidian;
     // guide the user to the configurable launch command without probing paths after the failure.

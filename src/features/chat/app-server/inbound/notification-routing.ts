@@ -135,13 +135,13 @@ export function routeServerNotification(notification: ServerNotification, scope:
   }
 }
 
+/* eslint-disable @typescript-eslint/no-unsafe-type-assertion -- The satisfies-checked registry correlates method, descriptor kind, and payload. These lookups reconstruct that mapped union without changing its fields. */
 function registeredRoute(notification: RegisteredNotification): ServerNotificationRoute {
   return { kind: notification.kind, notification: notification.notification } as ServerNotificationRoute;
 }
 
 function registeredNotification<M extends ServerNotificationMethod>(notification: RoutedNotification<M>): RegisteredNotification | null {
   if (!isRegisteredNotificationMethod(notification.method)) return null;
-  // Registry membership guarantees method -> descriptor -> payload correlation; these assertions restore it after indexed lookup and mapped-union construction.
   const descriptor = SERVER_NOTIFICATION_REGISTRY[notification.method] as NotificationDescriptor<M>;
   if (descriptor.delivery === "threadCatalog") {
     return {
@@ -159,6 +159,7 @@ function registeredNotification<M extends ServerNotificationMethod>(notification
     scope: descriptor.scope(notification),
   } as RegisteredNotification;
 }
+/* eslint-enable @typescript-eslint/no-unsafe-type-assertion -- Check assertions outside the correlated registry lookup. */
 
 function isRegisteredNotificationMethod(method: ServerNotificationMethod): method is RegisteredNotificationMethod {
   return Object.hasOwn(SERVER_NOTIFICATION_REGISTRY, method);

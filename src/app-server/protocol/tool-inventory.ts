@@ -71,7 +71,7 @@ function codexAppIdsFromTools(tools: Readonly<Record<string, unknown>>): string[
 }
 
 function toolNameFromStatusTool(tool: unknown): string | null {
-  if (!tool || typeof tool !== "object") return null;
-  const name = (tool as { readonly name?: unknown }).name;
+  if (!tool || typeof tool !== "object" || !("name" in tool)) return null;
+  const name = tool.name;
   return typeof name === "string" && name.length > 0 ? name : null;
 }

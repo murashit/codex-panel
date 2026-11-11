@@ -1,4 +1,5 @@
 import { useLayoutEffect, useReducer, useRef } from "preact/hooks";
+import { isObjectValue } from "../../../../domain/objects/object-value";
 import type { ChatState } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 
@@ -61,9 +62,10 @@ function selectionFor<Selection extends object>(
   return selector(state);
 }
 
-function shallowEqual(left: object, right: object): boolean {
+function shallowEqual(left: unknown, right: unknown): boolean {
   if (left === right) return true;
+  if (!isObjectValue(left) || !isObjectValue(right)) return false;
   const leftKeys = Object.keys(left);
   if (leftKeys.length !== Object.keys(right).length) return false;
-  return leftKeys.every((key) => Object.is(left[key as keyof typeof left], right[key as keyof typeof right]));
+  return leftKeys.every((key) => Object.is(left[key], right[key]));
 }

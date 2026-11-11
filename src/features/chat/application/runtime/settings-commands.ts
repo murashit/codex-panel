@@ -135,6 +135,7 @@ async function commitPendingThreadSettings(
       if (!panelTargetLeaseIsCurrent(state(host), target)) break;
       if (
         outcome.kind === "unknown" &&
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- intents is an owned patch constructed from PendingRuntimeIntentState fields, without arbitrary external keys.
         (Object.keys(intents) as (keyof PendingRuntimeIntentState)[]).some((key) => state(host).runtime.pending[key] === intents[key])
       )
         reportUnconfirmedSettings(host);
