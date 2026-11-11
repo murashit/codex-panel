@@ -4,7 +4,7 @@ import * as contextConnection from "../src/app-server/connection/context-connect
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../src/app-server/connection/client";
 import type { ConnectionManagerHandlers } from "../src/app-server/connection/connection-manager";
-import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_TURN_DIFF } from "../src/constants";
+import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "../src/constants";
 import type { Thread } from "../src/domain/threads/model";
 import { sideChatDraft } from "../src/features/chat/application/threads/fork-draft";
 import type { ChatRuntimeView, CodexChatHost } from "../src/features/chat/host/contracts";
@@ -111,6 +111,23 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(duplicate.setViewState).toHaveBeenCalledOnce();
     expect(first.loadIfDeferred).not.toHaveBeenCalled();
     expect(duplicate.loadIfDeferred).not.toHaveBeenCalled();
+    plugin.runtime.reset();
+  });
+
+  it("waits for the host to activate the threads view", async () => {
+    const plugin = await pluginWithLeaves([]);
+    const activation = deferred<TestLeaf>();
+    const ensureSideLeaf = vi.fn(() => activation.promise);
+    Object.assign(plugin.app.workspace, { ensureSideLeaf });
+    const activated = vi.fn();
+
+    const opening = plugin.runtime.activateThreadsView().then(activated);
+
+    expect(ensureSideLeaf).toHaveBeenCalledWith(VIEW_TYPE_CODEX_THREADS, "left", { active: true, reveal: true });
+    expect(activated).not.toHaveBeenCalled();
+    activation.resolve(leaf());
+    await opening;
+    expect(activated).toHaveBeenCalledOnce();
     plugin.runtime.reset();
   });
 

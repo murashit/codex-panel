@@ -10,7 +10,7 @@ export function upsertThreadStreamItemById(items: readonly ThreadStreamItem[], n
 }
 
 export function mergeThreadStreamItem(previous: ThreadStreamItem, next: ThreadStreamItem): ThreadStreamItem {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Updates retain their item kind; next supplies the discriminant and required fields while these overlays retain accumulated content.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Same-identity items retain their variant. Omitted snapshot fields preserve known display data, including Panel-owned reasoning completion; the overlays retain streamed output and changes.
   return {
     ...previous,
     ...next,

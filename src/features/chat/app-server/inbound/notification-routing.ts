@@ -89,15 +89,12 @@ type MethodsForKind<Kind extends NotificationRouteKind> = {
 }[RegisteredNotificationMethod];
 type NotificationForKind<Kind extends NotificationRouteKind> = RoutedNotification<Extract<MethodsForKind<Kind>, ServerNotificationMethod>>;
 type RegisteredNotification = {
-  [Method in RegisteredNotificationMethod]: {
-    readonly kind: (typeof SERVER_NOTIFICATION_REGISTRY)[Method]["kind"];
-    readonly delivery: (typeof SERVER_NOTIFICATION_REGISTRY)[Method]["delivery"];
-    readonly notification: RoutedNotification<Method>;
-    readonly scope: (typeof SERVER_NOTIFICATION_REGISTRY)[Method] extends { readonly delivery: "threadCatalog" }
-      ? null
-      : AppServerRouteScope;
-  };
-}[RegisteredNotificationMethod];
+  readonly kind: NotificationRouteKind;
+  readonly notification: ServerNotification;
+} & (
+  | { readonly delivery: "threadCatalog"; readonly scope: null }
+  | { readonly delivery: "activeScope"; readonly scope: AppServerRouteScope }
+);
 
 export type StreamUpdateNotification = NotificationForKind<"streamUpdate">;
 export type TurnLifecycleNotification = NotificationForKind<"turnLifecycle">;
@@ -135,13 +132,14 @@ export function routeServerNotification(notification: ServerNotification, scope:
   }
 }
 
-/* eslint-disable @typescript-eslint/no-unsafe-type-assertion -- The satisfies-checked registry correlates method, descriptor kind, and payload. These lookups reconstruct that mapped union without changing its fields. */
 function registeredRoute(notification: RegisteredNotification): ServerNotificationRoute {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- The satisfies-checked registry pairs each route kind with its method's payload; restore that correlation only when publishing the route.
   return { kind: notification.kind, notification: notification.notification } as ServerNotificationRoute;
 }
 
 function registeredNotification<M extends ServerNotificationMethod>(notification: RoutedNotification<M>): RegisteredNotification | null {
   if (!isRegisteredNotificationMethod(notification.method)) return null;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- The descriptor is selected using this notification's method; TypeScript loses the generic payload/scope correlation during indexed lookup.
   const descriptor = SERVER_NOTIFICATION_REGISTRY[notification.method] as NotificationDescriptor<M>;
   if (descriptor.delivery === "threadCatalog") {
     return {
@@ -149,7 +147,7 @@ function registeredNotification<M extends ServerNotificationMethod>(notification
       delivery: descriptor.delivery,
       notification,
       scope: null,
-    } as RegisteredNotification;
+    };
   }
 
   return {
@@ -157,9 +155,8 @@ function registeredNotification<M extends ServerNotificationMethod>(notification
     delivery: descriptor.delivery,
     notification,
     scope: descriptor.scope(notification),
-  } as RegisteredNotification;
+  };
 }
-/* eslint-enable @typescript-eslint/no-unsafe-type-assertion -- Check assertions outside the correlated registry lookup. */
 
 function isRegisteredNotificationMethod(method: ServerNotificationMethod): method is RegisteredNotificationMethod {
   return Object.hasOwn(SERVER_NOTIFICATION_REGISTRY, method);

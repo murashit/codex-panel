@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { threadStreamItemFromTurnItem } from "../../../../../src/features/chat/app-server/mappers/thread-stream/turn-items";
 import {
   initialChatThreadStreamState,
   threadStreamStartActiveSegment,
@@ -9,6 +10,8 @@ import {
   reconcileForkDisplayItems,
 } from "../../../../../src/features/chat/application/threads/fork-display-snapshot";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import { completeReasoningItems } from "../../../../../src/features/chat/domain/thread-stream/updates";
+import { threadStreamLayoutBlocks } from "../../../../../src/features/chat/ui/thread-stream/layout";
 import { taskProgressFixture as taskProgress } from "../../support/thread-stream";
 
 describe("fork display snapshots", () => {
@@ -87,6 +90,19 @@ describe("fork display snapshots", () => {
     const reconciled = reconcileForkDisplayItems([message("u1", "turn-1"), liveNotice], [message("u1", "turn-1"), terminal]);
 
     expect(reconciled.map((item) => item.id)).toEqual(["u1", terminal.id]);
+  });
+
+  it("keeps completed empty reasoning hidden across repeated history hydration", () => {
+    const historyItem = threadStreamItemFromTurnItem({ type: "reasoning", id: "reasoning", summary: [], content: [] }, "turn");
+    if (!historyItem) throw new Error("Expected a mapped reasoning item.");
+    let items = completeReasoningItems([historyItem], "turn");
+
+    for (let pass = 0; pass < 2; pass++) {
+      items = reconcileForkDisplayItems(items, [historyItem]);
+
+      expect(items).toMatchObject([{ kind: "reasoning", statusLabel: "Completed", executionState: "completed" }]);
+      expect(threadStreamLayoutBlocks(items, null, "/vault", new Map())).toEqual([]);
+    }
   });
 
   it("keeps the complete display payload for an already-hydrated user item", () => {
