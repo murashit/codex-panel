@@ -1,6 +1,6 @@
 import { Component, ItemView, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
-
 import { VIEW_TYPE_CODEX_PANEL } from "../../../constants";
+import { isObjectValue } from "../../../domain/objects/object-value";
 import { createLocalIdSource } from "../application/local-id-source";
 import type { ChatPanelHandle, ChatViewRuntimeOwner, CodexChatHost } from "./contracts";
 import { ChatPanelSession } from "./session/session";
@@ -119,7 +119,7 @@ export class CodexChatView extends ItemView {
       this.attachment.session.applyViewState(state);
       return;
     }
-    this.detachedState = typeof state === "object" && state !== null ? { ...(state as Record<string, unknown>) } : { version: 1 };
+    this.detachedState = isObjectValue(state) ? { ...state } : { version: 1 };
   }
 
   override async onOpen(): Promise<void> {

@@ -34,6 +34,7 @@ function dailyNoteReferencesFromSettings(
 ): readonly DailyNoteReferenceCandidate[] {
   const format = settings.format;
   if (!format) return [];
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Obsidian supplies the callable Moment factory at runtime; its declaration exposes the module namespace instead of its call signature.
   const createMoment = moment as unknown as (input: Date) => DailyNoteMoment;
   return RELATIVE_DAILY_NOTES.map(({ keyword, display, dayOffset }) => {
     const filename = createMoment(referenceDate).add(dayOffset, "day").format(format);

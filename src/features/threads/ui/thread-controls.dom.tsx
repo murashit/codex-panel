@@ -167,6 +167,7 @@ export function threadRenameControls({
     ),
     onFocusOut: (event) => {
       const next = event.relatedTarget;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- A browser focus target exposing nodeType is a Node; avoid a realm-specific instanceof check for adopted nodes.
       if (busy || (next && "nodeType" in next && event.currentTarget.contains(next as Node))) return;
       save(state.draft);
     },

@@ -1,3 +1,4 @@
+import { definedPatch } from "../../../../domain/objects/optional-properties";
 import { normalizeProposedPlanMarkdown } from "../../domain/thread-stream/format/proposed-plan";
 import type { ThreadStreamItem, ThreadStreamNoticeSection, ThreadStreamUserInputQuestionResult } from "../../domain/thread-stream/items";
 import type { ThreadStreamItemAnnotations } from "./layout";
@@ -32,7 +33,7 @@ export function threadStreamTextView(
     contentKey: `${item.id}\u001f${renderMode}`,
     renderMode,
     collapsible: item.kind === "dialogue" && item.role === "user",
-    ...definedProp("copyText", copyTextForTextItem(item, options.activeTurnId)),
+    ...definedPatch("copyText", copyTextForTextItem(item, options.activeTurnId)),
     actionTargets: options.actionTargets ?? {},
     metadata: textMetadataView(item, annotations),
   };
@@ -61,8 +62,8 @@ function copyTextForTextItem(item: TextItem, activeTurnId: string | null): strin
 
 function textMetadataView(item: TextItem, annotations?: ThreadStreamItemAnnotations): ThreadStreamTextMetadataView {
   return {
-    ...definedProp("editedFiles", editedFilesView(item, annotations)),
-    ...definedProp("contextItems", contextItemsView(item)),
+    ...definedPatch("editedFiles", editedFilesView(item, annotations)),
+    ...definedPatch("contextItems", contextItemsView(item)),
     autoReviewSummaries: item.kind === "dialogue" ? (annotations?.autoReviewSummaries ?? []) : [],
     systemDetails: item.kind === "system" ? systemDetailViews(item.noticeSections ?? []) : [],
     userInputDetails: item.kind === "userInputResult" ? userInputQuestionDetailViews(item.questions) : [],
@@ -73,7 +74,7 @@ function editedFilesView(item: TextItem, annotations?: ThreadStreamItemAnnotatio
   if (item.kind !== "dialogue" || !annotations?.editedFiles || annotations.editedFiles.length === 0) return undefined;
   return {
     files: annotations.editedFiles,
-    ...definedProp("turnDiff", item.turnId && annotations.turnDiff ? { turnId: item.turnId, diff: annotations.turnDiff.diff } : undefined),
+    ...definedPatch("turnDiff", item.turnId && annotations.turnDiff ? { turnId: item.turnId, diff: annotations.turnDiff.diff } : undefined),
   };
 }
 
@@ -115,8 +116,4 @@ function streamItemRoleClassName(role: ThreadStreamItem["role"]): string {
   if (role === "system") return "codex-panel__stream-item--system";
   if (role === "tool") return "codex-panel__stream-item--tool";
   return "codex-panel__stream-item--user";
-}
-
-function definedProp<Key extends string, Value>(key: Key, value: Value | undefined): Partial<Record<Key, Value>> {
-  return value === undefined ? {} : ({ [key]: value } as Partial<Record<Key, Value>>);
 }

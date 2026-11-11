@@ -73,9 +73,10 @@ function slashCommandNameSuggestions(
   const query = rawQuery.toLowerCase();
   if (SLASH_COMMANDS.some((item) => item.command.toLowerCase() === query)) return null;
   const start = match.index + match[0].lastIndexOf("/");
-  return SLASH_COMMANDS.filter(
-    (item) => item.command.toLowerCase().startsWith(query) && slashCommandAvailable(item.command.slice(1) as SlashCommandName),
-  )
+  return SLASH_COMMANDS.filter((item) => {
+    const name = item.command.slice(1);
+    return item.command.toLowerCase().startsWith(query) && isSlashCommandName(name) && slashCommandAvailable(name);
+  })
     .slice(0, 8)
     .map((item) => ({
       display: item.command,

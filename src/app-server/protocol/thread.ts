@@ -1,3 +1,4 @@
+import { isObjectValue } from "../../domain/objects/object-value";
 import type { Thread, ThreadProvenance } from "../../domain/threads/model";
 import type { Thread as GeneratedThread } from "../../generated/app-server/v2/Thread";
 
@@ -48,7 +49,7 @@ function threadProvenance(thread: ThreadRecord): ThreadProvenance {
 }
 
 function recordOrNull(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  return isObjectValue(value) && !Array.isArray(value) ? value : null;
 }
 
 function stringOrNull(value: unknown): string | null {

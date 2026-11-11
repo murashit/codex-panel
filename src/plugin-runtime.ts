@@ -98,6 +98,7 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
       active: true,
       reveal: true,
     });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- The plugin registers CodexThreadsView for VIEW_TYPE_CODEX_THREADS, and ensureSideLeaf loads that registered view type.
     return leaf.view as CodexThreadsView;
   }
 

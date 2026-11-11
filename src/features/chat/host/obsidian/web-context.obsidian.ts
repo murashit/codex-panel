@@ -15,8 +15,6 @@ interface WebContextReaderOptions {
   isCurrent?: () => boolean;
 }
 
-type DomParserWindow = Window & { DOMParser: typeof DOMParser };
-
 export async function readWebUrl(
   options: WebContextReaderOptions,
   url: string,
@@ -49,7 +47,7 @@ async function fetchWebPage(options: WebContextReaderOptions, url: string): Prom
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Web request failed for ${url} (HTTP ${String(response.status)}).`);
   }
-  const viewWindow = options.viewWindow() as DomParserWindow | null;
+  const viewWindow = options.viewWindow()?.document.defaultView;
   const Parser = viewWindow?.DOMParser ?? DOMParser;
   const document = new Parser().parseFromString(response.text, "text/html");
   const result = new Defuddle(document, { url, useAsync: false }).parse();

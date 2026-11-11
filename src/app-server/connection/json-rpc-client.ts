@@ -73,9 +73,11 @@ export class JsonRpcClient {
         method,
         resolve: (value) => {
           try {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Request IDs correlate this response to the caller's generated method contract; payloads come from the supported app-server process.
+            const response = value as R;
             // Snapshot owners must adopt responses before later lines in the same stdout batch.
-            requestOptions.onResponse?.(value as R);
-            resolve(value as R);
+            requestOptions.onResponse?.(response);
+            resolve(response);
           } catch (error) {
             reject(error instanceof Error ? error : new Error(String(error)));
           }
@@ -86,6 +88,7 @@ export class JsonRpcClient {
     });
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- M determines ClientRequestParams<M>; constructing the union member loses that generic correlation in TypeScript.
       this.options.send({ id, method, params } as RpcOutboundMessage);
     } catch (error) {
       const pending = this.pending.get(id);
@@ -199,6 +202,7 @@ export class JsonRpcClient {
   }
 }
 
+/* eslint-disable @typescript-eslint/no-unsafe-type-assertion -- This validates the JSON-RPC envelope, not complete payloads. The supported app-server process supplies payloads under the generated protocol contract; adapters interpret their fields. */
 function rpcInboundMessage(value: unknown): RpcInboundMessage | null {
   if (!isRecord(value)) return null;
   const hasId = Object.hasOwn(value, "id");
@@ -213,6 +217,7 @@ function rpcInboundMessage(value: unknown): RpcInboundMessage | null {
   }
   return hasMethod ? (value as unknown as ServerNotification) : null;
 }
+/* eslint-enable @typescript-eslint/no-unsafe-type-assertion -- Check assertions outside the protocol payload boundary. */
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -284,5 +289,5 @@ function errorMessage(error: unknown): string {
 }
 
 function isRpcError(value: unknown): value is RpcError {
-  return value !== null && typeof value === "object" && typeof (value as { message?: unknown }).message === "string";
+  return value !== null && typeof value === "object" && "message" in value && typeof value.message === "string";
 }

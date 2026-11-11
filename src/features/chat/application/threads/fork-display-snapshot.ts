@@ -40,6 +40,7 @@ export function reconcileForkDisplayItems(
       displayItemsById.get(item.id) ??
       (item.kind === "dialogue" && item.role === "user" && item.clientId ? displayUserItemsByClientId.get(item.clientId) : undefined);
     if (!displayItem) return item;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Matching item identity preserves the item kind; the authoritative history item supplies its discriminant and required fields.
     const mergedItem = { ...displayItem, ...item } as ThreadStreamItem;
     if (item.provenance) return mergedItem;
     const hydratedItem = { ...mergedItem };

@@ -300,9 +300,9 @@ export function goalSubcommandDefinition(subcommand: string): GoalSubcommandDefi
 }
 
 export function slashCommandHelpSections(): SlashCommandHelpSection[] {
-  return (Object.keys(SLASH_COMMAND_SURFACE_LABELS) as SlashCommandSurface[])
-    .map((surface) => ({
-      title: SLASH_COMMAND_SURFACE_LABELS[surface],
+  return Object.entries(SLASH_COMMAND_SURFACE_LABELS)
+    .map(([surface, title]) => ({
+      title,
       auditFacts: SLASH_COMMANDS.filter((item) => item.surface === surface).flatMap(slashCommandHelpRows),
     }))
     .filter((section) => section.auditFacts.length > 0);

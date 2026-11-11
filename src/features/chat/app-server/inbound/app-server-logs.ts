@@ -1,3 +1,5 @@
+import { isObjectValue } from "../../../../domain/objects/object-value";
+
 export type ClassifiedAppServerLog = { kind: "error"; text: string } | null;
 
 const ESCAPE_CHARACTER = String.fromCharCode(27);
@@ -11,7 +13,7 @@ export function classifyAppServerLog(message: string): ClassifiedAppServerLog {
 
   const level = logString(parsed["level"]).toUpperCase();
   const parsedFields = parsed["fields"];
-  const fields = parsedFields && typeof parsedFields === "object" ? (parsedFields as Record<string, unknown>) : {};
+  const fields = isObjectValue(parsedFields) ? parsedFields : {};
   const text = stripAnsi(logString(fields["message"], normalized));
   const target = logString(parsed["target"]);
   if (target.includes("rmcp::transport::worker") && isMcpTokenRefreshLog(text)) return null;
@@ -22,8 +24,8 @@ export function classifyAppServerLog(message: string): ClassifiedAppServerLog {
 
 function parseAppServerLog(message: string): Record<string, unknown> | null {
   try {
-    const parsed = JSON.parse(message) as unknown;
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+    const parsed: unknown = JSON.parse(message);
+    return isObjectValue(parsed) ? parsed : null;
   } catch {
     return null;
   }

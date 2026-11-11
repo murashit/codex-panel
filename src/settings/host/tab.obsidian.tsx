@@ -21,6 +21,7 @@ import {
   DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE,
   DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE,
   DEFAULT_ATTACHMENT_FOLDER,
+  isCodexPanelSettingsKey,
   normalizeArchiveExportFilenameTemplate,
   normalizeArchiveExportFolderTemplate,
   normalizeArchiveExportTags,
@@ -247,8 +248,8 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   override getControlValue(key: string): unknown {
-    if (!(key in this.plugin.settings)) return undefined;
-    return this.plugin.settings[key as keyof CodexPanelSettings];
+    if (!isCodexPanelSettingsKey(key)) return undefined;
+    return this.plugin.settings[key];
   }
 
   override async setControlValue(key: string, value: unknown): Promise<void> {

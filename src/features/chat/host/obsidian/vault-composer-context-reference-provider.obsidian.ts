@@ -290,6 +290,7 @@ class VaultComposerContextTracker extends Component {
       (event) => {
         const node = event.target;
         if (!node || !("nodeType" in node)) return;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Browser pointer targets exposing nodeType are Nodes; the structural probe also accepts nodes adopted across view windows.
         if (view.containerEl.contains(node as Node)) this.clearSelectionCandidate();
         else if (this.readingSelection) this.captureReadingSelection(false);
       },
@@ -322,6 +323,7 @@ class VaultComposerContextTracker extends Component {
       view.containerEl,
       "focusout",
       (event) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- A browser focus target exposing nodeType is a Node, including targets adopted across view windows.
         if (event.relatedTarget && "nodeType" in event.relatedTarget && view.containerEl.contains(event.relatedTarget as Node)) return;
         if (this.readingSelection) this.captureReadingSelection(false);
         const range = this.readingSelection?.range;

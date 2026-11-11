@@ -256,11 +256,6 @@ interface CommandAction {
   query?: unknown;
 }
 
-interface NetworkApprovalContext {
-  host?: unknown;
-  protocol?: unknown;
-}
-
 function commandApprovalDetails(params: CommandApprovalParams): ApprovalDetailRow[] {
   const rows: ApprovalDetailRow[] = [];
   const cwd = nullableString(params.cwd);
@@ -410,7 +405,7 @@ function commandActionLabel(action: CommandAction, cwd: string | null | undefine
 }
 
 function isCommandAction(value: unknown): value is CommandAction {
-  return value !== null && typeof value === "object" && typeof (value as { type?: unknown }).type === "string";
+  return value !== null && typeof value === "object" && "type" in value && typeof value.type === "string";
 }
 
 function pathLabel(path: unknown, cwd: string | null | undefined): string | null {
@@ -419,11 +414,10 @@ function pathLabel(path: unknown, cwd: string | null | undefined): string | null
 }
 
 function networkApprovalContextLabel(value: unknown): string | null {
-  if (!value || typeof value !== "object") return null;
-  const context = value as NetworkApprovalContext;
-  const host = nonEmptyString(context.host);
+  if (!value || typeof value !== "object" || !("host" in value)) return null;
+  const host = nonEmptyString(value.host);
   if (!host) return null;
-  const protocol = nonEmptyString(context.protocol);
+  const protocol = "protocol" in value ? nonEmptyString(value.protocol) : null;
   return protocol ? `${protocol}://${host}` : host;
 }
 
@@ -439,8 +433,9 @@ function networkPolicyAmendmentsLabel(value: unknown): string | null {
 
 function networkPolicyAmendmentLabel(value: unknown): string {
   if (!value || typeof value !== "object") return stringValue(value, "rule");
-  const amendment = value as { action?: unknown; host?: unknown };
-  return `${nonEmptyString(amendment.action) ?? "rule"} ${nonEmptyString(amendment.host) ?? "(unknown host)"}`;
+  const action = "action" in value ? nonEmptyString(value.action) : null;
+  const host = "host" in value ? nonEmptyString(value.host) : null;
+  return `${action ?? "rule"} ${host ?? "(unknown host)"}`;
 }
 
 function pendingUserInputParams(params: UserInputParams): PendingUserInput["params"] | null {

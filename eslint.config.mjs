@@ -23,6 +23,8 @@ export default defineConfig([
       },
     },
     rules: {
+      "no-restricted-properties": ["error", { object: "Reflect", property: "get" }, { object: "Reflect", property: "apply" }],
+      "@typescript-eslint/no-unsafe-type-assertion": "error",
       // Obsidian's replacement ignores its chaining `then` without weakening Promise checks.
       "@typescript-eslint/no-misused-promises": "off",
       // Allow local, explained exceptions under docs/development.md; the preset still requires descriptions.
@@ -71,6 +73,7 @@ export default defineConfig([
       // Vitest supports a second argument for assertion failure context.
       "vitest/valid-expect": ["error", { maxArgs: 2 }],
       "vitest/prefer-hooks-in-order": "error",
+      "vitest/no-restricted-vi-methods": ["error", { mock: null, doMock: null }],
     },
   },
 ]);

@@ -9,7 +9,7 @@ export function toolbarOutsidePointerHit(
   viewWindow: Window | null,
 ): ToolbarOutsidePointerHit {
   const target = event.target;
-  const domWindow = viewWindow as (Window & { Element: typeof Element }) | null;
+  const domWindow = viewWindow?.document.defaultView;
   if (!root || !domWindow || !(target instanceof domWindow.Element)) {
     return { insideToolbarPanel: false, insideArchiveConfirm: false };
   }

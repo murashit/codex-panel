@@ -1,3 +1,5 @@
+import { isObjectValue } from "../../../../domain/objects/object-value";
+
 export interface ActiveRouteScope {
   activeThreadId: string | null;
   activeTurnId: string | null;
@@ -23,8 +25,7 @@ export function isTurnScopedAppServerRouteForIdlePanelTurn(routeScope: AppServer
 
 export function fallbackAppServerRouteScope(envelope: { params?: unknown }): AppServerRouteScope {
   const rawParams = envelope.params;
-  const params =
-    rawParams !== null && typeof rawParams === "object" && !Array.isArray(rawParams) ? (rawParams as Record<string, unknown>) : null;
+  const params = isObjectValue(rawParams) && !Array.isArray(rawParams) ? rawParams : null;
   return {
     threadId: stringParam(params, "threadId"),
     turnId: stringParam(params, "turnId"),
