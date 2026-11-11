@@ -93,13 +93,11 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     this.currentExecutionRuntime().openThreadPicker();
   }
 
-  async activateThreadsView(): Promise<CodexThreadsView> {
-    const leaf = await this.options.app.workspace.ensureSideLeaf(VIEW_TYPE_CODEX_THREADS, "left", {
+  async activateThreadsView(): Promise<void> {
+    await this.options.app.workspace.ensureSideLeaf(VIEW_TYPE_CODEX_THREADS, "left", {
       active: true,
       reveal: true,
     });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- The plugin registers CodexThreadsView for VIEW_TYPE_CODEX_THREADS, and ensureSideLeaf loads that registered view type.
-    return leaf.view as CodexThreadsView;
   }
 
   scheduleWorkspacePanelReconcile(options: { restore?: boolean } = {}): void {
