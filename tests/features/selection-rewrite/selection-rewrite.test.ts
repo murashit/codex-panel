@@ -17,7 +17,7 @@ import { positionSelectionRewritePopover } from "../../../src/features/selection
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
 import { appServerAgentMessageFixture as agentMessage, appServerCompletedTurnFixture as turn } from "../../support/app-server-records";
 import { deferred } from "../../support/async";
-import { installObsidianDomShims } from "../../support/dom";
+import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 
 type SelectionRewriteTestRunOptions = SelectionRewritePortRequest & { runner: EphemeralStructuredTurnRunner };
 
@@ -342,8 +342,7 @@ describe("selection rewrite popover", () => {
     });
     expect(selectionRewriteGenerate).not.toHaveBeenCalled();
     void act(() => {
-      setTextareaValue(instruction, "Make it concise.");
-      instruction.dispatchEvent(new Event("input", { bubbles: true }));
+      changeInputValue(instruction, "Make it concise.");
     });
 
     expect(generate.disabled).toBe(false);
@@ -436,8 +435,7 @@ describe("selection rewrite popover", () => {
     });
     expect(selectionRewriteGenerate).toHaveBeenCalledOnce();
     void act(() => {
-      setTextareaValue(instruction, "Try another version.");
-      instruction.dispatchEvent(new Event("input", { bubbles: true }));
+      changeInputValue(instruction, "Try another version.");
     });
     await act(async () => {
       instruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
@@ -511,8 +509,7 @@ describe("selection rewrite popover", () => {
 
     void act(() => {
       instruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowUp" }));
-      setTextareaValue(instruction, "Edited history draft.");
-      instruction.dispatchEvent(new Event("input", { bubbles: true }));
+      changeInputValue(instruction, "Edited history draft.");
       instruction.setSelectionRange(0, 0);
     });
 
@@ -549,8 +546,7 @@ describe("selection rewrite popover", () => {
 
     void act(() => {
       editingInstruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowUp" }));
-      setTextareaValue(editingInstruction, "Rewrite as numbered bullets.");
-      editingInstruction.dispatchEvent(new Event("input", { bubbles: true }));
+      changeInputValue(editingInstruction, "Rewrite as numbered bullets.");
     });
 
     await act(async () => {
@@ -595,8 +591,7 @@ function openPopover(options: SelectionRewritePopoverOptions, instructionText = 
   void act(() => {
     popover = openSelectionRewritePopover(options);
     const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
-    setTextareaValue(instruction, instructionText);
-    instruction.dispatchEvent(new Event("input", { bubbles: true }));
+    changeInputValue(instruction, instructionText);
   });
   return expectPresent(popover);
 }
@@ -640,13 +635,6 @@ function editorFixture(currentText = "Revise this sentence.") {
     } as unknown as SelectionRewritePopoverOptions["editor"],
     replaceRange,
   };
-}
-
-function setTextareaValue(textarea: HTMLTextAreaElement, value: string): void {
-  const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
-  if (!descriptor?.set) throw new Error("Expected textarea value setter.");
-  const setValue = descriptor.set.bind(textarea) as (nextValue: string) => void;
-  setValue(value);
 }
 
 function expectPresent<T>(value: T | null | undefined): T {
