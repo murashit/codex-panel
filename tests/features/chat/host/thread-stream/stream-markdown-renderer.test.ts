@@ -1,19 +1,25 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { renderStreamMarkdown } from "../../../../../src/features/chat/host/thread-stream/markdown-renderer.obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
 
 describe("renderStreamMarkdown", () => {
-  it("renders formatting without activating links during streaming", () => {
+  it("keeps link and image notation inert before HTML parsing during streaming", () => {
     const parent = document.createElement("div");
-    renderStreamMarkdown(parent, "# Title\n\n**bold** [web](https://example.com) [file](file:///tmp/Note.md) [[Wiki]]");
-    expect(parent.querySelector("h1")?.textContent).toBe("Title");
-    expect(parent.querySelector("strong")?.textContent).toBe("bold");
-    expect(parent.querySelector("a")).toBeNull();
-    expect(parent.textContent).toContain("web file [[Wiki]]");
+    const parse = vi.spyOn(DOMParser.prototype, "parseFromString");
+    try {
+      const notation = "[link](https://example.com) ![image](https://example.com/image.png) <https://example.com>";
+      renderStreamMarkdown(parent, `**bold** ${notation}`);
+      // Disable element generation itself; removing images after parse could already be too late.
+      expect(parse).toHaveBeenCalledWith(expect.not.stringMatching(/<(?:a|img)\b/i), "text/html");
+      expect(parent.querySelector("strong")?.textContent).toBe("bold");
+      expect(parent.textContent).toBe(`bold ${notation}`);
+    } finally {
+      parse.mockRestore();
+    }
   });
 
   it("escapes raw HTML while streaming", () => {

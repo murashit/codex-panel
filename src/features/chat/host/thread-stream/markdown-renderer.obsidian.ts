@@ -1,7 +1,5 @@
-import { fromMarkdown } from "mdast-util-from-markdown";
 import { micromark } from "micromark";
-import { type App, type Component, Keymap, MarkdownRenderer, Notice, parseLinktext } from "obsidian";
-import { visit } from "unist-util-visit";
+import { type App, type Component, Keymap, MarkdownPreviewRenderer, MarkdownRenderer, Notice, parseLinktext } from "obsidian";
 import { isFilesystemAbsolutePath, isVaultConfigPath, vaultRelativePath } from "../../../../domain/files/paths";
 import { codexThreadIdFromHref } from "../../../../domain/threads/links";
 import { notifyThreadStreamContentRendered } from "../../ui/thread-stream/content-rendered-event.dom";
@@ -29,38 +27,51 @@ interface ObsidianAppWithInternalPlugins extends App {
 
 export class ThreadStreamMarkdownRenderer {
   private readonly renderGenerations = new WeakMap<HTMLElement, number>();
+  private readonly renderRoots = new WeakSet<HTMLElement>();
 
-  constructor(private readonly options: ThreadStreamMarkdownRendererOptions) {}
+  constructor(private readonly options: ThreadStreamMarkdownRendererOptions) {
+    const postprocess = (element: HTMLElement): void => {
+      if (!this.renderRoots.has(element)) return;
+      // Run synchronously before native embed loading captures targets or adds nested previews.
+      bindRenderedFileLinks(element, this.options);
+      bindCodexThreadLinks(element, this.options);
+      bindRenderedTags(element, this.options);
+      prepareRenderedEmbeds(element, this.options);
+    };
+    MarkdownPreviewRenderer.registerPostProcessor(postprocess);
+    options.owner.register(() => {
+      MarkdownPreviewRenderer.unregisterPostProcessor(postprocess);
+    });
+  }
 
   renderObsidianMarkdown(parent: HTMLElement, text: string): void {
     const generation = (this.renderGenerations.get(parent) ?? 0) + 1;
     this.renderGenerations.set(parent, generation);
     const staging = parent.createDiv();
     staging.remove();
-    void MarkdownRenderer.render(this.options.app, markWikilinks(text), staging, "", this.options.owner)
+    this.renderRoots.add(staging);
+    void MarkdownRenderer.render(this.options.app, text, staging, "", this.options.owner)
       .then(() => {
         if (!parent.isConnected || this.renderGenerations.get(parent) !== generation) return;
         parent.replaceChildren(...Array.from(staging.childNodes));
-        bindRenderedFileLinks(parent, this.options);
-        bindCodexThreadLinks(parent, this.options);
-        bindRenderedTags(parent, this.options);
         notifyThreadStreamContentRendered(parent);
       })
       .catch((error: unknown) => {
         if (!parent.isConnected || this.renderGenerations.get(parent) !== generation) return;
         new Notice(`Failed to render Codex message: ${error instanceof Error ? error.message : String(error)}`);
+      })
+      .finally(() => {
+        this.renderRoots.delete(staging);
       });
   }
 }
 
 export function renderStreamMarkdown(parent: HTMLElement, text: string): void {
-  const html = micromark(text);
+  // Keep links and images inert before even parsing HTML into a temporary document.
+  const html = micromark(text, { extensions: [{ disable: { null: ["labelStartLink", "labelStartImage", "autolink"] } }] });
   const DOMParserConstructor = parent.ownerDocument.defaultView?.DOMParser ?? DOMParser;
   const parser = new DOMParserConstructor();
   const parsed = parser.parseFromString(html, "text/html");
-  parsed.body.querySelectorAll("a").forEach((link) => {
-    link.replaceWith(...Array.from(link.childNodes));
-  });
   const nodes = Array.from(parsed.body.childNodes).map((node) => parent.ownerDocument.importNode(node, true));
   parent.replaceChildren(...nodes);
 }
@@ -74,54 +85,41 @@ interface CodexThreadLinkContext {
   openThread: (threadId: string) => void;
 }
 
-// Obsidian renders both wiki and Markdown links as a.internal-link. Mark the
-// source syntax so only wikilinks receive Panel's absolute-path policy.
-function markWikilinks(markdown: string): string {
-  if (!markdown.includes("[[")) return markdown;
-  const excluded: { start: number; end: number }[] = [];
-  visit(fromMarkdown(markdown), (node) => {
-    if (node.type === "link" || node.type === "linkReference") {
-      const sourceStart = node.position?.start.offset;
-      const start = sourceStart !== undefined && markdown[sourceStart] === "<" ? sourceStart : node.children.at(-1)?.position?.end.offset;
-      const end = node.position?.end.offset;
-      if (start !== undefined && end !== undefined) excluded.push({ start, end });
+function internalFileTarget(context: RenderedMarkdownLinkContext, href: string): string | null {
+  const parsed = parseLinktext(href);
+  if (!isFilesystemAbsolutePath(parsed.path)) return href;
+  const path = vaultRelativePath(context.vaultPath, parsed.path);
+  return path === null || isVaultConfigPath(path, context.app.vault.configDir, context.vaultPath) ? null : `${path}${parsed.subpath}`;
+}
+
+function prepareRenderedEmbeds(parent: HTMLElement, context: RenderedMarkdownLinkContext): void {
+  parent.querySelectorAll<HTMLElement>(".internal-embed:not(.is-loaded)[src]").forEach((embed) => {
+    const href = embed.getAttribute("src") ?? "";
+    const target = internalFileTarget(context, href);
+    if (target !== null) {
+      embed.setAttribute("src", target);
       return;
     }
-    if (!["code", "inlineCode", "image", "imageReference", "definition", "html"].includes(node.type)) return;
-    const start = node.position?.start.offset;
-    const end = node.position?.end.offset;
-    if (start !== undefined && end !== undefined) excluded.push({ start, end });
-  });
-  const escaped = (offset: number): boolean => {
-    let backslashes = 0;
-    while (markdown[offset - backslashes - 1] === "\\") backslashes += 1;
-    return backslashes % 2 === 1;
-  };
-  return markdown.replace(/\[\[((?:(?!\[\[).)+?)\]\]/g, (wiki: string, _target: string, offset: number) => {
-    if (escaped(offset) || (markdown[offset - 1] === "!" && !escaped(offset - 1))) return wiki;
-    if (excluded.some((range) => range.start <= offset && range.end >= offset + wiki.length)) return wiki;
-    return `<span data-codex-panel-wikilink>${wiki}</span>`;
+    const blocked = parent.createSpan({
+      text: `Cannot embed this file: ${embed.getAttribute("alt") || href}`,
+      attr: { title: href },
+    });
+    embed.replaceWith(blocked);
   });
 }
 
 function bindRenderedFileLinks(parent: HTMLElement, context: RenderedMarkdownLinkContext): void {
   parent.querySelectorAll<HTMLAnchorElement>("a.internal-link").forEach((link) => {
-    const wikilink = link.parentElement?.hasAttribute("data-codex-panel-wikilink") === true;
-    if (wikilink) link.addClass("codex-panel__wikilink");
+    link.addClass("codex-panel__wikilink");
     const open = (event: MouseEvent): void => {
       if (event.button !== 0 && event.button !== 1) return;
       event.preventDefault();
       const href = link.getAttribute("data-href") ?? link.getAttribute("href") ?? link.textContent;
       if (!href.trim()) return;
-      const parsed = parseLinktext(href);
-      let target = href;
-      if (wikilink && isFilesystemAbsolutePath(parsed.path)) {
-        const path = vaultRelativePath(context.vaultPath, parsed.path);
-        if (path === null || isVaultConfigPath(path, context.app.vault.configDir, context.vaultPath)) {
-          new Notice("Cannot open files outside the vault.");
-          return;
-        }
-        target = `${path}${parsed.subpath}`;
+      const target = internalFileTarget(context, href);
+      if (target === null) {
+        new Notice("Cannot open files outside the vault.");
+        return;
       }
       void context.app.workspace.openLinkText(target, "", Keymap.isModEvent(event));
     };
@@ -135,9 +133,6 @@ function bindRenderedFileLinks(parent: HTMLElement, context: RenderedMarkdownLin
       const href = link.getAttribute("href");
       if (href) link.ownerDocument.defaultView?.open(href, String(Keymap.isModEvent(event) || ""));
     };
-  });
-  parent.querySelectorAll("span[data-codex-panel-wikilink]").forEach((marker) => {
-    marker.replaceWith(...Array.from(marker.childNodes));
   });
 }
 

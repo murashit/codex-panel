@@ -2,7 +2,8 @@ import { chatMetadataCacheFixture, chatVaultFixture, chatWorkspaceFixture } from
 import { disconnectedChatLeaseFixture, threadGoalQueriesFixture, threadReplacementPublicationFixture } from "../../support/host-contracts";
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Component } from "obsidian";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { AppServerClient, AppServerServerRequestResponder } from "../../../../../src/app-server/connection/client";
 import type { ConnectionManagerHandlers } from "../../../../../src/app-server/connection/connection-manager";
 import { AppServerContextConnection } from "../../../../../src/app-server/connection/context-connection";
@@ -697,6 +698,11 @@ describe("chat panel session runtime", () => {
       codexPath: "codex",
       sendShortcut: "enter",
     };
+    const owner = new Component();
+    owner.load();
+    onTestFinished(() => {
+      owner.unload();
+    });
     return {
       obsidian: {
         app: {
@@ -704,7 +710,7 @@ describe("chat panel session runtime", () => {
           vault: chatVaultFixture(),
           metadataCache: chatMetadataCacheFixture(),
         } as never,
-        owner: {} as never,
+        owner,
         viewId: "codex-test-view",
         registerEvent: vi.fn(),
         registerPointerDown: vi.fn(),
