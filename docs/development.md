@@ -4,7 +4,7 @@ Use this guide to implement, validate, and maintain changes to Codex Panel. See 
 
 ## Set Up and Iterate
 
-Use the Node.js version in `.node-version` and install dependencies with `npm ci`.
+For code execution and tool-based checks, use the Node.js version in `.node-version` and install dependencies with `npm ci`. Read-only investigation and prose-only changes do not themselves require dependency or CLI installation.
 
 Use `npm run check` for ordinary local iteration. It runs lint, CSS usage, unused-code and type checks, and product tests, then builds the plugin. Use focused scripts from `package.json` for narrower feedback while editing.
 
@@ -40,13 +40,15 @@ A behavioral finding needs a reachable path and violated contract; a structural 
 
 ### Investigate Duplication
 
-Run `npm run review:duplication` during review after implementation and during daily simplification review.
+Run `npm run review:duplication` when changing product or test structure, evaluating shared abstractions, or reviewing repository-wide simplification. It is optional for small local changes without structural impact.
 
 Read both matches and their callers, applying the criteria above equally to existing and new code. Extract shared setup or rules when that improves ownership and maintenance; preserve independent test expectations and meaningful operation and observation order. Use matches as review evidence and retain useful local repetition. Reuse the report for an unchanged source state; generated app-server code is excluded by the script.
 
 ## Validate a Change
 
-Before handoff, run `npm run fix`, review its diff, then run `npm run check`. Select additional local checks for the affected contracts below; metadata checks and CI test mode are not extra gates for every ordinary change.
+For source, test, dependency, or executable configuration changes, run `npm run fix`, inspect its diff, then run `npm run check` before handoff. For prose-only changes, check local links and anchors, verify instructions against the current implementation, and complete the applicable review in AGENTS.md; product tests are not required. Read-only investigations need checks that establish their findings, not a blanket handoff suite.
+
+Select additional checks by the affected contract, even when the edited file is documentation. Release preparation always requires `fix`, diff review, and `check`, plus its metadata checks. CI test mode is a diagnostic, not an extra gate for every change.
 
 `api:baseline` checks compatibility declarations and dependency pins; `release:check` checks version-file consistency and the last-compatible release boundary using Git tags. They do not establish runtime API compatibility or readiness to publish.
 
