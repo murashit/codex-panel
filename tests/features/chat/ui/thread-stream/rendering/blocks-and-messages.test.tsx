@@ -835,6 +835,7 @@ function markdownRendererFixture() {
   return new ThreadStreamMarkdownRenderer({
     app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
     owner: {} as never,
+    vaultPath: "/vault",
     openThread: vi.fn(),
   });
 }

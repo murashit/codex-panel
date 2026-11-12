@@ -1,4 +1,4 @@
-import { markdownCodeSpan } from "../../domain/markdown/code-span";
+import { toMarkdown } from "mdast-util-to-markdown";
 
 interface ComposerContextPosition {
   line: number;
@@ -48,7 +48,9 @@ export function formatComposerContextRange(range: ComposerContextRange): string 
 }
 
 export function activeNoteContextReferenceMarker(activeNote: ActiveNoteContextReference): string {
-  return activeNote.linktext.startsWith("file://") ? `External file: ${markdownCodeSpan(activeNote.path)}` : `[[${activeNote.linktext}]]`;
+  return activeNote.linktext.startsWith("file://")
+    ? toMarkdown({ type: "link", url: activeNote.linktext, children: [{ type: "text", value: activeNote.name }] }).trimEnd()
+    : `[[${activeNote.linktext}]]`;
 }
 
 function formatComposerContextPosition(position: ComposerContextPosition): string {

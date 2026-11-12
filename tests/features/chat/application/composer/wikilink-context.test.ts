@@ -35,10 +35,10 @@ function userInputWithWikiLinkReferencesAndSkills(
 }
 
 describe("wikilink context", () => {
-  it("sends an external snapshot with special characters using its real path", () => {
+  it("maps an external Markdown file link to its captured real path instead of resolving it as a wikilink", () => {
     const reference = { name: "A#B|C", path: "/outside/A#B|C.md", linktext: "file:///outside/A%23B%7CC.md" };
     const text = activeNoteContextReferenceMarker(reference);
-    expect(text).toBe("External file: `/outside/A#B|C.md`");
+    expect(text).toBe("[A#B|C](file:///outside/A%23B%7CC.md)");
     const input = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
       text,
       () => null,
@@ -54,7 +54,7 @@ describe("wikilink context", () => {
     expect(input).toContainEqual(wikilinkContext(`- ${text} -> ${reference.path}`));
   });
 
-  it("sends external selections without making their file path a wikilink", () => {
+  it("sends an external selection using its Markdown file link and captured source text", () => {
     const reference = {
       name: "A",
       path: "/outside/A.md",
@@ -63,7 +63,7 @@ describe("wikilink context", () => {
       range: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 13 } },
     };
     const snapshot = captureSelectionContext(reference, []);
-    expect(snapshot.marker).toBe('External file: `/outside/A.md` "selected text"');
+    expect(snapshot.marker).toBe('[A](file:///outside/A.md) "selected text"');
     const result = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
       snapshot.marker,
       () => null,
@@ -75,7 +75,7 @@ describe("wikilink context", () => {
       },
       { referenceActiveNoteOnSend: false },
     );
-    expect(result.text).toBe('External file: `/outside/A.md` `"selected text"`');
+    expect(result.text).toBe('[A](file:///outside/A.md) `"selected text"`');
     expect(result.input).toContainEqual({ type: "fileReference", name: "A", path: "/outside/A.md" });
     expect(result.input).toContainEqual(
       expect.objectContaining({ type: "additionalContext", value: expect.stringContaining("selected text") }),
