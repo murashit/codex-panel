@@ -5,14 +5,22 @@ description: Update Codex Panel's CLI compatibility baseline and generated app-s
 
 # Codex Panel App-Server Update
 
-Compare recorded, installed, and target CLI versions with the README Compatibility section. Follow [Codex App-Server compatibility](../../../docs/development.md#codex-app-server) for exact-version generation, affected runtime paths, and validation. Use [Design](../../../docs/design.md) when protocol changes affect ownership or product behavior.
+Follow the [compatibility policy](../../../docs/development.md#codex-app-server). Compare recorded, installed, and requested CLI versions before editing.
 
-Complete required compatibility work before reporting the target baseline as verified. Report the tested CLI version, changed compatibility behavior, and material verification limits. Keep optional follow-ups separate from required compatibility work; a bindings-only update does not require an opportunity audit.
+1. Set the target in `src/app-server/compatibility.json`, including generation arguments and capabilities where affected, and align the README Compatibility table.
+2. Use that exact installed CLI patch to regenerate and verify bindings:
 
-## Optional follow-up proposals
+   ```sh
+   npm run generate:app-server-types
+   npm run generate:app-server-types:check
+   npm run api:baseline
+   ```
 
-When the task includes evaluating upstream changes, assess concrete user benefits, internal simplification, and obsolete responsibilities under the [shared review criteria](../../../docs/development.md#review-and-simplify-a-change). A new API name or easy implementation alone does not establish value. Consider supported users, including managed deployments, and whether existing Codex or Obsidian functionality already serves the need.
+3. Review protocol changes in affected adapters, callers, and runtime paths. Update their behavior and tests where needed; generated types and self-authored fixtures alone do not establish runtime compatibility. Use [Design](../../../docs/design.md) when ownership or product behavior changes.
+4. Complete [change validation](../../../docs/development.md#validate-a-change) and report the tested CLI version, changed compatibility behavior, and material verification limits.
 
-Trace relevant current paths and contracts to establish what becomes possible, what is added or removed, and which maintenance work becomes easier. For UI proposals, apply [Design a UI Change](../../../docs/development.md#design-a-ui-change); release notes and generated bindings alone are insufficient. Resolve material unknowns where possible and state remaining uncertainty without turning it into an unsupported recommendation.
+Do not hand-edit `src/generated/app-server/`; put necessary output normalization in `scripts/app-server/normalize-types.mjs` and regenerate. The check command compares fresh output without replacing tracked bindings.
 
-Present worthwhile proposals in familiar behavior or maintenance terms: current limitation, proposed change, benefit and cost, integration point, and prerequisites. Rank by concrete benefit and cost, including compatibility impacts of removals. No proposals is a valid outcome.
+Evaluate feature or simplification opportunities only when requested. Ground proposals in current paths, supported users, and upstream contracts using the [review criteria](../../../docs/development.md#review-and-simplify-a-change). Rank worthwhile proposals by concrete benefit and complete maintenance cost; keep them separate from required compatibility work.
+
+For scheduled update PRs and recovery, see [Automation](../../../docs/automation.md#codex-cli-update-automation).

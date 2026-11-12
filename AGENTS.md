@@ -2,31 +2,31 @@ This repository contains the Codex Panel Obsidian plugin.
 
 ## Working Principles
 
-- Meet the user's requested outcomes with a coherent model whose responsibilities, state, and dependencies are clear and economical to maintain. Prefer correcting ownership over adding compensating mechanisms; retain compatibility for supported needs.
-- Ground decisions in current behavior, user needs, and authoritative boundary contracts. Documentation, tests, and reviewer agreement are evidence to assess, not substitutes for judgment.
-- Match investigation and comparison depth to consequence and uncertainty. Reconsider assumptions when findings challenge them, including those shared by paths outside the diff.
-- Keep implementation, tests, documentation, policy, and final history mutually consistent.
+Ground changes in requested outcomes, actual behavior, and authoritative contracts. Prefer clear ownership and a simpler complete model over compensating state or coordination. Keep implementation, tests, guidance, and final history consistent.
 
 ## What To Read
 
-| Task or decision | Guidance |
+| Task | Guidance |
 | --- | --- |
-| User-facing behavior, requirements, commands, privacy, compatibility | [README](README.md) |
-| Product scope, responsibility boundaries, state and UI ownership | [Design](docs/design.md) |
-| Implementation, source placement, tests, validation, compatibility, commits and PRs | [Development](docs/development.md) |
-| Release version and notes, finalization, publication, recovery | [Release](docs/release.md) |
-| Task-specific workflow | Select applicable descriptions in [.agents/skills/](.agents/skills/) and read those skills before starting |
+| Supported behavior and requirements | [README](README.md) |
+| Product, state, and UI responsibility boundaries | [Design](docs/design.md) |
+| Implementation, tests, validation, commits and PRs | [Development](docs/development.md) |
+| Live Obsidian validation | [Obsidian Dev skill](.agents/skills/codex-panel-obsidian-dev/SKILL.md) |
+| CLI baseline and generated bindings | [App-Server Update skill](.agents/skills/codex-panel-app-server-update/SKILL.md) |
+| Repository-wide architecture review | [Design Review skill](.agents/skills/codex-panel-design-review/SKILL.md) |
+| Release preparation, publication, recovery | [Release](docs/release.md); [release skill](.agents/skills/codex-panel-release/SKILL.md) is the task entry point |
+| CI diagnosis, scheduled workflows, GitHub App setup | [Automation](docs/automation.md) |
+
+Read the applicable guidance before starting; ordinary changes need no separate workflow skill.
 
 ## Review and Completion
 
-- When design choices materially affect complexity, especially responsibility or dependency boundaries, shared-state ownership, or asynchronous lifetimes, involve an independent read-only design/simplification contributor before settling the approach and throughout implementation. Require final behavior, contract, and regression review by a fresh read-only subagent who did not participate in design or implementation and can challenge the design itself.
-- Obtain fresh independent reconsideration when assumptions or design materially change, or a continuing contributor is too invested in the earlier choice. Other changes can use a direct second pass unless independent review materially improves confidence; trivial changes do not require formal alternatives or extra reviewers.
-- Substantive guidance or policy changes require a fresh read-only reviewer to assess necessity, scope, accuracy, and usability. Routine corrections and removals can use a direct second pass.
-- Resolve material findings against evidence. After edits that could change a review judgment, renew the affected review with independence where required. Run the [required validation](docs/development.md#validate-a-change) on the final result, repeating affected checks after edits or history organization and before handoff or publication.
-- The primary agent owns adoption and completion against the full requested outcomes and material open questions. Continue authorized work on gaps; explain important choices, verification limits, and unresolved findings or blockers in the work report. Passing checks or review agreement alone does not establish completion.
+- For design choices materially affecting complexity, responsibility or dependency boundaries, shared state, or asynchronous lifetimes, involve an independent read-only design contributor before settling the approach and throughout implementation. Require final behavior, contract, and regression review by a fresh read-only subagent who did not participate in design or implementation.
+- Obtain fresh reconsideration when assumptions or design materially change, or a continuing contributor is too invested in the earlier choice. Substantive guidance or policy changes also require a fresh read-only reviewer for necessity, scope, accuracy, and usability. Other changes can use a direct second pass; trivial changes need no formal alternatives or extra reviewers.
+- Repository-wide review-only assessments use a fresh read-only contributor to challenge material findings. If unavailable or disproportionate, record why and perform a separate second pass; this does not waive required reviews for implementation.
+- Give reviewers the requested outcomes, constraints, relevant source/contracts, comparison base, and available validation evidence before sharing preferred conclusions or earlier verdicts. They may challenge the design and related paths outside the diff. Resolve material findings against evidence; renew affected review when edits could change its judgment.
+- Complete [validation](docs/development.md#validate-a-change) on the final result, repeating affected checks after edits or history organization. The primary agent owns the full requested outcome and open questions; checks and reviewer agreement alone do not establish completion. Report behavior, important choices, review and verification results, and material gaps.
 
 ## Maintaining Guidance
 
-Change guidance to resolve a concrete reader need or inaccurate information. Read related guidance first, integrate overlap, and keep each rule in the document that owns it. Leave guidance unchanged when no gap is supported.
-
-Keep the resulting section concise and sufficient for its reader's task: required actions, order where it matters, and applicable conditions should be easy to find. Scope rules to the evidence and include rationale when it helps a continuing decision. Keep important policy-change reasons and editing notes in the work discussion, not the maintained document.
+Change guidance for a concrete reader need or inaccurate information. Read related guidance first, keep each rule with one owner, and make required actions and conditions easy to find. Keep editing rationale and work logs in the discussion.
