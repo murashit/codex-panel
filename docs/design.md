@@ -51,7 +51,3 @@ Server requests should become Panel UI only when the user can naturally answer t
 Thread streams should separate conversation from diagnostics and preserve item identity across history and streaming updates.
 
 Follow Obsidian's interaction and visual conventions; reserve custom treatment for Codex-specific states.
-
-## Testing Direction
-
-Tests should protect user-visible behavior, ownership boundaries, and meaningful state transitions without freezing implementation details or redefining app-server semantics.
