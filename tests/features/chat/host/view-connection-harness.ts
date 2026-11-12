@@ -130,10 +130,15 @@ export function setupViewConnectionHarness(): void {
     createdViews = [];
     for (const scope of createdQueryScopes) scope.dispose();
     createdQueryScopes = [];
-    vi.useRealTimers();
     restoreDefaultThreadStreamViewportMetrics?.();
     restoreDefaultThreadStreamViewportMetrics = null;
     document.body.replaceChildren();
+    try {
+      // DOM cleanup queues jsdom's focus frame; finish it before discarding the fake clock.
+      if (vi.isFakeTimers()) await vi.runOnlyPendingTimersAsync();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 }
 

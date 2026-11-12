@@ -727,7 +727,7 @@ function expectExposedThreadActions(view: CodexThreadsView): void {
   if (!row || !slot) throw new Error("Missing thread row actions");
   expect(row.contains(document.activeElement)).toBe(false);
   expect(row.matches(":hover")).toBe(false);
-  expect(getComputedStyle(row).gridTemplateColumns).toBe("minmax(0, 1fr) auto");
+  expect(getComputedStyle(row).gridTemplateColumns).toBe("minmax(0px, 1fr) auto");
   expect(getComputedStyle(slot).overflow).toBe("visible");
   for (const element of [slot, ...slot.querySelectorAll("button")]) {
     expect(getComputedStyle(element).opacity).not.toBe("0");
