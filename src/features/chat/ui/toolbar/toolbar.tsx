@@ -345,6 +345,7 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
   return (
     <NavRow
       onFocusOut={rename?.onFocusOut}
+      onKeyDown={rename?.onKeyDown}
       className={[
         "codex-panel__thread-row",
         thread.selected ? "codex-panel__thread-row--selected" : "",

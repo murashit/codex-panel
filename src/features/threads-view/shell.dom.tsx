@@ -145,6 +145,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
   return (
     <NavRow
       onFocusOut={rename?.onFocusOut}
+      onKeyDown={rename?.onKeyDown}
       className={rowClassName}
       persistentActions={row.rename.active || archiveConfirm.active}
       main={

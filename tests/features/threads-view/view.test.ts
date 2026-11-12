@@ -565,8 +565,12 @@ describe("CodexThreadsView", () => {
 
     expect(renameInput(view).value).toBe("My title draft");
     expect(view.containerEl.textContent).not.toContain("Generated title");
-    renameInput(view).dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    const autoName = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]');
+    if (!autoName) throw new Error("Missing auto-name button");
+    autoName.focus();
+    autoName.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(view.containerEl.querySelector(".codex-panel-threads__rename-input")).toBeNull();
+    moveOutsideThreadsView();
     expect(view.containerEl.querySelector(".codex-panel-threads__row-title")?.textContent).toBe("Thread preview");
     expect(host.threadMutations.renameThread).not.toHaveBeenCalled();
   });

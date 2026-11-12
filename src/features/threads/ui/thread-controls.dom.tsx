@@ -1,4 +1,11 @@
-import type { ButtonHTMLAttributes, Ref, TargetedFocusEvent, TargetedMouseEvent, ComponentChild as UiNode } from "preact";
+import type {
+  ButtonHTMLAttributes,
+  Ref,
+  TargetedFocusEvent,
+  TargetedKeyboardEvent,
+  TargetedMouseEvent,
+  ComponentChild as UiNode,
+} from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import { IconButton } from "../../../shared/ui/icon.dom";
 
@@ -129,7 +136,12 @@ export function threadRenameControls({
   state: { draft: string; generating: boolean; saving: boolean; autoNameDisabled: boolean };
   classNames: { input: string; action: string };
   actions: ThreadRenameControlActions;
-}): { input: UiNode; action: UiNode; onFocusOut: (event: TargetedFocusEvent<HTMLElement>) => void } {
+}): {
+  input: UiNode;
+  action: UiNode;
+  onFocusOut: (event: TargetedFocusEvent<HTMLElement>) => void;
+  onKeyDown: (event: TargetedKeyboardEvent<HTMLElement>) => void;
+} {
   const busy = state.generating || state.saving;
   const save = (value: string) => {
     actions.save(threadId, value);
@@ -144,9 +156,6 @@ export function threadRenameControls({
           actions.updateDraft(threadId, value);
         }}
         onSave={save}
-        onCancel={() => {
-          actions.cancel(threadId);
-        }}
       />
     ),
     action: (
@@ -171,6 +180,11 @@ export function threadRenameControls({
       if (busy || (next && "nodeType" in next && event.currentTarget.contains(next as Node))) return;
       save(state.draft);
     },
+    onKeyDown: (event) => {
+      if (event.key !== "Escape" || busy) return;
+      event.preventDefault();
+      actions.cancel(threadId);
+    },
   };
 }
 
@@ -180,14 +194,12 @@ function ThreadRenameInput({
   busy,
   onUpdate,
   onSave,
-  onCancel,
 }: {
   className: string;
   value: string;
   busy: boolean;
   onUpdate: (value: string) => void;
   onSave: (value: string) => void;
-  onCancel: () => void;
 }): UiNode {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const labelId = useRef<string | null>(null);
@@ -216,10 +228,6 @@ function ThreadRenameInput({
             event.preventDefault();
             if (!event.isComposing && !busy) onSave(event.currentTarget.value);
             return;
-          }
-          if (event.key === "Escape") {
-            event.preventDefault();
-            if (!busy) onCancel();
           }
         }}
       />

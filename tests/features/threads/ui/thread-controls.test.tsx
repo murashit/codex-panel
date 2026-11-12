@@ -52,10 +52,10 @@ function renderRename(parent: HTMLElement, props: Parameters<typeof threadRename
   const controls = threadRenameControls(props);
   renderUiRoot(
     parent,
-    <div onFocusOut={controls.onFocusOut}>
+    <fieldset onFocusOut={controls.onFocusOut} onKeyDown={controls.onKeyDown}>
       {controls.input}
       {controls.action}
-    </div>,
+    </fieldset>,
   );
 }
 
@@ -211,8 +211,8 @@ describe("shared thread controls", () => {
       const cancelAutoName = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]'));
       expect(cancelAutoName.disabled).toBe(false);
       cancelAutoName.focus();
+      cancelAutoName.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
       cancelAutoName.blur();
-      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
       expect(props.actions.save).toHaveBeenCalledTimes(2);
       expect(props.actions.cancel).toHaveBeenCalledExactlyOnceWith("thread");
       cancelAutoName.click();
