@@ -34,7 +34,7 @@ function mountRow() {
 }
 
 function expectExposed(row: HTMLElement, slot: HTMLElement): void {
-  expect(getComputedStyle(row).gridTemplateColumns).toBe("minmax(0, 1fr) auto");
+  expect(getComputedStyle(row).gridTemplateColumns).toBe("minmax(0px, 1fr) auto");
   const slotStyle = getComputedStyle(slot);
   expect(slotStyle.overflow).toBe("visible");
   expect(slotStyle.opacity).not.toBe("0");
@@ -45,7 +45,7 @@ describe("navigation row action availability", () => {
   it("collapses one clipped slot at rest and releases it on native keyboard focus", () => {
     const { row, slot, input, button } = mountRow();
 
-    expect(getComputedStyle(row).gridTemplateColumns).toBe("minmax(0, 1fr) 0");
+    expect(getComputedStyle(row).gridTemplateColumns).toBe("minmax(0px, 1fr) 0px");
     expect(getComputedStyle(slot).overflow).toBe("hidden");
 
     input.focus();
@@ -73,7 +73,7 @@ describe("navigation row action availability", () => {
     // jsdom does not reliably recompute :hover. Guard these two authored declarations only;
     // native focus and persistent-state tests above exercise the actual cascade, not geometry.
     for (const [selector, property, expected] of [
-      [".codex-panel-ui__nav-row:hover", "grid-template-columns", "minmax(0, 1fr) auto"],
+      [".codex-panel-ui__nav-row:hover", "grid-template-columns", "minmax(0px, 1fr) auto"],
       [".codex-panel-ui__nav-row:hover > .codex-panel-ui__nav-row-actions", "overflow", "visible"],
     ] as const) {
       const rule = [...(style.sheet?.cssRules ?? [])].find(
