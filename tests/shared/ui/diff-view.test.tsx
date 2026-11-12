@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
 
-import { unifiedDiffDisplayLines } from "../../../src/shared/ui/diff-view";
+import { describe, expect, it, onTestFinished } from "vitest";
+
+import { UnifiedDiffView, unifiedDiffDisplayLines } from "../../../src/shared/ui/diff-view";
+import { renderUiRoot, unmountUiRoot } from "../../../src/shared/ui/preact-root.dom";
 
 describe("unified diff display lines", () => {
   it("keeps added-file diffs readable after simplifying headers", () => {
@@ -78,3 +81,57 @@ describe("unified diff display lines", () => {
     expect(unifiedDiffDisplayLines(malformed).map((line) => line.text)).toEqual(malformed.split("\n"));
   });
 });
+
+describe("shared diff rendering", () => {
+  it.each([
+    { name: "English words", before: "The quick brown fox", after: "The quick red fox", removed: "brown", added: "red" },
+    { name: "Japanese words", before: "吾輩は猫である", after: "吾輩は犬である", removed: "猫", added: "犬" },
+    { name: "whitespace-only changes", before: "alpha beta", after: "alpha  beta", removed: " ", added: "  " },
+  ])("highlights changed $name", ({ before, after, removed, added }) => {
+    const parent = renderDiff(`diff --git a/Note.md b/Note.md\n@@\n-${before}\n+${after}`);
+
+    expect(parent.textContent).toContain(before);
+    expect(parent.textContent).toContain(after);
+    expect(parent.querySelector(".codex-panel-diff__word--removed")?.textContent).toBe(removed);
+    expect(parent.querySelector(".codex-panel-diff__word--added")?.textContent).toBe(added);
+  });
+
+  it("pairs changed words by line inside multi-line replacement blocks", () => {
+    const parent = renderDiff(
+      [
+        "diff --git a/Note.md b/Note.md",
+        "@@",
+        "-これはdiffのテストです。",
+        "-今日は元気です。",
+        "-とても元気です。",
+        "+これはdiffのてすとです。",
+        "+きょうはげんきです。",
+        "+とてもげんきです。",
+      ].join("\n"),
+    );
+
+    const removedHighlights = Array.from(parent.querySelectorAll(".codex-panel-diff__word--removed"), (element) => element.textContent);
+    const addedHighlights = Array.from(parent.querySelectorAll(".codex-panel-diff__word--added"), (element) => element.textContent);
+
+    expect(removedHighlights).toEqual(["テスト", "今日", "元気", "元気"]);
+    expect(addedHighlights).toEqual(["てすと", "きょう", "げんき", "げんき"]);
+    expect(removedHighlights).not.toContain("これはdiffのテスト");
+  });
+
+  it("falls back to line-level rendering for large intraline candidates", () => {
+    const oldText = `start ${"old ".repeat(600)}end`;
+    const newText = `start ${"new ".repeat(600)}end`;
+    const parent = renderDiff(`diff --git a/Note.md b/Note.md\n@@\n-${oldText}\n+${newText}`);
+
+    expect(parent.textContent).toContain(oldText);
+    expect(parent.textContent).toContain(newText);
+    expect(parent.querySelector(".codex-panel-diff__word")).toBeNull();
+  });
+});
+
+function renderDiff(diff: string): HTMLElement {
+  const parent = document.createElement("div");
+  onTestFinished(() => unmountUiRoot(parent));
+  renderUiRoot(parent, <UnifiedDiffView diff={diff} />);
+  return parent;
+}
