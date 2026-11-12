@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
-import { MarkdownRenderer } from "obsidian";
+import { Component, MarkdownRenderer } from "obsidian";
 import { act } from "preact/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { pendingWebSubmissionItem } from "../../../../../../src/features/chat/application/submission/web-submission";
 import type { ThreadStreamItem } from "../../../../../../src/features/chat/domain/thread-stream/items";
 import {
@@ -444,33 +444,26 @@ describe("panel thread stream rendering and action menu", () => {
     unmountUiRootInAct(parent);
   });
 
-  it("uses stream markdown for streaming assistant responses without calling the Obsidian renderer", async () => {
+  it("keeps streaming responses inert and switches to Obsidian rendering when the item completes", () => {
     const parent = document.createElement("div");
     const baseContext = {
       renderObsidianMarkdown: vi.fn(),
       renderStreamMarkdown: (element: HTMLElement, text: string) => renderStreamMarkdown(element, text),
     };
-
-    renderThreadStreamBlocksInAct(
-      parent,
-      projectedThreadStream({
-        ...baseContext,
-        items: [
-          {
-            id: "a1",
-            kind: "dialogue",
-            role: "assistant",
-            text: "**Streaming answer**",
-            turnId: "turn-1",
-            dialogueKind: "assistantResponse",
-            dialogueState: "streaming",
-          },
-        ],
-      }),
-    );
-
+    const response = {
+      id: "a1",
+      kind: "dialogue",
+      role: "assistant",
+      text: "**Streaming answer** [Note](/vault/Note.md) ![Image](https://example.com/image.png)",
+      turnId: "turn-1",
+      dialogueKind: "assistantResponse",
+      dialogueState: "streaming",
+    } satisfies ThreadStreamItem;
+    renderThreadStreamBlocksInAct(parent, projectedThreadStream({ ...baseContext, items: [response] }));
     expect(parent.querySelector(".codex-panel__stream-item-content strong")?.textContent).toBe("Streaming answer");
     expect(baseContext.renderObsidianMarkdown).not.toHaveBeenCalled();
+    renderThreadStreamBlocksInAct(parent, projectedThreadStream({ ...baseContext, items: [{ ...response, dialogueState: "completed" }] }));
+    expect(baseContext.renderObsidianMarkdown).toHaveBeenCalledWith(expect.any(HTMLElement), response.text);
     unmountUiRootInAct(parent);
   });
 
@@ -832,9 +825,14 @@ describe("panel thread stream rendering and action menu", () => {
 });
 
 function markdownRendererFixture() {
+  const owner = new Component();
+  owner.load();
+  onTestFinished(() => {
+    owner.unload();
+  });
   return new ThreadStreamMarkdownRenderer({
     app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
-    owner: {} as never,
+    owner,
     vaultPath: "/vault",
     openThread: vi.fn(),
   });

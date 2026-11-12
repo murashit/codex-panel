@@ -6,7 +6,7 @@ import {
 } from "../../support/thread-stream-dependencies";
 // @vitest-environment jsdom
 
-import { MarkdownRenderer } from "obsidian";
+import { Component, MarkdownPreviewRenderer, MarkdownRenderer } from "obsidian";
 import { h } from "preact";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
@@ -155,7 +155,7 @@ describe("thread stream surface", () => {
   });
 
   it.each(["/vault", "//server/share/vault"])(
-    "normalizes in-vault absolute wikilinks and intentionally refuses other absolute wikilinks in %s",
+    "normalizes all internal absolute links and intentionally refuses other absolute targets in %s",
     async (vaultPath) => {
       const openLinkText = vi.fn();
       const context = markdownLinkContext(openLinkText, vaultPath);
@@ -173,31 +173,26 @@ describe("thread stream surface", () => {
         `${vaultPath}/Docs/New.md`,
       ];
       const noticeCount = notices.length;
+      const postprocess = captureMarkdownPostprocessor();
       const render = vi.spyOn(MarkdownRenderer, "render").mockImplementationOnce((_app, _text, staging) => {
         for (const href of hrefs) {
-          staging
-            .createSpan({ attr: { "data-codex-panel-wikilink": "" } })
-            .createEl("a", { cls: "internal-link", attr: { "data-href": href } });
+          staging.createEl("a", { cls: "internal-link", attr: { "data-href": href } });
         }
+        postprocess(staging);
         return Promise.resolve();
       });
       try {
         const renderer = new ThreadStreamMarkdownRenderer({
           app: context.app as never,
-          owner: {} as never,
+          owner: markdownOwner(),
           vaultPath: context.vaultPath,
           openThread: vi.fn(),
         });
-        renderer.renderObsidianMarkdown(parent, hrefs.map((href) => `[[${href}]]`).join("\n"));
+        const markdown = `[[${hrefs[1]}]] [Note](${hrefs[1]})`;
+        renderer.renderObsidianMarkdown(parent, markdown);
         await Promise.resolve();
         await Promise.resolve();
-        expect(render).toHaveBeenCalledWith(
-          context.app,
-          hrefs.map((href) => `<span data-codex-panel-wikilink>[[${href}]]</span>`).join("\n"),
-          expect.any(HTMLElement),
-          "",
-          expect.anything(),
-        );
+        expect(render).toHaveBeenCalledWith(context.app, markdown, expect.any(HTMLElement), "", expect.anything());
         context.app.workspace.getActiveFile.mockReturnValue(tFile("Another.md"));
         const links = parent.querySelectorAll<HTMLAnchorElement>("a");
         links[0]?.click();
@@ -213,7 +208,6 @@ describe("thread stream surface", () => {
           ["Docs/New.md", "", false],
         ]);
         expect(notices.slice(noticeCount)).toEqual(["Cannot open files outside the vault.", "Cannot open files outside the vault."]);
-        expect(parent.querySelector("span[data-codex-panel-wikilink]")).toBeNull();
       } finally {
         render.mockRestore();
         parent.remove();
@@ -221,46 +215,52 @@ describe("thread stream surface", () => {
     },
   );
 
-  it("delegates Markdown link and embed targets to Obsidian without applying the wikilink path policy", async () => {
+  it("synchronously prepares embed markers only in its own render root and unregisters on unload", async () => {
     const context = markdownLinkContext();
-    const markdown = [
-      "[Same](/vault/Docs/A.md)",
-      "[External](file:///outside/Target.md)",
-      "![Image](/vault/image.png)",
-      "![[/vault/Docs/A.md]]",
-      "`[[/vault/Docs/A.md]]`",
-      "\\[[/vault/Docs/A.md]]",
-      "",
-      '[ref]: /vault/[[A]].md "[[/AGENTS.md]]"',
-    ].join("\n");
+    const owner = markdownOwner();
     const parent = document.createElement("div");
     document.body.append(parent);
+    const register = vi.spyOn(MarkdownPreviewRenderer, "registerPostProcessor");
+    const unregister = vi.spyOn(MarkdownPreviewRenderer, "unregisterPostProcessor");
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
-    const render = vi.spyOn(MarkdownRenderer, "render").mockImplementationOnce((_app, _text, staging) => {
-      for (const [cls, href] of [
-        ["internal-link", "/vault/Docs/A.md"],
-        ["external-link", "file:///outside/Target.md"],
-      ] as const) {
-        staging.createEl("a", { cls, attr: { href } });
-      }
-      staging.createEl("img", { attr: { src: "/vault/image.png" } });
-      return Promise.resolve();
-    });
+    const render = vi.spyOn(MarkdownRenderer, "render").mockResolvedValueOnce(undefined);
     try {
       new ThreadStreamMarkdownRenderer({
         app: context.app as never,
-        owner: {} as never,
+        owner,
         vaultPath: context.vaultPath,
         openThread: vi.fn(),
-      }).renderObsidianMarkdown(parent, markdown);
-      await Promise.resolve();
-      await Promise.resolve();
-      expect(render).toHaveBeenCalledWith(context.app, markdown, expect.any(HTMLElement), "", expect.anything());
-      for (const link of parent.querySelectorAll("a")) link.click();
-      expect(context.app.workspace.openLinkText).toHaveBeenCalledWith("/vault/Docs/A.md", "", false);
+      }).renderObsidianMarkdown(parent, "message");
+      const staging = render.mock.calls[0]?.[2];
+      const postprocess = register.mock.calls[0]?.[0];
+      if (!staging || !postprocess) throw new Error("Expected render root and registered Markdown postprocessor");
+      // Synthetic rendered nodes test Panel's callback, not Obsidian's parsing or embed-loading order.
+      for (const src of ["/vault/Docs/Note.md#Heading", "/outside/New.md", "Docs/Relative.md"]) {
+        staging.createSpan({ cls: "internal-embed", attr: { src } });
+      }
+      const externalLink = staging.createEl("a", { cls: "external-link", attr: { href: "file:///outside/Target.md" } });
+      const image = staging.createEl("img", { attr: { src: "file:///outside/image.png" } });
+      postprocess(staging, {} as never);
+      expect(Array.from(staging.querySelectorAll(".internal-embed"), (embed) => embed.getAttribute("src"))).toEqual([
+        "Docs/Note.md#Heading",
+        "Docs/Relative.md",
+      ]);
+      expect(staging.textContent).toContain("Cannot embed this file: /outside/New.md");
+      expect(image.getAttribute("src")).toBe("file:///outside/image.png");
+      externalLink.click();
       expect(open).toHaveBeenCalledWith("file:///outside/Target.md", "");
-      expect(parent.querySelector("img")?.getAttribute("src")).toBe("/vault/image.png");
+      const unownedRoot = staging.createDiv();
+      const unownedEmbed = unownedRoot.createSpan({ cls: "internal-embed", attr: { src: "/outside/Unowned.md" } });
+      postprocess(unownedRoot, {} as never);
+      expect(unownedEmbed.parentElement).toBe(unownedRoot);
+      expect(unownedEmbed.getAttribute("src")).toBe("/outside/Unowned.md");
+      await Promise.resolve();
+      await Promise.resolve();
+      owner.unload();
+      expect(unregister).toHaveBeenCalledWith(postprocess);
     } finally {
+      register.mockRestore();
+      unregister.mockRestore();
       open.mockRestore();
       render.mockRestore();
       parent.remove();
@@ -270,8 +270,10 @@ describe("thread stream surface", () => {
   it("opens rendered Codex thread links in an available Panel", async () => {
     const parent = document.createElement("div");
     document.body.appendChild(parent);
+    const postprocess = captureMarkdownPostprocessor();
     const renderMarkdown = vi.spyOn(MarkdownRenderer, "render").mockImplementationOnce((_app, _text, staging) => {
       staging.createEl("a", { text: "Other", attr: { href: "codex://threads/thread-1" } });
+      postprocess(staging);
       return Promise.resolve();
     });
     const { context, openThreadInAvailableView } = threadStreamSurface();
@@ -397,13 +399,15 @@ async function renderedAnchor(
 ): Promise<{ link: HTMLAnchorElement; cleanup: () => void }> {
   const parent = document.createElement("div");
   document.body.appendChild(parent);
+  const postprocess = captureMarkdownPostprocessor();
   const renderMarkdown = vi.spyOn(MarkdownRenderer, "render").mockImplementationOnce((_app, _text, staging) => {
     staging.createEl("a", linkOptions);
+    postprocess(staging);
     return Promise.resolve();
   });
   const markdownRenderer = new ThreadStreamMarkdownRenderer({
     app: context.app as never,
-    owner: {} as never,
+    owner: markdownOwner(),
     vaultPath: context.vaultPath,
     openThread: vi.fn(),
   });
@@ -456,7 +460,7 @@ function threadStreamSurface(
         getAbstractFileByPath: (path: string) => files.get(path) ?? null,
       },
     } as never,
-    owner: {} as never,
+    owner: markdownOwner(),
     stateStore,
     vaultPath,
     loadOlderTurns: vi.fn(),
@@ -482,4 +486,25 @@ async function settleThreadStreamRender(element: HTMLElement): Promise<void> {
       resolve();
     });
   });
+}
+
+function markdownOwner(): Component {
+  const owner = new Component();
+  owner.load();
+  onTestFinished(() => {
+    owner.unload();
+  });
+  return owner;
+}
+
+function captureMarkdownPostprocessor(): (element: HTMLElement) => void {
+  const register = vi.spyOn(MarkdownPreviewRenderer, "registerPostProcessor");
+  onTestFinished(() => {
+    register.mockRestore();
+  });
+  return (element) => {
+    const postprocess = register.mock.calls.at(-1)?.[0];
+    if (!postprocess) throw new Error("Expected registered Markdown postprocessor");
+    postprocess(element, {} as never);
+  };
 }

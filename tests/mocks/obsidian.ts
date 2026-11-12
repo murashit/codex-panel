@@ -294,6 +294,11 @@ export class Plugin extends Component {
   }
 }
 
+export const MarkdownPreviewRenderer = {
+  registerPostProcessor(_processor: unknown): void {},
+  unregisterPostProcessor(_processor: unknown): void {},
+};
+
 export const MarkdownRenderer = {
   render(_app: unknown, text: string, parent: HTMLElement): Promise<void> {
     parent.textContent = text;
