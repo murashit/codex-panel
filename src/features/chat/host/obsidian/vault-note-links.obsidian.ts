@@ -1,7 +1,7 @@
 import type { App, TFile } from "obsidian";
 
-export function linktextForFile(app: App, file: TFile, sourcePath: string): string {
-  const linktext = app.metadataCache.fileToLinktext(file, sourcePath, true);
+export function linktextForFile(app: App, file: TFile): string {
+  const linktext = app.metadataCache.fileToLinktext(file, "", true);
   const extension = file.extension.toLowerCase();
   return extension === "md" || extension.length === 0 || linktext.toLowerCase().endsWith(`.${extension}`)
     ? linktext

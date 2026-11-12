@@ -1,7 +1,7 @@
 import type { App, TFile } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
-
 import { resolveObsidianWikilinks } from "../../../../../src/features/chat/host/obsidian/wikilink-resolution.obsidian";
+import { TExternalFile } from "../../../../mocks/obsidian";
 
 describe("Obsidian wikilink resolution", () => {
   it("resolves aliases and subpaths relative to the supplied source note", () => {
@@ -39,6 +39,25 @@ describe("Obsidian wikilink resolution", () => {
         },
       ],
     });
+  });
+
+  it("resolves relative links from an external note and returns real paths", () => {
+    const destination = new TExternalFile("file:/outside/Target.md") as unknown as TFile;
+    const resolver = vi.fn(() => destination);
+    const result = resolveObsidianWikilinks(appWithResolver(resolver), { sourcePath: "/outside/Source.md", wikilinks: ["[[Target]]"] });
+    expect(resolver).toHaveBeenCalledWith("Target", "file:/outside/Source.md");
+    expect(result.results[0]?.resolvedPath).toBe("/outside/Target.md");
+    expect(result.sourcePath).toBe("/outside/Source.md");
+  });
+
+  it("leaves absolute wikilinks unresolved when Obsidian cannot resolve them", () => {
+    const destination = new TExternalFile("file:/outside/Target.md") as unknown as TFile;
+    const app = {
+      metadataCache: { getFirstLinkpathDest: () => null },
+      vault: { getAbstractFileByPath: (path: string) => (path === destination.path ? destination : null) },
+    } as unknown as App;
+    const result = resolveObsidianWikilinks(app, { wikilinks: ["[[/outside/Target.md]]", "[[file:///outside/Target.md]]"] });
+    expect(result.results.map((item) => item.resolvedPath)).toEqual([null, null]);
   });
 
   it("resolves without note context when sourcePath is omitted", () => {

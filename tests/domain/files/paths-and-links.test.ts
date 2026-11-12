@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { isVaultConfigPath, pathRelativeToRoot, vaultRelativePath } from "../../../src/domain/files/paths";
-import { parseFileHref, vaultRelativeFileHref, vaultRelativeFileLinkTarget } from "../../../src/domain/files/vault-links";
+import { parseFileHref } from "../../../src/domain/files/vault-links";
 
 describe("file path helpers", () => {
   it("keeps nested paths inside POSIX and Windows vaults and rejects traversal beyond them", () => {
@@ -36,15 +36,11 @@ describe("file path helpers", () => {
     expect(parseFileHref("docs/100%25.md#50%25")).toEqual({ path: "docs/100%.md", subpath: "#50%" });
     expect(parseFileHref("docs/100%.md")).toEqual({ path: "docs/100%.md", subpath: "" });
     expect(parseFileHref("docs/A%23B.md#Heading")).toEqual({ path: "docs/A#B.md", subpath: "#Heading" });
-    expect(vaultRelativeFileLinkTarget("/Vault", ".obsidian", "/Vault/docs/Missing%20Note.md:12#Heading%201")).toBe(
-      "docs/Missing Note.md#Heading 1",
-    );
-    // A literal filename hash cannot be represented in Obsidian linktext.
-    expect(vaultRelativeFileLinkTarget("/Vault", ".obsidian", "docs/A%23B.md#Heading")).toBeNull();
   });
 
   it("keeps external hrefs out of file path handling", () => {
     expect(parseFileHref("https://example.com/docs/Guide.md")).toBeNull();
+    expect(parseFileHref("file:///outside/Note.md")).toBeNull();
     expect(parseFileHref("//example.com/docs/Guide.md")).toBeNull();
     expect(parseFileHref("C:/Vault/docs/Guide.md")).toEqual({ path: "C:/Vault/docs/Guide.md", subpath: "" });
     expect(parseFileHref("\\\\server\\share\\Vault\\Guide.md")).toEqual({
@@ -77,9 +73,5 @@ describe("file path helpers", () => {
     expect(isVaultConfigPath(".obsidian/../notes/example.md", ".obsidian")).toBe(false);
     expect(isVaultConfigPath(".OBSIDIAN/plugins/example/main.js", ".obsidian", "C:\\Vault")).toBe(true);
     expect(isVaultConfigPath("", "")).toBe(false);
-    expect(vaultRelativeFileHref("/Vault", ".obsidian", "/Vault/docs/../.obsidian/plugins/example/main.js")).toBeNull();
-    expect(vaultRelativeFileHref("C:\\Vault", ".obsidian", "C:\\Vault\\.OBSIDIAN\\plugins\\example\\main.js")).toBeNull();
-    expect(vaultRelativeFileHref("/Vault", ".obsidian", "docs%2F..%2F.obsidian%2Fplugins%2Fexample%2Fmain.js")).toBeNull();
-    expect(vaultRelativeFileHref("/Vault", ".obsidian", "%2E%2E%2Foutside.md")).toBeNull();
   });
 });

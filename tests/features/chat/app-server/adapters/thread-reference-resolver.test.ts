@@ -36,7 +36,7 @@ describe("thread reference resolver", () => {
       nextCursor: "older-turns",
     });
     const client = { request } as unknown as AppServerClient;
-    const inputSnapshot = { ...emptyComposerInputSnapshot(), sourcePath: "snapshot.md" };
+    const inputSnapshot = emptyComposerInputSnapshot();
     const resolveFileReference = vi.fn((target: string) => (target === "Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null));
     const resolver = createChatAppServerGateway({
       currentClient: () => client,
@@ -73,7 +73,7 @@ describe("thread reference resolver", () => {
       previousPosition = position;
     }
     expect(reference.value).toContain("Earlier turns not fetched: yes");
-    expect(resolveFileReference).toHaveBeenCalledWith("Alpha", "snapshot.md");
+    expect(resolveFileReference).toHaveBeenCalledWith("Alpha");
     expect(result?.input.slice(2)).toEqual([
       { type: "fileReference", name: "Alpha", path: "notes/Alpha.md" },
       {
@@ -92,14 +92,14 @@ describe("thread reference resolver", () => {
       resolveFileReference: () => null,
     });
 
-    await expect(resolver(threadFixture(), "summarize", { sourcePath: "snapshot.md" } as never)).rejects.toThrow("not connected");
+    await expect(resolver(threadFixture(), "summarize", emptyComposerInputSnapshot())).rejects.toThrow("not connected");
   });
 
   it("reports when the referenced thread has no readable turns", async () => {
     const request = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
     const resolver = resolverWithRequest(request);
 
-    await expect(resolver(threadFixture(), "summarize", { sourcePath: "snapshot.md" } as never)).rejects.toThrow(
+    await expect(resolver(threadFixture(), "summarize", emptyComposerInputSnapshot())).rejects.toThrow(
       "Referenced thread has no readable turns.",
     );
     expect(request).toHaveBeenCalledOnce();
@@ -109,7 +109,7 @@ describe("thread reference resolver", () => {
     const request = vi.fn().mockRejectedValue(new Error("history unavailable"));
     const resolver = resolverWithRequest(request);
 
-    await expect(resolver(threadFixture(), "summarize", { sourcePath: "snapshot.md" } as never)).rejects.toThrow("history unavailable");
+    await expect(resolver(threadFixture(), "summarize", emptyComposerInputSnapshot())).rejects.toThrow("history unavailable");
   });
 });
 

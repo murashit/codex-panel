@@ -1,7 +1,8 @@
 import type { App } from "obsidian";
-import { Component, getAllTags, stripHeadingForLink, TFile } from "obsidian";
+import { Component, getAllTags, stripHeadingForLink, type TFile } from "obsidian";
 import type { VaultFileReference } from "../../../../domain/input/input";
 import { normalizedUniqueTags } from "../../../../domain/notes/tags";
+import { fileReferencePath } from "../../../../shared/obsidian/file-path.obsidian";
 import type { NoteCandidate, NoteCandidateProvider } from "../../application/composer/note-context";
 import { configuredDailyNoteReferences } from "./vault-daily-note-references.obsidian";
 import { displayNameForFile, linktextForFile } from "./vault-note-links.obsidian";
@@ -37,20 +38,20 @@ export class VaultNoteCandidateProvider implements NoteCandidateProvider {
     candidateCatalogs.set(app, this.shared);
   }
 
-  candidates(sourcePath: string): readonly NoteCandidate[] {
-    return this.shared.catalog.candidates(sourcePath);
+  candidates(): readonly NoteCandidate[] {
+    return this.shared.catalog.candidates();
   }
 
-  dailyNoteReferences(sourcePath: string): ReturnType<NoteCandidateProvider["dailyNoteReferences"]> {
-    return configuredDailyNoteReferences(this.app, sourcePath);
+  dailyNoteReferences(): ReturnType<NoteCandidateProvider["dailyNoteReferences"]> {
+    return configuredDailyNoteReferences(this.app);
   }
 
   tags(): readonly string[] {
     return this.shared.catalog.tags();
   }
 
-  resolveFileReference(target: string, sourcePath: string): VaultFileReference | null {
-    return this.shared.catalog.resolveFileReference(target, sourcePath);
+  resolveFileReference(target: string): VaultFileReference | null {
+    return this.shared.catalog.resolveFileReference(target);
   }
 
   dispose(): void {
@@ -66,7 +67,7 @@ export class VaultNoteCandidateProvider implements NoteCandidateProvider {
 class VaultNoteCandidateCatalog extends Component {
   private fileCandidatesCache: FileCandidate[] | null = null;
   private tagCandidatesCache: string[] | null = null;
-  private readonly projectedCandidatesBySourcePath = new Map<string, NoteCandidate[]>();
+  private projectedCandidates: NoteCandidate[] | null = null;
 
   constructor(private readonly app: App) {
     super();
@@ -87,9 +88,8 @@ class VaultNoteCandidateCatalog extends Component {
     this.registerEvent(this.app.workspace.on("active-leaf-change", invalidate));
   }
 
-  candidates(sourcePath: string): readonly NoteCandidate[] {
-    const cached = this.projectedCandidatesBySourcePath.get(sourcePath);
-    if (cached) return cached;
+  candidates(): readonly NoteCandidate[] {
+    if (this.projectedCandidates) return this.projectedCandidates;
 
     const recentPaths = new Map(this.app.workspace.getLastOpenFiles().map((path, index) => [path, index]));
     const candidates = this.fileCandidates().map((candidate) => ({
@@ -97,11 +97,11 @@ class VaultNoteCandidateCatalog extends Component {
       displayName: candidate.displayName,
       path: candidate.path,
       mtime: candidate.mtime,
-      linktext: linktextForFile(this.app, candidate.file, sourcePath),
+      linktext: linktextForFile(this.app, candidate.file),
       headings: candidate.headings,
       recentIndex: recentPaths.get(candidate.path) ?? null,
     }));
-    this.projectedCandidatesBySourcePath.set(sourcePath, candidates);
+    this.projectedCandidates = candidates;
     return candidates;
   }
 
@@ -110,14 +110,9 @@ class VaultNoteCandidateCatalog extends Component {
     return this.tagCandidatesCache ?? [];
   }
 
-  resolveFileReference(target: string, sourcePath: string): VaultFileReference | null {
-    const linkedFile = this.app.metadataCache.getFirstLinkpathDest(target, sourcePath);
-    if (linkedFile?.path) return { name: linkedFile.basename, path: linkedFile.path };
-
-    const directPath = target.endsWith(".md") ? target : `${target}.md`;
-    const abstractFile = this.app.vault.getAbstractFileByPath(directPath);
-    if (abstractFile instanceof TFile) return { name: abstractFile.basename, path: abstractFile.path };
-    return null;
+  resolveFileReference(target: string): VaultFileReference | null {
+    const file = this.app.metadataCache.getFirstLinkpathDest(target, "");
+    return file ? { name: file.basename, path: fileReferencePath(file) } : null;
   }
 
   dispose(): void {
@@ -131,7 +126,7 @@ class VaultNoteCandidateCatalog extends Component {
   private invalidate(): void {
     this.fileCandidatesCache = null;
     this.tagCandidatesCache = null;
-    this.projectedCandidatesBySourcePath.clear();
+    this.projectedCandidates = null;
   }
 
   private fileCandidates(): FileCandidate[] {

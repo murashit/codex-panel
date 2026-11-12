@@ -10,12 +10,13 @@ import { type MarkdownCodeRange, markdownCodeRangeContainsOffset, markdownCodeRa
 import { markdownCodeSpan } from "../../domain/markdown/code-span";
 import {
   type ActiveNoteContextReference,
+  activeNoteContextReferenceMarker,
   type ComposerContextReferences,
   formatComposerContextRange,
   type SelectionContextSnapshot,
 } from "./context-references";
 import type { PreparedInput } from "./prepared-input";
-import { selectionContextMatches } from "./selection-context";
+import { selectionContextMatches, selectionContextPrefix } from "./selection-context";
 
 interface ParsedWikiLink {
   raw: string;
@@ -85,6 +86,17 @@ export function preparedUserInputWithWikiLinkReferencesSkillsAndContext(
     wikilinkReferences.push({ marker: `[[${link.raw}]]`, path: fileReference.path });
   }
 
+  for (const reference of activeNoteSnapshots) {
+    if (!reference.linktext.startsWith("file://") || seenPaths.has(reference.path)) continue;
+    const marker = activeNoteContextReferenceMarker(reference);
+    let index = masked.indexOf(marker);
+    while (index >= 0 && markdownCodeRangeContainsOffset(codeRanges, index)) index = masked.indexOf(marker, index + marker.length);
+    if (index < 0) continue;
+    seenPaths.add(reference.path);
+    fileReferences.push({ name: reference.name, path: reference.path });
+    wikilinkReferences.push({ marker, path: reference.path });
+  }
+
   for (const selection of selections) {
     if (seenPaths.has(selection.reference.path)) continue;
     seenPaths.add(selection.reference.path);
@@ -108,7 +120,7 @@ export function preparedUserInputWithWikiLinkReferencesSkillsAndContext(
   let cursor = 0;
   for (const match of activeMatches) {
     const marker = match.snapshot.marker;
-    const noteEnd = marker.indexOf("]]") + 2;
+    const noteEnd = selectionContextPrefix(match.snapshot).length;
     sentText +=
       literalTextAroundQuotes(text, cursor, match.start, codeRanges) +
       marker.slice(0, noteEnd + 1) +
@@ -166,7 +178,9 @@ function obsidianReferences(
     excerpt: selection.text,
     ...(selection.range === null ? { readingSelection: true } : { sourceRange: formatComposerContextRange(selection.range) }),
   }));
-  const selectedWikilinks = new Set(selections.map(({ reference }) => referenceKey(`[[${reference.linktext}]]`, reference.path)));
+  const selectedWikilinks = new Set(
+    selections.map(({ reference }) => referenceKey(activeNoteContextReferenceMarker(reference), reference.path)),
+  );
   return [
     ...wikilinkReferences.filter((reference) => !selectedWikilinks.has(referenceKey(reference.marker, reference.path))),
     ...selectionReferences,

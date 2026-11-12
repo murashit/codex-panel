@@ -37,7 +37,6 @@ export class ChatComposerController {
       noteCandidateProvider: options.noteCandidateProvider,
       contextReferenceProvider: options.contextReferenceProvider,
       attachmentHandler: options.attachmentHandler,
-      sourcePath: options.sourcePath,
       stateStore: options.stateStore,
       referenceActiveNoteOnSend: options.referenceActiveNoteOnSend,
       onAttachmentError: options.onAttachmentError,

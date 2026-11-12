@@ -26,7 +26,6 @@ export function composerInputOptions(overrides: Partial<ComposerInputOptions> = 
     sharedResources: sharedResourcesFixture(),
     noteCandidateProvider: noteProvider(),
     contextReferenceProvider: contextProvider(),
-    sourcePath: () => "",
     referenceActiveNoteOnSend: () => false,
     view: { selection: () => null, setSelection: () => {}, focus: () => {} },
     ...overrides,
@@ -81,9 +80,7 @@ export function installComposerInputFixtures() {
         }
       },
       prepareInput: (text: string, snapshot = input.captureInputSnapshot()) =>
-        prepareComposerInput(text, snapshot, (target, sourcePath) =>
-          options.noteCandidateProvider.resolveFileReference(target, sourcePath),
-        ),
+        prepareComposerInput(text, snapshot, (target) => options.noteCandidateProvider.resolveFileReference(target)),
       dispose: () => {
         inputs.delete(input);
         input.dispose();

@@ -25,9 +25,9 @@ export interface NoteCandidate {
 }
 
 export interface NoteCandidateProvider {
-  candidates(sourcePath: string): readonly NoteCandidate[];
-  dailyNoteReferences(sourcePath: string): readonly DailyNoteReferenceCandidate[];
+  candidates(): readonly NoteCandidate[];
+  dailyNoteReferences(): readonly DailyNoteReferenceCandidate[];
   tags(): readonly string[];
-  resolveFileReference(target: string, sourcePath: string): VaultFileReference | null;
+  resolveFileReference(target: string): VaultFileReference | null;
   dispose(): void;
 }

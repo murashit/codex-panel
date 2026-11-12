@@ -8,7 +8,7 @@ import {
 
 import { MarkdownRenderer } from "obsidian";
 import { h } from "preact";
-import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
 import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
@@ -27,7 +27,6 @@ import {
 } from "../../../../../src/features/chat/host/thread-stream/view-projection";
 import { ThreadStreamViewport } from "../../../../../src/features/chat/ui/thread-stream/stream-blocks";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
-import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { withChatStateStableThreadStreamItems } from "../../support/thread-stream";
@@ -59,10 +58,6 @@ function renderThreadStreamSurface(
 }
 
 describe("thread stream surface", () => {
-  beforeEach(() => {
-    notices.length = 0;
-  });
-
   it("binds reducer-owned disclosure and fork menu actions in the surface factory", () => {
     const { context, stateStore } = threadStreamSurface();
 
@@ -159,78 +154,60 @@ describe("thread stream surface", () => {
     expect(projection.blocks.map((block) => block.key)).toEqual(["item:prompt", "item:assistant", "item:turn:local-steer"]);
   });
 
-  it("normalizes rendered internal links for missing files inside the vault", async () => {
-    const openLinkText = vi.fn();
-    const context = markdownLinkContext(openLinkText, "/Users/example/Vault");
-    const { link, cleanup } = await renderedInternalLink(context, {
-      cls: "internal-link",
-      text: "Missing.md",
-      attr: {
-        "data-href": "/Users/example/Vault/docs/Missing.md",
-        href: "/Users/example/Vault/docs/Missing.md",
-      },
-    });
-
-    link.click();
-
-    expect(openLinkText).toHaveBeenCalledWith("docs/Missing.md", "Inbox.md", false);
-    cleanup();
-  });
-
-  it("keeps rendered internal links unchanged when they are not vault file paths", async () => {
+  it("renders and opens internal links without depending on the active note", async () => {
     const openLinkText = vi.fn();
     const context = markdownLinkContext(openLinkText);
-    const { link, cleanup } = await renderedInternalLink(context, {
-      cls: "internal-link",
-      text: "Project",
-      attr: {
-        "data-href": "Project",
-        href: "Project",
-      },
+    context.app.workspace.getActiveFile.mockReturnValue(tFile("file:/outside/Source.md"));
+    const parent = document.createElement("div");
+    document.body.append(parent);
+    const render = vi.spyOn(MarkdownRenderer, "render").mockImplementationOnce((_app, _text, staging) => {
+      for (const href of ["../A%20B.md#Heading", "/outside/Target.md", ".obsidian/config"]) {
+        staging.createEl("a", { cls: "internal-link", attr: { "data-href": href } });
+      }
+      return Promise.resolve();
     });
-
-    link.click();
-
-    expect(openLinkText).toHaveBeenCalledWith("Project", "Inbox.md", false);
-    cleanup();
+    try {
+      const renderer = new ThreadStreamMarkdownRenderer({ app: context.app as never, owner: {} as never, openThread: vi.fn() });
+      renderer.renderObsidianMarkdown(parent, "links");
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(render).toHaveBeenCalledWith(context.app, "links", expect.any(HTMLElement), "", expect.anything());
+      context.app.workspace.getActiveFile.mockReturnValue(tFile("Another.md"));
+      const links = parent.querySelectorAll<HTMLAnchorElement>("a");
+      links[0]?.click();
+      links[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, metaKey: true }));
+      links[2]?.dispatchEvent(new MouseEvent("auxclick", { bubbles: true, cancelable: true, button: 1 }));
+      expect(openLinkText.mock.calls).toEqual([
+        ["../A%20B.md#Heading", "", false],
+        ["/outside/Target.md", "", "tab"],
+        [".obsidian/config", "", "tab"],
+      ]);
+    } finally {
+      render.mockRestore();
+      parent.remove();
+    }
   });
 
-  it("does not open rendered internal links for absolute paths outside the vault", async () => {
-    const openLinkText = vi.fn();
-    const context = markdownLinkContext(openLinkText, "/Users/example/Vault");
-    const { link, cleanup } = await renderedInternalLink(context, {
-      cls: "internal-link",
-      text: "README.md",
-      attr: {
-        "data-href": "/Users/example/Repos/codex-panel/README.md",
-        href: "/Users/example/Repos/codex-panel/README.md",
-      },
-    });
-
-    link.click();
-
-    expect(openLinkText).not.toHaveBeenCalled();
-    expect(notices).toEqual(["Cannot open files outside the vault."]);
-    cleanup();
-  });
-
-  it("does not open rendered internal links for vault config paths", async () => {
-    const openLinkText = vi.fn();
-    const context = markdownLinkContext(openLinkText, "/Users/example/Vault");
-    const { link, cleanup } = await renderedInternalLink(context, {
-      cls: "internal-link",
-      text: "main.js",
-      attr: {
-        "data-href": "/Users/example/Vault/vault-config/plugins/foo/main.js",
-        href: "/Users/example/Vault/vault-config/plugins/foo/main.js",
-      },
-    });
-
-    link.click();
-
-    expect(openLinkText).not.toHaveBeenCalled();
-    expect(notices).toEqual(["Cannot open files outside the vault."]);
-    cleanup();
+  it("opens rendered external links through the host window", async () => {
+    const context = markdownLinkContext();
+    const { link, cleanup } = await renderedAnchor(
+      context,
+      { cls: "external-link", text: "External", attr: { href: "file:///outside/Target.md#Heading" } },
+      "[External](file:///outside/Target.md#Heading)",
+      "a",
+    );
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    try {
+      link.click();
+      link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, metaKey: true }));
+      expect(open.mock.calls).toEqual([
+        ["file:///outside/Target.md#Heading", ""],
+        ["file:///outside/Target.md#Heading", "tab"],
+      ]);
+    } finally {
+      open.mockRestore();
+      cleanup();
+    }
   });
 
   it("opens rendered Codex thread links in an available Panel", async () => {
@@ -341,6 +318,7 @@ function markdownLinkContext(openLinkText = vi.fn(), vaultPath = "/vault", vault
       workspace: {
         getActiveFile: vi.fn(() => tFile("Inbox.md")),
         openLinkText,
+        getLeaf: vi.fn(() => ({})),
         getLeftLeaf: vi.fn((): unknown | null => null),
         revealLeaf: vi.fn().mockResolvedValue(undefined),
       },
@@ -348,6 +326,7 @@ function markdownLinkContext(openLinkText = vi.fn(), vaultPath = "/vault", vault
         configDir: "vault-config",
         getAbstractFileByPath: (path: string) => files.get(path) ?? null,
       },
+      metadataCache: { getFirstLinkpathDest: vi.fn() },
     },
     vaultPath,
   };
@@ -368,7 +347,6 @@ async function renderedAnchor(
   const markdownRenderer = new ThreadStreamMarkdownRenderer({
     app: context.app as never,
     owner: {} as never,
-    vaultPath: context.vaultPath,
     openThread: vi.fn(),
   });
 
@@ -385,10 +363,6 @@ async function renderedAnchor(
       parent.remove();
     },
   };
-}
-
-function renderedInternalLink(context: ReturnType<typeof markdownLinkContext>, linkOptions: Parameters<HTMLElement["createEl"]>[1]) {
-  return renderedAnchor(context, linkOptions, "[[Link]]", "a.internal-link");
 }
 
 function renderedTag(context: ReturnType<typeof markdownLinkContext>, linkOptions: Parameters<HTMLElement["createEl"]>[1]) {

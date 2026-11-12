@@ -164,14 +164,49 @@ describe("ComposerInput", () => {
     ]);
     const { input, edit, insertFirstSuggestion } = createInput({
       noteCandidateProvider: noteProvider({ dailyNoteReferences }),
-      sourcePath: () => "Inbox.md",
     });
 
     edit("@today");
     insertFirstSuggestion();
 
     expect(input.draft).toBe("[[Journal/2026-07-10]]");
-    expect(dailyNoteReferences).toHaveBeenCalledWith("Inbox.md");
+    expect(dailyNoteReferences).toHaveBeenCalledWith();
+  });
+
+  it("keeps an explicitly selected external file through submission and drops it when edited", () => {
+    const activeNote = { name: "A", path: "/outside/A#B.md", linktext: "file:///outside/A%23B.md" };
+    const { input, edit, insertFirstSuggestion, prepareInput } = createInput({
+      contextReferenceProvider: contextProvider(() => ({ activeNote, selection: null })),
+    });
+    edit("@active");
+    insertFirstSuggestion();
+    const marker = "External file: `/outside/A#B.md`";
+    expect(input.draft).toBe(marker);
+    expect(prepareInput(marker).input).toContainEqual({ type: "fileReference", name: "A", path: activeNote.path });
+    edit("External file: `/outside/changed.md`");
+    expect(prepareInput(input.draft).input.some((item) => item.type === "fileReference")).toBe(false);
+  });
+
+  it("restores an external selection with backticks after a failed submission", () => {
+    const selection = {
+      name: "A",
+      path: "/outside/A`B.md",
+      linktext: "file:///outside/A%60B.md",
+      text: "selected text",
+      range: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 13 } },
+    };
+    const { input, edit, insertFirstSuggestion, prepareInput } = createInput({
+      contextReferenceProvider: contextProvider(() => ({ activeNote: selection, selection })),
+    });
+    edit("@selection");
+    insertFirstSuggestion();
+    const marker = 'External file: `` /outside/A`B.md `` "selected text"';
+    expect(input.draft).toBe(marker);
+    const claim = input.claimSubmission();
+    expect(claim).not.toBeNull();
+    claim?.settle("failed");
+    expect(input.draft).toBe(marker);
+    expect(prepareInput(input.draft).input).toContainEqual({ type: "fileReference", name: "A", path: selection.path });
   });
 
   it("rejects a closed @active candidate, resolves the open note at acceptance, then preserves that reference for sending", () => {
@@ -185,7 +220,6 @@ describe("ComposerInput", () => {
       stateStore,
       noteCandidateProvider: noteProvider({ resolveFileReference: () => null }),
       contextReferenceProvider: contextProvider(() => references),
-      sourcePath: () => "Inbox.md",
     });
 
     edit("@active");

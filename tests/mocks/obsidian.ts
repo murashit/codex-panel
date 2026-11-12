@@ -22,6 +22,12 @@ export const Platform = {
   isLinux: false,
 };
 
+export const Keymap = {
+  isModEvent(event?: MouseEvent | null): boolean | "tab" {
+    return event?.metaKey || event?.button === 1 ? "tab" : false;
+  },
+};
+
 export class FileSystemAdapter {
   constructor(readonly basePath = "") {}
 
@@ -42,6 +48,12 @@ export class TFile {
     const dotIndex = this.name.lastIndexOf(".");
     this.extension = dotIndex === -1 ? "" : this.name.slice(dotIndex + 1);
     this.basename = basename || (dotIndex === -1 ? this.name : this.name.slice(0, dotIndex));
+  }
+}
+
+export class TExternalFile extends TFile {
+  getRealPath(): string {
+    return this.path.slice(5);
   }
 }
 

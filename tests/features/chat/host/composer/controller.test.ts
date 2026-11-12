@@ -134,9 +134,7 @@ function composerControllerFixture(
     renderShell,
     stateStore,
     prepareInput: (text, snapshot = controller.input.captureInputSnapshot()) =>
-      prepareComposerInput(text, snapshot, (target, sourcePath) =>
-        controllerOptions.noteCandidateProvider.resolveFileReference(target, sourcePath),
-      ),
+      prepareComposerInput(text, snapshot, (target) => controllerOptions.noteCandidateProvider.resolveFileReference(target)),
   };
 }
 

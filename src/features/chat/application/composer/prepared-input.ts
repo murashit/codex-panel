@@ -17,7 +17,7 @@ export function prepareComposerInput(
 ): PreparedInput {
   const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
     text,
-    (target) => resolveFileReference(target, snapshot.sourcePath),
+    resolveFileReference,
     snapshot.availableSkills,
     composerContextReferences(snapshot, text),
     { referenceActiveNoteOnSend: snapshot.referenceActiveNoteOnSend },

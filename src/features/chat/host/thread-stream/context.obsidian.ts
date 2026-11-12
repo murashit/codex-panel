@@ -21,7 +21,6 @@ export function createChatThreadStreamDependencies(options: ChatThreadStreamDepe
   const obsidianMarkdownRenderer = new ThreadStreamMarkdownRenderer({
     app: options.app,
     owner: options.owner,
-    vaultPath: options.vaultPath,
     openThread: options.actions.openThreadInAvailableView,
   });
   const dispatch = (action: ChatAction): void => {
@@ -42,10 +41,7 @@ export function createChatThreadStreamDependencies(options: ChatThreadStreamDepe
       obsidianMarkdownRenderer.renderObsidianMarkdown(element, text);
     },
     renderStreamMarkdown: (element, text) => {
-      renderStreamMarkdown(element, text, {
-        app: options.app,
-        vaultPath: options.vaultPath,
-      });
+      renderStreamMarkdown(element, text);
     },
     copyDialogueText: (text) => {
       void copyTextWithNotice(text, "Copied message.", "Could not copy message.");

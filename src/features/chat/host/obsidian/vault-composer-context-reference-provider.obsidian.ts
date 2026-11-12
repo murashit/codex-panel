@@ -1,5 +1,7 @@
+import { pathToFileURL } from "node:url";
 import type { App, EditorPosition, TAbstractFile } from "obsidian";
 import { Component, FileView, MarkdownView, TFile } from "obsidian";
+import { fileReferencePath } from "../../../../shared/obsidian/file-path.obsidian";
 import { retainEditorSelectionEmphasis, type SelectionEmphasis } from "../../../../shared/ui/editor-selection-emphasis.obsidian";
 import type {
   ActiveNoteContextReference,
@@ -64,8 +66,8 @@ export class VaultComposerContextReferenceProvider implements ComposerContextRef
     sharedComposerContexts.set(app, this.shared);
   }
 
-  contextReferences(sourcePath: string): ComposerContextReferences {
-    return this.shared.tracker.contextReferences(sourcePath);
+  contextReferences(): ComposerContextReferences {
+    return this.shared.tracker.contextReferences();
   }
 
   retainSelectionEmphasis(selection: ComposerContextReferences["selection"]): ComposerSelectionEmphasis | null {
@@ -185,15 +187,18 @@ class VaultComposerContextTracker extends Component {
     this.candidateEmphasis?.setVisible(this.isPanelForeground() && !sourceFocused);
   }
 
-  contextReferences(sourcePath: string): ComposerContextReferences {
+  contextReferences(): ComposerContextReferences {
     this.syncSelectionTarget();
     this.refreshReadingEmphases();
     const activeFile = this.openActiveFile();
-    const noteReference = (file: TFile): ActiveNoteContextReference => ({
-      name: displayNameForFile(file),
-      path: file.path,
-      linktext: linktextForFile(this.app, file, sourcePath || file.path),
-    });
+    const noteReference = (file: TFile): ActiveNoteContextReference => {
+      const path = fileReferencePath(file);
+      return {
+        name: displayNameForFile(file),
+        path,
+        linktext: path === file.path ? linktextForFile(this.app, file) : pathToFileURL(path).href,
+      };
+    };
     const activeNote = activeFile ? noteReference(activeFile) : null;
     const selectionTarget = this.selectionTarget;
     const selectionView = selectionTarget?.view;
@@ -209,13 +214,19 @@ class VaultComposerContextTracker extends Component {
     this.refreshReadingEmphases();
     if (selection.range === null) {
       const reading = this.readingSelection;
-      if (reading?.id !== selection.selectionId || this.selectionTarget?.path !== selection.path || !reading.range) return null;
+      if (
+        reading?.id !== selection.selectionId ||
+        !this.selectionTarget ||
+        fileReferencePath(this.selectionTarget.file) !== selection.path ||
+        !reading.range
+      )
+        return null;
       const emphasis = this.readingEmphases?.retain(reading.range) ?? null;
       if (emphasis) this.releaseCandidateEmphasis();
       return emphasis;
     }
     const view = this.selectionViews.get(selection);
-    if (!view?.file || view.file.path !== selection.path) return null;
+    if (!view?.file || fileReferencePath(view.file) !== selection.path) return null;
     if (!(this.app.vault.getAbstractFileByPath(view.file.path) instanceof TFile)) return null;
     if (view.editor.getRange(selection.range.from, selection.range.to) !== selection.text) return null;
 

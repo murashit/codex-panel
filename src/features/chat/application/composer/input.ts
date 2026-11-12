@@ -41,7 +41,6 @@ export interface ComposerInputOptions {
   noteCandidateProvider: NoteCandidateProvider;
   contextReferenceProvider: ComposerContextReferenceProvider;
   attachmentHandler: ComposerAttachmentHandler;
-  sourcePath: () => string;
   stateStore: ChatStateStore;
   referenceActiveNoteOnSend: () => boolean;
   onAttachmentError: (message: string) => void;
@@ -151,13 +150,11 @@ export class ComposerInput {
   }
 
   captureInputSnapshot(): ComposerInputSnapshot {
-    const sourcePath = this.options.sourcePath();
     const threadCommandTarget = threadCommandTargetForDraft(this.draft, this.threadCommandTarget);
     return {
-      sourcePath,
       availableSkills: this.options.sharedResources.skillsSnapshot() ?? [],
       referenceActiveNoteOnSend: this.options.referenceActiveNoteOnSend(),
-      contextReferences: this.options.contextReferenceProvider.contextReferences(sourcePath),
+      contextReferences: this.options.contextReferenceProvider.contextReferences(),
       activeNoteSnapshots: [...this.activeNoteContextSnapshots],
       selectionSnapshots: this.selectionSnapshots(),
       attachments: [...this.attachments],
@@ -183,7 +180,6 @@ export class ComposerInput {
     return this.claimInput(
       text,
       {
-        sourcePath: "",
         availableSkills: [],
         referenceActiveNoteOnSend: false,
         contextReferences: { activeNote: null, selection: null },
@@ -323,7 +319,7 @@ export class ComposerInput {
   private activeSuggestions(beforeCursor: string, state: ChatState): readonly ComposerSuggestion[] {
     return activeComposerSuggestions(
       beforeCursor,
-      () => this.options.noteCandidateProvider.candidates(this.options.sourcePath()),
+      () => this.options.noteCandidateProvider.candidates(),
       this.options.sharedResources.skillsSnapshot() ?? [],
       this.options.sharedResources.activeThreadsSnapshot() ?? [],
       this.options.sharedResources.modelsSnapshot() ?? [],
@@ -341,7 +337,7 @@ export class ComposerInput {
           return !operation || activePanelOperationDecision(state, operation).kind === "allowed";
         },
         contextReferences: this.contextReferences(),
-        dailyNoteReferences: () => this.options.noteCandidateProvider.dailyNoteReferences(this.options.sourcePath()),
+        dailyNoteReferences: () => this.options.noteCandidateProvider.dailyNoteReferences(),
         permissionProfiles: this.options.sharedResources.permissionProfilesSnapshot() ?? [],
         tagCandidates: () => this.options.noteCandidateProvider.tags(),
         fuzzyMatcher: this.options.fuzzyMatcher,
@@ -362,7 +358,7 @@ export class ComposerInput {
     if (!source) return;
 
     if (suggestion.activeNoteContext) {
-      const activeNote = this.options.contextReferenceProvider.contextReferences(this.options.sourcePath()).activeNote;
+      const activeNote = this.options.contextReferenceProvider.contextReferences().activeNote;
       if (!activeNote) {
         this.updateSuggestions();
         return;
@@ -372,7 +368,7 @@ export class ComposerInput {
 
     const selection = suggestion.selectionContext;
     if (selection?.range === null) {
-      const current = this.options.contextReferenceProvider.contextReferences(this.options.sourcePath()).selection;
+      const current = this.options.contextReferenceProvider.contextReferences().selection;
       if (current?.range !== null || current.selectionId !== selection.selectionId || current.path !== selection.path) {
         this.updateSuggestions();
         return;

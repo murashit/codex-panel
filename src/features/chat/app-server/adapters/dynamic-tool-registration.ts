@@ -11,7 +11,7 @@ export function panelDynamicTools(): NonNullable<AppServerStartThreadOptions["dy
           type: "function",
           name: "resolve_wikilinks",
           description:
-            "Resolve selected raw Obsidian wikilinks to vault-relative file paths, optionally using source-note context. This does not read file contents.",
+            "Resolve selected raw Obsidian wikilinks to file paths (vault-relative or absolute for external files), optionally using source-note context. This does not read file contents.",
           inputSchema: {
             type: "object",
             additionalProperties: false,
@@ -22,7 +22,7 @@ export function panelDynamicTools(): NonNullable<AppServerStartThreadOptions["dy
                 minLength: 1,
                 maxLength: 1024,
                 description:
-                  "Optional vault-relative path of the note containing the links. Provide it for relative links and context-sensitive best-match resolution.",
+                  "Optional vault-relative path or external absolute path of the note containing the links. Provide it for relative links and context-sensitive best-match resolution.",
               },
               wikilinks: {
                 type: "array",
