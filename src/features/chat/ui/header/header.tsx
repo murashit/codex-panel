@@ -26,8 +26,10 @@ export function ConversationHeader({ title, persistence, thread, actions }: Conv
         })
       : null;
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: The header delegates bubbled Escape from native rename controls; it is not a separate keyboard target.
     <div
       onFocusOut={rename?.onFocusOut}
+      onKeyDown={rename?.onKeyDown}
       className={`codex-panel__conversation-header${thread?.archiveConfirm.active ? " codex-panel__archive-confirm codex-panel__conversation-header--confirming" : ""}`}
     >
       {persistence?.kind === "selectable" ? (
