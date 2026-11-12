@@ -194,7 +194,7 @@ class VaultComposerContextTracker extends Component {
     const noteReference = (file: TFile): ActiveNoteContextReference => {
       const path = fileReferencePath(file);
       return {
-        name: displayNameForFile(file),
+        name: path === file.path ? displayNameForFile(file) : file.name,
         path,
         linktext: path === file.path ? linktextForFile(this.app, file) : pathToFileURL(path).href,
       };

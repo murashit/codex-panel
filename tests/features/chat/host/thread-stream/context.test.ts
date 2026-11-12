@@ -9,7 +9,6 @@ import {
 import { MarkdownRenderer } from "obsidian";
 import { h } from "preact";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
 import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
@@ -27,6 +26,7 @@ import {
 } from "../../../../../src/features/chat/host/thread-stream/view-projection";
 import { ThreadStreamViewport } from "../../../../../src/features/chat/ui/thread-stream/stream-blocks";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
+import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { withChatStateStableThreadStreamItems } from "../../support/thread-stream";
@@ -154,59 +154,116 @@ describe("thread stream surface", () => {
     expect(projection.blocks.map((block) => block.key)).toEqual(["item:prompt", "item:assistant", "item:turn:local-steer"]);
   });
 
-  it("renders and opens internal links without depending on the active note", async () => {
-    const openLinkText = vi.fn();
-    const context = markdownLinkContext(openLinkText);
-    context.app.workspace.getActiveFile.mockReturnValue(tFile("file:/outside/Source.md"));
+  it.each(["/vault", "//server/share/vault"])(
+    "normalizes in-vault absolute wikilinks and intentionally refuses other absolute wikilinks in %s",
+    async (vaultPath) => {
+      const openLinkText = vi.fn();
+      const context = markdownLinkContext(openLinkText, vaultPath);
+      context.app.workspace.getActiveFile.mockReturnValue(tFile("file:/outside/Source.md"));
+      const parent = document.createElement("div");
+      document.body.append(parent);
+      // Native Obsidian can resolve or create vault-root notes from these absolute spellings.
+      // Panel instead normalizes actual in-vault filesystem paths and refuses the others, including /AGENTS.md.
+      const hrefs = [
+        "../A%20B.md#Heading",
+        `${vaultPath}/Docs/A[1]%20B.md#Heading%20value`,
+        `${vaultPath}-other/Docs/A]B.md`,
+        "/AGENTS.md",
+        "file:/outside/Target.md",
+        `${vaultPath}/Docs/New.md`,
+      ];
+      const noticeCount = notices.length;
+      const render = vi.spyOn(MarkdownRenderer, "render").mockImplementationOnce((_app, _text, staging) => {
+        for (const href of hrefs) {
+          staging
+            .createSpan({ attr: { "data-codex-panel-wikilink": "" } })
+            .createEl("a", { cls: "internal-link", attr: { "data-href": href } });
+        }
+        return Promise.resolve();
+      });
+      try {
+        const renderer = new ThreadStreamMarkdownRenderer({
+          app: context.app as never,
+          owner: {} as never,
+          vaultPath: context.vaultPath,
+          openThread: vi.fn(),
+        });
+        renderer.renderObsidianMarkdown(parent, hrefs.map((href) => `[[${href}]]`).join("\n"));
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(render).toHaveBeenCalledWith(
+          context.app,
+          hrefs.map((href) => `<span data-codex-panel-wikilink>[[${href}]]</span>`).join("\n"),
+          expect.any(HTMLElement),
+          "",
+          expect.anything(),
+        );
+        context.app.workspace.getActiveFile.mockReturnValue(tFile("Another.md"));
+        const links = parent.querySelectorAll<HTMLAnchorElement>("a");
+        links[0]?.click();
+        links[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, metaKey: true }));
+        links[2]?.click();
+        links[3]?.dispatchEvent(new MouseEvent("auxclick", { bubbles: true, cancelable: true, button: 1 }));
+        links[4]?.click();
+        links[5]?.click();
+        expect(openLinkText.mock.calls).toEqual([
+          ["../A%20B.md#Heading", "", false],
+          ["Docs/A[1]%20B.md#Heading%20value", "", "tab"],
+          ["file:/outside/Target.md", "", false],
+          ["Docs/New.md", "", false],
+        ]);
+        expect(notices.slice(noticeCount)).toEqual(["Cannot open files outside the vault.", "Cannot open files outside the vault."]);
+        expect(parent.querySelector("span[data-codex-panel-wikilink]")).toBeNull();
+      } finally {
+        render.mockRestore();
+        parent.remove();
+      }
+    },
+  );
+
+  it("delegates Markdown link and embed targets to Obsidian without applying the wikilink path policy", async () => {
+    const context = markdownLinkContext();
+    const markdown = [
+      "[Same](/vault/Docs/A.md)",
+      "[External](file:///outside/Target.md)",
+      "![Image](/vault/image.png)",
+      "![[/vault/Docs/A.md]]",
+      "`[[/vault/Docs/A.md]]`",
+      "\\[[/vault/Docs/A.md]]",
+      "",
+      '[ref]: /vault/[[A]].md "[[/AGENTS.md]]"',
+    ].join("\n");
     const parent = document.createElement("div");
     document.body.append(parent);
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
     const render = vi.spyOn(MarkdownRenderer, "render").mockImplementationOnce((_app, _text, staging) => {
-      for (const href of ["../A%20B.md#Heading", "/outside/Target.md", ".obsidian/config"]) {
-        staging.createEl("a", { cls: "internal-link", attr: { "data-href": href } });
+      for (const [cls, href] of [
+        ["internal-link", "/vault/Docs/A.md"],
+        ["external-link", "file:///outside/Target.md"],
+      ] as const) {
+        staging.createEl("a", { cls, attr: { href } });
       }
+      staging.createEl("img", { attr: { src: "/vault/image.png" } });
       return Promise.resolve();
     });
     try {
-      const renderer = new ThreadStreamMarkdownRenderer({ app: context.app as never, owner: {} as never, openThread: vi.fn() });
-      renderer.renderObsidianMarkdown(parent, "links");
+      new ThreadStreamMarkdownRenderer({
+        app: context.app as never,
+        owner: {} as never,
+        vaultPath: context.vaultPath,
+        openThread: vi.fn(),
+      }).renderObsidianMarkdown(parent, markdown);
       await Promise.resolve();
       await Promise.resolve();
-      expect(render).toHaveBeenCalledWith(context.app, "links", expect.any(HTMLElement), "", expect.anything());
-      context.app.workspace.getActiveFile.mockReturnValue(tFile("Another.md"));
-      const links = parent.querySelectorAll<HTMLAnchorElement>("a");
-      links[0]?.click();
-      links[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, metaKey: true }));
-      links[2]?.dispatchEvent(new MouseEvent("auxclick", { bubbles: true, cancelable: true, button: 1 }));
-      expect(openLinkText.mock.calls).toEqual([
-        ["../A%20B.md#Heading", "", false],
-        ["/outside/Target.md", "", "tab"],
-        [".obsidian/config", "", "tab"],
-      ]);
-    } finally {
-      render.mockRestore();
-      parent.remove();
-    }
-  });
-
-  it("opens rendered external links through the host window", async () => {
-    const context = markdownLinkContext();
-    const { link, cleanup } = await renderedAnchor(
-      context,
-      { cls: "external-link", text: "External", attr: { href: "file:///outside/Target.md#Heading" } },
-      "[External](file:///outside/Target.md#Heading)",
-      "a",
-    );
-    const open = vi.spyOn(window, "open").mockImplementation(() => null);
-    try {
-      link.click();
-      link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, metaKey: true }));
-      expect(open.mock.calls).toEqual([
-        ["file:///outside/Target.md#Heading", ""],
-        ["file:///outside/Target.md#Heading", "tab"],
-      ]);
+      expect(render).toHaveBeenCalledWith(context.app, markdown, expect.any(HTMLElement), "", expect.anything());
+      for (const link of parent.querySelectorAll("a")) link.click();
+      expect(context.app.workspace.openLinkText).toHaveBeenCalledWith("/vault/Docs/A.md", "", false);
+      expect(open).toHaveBeenCalledWith("file:///outside/Target.md", "");
+      expect(parent.querySelector("img")?.getAttribute("src")).toBe("/vault/image.png");
     } finally {
       open.mockRestore();
-      cleanup();
+      render.mockRestore();
+      parent.remove();
     }
   });
 
@@ -347,6 +404,7 @@ async function renderedAnchor(
   const markdownRenderer = new ThreadStreamMarkdownRenderer({
     app: context.app as never,
     owner: {} as never,
+    vaultPath: context.vaultPath,
     openThread: vi.fn(),
   });
 

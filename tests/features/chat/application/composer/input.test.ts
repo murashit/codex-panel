@@ -173,23 +173,23 @@ describe("ComposerInput", () => {
     expect(dailyNoteReferences).toHaveBeenCalledWith();
   });
 
-  it("keeps an explicitly selected external file through submission and drops it when edited", () => {
+  it("completes external @active as a Markdown file URI and drops the captured file when its link is edited", () => {
     const activeNote = { name: "A", path: "/outside/A#B.md", linktext: "file:///outside/A%23B.md" };
     const { input, edit, insertFirstSuggestion, prepareInput } = createInput({
       contextReferenceProvider: contextProvider(() => ({ activeNote, selection: null })),
     });
     edit("@active");
     insertFirstSuggestion();
-    const marker = "External file: `/outside/A#B.md`";
+    const marker = "[A](file:///outside/A%23B.md)";
     expect(input.draft).toBe(marker);
     expect(prepareInput(marker).input).toContainEqual({ type: "fileReference", name: "A", path: activeNote.path });
-    edit("External file: `/outside/changed.md`");
+    edit("[A](file:///outside/changed.md)");
     expect(prepareInput(input.draft).input.some((item) => item.type === "fileReference")).toBe(false);
   });
 
-  it("restores an external selection with backticks after a failed submission", () => {
+  it("completes external @selection as a Markdown file URI and restores its snapshot after a failed submission", () => {
     const selection = {
-      name: "A",
+      name: "A`B.md",
       path: "/outside/A`B.md",
       linktext: "file:///outside/A%60B.md",
       text: "selected text",
@@ -200,13 +200,13 @@ describe("ComposerInput", () => {
     });
     edit("@selection");
     insertFirstSuggestion();
-    const marker = 'External file: `` /outside/A`B.md `` "selected text"';
+    const marker = '[A\\`B.md](file:///outside/A%60B.md) "selected text"';
     expect(input.draft).toBe(marker);
     const claim = input.claimSubmission();
     expect(claim).not.toBeNull();
     claim?.settle("failed");
     expect(input.draft).toBe(marker);
-    expect(prepareInput(input.draft).input).toContainEqual({ type: "fileReference", name: "A", path: selection.path });
+    expect(prepareInput(input.draft).input).toContainEqual({ type: "fileReference", name: selection.name, path: selection.path });
   });
 
   it("rejects a closed @active candidate, resolves the open note at acceptance, then preserves that reference for sending", () => {

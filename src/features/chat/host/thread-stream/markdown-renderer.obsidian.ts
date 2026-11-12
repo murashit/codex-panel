@@ -1,11 +1,15 @@
+import { fromMarkdown } from "mdast-util-from-markdown";
 import { micromark } from "micromark";
-import { type App, type Component, Keymap, MarkdownRenderer, Notice } from "obsidian";
+import { type App, type Component, Keymap, MarkdownRenderer, Notice, parseLinktext } from "obsidian";
+import { visit } from "unist-util-visit";
+import { isFilesystemAbsolutePath, isVaultConfigPath, vaultRelativePath } from "../../../../domain/files/paths";
 import { codexThreadIdFromHref } from "../../../../domain/threads/links";
 import { notifyThreadStreamContentRendered } from "../../ui/thread-stream/content-rendered-event.dom";
 
 interface ThreadStreamMarkdownRendererOptions {
   app: App;
   owner: Component;
+  vaultPath: string;
   openThread: (threadId: string) => void;
 }
 
@@ -33,7 +37,7 @@ export class ThreadStreamMarkdownRenderer {
     this.renderGenerations.set(parent, generation);
     const staging = parent.createDiv();
     staging.remove();
-    void MarkdownRenderer.render(this.options.app, text, staging, "", this.options.owner)
+    void MarkdownRenderer.render(this.options.app, markWikilinks(text), staging, "", this.options.owner)
       .then(() => {
         if (!parent.isConnected || this.renderGenerations.get(parent) !== generation) return;
         parent.replaceChildren(...Array.from(staging.childNodes));
@@ -63,20 +67,63 @@ export function renderStreamMarkdown(parent: HTMLElement, text: string): void {
 
 interface RenderedMarkdownLinkContext {
   app: App;
+  vaultPath: string;
 }
 
 interface CodexThreadLinkContext {
   openThread: (threadId: string) => void;
 }
 
+// Obsidian renders both wiki and Markdown links as a.internal-link. Mark the
+// source syntax so only wikilinks receive Panel's absolute-path policy.
+function markWikilinks(markdown: string): string {
+  if (!markdown.includes("[[")) return markdown;
+  const excluded: { start: number; end: number }[] = [];
+  visit(fromMarkdown(markdown), (node) => {
+    if (node.type === "link" || node.type === "linkReference") {
+      const sourceStart = node.position?.start.offset;
+      const start = sourceStart !== undefined && markdown[sourceStart] === "<" ? sourceStart : node.children.at(-1)?.position?.end.offset;
+      const end = node.position?.end.offset;
+      if (start !== undefined && end !== undefined) excluded.push({ start, end });
+      return;
+    }
+    if (!["code", "inlineCode", "image", "imageReference", "definition", "html"].includes(node.type)) return;
+    const start = node.position?.start.offset;
+    const end = node.position?.end.offset;
+    if (start !== undefined && end !== undefined) excluded.push({ start, end });
+  });
+  const escaped = (offset: number): boolean => {
+    let backslashes = 0;
+    while (markdown[offset - backslashes - 1] === "\\") backslashes += 1;
+    return backslashes % 2 === 1;
+  };
+  return markdown.replace(/\[\[((?:(?!\[\[).)+?)\]\]/g, (wiki: string, _target: string, offset: number) => {
+    if (escaped(offset) || (markdown[offset - 1] === "!" && !escaped(offset - 1))) return wiki;
+    if (excluded.some((range) => range.start <= offset && range.end >= offset + wiki.length)) return wiki;
+    return `<span data-codex-panel-wikilink>${wiki}</span>`;
+  });
+}
+
 function bindRenderedFileLinks(parent: HTMLElement, context: RenderedMarkdownLinkContext): void {
   parent.querySelectorAll<HTMLAnchorElement>("a.internal-link").forEach((link) => {
-    link.addClass("codex-panel__wikilink");
+    const wikilink = link.parentElement?.hasAttribute("data-codex-panel-wikilink") === true;
+    if (wikilink) link.addClass("codex-panel__wikilink");
     const open = (event: MouseEvent): void => {
       if (event.button !== 0 && event.button !== 1) return;
       event.preventDefault();
       const href = link.getAttribute("data-href") ?? link.getAttribute("href") ?? link.textContent;
-      if (href.trim()) void context.app.workspace.openLinkText(href, "", Keymap.isModEvent(event));
+      if (!href.trim()) return;
+      const parsed = parseLinktext(href);
+      let target = href;
+      if (wikilink && isFilesystemAbsolutePath(parsed.path)) {
+        const path = vaultRelativePath(context.vaultPath, parsed.path);
+        if (path === null || isVaultConfigPath(path, context.app.vault.configDir, context.vaultPath)) {
+          new Notice("Cannot open files outside the vault.");
+          return;
+        }
+        target = `${path}${parsed.subpath}`;
+      }
+      void context.app.workspace.openLinkText(target, "", Keymap.isModEvent(event));
     };
     link.onclick = open;
     link.onauxclick = open;
@@ -88,6 +135,9 @@ function bindRenderedFileLinks(parent: HTMLElement, context: RenderedMarkdownLin
       const href = link.getAttribute("href");
       if (href) link.ownerDocument.defaultView?.open(href, String(Keymap.isModEvent(event) || ""));
     };
+  });
+  parent.querySelectorAll("span[data-codex-panel-wikilink]").forEach((marker) => {
+    marker.replaceWith(...Array.from(marker.childNodes));
   });
 }
 

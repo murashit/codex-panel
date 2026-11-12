@@ -17,12 +17,16 @@ afterEach(() => {
 });
 
 describe("Composer active note context", () => {
-  it("uses external real paths for active and selected context", () => {
+  it("encodes file URIs while retaining the real path and source filename for external active and selected context", () => {
     const fixture = editorFixture();
     fixture.view.file = new TExternalFile("file:/outside/A%20B#C|D.md") as unknown as TFile;
     fixture.cm.dispatch({ selection: { anchor: 0, head: 5 } });
     const refs = fixture.provider.contextReferences();
-    expect(refs.activeNote).toMatchObject({ path: "/outside/A%20B#C|D.md", linktext: "file:///outside/A%2520B%23C%7CD.md" });
+    expect(refs.activeNote).toEqual({
+      name: "A%20B#C|D.md",
+      path: "/outside/A%20B#C|D.md",
+      linktext: "file:///outside/A%2520B%23C%7CD.md",
+    });
     expect(refs.selection).toMatchObject({ path: "/outside/A%20B#C|D.md", text: "alpha" });
     expect(fixture.provider.retainSelectionEmphasis(refs.selection)).not.toBeNull();
   });
