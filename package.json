@@ -39,7 +39,7 @@
     "review:duplication": "jscpd src tests --ignore \"**/src/generated/**,src/generated/**\" --reporters console,json --output reports/duplication"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.4",
+    "@biomejs/biome": "^2.6.5",
     "@codemirror/state": "6.7.6",
     "@codemirror/view": "6.43.13",
     "@commitlint/cli": "^21.2.4",
@@ -48,7 +48,7 @@
     "@stryker-mutator/vitest-runner": "^10.1.1",
     "@types/mdast": "^4.0.4",
     "@types/node": "^26.6.6",
-    "@vitest/coverage-v8": "^5.0.5",
+    "@vitest/coverage-v8": "^5.1.0",
     "@vitest/eslint-plugin": "^1.6.28",
     "concurrently": "^10.0.6",
     "esbuild": "^0.28.2",
@@ -56,8 +56,8 @@
     "eslint-plugin-obsidianmd": "^0.5.0",
     "fast-check": "^4.10.2",
     "jscpd": "^5.4.2",
-    "jsdom": "^30.1.3",
-    "knip": "^6.43.0",
+    "jsdom": "^31.0.0",
+    "knip": "^6.44.1",
     "moment": "^2.31.0",
     "obsidian": "^1.14.4",
     "typescript": "^6.0.3",
