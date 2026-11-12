@@ -6,6 +6,7 @@ import { FileView, MarkdownView } from "obsidian";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { VaultComposerContextReferenceProvider } from "../../../../../src/features/chat/host/obsidian/vault-composer-context-reference-provider.obsidian";
 import { editorSelectionEmphasisExtension } from "../../../../../src/shared/ui/editor-selection-emphasis.obsidian";
+import { TExternalFile } from "../../../../mocks/obsidian";
 import { markdownFileFixture } from "../../../../support/vault-file";
 
 const cleanups: (() => void)[] = [];
@@ -16,11 +17,21 @@ afterEach(() => {
 });
 
 describe("Composer active note context", () => {
+  it("uses external real paths for active and selected context", () => {
+    const fixture = editorFixture();
+    fixture.view.file = new TExternalFile("file:/outside/A%20B#C|D.md") as unknown as TFile;
+    fixture.cm.dispatch({ selection: { anchor: 0, head: 5 } });
+    const refs = fixture.provider.contextReferences();
+    expect(refs.activeNote).toMatchObject({ path: "/outside/A%20B#C|D.md", linktext: "file:///outside/A%2520B%23C%7CD.md" });
+    expect(refs.selection).toMatchObject({ path: "/outside/A%20B#C|D.md", text: "alpha" });
+    expect(fixture.provider.retainSelectionEmphasis(refs.selection)).not.toBeNull();
+  });
+
   it("tracks the current open file through switches and closure independently of the last Markdown selection", () => {
     const fixture = readingFixture();
     fixture.select("Alpha excerpt");
     fixture.setActive(null);
-    expect(fixture.provider.contextReferences("").activeNote?.path).toBe("Alpha.md");
+    expect(fixture.provider.contextReferences().activeNote?.path).toBe("Alpha.md");
     const file = markdownFileFixture("Beta.pdf");
     const view = Object.assign(Object.create(FileView.prototype) as FileView, { file });
     const openViews: FileView[] = [fixture.view, view];
@@ -30,11 +41,11 @@ describe("Composer active note context", () => {
     });
     vi.spyOn(fixture.app.vault, "getAbstractFileByPath").mockImplementation((path) => (path === file.path ? file : fixture.view.file));
 
-    const references = fixture.provider.contextReferences("");
+    const references = fixture.provider.contextReferences();
     expect(references.activeNote).toEqual({ name: "Beta.pdf", path: "Beta.pdf", linktext: "Beta.pdf" });
     expect(references.selection).toMatchObject({ path: "Alpha.md", text: "Alpha excerpt" });
     openViews.pop();
-    const afterClose = fixture.provider.contextReferences("");
+    const afterClose = fixture.provider.contextReferences();
     expect(afterClose.activeNote).toBeNull();
     expect(afterClose.selection).toEqual(references.selection);
   });
@@ -47,7 +58,7 @@ describe("Composer selection context", () => {
     const other = readingFixture();
     vi.spyOn(fixture.app.workspace, "getLeavesOfType").mockReturnValue([{ view: other.view }, { view: fixture.view }] as never);
     fixture.select("not yet inserted");
-    expect(fixture.provider.contextReferences("").selection?.text).toBe("not yet inserted");
+    expect(fixture.provider.contextReferences().selection?.text).toBe("not yet inserted");
     fixture.setActive(null);
     fixture.panel.focus();
     document.getSelection()?.removeAllRanges();
@@ -75,9 +86,9 @@ describe("Composer selection context", () => {
     fixture.setActive(null);
     second.dispose();
     expect(highlights.get("codex-panel-reading-selection")?.size).toBe(1);
-    const retained = fixture.provider.retainSelectionEmphasis(fixture.provider.contextReferences("").selection);
+    const retained = fixture.provider.retainSelectionEmphasis(fixture.provider.contextReferences().selection);
     retained?.setEnabled(false);
-    fixture.provider.contextReferences("");
+    fixture.provider.contextReferences();
     fixture.setActive(fixture.view);
     fixture.setActive(null);
     expect(highlights.has("codex-panel-reading-selection")).toBe(false);
@@ -118,10 +129,10 @@ describe("Composer selection context", () => {
     expect(painting()).toEqual([]);
     fixture.setActive(null);
     expect(painting()).toEqual(["alpha"]);
-    const confirmed = fixture.provider.retainSelectionEmphasis(fixture.provider.contextReferences("").selection);
+    const confirmed = fixture.provider.retainSelectionEmphasis(fixture.provider.contextReferences().selection);
     expect(painting()).toEqual(["alpha"]);
     confirmed?.setEnabled(false);
-    fixture.provider.contextReferences("");
+    fixture.provider.contextReferences();
     fixture.setActive(fixture.view);
     fixture.setActive(null);
     expect(painting()).toEqual([]);
@@ -153,13 +164,13 @@ describe("Composer selection context", () => {
   it("revalidates a mode change during focusout before using the cached Reading range", () => {
     const fixture = editorFixture();
     fixture.setMode("preview");
-    fixture.provider.contextReferences("");
+    fixture.provider.contextReferences();
     fixture.root.focus();
     fixture.select("Reading before mode change");
     fixture.setMode("source");
     fixture.panel.focus();
     fixture.setActive(null);
-    expect(fixture.provider.contextReferences("").selection).toBeNull();
+    expect(fixture.provider.contextReferences().selection).toBeNull();
     expect(fixture.view.containerEl.querySelector(".codex-panel-selection-emphasis")).toBeNull();
   });
 
@@ -180,7 +191,7 @@ describe("Composer selection context", () => {
     expect(fixture.view.containerEl.querySelector(".codex-panel-selection-emphasis")).toBeNull();
     foreground = true;
     fixture.setActive(null);
-    expect(provider.contextReferences("Inbox.md")).toEqual({
+    expect(provider.contextReferences()).toEqual({
       activeNote: { name: "Alpha", path: "Alpha.md", linktext: "Alpha" },
       selection: {
         name: "Alpha",
@@ -200,7 +211,7 @@ describe("Composer selection context", () => {
     const other = editorFixture();
     other.view.file = fixture.view.file;
     fixture.cm.dispatch({ selection: { anchor: 0, head: 5 } });
-    const reference = fixture.provider.contextReferences("").selection;
+    const reference = fixture.provider.contextReferences().selection;
     vi.spyOn(fixture.app.workspace, "getLeavesOfType").mockReturnValue([{ view: fixture.view }, { view: other.view }] as never);
     fixture.setActive(other.view);
     fixture.panel.focus();
@@ -214,7 +225,7 @@ describe("Composer selection context", () => {
   it("rejects captured editor references after source text or file changes, and copied references", () => {
     const fixture = editorFixture();
     fixture.cm.dispatch({ selection: { anchor: 0, head: 5 } });
-    const reference = fixture.provider.contextReferences("").selection;
+    const reference = fixture.provider.contextReferences().selection;
     if (!reference) throw new Error("Missing selection reference");
     expect(fixture.provider.retainSelectionEmphasis({ ...reference })).toBeNull();
     fixture.cm.dispatch({ changes: { from: 0, to: 5, insert: "other" } });
@@ -233,9 +244,9 @@ describe("Composer selection context", () => {
     const painting = () =>
       [...fixture.view.containerEl.querySelectorAll(".codex-panel-selection-emphasis")].map((element) => element.textContent);
     fixture.cm.dispatch({ selection: { anchor: 0, head: 5 } });
-    const firstRetained = fixture.provider.retainSelectionEmphasis(fixture.provider.contextReferences("").selection);
+    const firstRetained = fixture.provider.retainSelectionEmphasis(fixture.provider.contextReferences().selection);
     fixture.cm.dispatch({ selection: { anchor: 6, head: 10 } });
-    const secondRetained = second.retainSelectionEmphasis(second.contextReferences("").selection);
+    const secondRetained = second.retainSelectionEmphasis(second.contextReferences().selection);
     expect(firstRetained).not.toBeNull();
     expect(secondRetained).not.toBeNull();
     fixture.panel.focus();
@@ -270,14 +281,14 @@ describe("Composer selection context", () => {
     fixture.panel.focus();
     fixture.setActive(null);
     expect(fixture.view.containerEl.querySelector(".codex-panel-selection-emphasis")).not.toBeNull();
-    expect(fixture.provider.contextReferences("").selection?.text).toBe("alpha");
+    expect(fixture.provider.contextReferences().selection?.text).toBe("alpha");
     if (change === "mode") fixture.setMode("preview");
     if (change === "file") fixture.view.file = markdownFileFixture("Beta.md");
     if (change === "detach") fixture.view.containerEl.remove();
     if (change === "remove-leaf") vi.spyOn(fixture.app.workspace, "getLeavesOfType").mockReturnValue([]);
     if (change === "window-close") fixture.emit("window-close", {}, document.defaultView);
     fixture.emit("layout-change");
-    expect(fixture.provider.contextReferences("").selection?.path ?? null).toBe(selectionPath);
+    expect(fixture.provider.contextReferences().selection?.path ?? null).toBe(selectionPath);
     if (change === "window-close") {
       fixture.cm.contentDOM.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: fixture.panel }));
     }
@@ -288,7 +299,7 @@ describe("Composer selection context", () => {
     const highlights = installHighlights(document);
     const fixture = readingFixture();
     fixture.select("selected text");
-    const reference = fixture.provider.contextReferences("").selection;
+    const reference = fixture.provider.contextReferences().selection;
     if (!reference) throw new Error("Missing selection");
     const originalHTML = fixture.root.innerHTML;
     const originalRange = document.getSelection()?.getRangeAt(0);
@@ -321,7 +332,7 @@ describe("Composer selection context", () => {
     const highlights = installHighlights(document);
     const fixture = readingFixture();
     fixture.select("original text");
-    const reference = fixture.provider.contextReferences("").selection;
+    const reference = fixture.provider.contextReferences().selection;
     fixture.setActive(null);
     const retained = fixture.provider.retainSelectionEmphasis(reference);
     fixture.view.containerEl.classList.add("focused");
@@ -331,7 +342,7 @@ describe("Composer selection context", () => {
     if (change === "text" && fixture.root.firstChild) fixture.root.firstChild.textContent = "changed text";
     else fixture.root.textContent = "new rendered content";
     // A send/completion can run before the MutationObserver callback.
-    expect(fixture.provider.contextReferences("").selection).toEqual(reference);
+    expect(fixture.provider.contextReferences().selection).toEqual(reference);
     expect(highlights.has("codex-panel-reading-selection")).toBe(false);
     expect(fixture.provider.retainSelectionEmphasis(reference)).toBeNull();
     retained?.setEnabled(false);
@@ -345,9 +356,9 @@ describe("Composer selection context", () => {
     const highlights = installHighlights(document);
     const fixture = readingFixture();
     fixture.select("same displayed text");
-    const original = fixture.provider.contextReferences("").selection;
+    const original = fixture.provider.contextReferences().selection;
     fixture.root.textContent = "same displayed text";
-    fixture.provider.contextReferences("");
+    fixture.provider.contextReferences();
     expect(highlights.has("codex-panel-reading-selection")).toBe(false);
     selectNodeText(fixture.root);
     fixture.panel.dispatchEvent(new Event("pointerdown", { bubbles: true }));
@@ -355,8 +366,8 @@ describe("Composer selection context", () => {
     fixture.root.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "a", ctrlKey: true }));
     fixture.setActive(null);
     expect(highlights.get("codex-panel-reading-selection")?.size).toBe(1);
-    expect(fixture.provider.contextReferences("").selection).toMatchObject({ text: "same displayed text", range: null });
-    expect(fixture.provider.contextReferences("").selection).not.toEqual(original);
+    expect(fixture.provider.contextReferences().selection).toMatchObject({ text: "same displayed text", range: null });
+    expect(fixture.provider.contextReferences().selection).not.toEqual(original);
   });
 
   it.each(["modify", "mode", "detach", "window-close", "dispose"])("cleans only its own painting on %s", async (change) => {
@@ -365,7 +376,7 @@ describe("Composer selection context", () => {
     highlights.set("another-plugin", foreign);
     const fixture = readingFixture();
     fixture.select("selected");
-    const retained = fixture.provider.retainSelectionEmphasis(fixture.provider.contextReferences("").selection);
+    const retained = fixture.provider.retainSelectionEmphasis(fixture.provider.contextReferences().selection);
     if (change === "modify") fixture.emit("modify", fixture.view.file);
     if (change === "mode") {
       fixture.getEditorSelection.mockReturnValue("");
@@ -374,7 +385,7 @@ describe("Composer selection context", () => {
     if (change === "detach") fixture.view.containerEl.remove();
     if (change === "window-close") fixture.emit("window-close", {}, document.defaultView);
     if (change === "dispose") fixture.provider.dispose();
-    if (change !== "dispose") fixture.provider.contextReferences("");
+    if (change !== "dispose") fixture.provider.contextReferences();
     await Promise.resolve();
     retained?.setEnabled(true);
     retained?.release();
@@ -391,7 +402,7 @@ describe("Composer selection context", () => {
     const highlights = installHighlights(ownerDocument);
     const fixture = readingFixture(ownerDocument);
     fixture.select("popout quote");
-    const reference = fixture.provider.contextReferences("").selection;
+    const reference = fixture.provider.contextReferences().selection;
     let foreground = false;
     const second = new VaultComposerContextReferenceProvider(fixture.app, () => foreground);
     cleanups.push(() => second.dispose());
@@ -413,20 +424,20 @@ describe("Composer selection context", () => {
   it("retains an immutable capture across Panel focus without consulting the hidden editor", () => {
     const fixture = readingFixture();
     fixture.select("Alpha displayed text");
-    const first = fixture.provider.contextReferences("").selection;
+    const first = fixture.provider.contextReferences().selection;
     expect(first).toMatchObject({ range: null, text: "Alpha displayed text", path: "Alpha.md" });
-    expect(fixture.provider.contextReferences("").selection).toEqual(first);
+    expect(fixture.provider.contextReferences().selection).toEqual(first);
 
     fixture.panel.dispatchEvent(new Event("pointerdown", { bubbles: true }));
     fixture.setActive(null);
     fixture.panel.focus();
     document.getSelection()?.removeAllRanges();
     document.dispatchEvent(new Event("selectionchange"));
-    expect(fixture.provider.contextReferences("").selection).toEqual(first);
+    expect(fixture.provider.contextReferences().selection).toEqual(first);
 
     fixture.setActive(fixture.view);
     fixture.select("Beta displayed text");
-    const second = fixture.provider.contextReferences("").selection;
+    const second = fixture.provider.contextReferences().selection;
     expect(second).toMatchObject({ range: null, text: "Beta displayed text" });
     if (first?.range !== null || second?.range !== null) throw new Error("Expected Reading references");
     expect(second.selectionId).not.toBe(first.selectionId);
@@ -441,17 +452,17 @@ describe("Composer selection context", () => {
     fixture.root.dispatchEvent(new Event("pointerdown", { bubbles: true }));
     document.getSelection()?.removeAllRanges();
     fixture.root.dispatchEvent(new Event("pointerup", { bubbles: true }));
-    expect(fixture.provider.contextReferences("").selection).toBeNull();
+    expect(fixture.provider.contextReferences().selection).toBeNull();
 
     fixture.select("   ");
-    expect(fixture.provider.contextReferences("").selection).toBeNull();
+    expect(fixture.provider.contextReferences().selection).toBeNull();
     fixture.select("valid");
-    const captured = fixture.provider.contextReferences("").selection;
+    const captured = fixture.provider.contextReferences().selection;
     fixture.setActive(null);
     fixture.panel.textContent = "Panel text";
     selectNodeText(fixture.panel);
     document.dispatchEvent(new Event("selectionchange"));
-    expect(fixture.provider.contextReferences("").selection).toEqual(captured);
+    expect(fixture.provider.contextReferences().selection).toEqual(captured);
 
     fixture.setActive(fixture.view);
     fixture.root.dispatchEvent(new Event("pointerdown", { bubbles: true }));
@@ -461,7 +472,7 @@ describe("Composer selection context", () => {
     document.getSelection()?.removeAllRanges();
     document.getSelection()?.addRange(range);
     fixture.root.dispatchEvent(new Event("pointerup", { bubbles: true }));
-    expect(fixture.provider.contextReferences("").selection).toBeNull();
+    expect(fixture.provider.contextReferences().selection).toBeNull();
   });
 
   it.each(["modify", "delete", "rename", "editor-change"])(
@@ -476,17 +487,17 @@ describe("Composer selection context", () => {
       fixture.root.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "ArrowDown" }));
       document.dispatchEvent(new Event("selectionchange"));
       fixture.panel.dispatchEvent(new Event("pointerdown", { bubbles: true }));
-      expect(fixture.provider.contextReferences("").selection).toBeNull();
+      expect(fixture.provider.contextReferences().selection).toBeNull();
     },
   );
 
   it("invalidates mode round trips through view mutations, while ordinary rendering preserves the capture", async () => {
     const fixture = readingFixture();
     fixture.select("before mode change");
-    const captured = fixture.provider.contextReferences("").selection;
+    const captured = fixture.provider.contextReferences().selection;
     fixture.root.append(document.createElement("span"));
     await Promise.resolve();
-    expect(fixture.provider.contextReferences("").selection).toEqual(captured);
+    expect(fixture.provider.contextReferences().selection).toEqual(captured);
 
     fixture.setMode("source");
     fixture.view.containerEl.classList.add("source-mode");
@@ -494,7 +505,7 @@ describe("Composer selection context", () => {
     fixture.setMode("preview");
     fixture.view.containerEl.classList.remove("source-mode");
     await Promise.resolve();
-    expect(fixture.provider.contextReferences("").selection).toBeNull();
+    expect(fixture.provider.contextReferences().selection).toBeNull();
   });
 
   it.each(["file", "root", "detach"])("invalidates a captured selection on %s change", (change) => {
@@ -509,7 +520,7 @@ describe("Composer selection context", () => {
     } else {
       fixture.view.containerEl.remove();
     }
-    expect(fixture.provider.contextReferences("").selection).toBeNull();
+    expect(fixture.provider.contextReferences().selection).toBeNull();
   });
 
   it("recovers only on a fresh selection gesture after invalidation", () => {
@@ -519,10 +530,10 @@ describe("Composer selection context", () => {
     fixture.root.textContent = "keyboard selection";
     selectNodeText(fixture.root);
     fixture.root.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "ArrowRight", shiftKey: true }));
-    expect(fixture.provider.contextReferences("").selection?.text).toBe("keyboard selection");
+    expect(fixture.provider.contextReferences().selection?.text).toBe("keyboard selection");
     fixture.emit("modify", fixture.view.file);
     fixture.select("fresh pointer selection");
-    expect(fixture.provider.contextReferences("").selection?.text).toBe("fresh pointer selection");
+    expect(fixture.provider.contextReferences().selection?.text).toBe("fresh pointer selection");
   });
 
   it("clears an existing candidate when a new keyboard selection crosses the preview boundary", () => {
@@ -534,7 +545,7 @@ describe("Composer selection context", () => {
     document.getSelection()?.removeAllRanges();
     document.getSelection()?.addRange(range);
     fixture.root.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "a", ctrlKey: true }));
-    expect(fixture.provider.contextReferences("").selection).toBeNull();
+    expect(fixture.provider.contextReferences().selection).toBeNull();
   });
 
   it("uses the originating document and removes its listeners when the last consumer closes", () => {
@@ -545,13 +556,13 @@ describe("Composer selection context", () => {
     if (!ownerDocument) throw new Error("Missing iframe document");
     const fixture = readingFixture(ownerDocument);
     fixture.select("popout document text");
-    expect(fixture.provider.contextReferences("").selection?.text).toBe("popout document text");
+    expect(fixture.provider.contextReferences().selection?.text).toBe("popout document text");
     const second = new VaultComposerContextReferenceProvider(fixture.app, () => false);
     cleanups.push(() => second.dispose());
     fixture.provider.dispose();
     expect(fixture.registeredEventNames()).toEqual(expect.arrayContaining(["file-open", "active-leaf-change"]));
     fixture.select("still tracked");
-    expect(second.contextReferences("").selection?.text).toBe("still tracked");
+    expect(second.contextReferences().selection?.text).toBe("still tracked");
     const remove = vi.spyOn(ownerDocument, "removeEventListener");
     second.dispose();
     expect(fixture.registeredEventNames()).toEqual([]);
@@ -653,7 +664,7 @@ function editorFixture(doc = "alpha beta") {
     posToOffset: offset,
     getRange: (from: { line: number; ch: number }, to: { line: number; ch: number }) => cm.state.sliceDoc(offset(from), offset(to)),
   });
-  fixture.provider.contextReferences("");
+  fixture.provider.contextReferences();
   cleanups.push(() => {
     fixture.provider.dispose();
     cm.destroy();

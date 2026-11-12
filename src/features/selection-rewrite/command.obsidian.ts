@@ -1,5 +1,6 @@
 import { type Editor, MarkdownView, Notice, type Plugin } from "obsidian";
 import type { SendShortcut } from "../../domain/input/send-shortcut";
+import { fileReferencePath } from "../../shared/obsidian/file-path.obsidian";
 import type { SelectionRewriteInput, SelectionRewriteRuntimeSettings } from "./model";
 import { openSelectionRewritePopover, type SelectionRewritePopoverHandle } from "./popover.dom";
 import type { SelectionRewritePort } from "./port";
@@ -45,7 +46,7 @@ export function registerSelectionRewriteCommand(
         to: clonePosition(editor.getCursor("to")),
       };
       const input: SelectionRewriteInput = {
-        filePath: view.file.path,
+        filePath: fileReferencePath(view.file),
         targetRange,
         selectionOffsets: { from: editor.posToOffset(targetRange.from), to: editor.posToOffset(targetRange.to) },
         originalText,

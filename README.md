@@ -47,7 +47,7 @@ Use `/doctor` for CLI and connection diagnostics, `/reconnect` to reconnect to C
 
 | Key                               | Version   | Policy                                                                                           |
 | --------------------------------- | --------- | ------------------------------------------------------------------------------------------------ |
-| `manifest.minAppVersion`          | `1.13.0`  | Earliest Obsidian desktop version supported by the current source.                               |
+| `manifest.minAppVersion`          | `1.14.4`  | Earliest Obsidian desktop version supported by the current source.                               |
 | `codexAppServer.testedCliVersion` | `0.167.0` | Exact CLI patch used to generate and verify bindings; compatibility is tracked by minor version. |
 
 Codex Panel depends on the experimental `codex app-server` API.

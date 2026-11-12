@@ -5,6 +5,7 @@ import * as dailyNotesInterface from "obsidian-daily-notes-interface";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { configuredDailyNoteReferences } from "../../../../../src/features/chat/host/obsidian/vault-daily-note-references.obsidian";
 import { VaultNoteCandidateProvider } from "../../../../../src/features/chat/host/obsidian/vault-note-candidate-provider.obsidian";
+import { TExternalFile } from "../../../../mocks/obsidian";
 
 describe("VaultNoteCandidateProvider", () => {
   beforeEach(() => {
@@ -22,7 +23,7 @@ describe("VaultNoteCandidateProvider", () => {
       throw new Error("Daily Notes API unavailable");
     });
 
-    expect(configuredDailyNoteReferences(appFixture(), "Inbox.md")).toEqual([]);
+    expect(configuredDailyNoteReferences(appFixture())).toEqual([]);
   });
 
   it("builds relative references from the configured daily-note folder and format", () => {
@@ -43,7 +44,7 @@ describe("VaultNoteCandidateProvider", () => {
 
     const provider = new VaultNoteCandidateProvider(app);
     onTestFinished(() => provider.dispose());
-    expect(provider.dailyNoteReferences("Projects/Codex.md")).toEqual([
+    expect(provider.dailyNoteReferences()).toEqual([
       {
         keyword: "today",
         display: "Today",
@@ -66,7 +67,7 @@ describe("VaultNoteCandidateProvider", () => {
         linktext: "Journal/2026/07/2026-07-09",
       },
     ]);
-    expect(fileToLinktext).toHaveBeenCalledWith(existingToday, "Projects/Codex.md", true);
+    expect(fileToLinktext).toHaveBeenCalledWith(existingToday, "", true);
   });
 
   it("builds note candidates from markdown files", () => {
@@ -93,7 +94,7 @@ describe("VaultNoteCandidateProvider", () => {
     });
     const provider = new VaultNoteCandidateProvider(app);
 
-    expect(provider.candidates("Inbox.md")).toEqual([
+    expect(provider.candidates()).toEqual([
       { basename: "Alpha", displayName: "Alpha", path: "notes/Alpha.md", mtime: 100, linktext: "Alpha", headings: [], recentIndex: null },
       {
         basename: "Beta",
@@ -152,18 +153,14 @@ describe("VaultNoteCandidateProvider", () => {
     ]);
   });
 
-  it("caches file candidates and reprojects linktext by source path", () => {
-    const files = [{ basename: "Alpha", path: "notes/Alpha.md", stat: { mtime: 100 } }];
-    const getFiles = vi.fn(() => vaultFiles(files));
+  it("caches file candidates with an empty source path", () => {
+    const getFiles = vi.fn(() => vaultFiles([{ basename: "Alpha", path: "notes/Alpha.md", stat: { mtime: 100 } }]));
     const fileToLinktext = vi.fn((file: TFile, sourcePath: string) => `${sourcePath}:${file.basename}`);
-    const app = appFixture({ getFiles, fileToLinktext });
-    const provider = new VaultNoteCandidateProvider(app);
-
-    expect(provider.candidates("Daily/Today.md")[0]?.linktext).toBe("Daily/Today.md:Alpha");
-    expect(provider.candidates("Projects.md")[0]?.linktext).toBe("Projects.md:Alpha");
-    expect(provider.candidates("Daily/Today.md")[0]?.linktext).toBe("Daily/Today.md:Alpha");
+    const provider = new VaultNoteCandidateProvider(appFixture({ getFiles, fileToLinktext }));
+    expect(provider.candidates()[0]?.linktext).toBe(":Alpha");
+    expect(provider.candidates()[0]?.linktext).toBe(":Alpha");
     expect(getFiles).toHaveBeenCalledOnce();
-    expect(fileToLinktext).toHaveBeenCalledTimes(2);
+    expect(fileToLinktext).toHaveBeenCalledOnce();
   });
 
   it("returns normalized Obsidian tag candidates from file metadata", () => {
@@ -189,8 +186,8 @@ describe("VaultNoteCandidateProvider", () => {
     const first = new VaultNoteCandidateProvider(app);
     const second = new VaultNoteCandidateProvider(app);
 
-    first.candidates("Inbox.md");
-    second.candidates("Inbox.md");
+    first.candidates();
+    second.candidates();
     first.dispose();
 
     expect(getFiles).toHaveBeenCalledOnce();
@@ -205,16 +202,16 @@ describe("VaultNoteCandidateProvider", () => {
 
     const reopened = new VaultNoteCandidateProvider(app);
     onTestFinished(() => reopened.dispose());
-    expect(reopened.candidates("Inbox.md").map((candidate) => candidate.path)).toEqual(["Alpha.md"]);
+    expect(reopened.candidates().map((candidate) => candidate.path)).toEqual(["Alpha.md"]);
     files = vaultFiles([
       { basename: "Alpha", path: "Alpha.md", stat: { mtime: 1 } },
       { basename: "Beta", path: "Beta.md", stat: { mtime: 2 } },
     ]);
     app.triggerVaultEvent("create");
-    expect(reopened.candidates("Inbox.md").map((candidate) => candidate.path)).toEqual(["Alpha.md", "Beta.md"]);
+    expect(reopened.candidates().map((candidate) => candidate.path)).toEqual(["Alpha.md", "Beta.md"]);
   });
 
-  it("resolves wikilinks through metadata cache before direct path fallback", () => {
+  it("resolves wikilinks through metadata cache", () => {
     const linked = tFile("notes/Alpha.md", "Alpha");
     const direct = tFile("Alpha.md", "Alpha direct");
     const getFirstLinkpathDest = vi.fn(() => linked);
@@ -224,19 +221,21 @@ describe("VaultNoteCandidateProvider", () => {
     });
     const provider = new VaultNoteCandidateProvider(app);
 
-    expect(provider.resolveFileReference("Alpha", "Inbox.md")).toEqual({ name: "Alpha", path: "notes/Alpha.md" });
-    expect(getFirstLinkpathDest).toHaveBeenCalledWith("Alpha", "Inbox.md");
+    expect(provider.resolveFileReference("Alpha")).toEqual({ name: "Alpha", path: "notes/Alpha.md" });
+    expect(getFirstLinkpathDest).toHaveBeenCalledWith("Alpha", "");
   });
 
-  it("resolves direct markdown paths when metadata has no match", () => {
-    const direct = tFile("notes/Alpha.md", "Alpha");
+  it("sends real paths for externally resolved wikilinks", () => {
+    const external = new TExternalFile("file:/outside/Target.md") as unknown as TFile;
     const app = appFixture({
-      abstractFiles: new Map([["notes/Alpha.md", direct]]),
+      getFirstLinkpathDest: (target) => (target === "Target" ? external : null),
+      abstractFiles: new Map([[external.path, external]]),
     });
     const provider = new VaultNoteCandidateProvider(app);
-
-    expect(provider.resolveFileReference("notes/Alpha", "")).toEqual({ name: "Alpha", path: "notes/Alpha.md" });
-    expect(provider.resolveFileReference("Missing", "")).toBeNull();
+    onTestFinished(() => provider.dispose());
+    expect(provider.resolveFileReference("Target")).toEqual({ name: "Target", path: "/outside/Target.md" });
+    expect(provider.resolveFileReference("/outside/Target.md")).toBeNull();
+    expect(provider.resolveFileReference("file:///outside/Target.md")).toBeNull();
   });
 
   it("resolves non-markdown wikilinks through Obsidian metadata", () => {
@@ -247,11 +246,11 @@ describe("VaultNoteCandidateProvider", () => {
     });
     const provider = new VaultNoteCandidateProvider(app);
 
-    expect(provider.resolveFileReference("Bases/Projects.base", "Daily/Today.md")).toEqual({
+    expect(provider.resolveFileReference("Bases/Projects.base")).toEqual({
       name: "Projects",
       path: "Bases/Projects.base",
     });
-    expect(getFirstLinkpathDest).toHaveBeenCalledWith("Bases/Projects.base", "Daily/Today.md");
+    expect(getFirstLinkpathDest).toHaveBeenCalledWith("Bases/Projects.base", "");
   });
 });
 

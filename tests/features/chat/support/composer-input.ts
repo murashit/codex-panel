@@ -2,7 +2,6 @@ import type { ComposerInputSnapshot } from "../../../../src/features/chat/applic
 
 export function emptyComposerInputSnapshot(): ComposerInputSnapshot {
   return {
-    sourcePath: "",
     availableSkills: [],
     referenceActiveNoteOnSend: false,
     contextReferences: { activeNote: null, selection: null },

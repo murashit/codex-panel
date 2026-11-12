@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { CodexInput } from "../../../../../src/domain/input/input";
 import type { SkillMetadata } from "../../../../../src/domain/runtime/catalog";
-import type { ComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
+import {
+  activeNoteContextReferenceMarker,
+  type ComposerContextReferences,
+} from "../../../../../src/features/chat/application/composer/context-references";
+import { captureSelectionContext } from "../../../../../src/features/chat/application/composer/selection-context";
 import {
   preparedUserInputWithWikiLinkReferencesSkillsAndContext,
   type WikiLinkFileReferenceResolver,
@@ -31,6 +35,97 @@ function userInputWithWikiLinkReferencesAndSkills(
 }
 
 describe("wikilink context", () => {
+  it("sends an external snapshot with special characters using its real path", () => {
+    const reference = { name: "A#B|C", path: "/outside/A#B|C.md", linktext: "file:///outside/A%23B%7CC.md" };
+    const text = activeNoteContextReferenceMarker(reference);
+    expect(text).toBe("External file: `/outside/A#B|C.md`");
+    const input = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
+      text,
+      () => null,
+      [],
+      {
+        activeNote: null,
+        selection: null,
+        activeNoteSnapshots: [reference],
+      },
+      { referenceActiveNoteOnSend: false },
+    ).input;
+    expect(input).toContainEqual({ type: "fileReference", name: reference.name, path: reference.path });
+    expect(input).toContainEqual(wikilinkContext(`- ${text} -> ${reference.path}`));
+  });
+
+  it("sends external selections without making their file path a wikilink", () => {
+    const reference = {
+      name: "A",
+      path: "/outside/A.md",
+      linktext: "file:///outside/A.md",
+      text: "selected text",
+      range: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 13 } },
+    };
+    const snapshot = captureSelectionContext(reference, []);
+    expect(snapshot.marker).toBe('External file: `/outside/A.md` "selected text"');
+    const result = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
+      snapshot.marker,
+      () => null,
+      [],
+      {
+        activeNote: null,
+        selection: null,
+        selectionSnapshots: [snapshot],
+      },
+      { referenceActiveNoteOnSend: false },
+    );
+    expect(result.text).toBe('External file: `/outside/A.md` `"selected text"`');
+    expect(result.input).toContainEqual({ type: "fileReference", name: "A", path: "/outside/A.md" });
+    expect(result.input).toContainEqual(
+      expect.objectContaining({ type: "additionalContext", value: expect.stringContaining("selected text") }),
+    );
+  });
+
+  it("reports an external selection once when its active-file marker is also present", () => {
+    const reference = {
+      name: "A",
+      path: "/outside/A.md",
+      linktext: "file:///outside/A.md",
+      text: "selected",
+      range: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 8 } },
+    };
+    const marker = activeNoteContextReferenceMarker(reference);
+    const selection = captureSelectionContext(reference, []);
+    const result = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
+      `${marker} ${selection.marker}`,
+      () => null,
+      [],
+      {
+        activeNote: null,
+        selection: null,
+        activeNoteSnapshots: [reference],
+        selectionSnapshots: [selection],
+      },
+      { referenceActiveNoteOnSend: false },
+    );
+    expect(result.input.filter((item) => item.type === "fileReference")).toHaveLength(1);
+    const context = result.input.find((item) => item.type === "additionalContext");
+    expect(context?.type === "additionalContext" && context.value.match(/ -> \/outside\/A\.md/g)).toHaveLength(1);
+  });
+
+  it("does not attach an external marker inside a fenced code block", () => {
+    const reference = { name: "A", path: "/outside/A.md", linktext: "file:///outside/A.md" };
+    const marker = activeNoteContextReferenceMarker(reference);
+    const result = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
+      `\`\`\`text\n${marker}\n\`\`\``,
+      () => null,
+      [],
+      {
+        activeNote: null,
+        selection: null,
+        activeNoteSnapshots: [reference],
+      },
+      { referenceActiveNoteOnSend: false },
+    );
+    expect(result.input.some((item) => item.type === "fileReference")).toBe(false);
+  });
+
   it("parses aliases, subpaths, and duplicate links", () => {
     const text =
       "See [[Alpha|label]], [[Beta#Heading]], [[Gamma^block]], [[Delta#Heading^block]], [[Epsilon^block#Heading]], and [[Alpha]].";

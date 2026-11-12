@@ -10,6 +10,7 @@ import type { ServerNotification } from "../../../../../src/app-server/connectio
 import type { ServerInitialization } from "../../../../../src/domain/runtime/metadata";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
+import { prepareComposerInput } from "../../../../../src/features/chat/application/composer/prepared-input";
 import { activeThreadId } from "../../../../../src/features/chat/application/state/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { selectChatPanelComposer } from "../../../../../src/features/chat/host/composer/view-projection";
@@ -52,6 +53,19 @@ describe("chat panel session runtime", () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     document.body.replaceChildren();
+  });
+
+  it("resolves chat wikilinks independently of the active note", async () => {
+    const workspace = chatWorkspaceFixture();
+    workspace.getActiveFile = vi.fn(() => ({ path: "topics/Source.md" })) as never;
+    const app = { workspace, vault: chatVaultFixture(), metadataCache: chatMetadataCacheFixture() };
+    const { runtime } = sessionRuntimeFixture({ environment: { obsidian: { app: app as never } } });
+    const resolve = vi.fn(() => ({ name: "Target", path: "Target.md" }));
+    const snapshot = runtime.composer.input.captureInputSnapshot();
+    const prepared = prepareComposerInput("[[Target]]", snapshot, resolve);
+    expect(resolve).toHaveBeenCalledWith("Target");
+    expect(prepared.input).toContainEqual({ type: "fileReference", name: "Target", path: "Target.md" });
+    await runtime.dispose(() => {});
   });
 
   it.each(["pin", "archive-result", "slash-archive", "slash-rename", "fork", "slash-fork"] as const)(

@@ -53,7 +53,7 @@ function createHost(draft: string, options: { subagent?: boolean; input?: Partia
         ? chatStateWith(createChatState(), { activeThread: { id: "child", provenance: { kind: "subagent", parentThreadId: "parent" } } })
         : createChatState(),
     );
-  const fixture = createInput({ sourcePath: () => "snapshot.md", ...options.input, stateStore });
+  const fixture = createInput({ ...options.input, stateStore });
   fixture.input.setDraft(draft);
   // Double the external effects, keeping input consumption and turn settlement real.
   const startTurn = vi.fn().mockResolvedValue({ kind: "completed", value: { turnId: "turn" } });
@@ -187,7 +187,12 @@ describe("submitComposer", () => {
   it("accepts a slash command with surrounding composer whitespace", async () => {
     const { host, input, execute, startTurn } = createHost("  /status  ");
     await submitComposer(host);
-    expect(execute).toHaveBeenCalledWith("status", "", expect.objectContaining({ sourcePath: "snapshot.md" }), expect.anything());
+    expect(execute).toHaveBeenCalledWith(
+      "status",
+      "",
+      expect.objectContaining({ contextReferences: expect.anything() }),
+      expect.anything(),
+    );
     expect(startTurn).not.toHaveBeenCalled();
     expect(input.draft).toBe("");
   });
@@ -228,7 +233,6 @@ describe("submitComposer", () => {
       "plan",
       "Summarize",
       expect.objectContaining({
-        sourcePath: "snapshot.md",
         contextReferences: { activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" }, selection: null },
       }),
       { isCurrent: expect.any(Function), adoptPanelTarget: expect.any(Function) },

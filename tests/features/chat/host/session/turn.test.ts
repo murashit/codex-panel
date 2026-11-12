@@ -113,7 +113,7 @@ describe("createSessionTurn", () => {
 
     await fixture.submit();
 
-    expect(referThread).toHaveBeenCalledWith(thread, "summarize", expect.objectContaining({ sourcePath: "snapshot.md" }));
+    expect(referThread).toHaveBeenCalledWith(thread, "summarize", expect.objectContaining({ contextReferences: expect.anything() }));
     expect(fixture.status.addSystemMessage).toHaveBeenCalledExactlyOnceWith("history unavailable");
   });
 });
@@ -170,7 +170,6 @@ function sessionTurnFixture(
       activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
       selection: null,
     })),
-    sourcePath: () => "snapshot.md",
     referenceActiveNoteOnSend: () => true,
   });
   composer.setDraft(draft);

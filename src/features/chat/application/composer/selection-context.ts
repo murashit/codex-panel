@@ -1,19 +1,24 @@
-import { formatComposerContextRange, type SelectionContextReference, type SelectionContextSnapshot } from "./context-references";
+import {
+  activeNoteContextReferenceMarker,
+  formatComposerContextRange,
+  type SelectionContextReference,
+  type SelectionContextSnapshot,
+} from "./context-references";
 
 const PREVIEW_LENGTH = 48;
 
 export function selectionContextPreview(selection: SelectionContextReference, length = PREVIEW_LENGTH): string {
-  return previewForNote(selection.linktext, selection.text, length);
+  return previewForNote(selection, selection.text, length);
 }
 
 function previewText(text: string): string {
   return text.replace(/\r\n|[\r\n\t\u2028\u2029]/g, " ");
 }
 
-function previewForNote(linktext: string, text: string, length: number, coordinates = ""): string {
+function previewForNote(reference: SelectionContextReference, text: string, length: number, coordinates = ""): string {
   const characters = Array.from(previewText(text));
   const preview = characters.slice(0, length).join("") + (characters.length > length ? "…" : "");
-  return `[[${linktext}]] ${coordinates}"${preview}"`;
+  return `${activeNoteContextReferenceMarker(reference)} ${coordinates}"${preview}"`;
 }
 
 export function captureSelectionContext(
@@ -36,14 +41,14 @@ export function captureSelectionContext(
   const length = Array.from(previewText(reference.text)).length;
   const first = Math.min(PREVIEW_LENGTH, length);
   // Use the actual note path if the shorter name leaves no usable label.
-  for (const linktext of new Set([reference.linktext, reference.path.replace(/\.md$/i, ""), reference.path])) {
+  for (const linktext of selectionLinktexts(reference)) {
     for (let size = first; size <= length; size += 1) {
-      const marker = previewForNote(linktext, reference.text, size, coordinates);
+      const marker = previewForNote({ ...reference, linktext }, reference.text, size, coordinates);
       if (available(marker)) return { reference, marker };
     }
     // If extending cannot distinguish the new label, keep a shorter honest excerpt.
     for (let size = first - 1; size > 0; size -= 1) {
-      const marker = previewForNote(linktext, reference.text, size, coordinates);
+      const marker = previewForNote({ ...reference, linktext }, reference.text, size, coordinates);
       if (available(marker)) return { reference, marker };
     }
   }
@@ -73,4 +78,21 @@ export function selectionContextMatches(text: string, snapshots: readonly Select
   masked += text.slice(cursor);
   // Treat excerpt syntax as text, not new wikilinks, skills, or code delimiters.
   return { matches, masked };
+}
+
+export function selectionContextPrefix(snapshot: SelectionContextSnapshot): string {
+  const { reference, marker } = snapshot;
+  for (const linktext of selectionLinktexts(reference)) {
+    const prefix = activeNoteContextReferenceMarker({ ...reference, linktext });
+    if (marker.startsWith(`${prefix} `)) return prefix;
+  }
+  throw new Error("Invalid selection context marker.");
+}
+
+function selectionLinktexts(reference: SelectionContextReference): Set<string> {
+  return new Set(
+    reference.linktext.startsWith("file://")
+      ? [reference.linktext]
+      : [reference.linktext, reference.path.replace(/\.md$/i, ""), reference.path],
+  );
 }

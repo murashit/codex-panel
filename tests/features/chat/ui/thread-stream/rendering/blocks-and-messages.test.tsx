@@ -448,8 +448,7 @@ describe("panel thread stream rendering and action menu", () => {
     const parent = document.createElement("div");
     const baseContext = {
       renderObsidianMarkdown: vi.fn(),
-      renderStreamMarkdown: (element: HTMLElement, text: string) =>
-        renderStreamMarkdown(element, text, { app: { workspace: { getActiveFile: () => null } } as never, vaultPath: "/vault" }),
+      renderStreamMarkdown: (element: HTMLElement, text: string) => renderStreamMarkdown(element, text),
     };
 
     renderThreadStreamBlocksInAct(
@@ -836,7 +835,6 @@ function markdownRendererFixture() {
   return new ThreadStreamMarkdownRenderer({
     app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
     owner: {} as never,
-    vaultPath: "/vault",
     openThread: vi.fn(),
   });
 }

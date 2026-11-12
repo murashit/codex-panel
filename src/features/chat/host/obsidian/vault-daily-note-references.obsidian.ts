@@ -15,12 +15,12 @@ interface DailyNoteMoment {
   format(pattern: string): string;
 }
 
-export function configuredDailyNoteReferences(app: App, sourcePath: string): readonly DailyNoteReferenceCandidate[] {
+export function configuredDailyNoteReferences(app: App): readonly DailyNoteReferenceCandidate[] {
   try {
     if (!appHasDailyNotesPluginLoaded()) return [];
     const settings = getDailyNoteSettings() as IPeriodicNoteSettings | undefined;
     if (!settings?.format) return [];
-    return dailyNoteReferencesFromSettings(app, sourcePath, settings, new Date());
+    return dailyNoteReferencesFromSettings(app, settings, new Date());
   } catch {
     return [];
   }
@@ -28,7 +28,6 @@ export function configuredDailyNoteReferences(app: App, sourcePath: string): rea
 
 function dailyNoteReferencesFromSettings(
   app: App,
-  sourcePath: string,
   settings: IPeriodicNoteSettings,
   referenceDate: Date,
 ): readonly DailyNoteReferenceCandidate[] {
@@ -45,7 +44,7 @@ function dailyNoteReferencesFromSettings(
       display,
       name: existingFile instanceof TFile ? displayNameForFile(existingFile) : dailyNoteName(filename),
       path,
-      linktext: existingFile instanceof TFile ? linktextForFile(app, existingFile, sourcePath) : path.replace(/\.md$/i, ""),
+      linktext: existingFile instanceof TFile ? linktextForFile(app, existingFile) : path.replace(/\.md$/i, ""),
     };
   });
 }

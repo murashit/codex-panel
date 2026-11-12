@@ -1,5 +1,7 @@
 import type { App } from "obsidian";
 import { parseLinktext } from "obsidian";
+import { isFilesystemAbsolutePath } from "../../../../domain/files/paths";
+import { fileReferencePath } from "../../../../shared/obsidian/file-path.obsidian";
 
 const MAX_SOURCE_PATH_LENGTH = 1024;
 const MAX_WIKILINK_LENGTH = 1024;
@@ -72,14 +74,17 @@ function resolveWikilink(app: App, sourcePath: string, value: string): ResolvedW
 
   const { path: linkpath, subpath } = parseLinktext(linktext);
   if (!linkpath.trim()) throw new Error(`Wikilink file target must not be empty: ${query}`);
-  const destination = app.metadataCache.getFirstLinkpathDest(linkpath, sourcePath);
+  const destination = app.metadataCache.getFirstLinkpathDest(
+    linkpath,
+    isFilesystemAbsolutePath(sourcePath) ? `file:${sourcePath}` : sourcePath,
+  );
   return {
     query,
     status: destination ? "resolved" : "unresolved",
     linkpath,
     subpath,
     displayText,
-    resolvedPath: destination?.path ?? null,
+    resolvedPath: destination ? fileReferencePath(destination) : null,
   };
 }
 

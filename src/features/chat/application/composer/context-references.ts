@@ -1,3 +1,5 @@
+import { markdownCodeSpan } from "../../domain/markdown/code-span";
+
 interface ComposerContextPosition {
   line: number;
   ch: number;
@@ -36,7 +38,7 @@ export interface ComposerSelectionEmphasis {
 }
 
 export interface ComposerContextReferenceProvider {
-  contextReferences(sourcePath: string): ComposerContextReferences;
+  contextReferences(): ComposerContextReferences;
   retainSelectionEmphasis(selection: SelectionContextReference): ComposerSelectionEmphasis | null;
   dispose(): void;
 }
@@ -46,7 +48,7 @@ export function formatComposerContextRange(range: ComposerContextRange): string 
 }
 
 export function activeNoteContextReferenceMarker(activeNote: ActiveNoteContextReference): string {
-  return `[[${activeNote.linktext}]]`;
+  return activeNote.linktext.startsWith("file://") ? `External file: ${markdownCodeSpan(activeNote.path)}` : `[[${activeNote.linktext}]]`;
 }
 
 function formatComposerContextPosition(position: ComposerContextPosition): string {

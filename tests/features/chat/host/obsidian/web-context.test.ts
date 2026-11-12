@@ -30,7 +30,6 @@ describe("web context reader", () => {
   it("attaches fetched Markdown as untrusted context while preserving prepared message input", async () => {
     const inputSnapshot = {
       ...emptyComposerInputSnapshot(),
-      sourcePath: "source.md",
       attachments: [{ kind: "image" as const, name: "Sketch.png", path: "Files/Sketch.png", marker: "[[Files/Sketch.png]]" }],
     };
     const resolveFileReference = vi.fn((target: string) => (target === "Alpha" ? { name: "Alpha", path: "Notes/Alpha.md" } : null));
@@ -47,7 +46,7 @@ describe("web context reader", () => {
 
     expect(requestUrl).toHaveBeenCalledWith({ url: "https://example.com/article", method: "GET", throw: false });
     expect(htmlToMarkdown).toHaveBeenCalledWith(expect.stringContaining("Readable article"));
-    expect(resolveFileReference).toHaveBeenCalledWith("Alpha", "source.md");
+    expect(resolveFileReference).toHaveBeenCalledWith("Alpha");
     expect(result).toEqual({
       text: "https://example.com/article Summarize [[Alpha]] [[Files/Sketch.png]]",
       input: [

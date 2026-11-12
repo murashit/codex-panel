@@ -4,7 +4,6 @@ import type { ComposerAttachment } from "./attachments";
 import type { ActiveNoteContextReference, ComposerContextReferences, SelectionContextSnapshot } from "./context-references";
 
 export interface ComposerInputSnapshot {
-  readonly sourcePath: string;
   readonly availableSkills: readonly SkillMetadata[];
   readonly referenceActiveNoteOnSend: boolean;
   readonly contextReferences: ComposerContextReferences;
