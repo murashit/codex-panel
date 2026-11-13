@@ -86,7 +86,7 @@ export function modelStatusDetails(snapshot: RuntimeSnapshot): DiagnosticRow[] {
   return [
     { label: "Model", value: resolution.model.effective ?? CODEX_DEFAULT_LABEL },
     { label: "Override", value: pendingRuntimeSettingLabel(snapshot.pending.model) },
-    { label: "Provider", value: stringValue(config.modelProvider, CODEX_DEFAULT_LABEL) },
+    { label: "Provider", value: stringValue(snapshot.active.modelProvider ?? config.modelProvider, CODEX_DEFAULT_LABEL) },
     { label: "Effort", value: resolution.reasoningEffort.effective ?? CODEX_DEFAULT_LABEL },
     { label: "Mode", value: collaborationModeLabel(resolution.collaborationMode.effective) },
     { label: "Service tier", value: serviceTierLabel(resolution.serviceTier.effective) },

@@ -19,6 +19,7 @@ interface SessionConnectionStatus {
 }
 
 interface SessionConnectionInput {
+  ensureModels: () => Promise<void>;
   connection: AppServerContextConnectionLease;
   localItemIds: LocalIdSource;
   status: SessionConnectionStatus;
@@ -114,8 +115,16 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
         }),
       isConnected: () => connection.isConnected(),
     },
-    ensureAppServerMetadata: () => environment.plugin.appServerQueries.ensureAppServerMetadata(),
-    refreshAppServerMetadata: () => environment.plugin.appServerQueries.refreshAppServerMetadata(),
+    ensureAppServerMetadata: async () => {
+      await Promise.all([environment.plugin.appServerQueries.ensureAppServerMetadata(), input.ensureModels()]);
+    },
+    refreshAppServerMetadata: async () => {
+      try {
+        await environment.plugin.appServerQueries.refreshAppServerMetadata();
+      } finally {
+        await input.ensureModels();
+      }
+    },
     refreshToolInventory: () => environment.plugin.toolInventoryQueries.refresh(activeThreadId(stateStore.getState())),
     ensureSharedThreads,
     refreshSharedThreads,

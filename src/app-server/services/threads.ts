@@ -29,6 +29,7 @@ interface ThreadActivationResponse extends Partial<RuntimePermissionState> {
   thread: ThreadRecord;
   cwd: string;
   model: string | null;
+  modelProvider?: string | null;
   serviceTier: ServiceTier | null;
   approvalsReviewer: ApprovalsReviewer | null;
   reasoningEffort: string | null;
@@ -390,6 +391,7 @@ export function threadActivationSnapshotFromAppServerResponse(response: ThreadAc
     permissionProfileKnown: "activePermissionProfile" in response,
     collaborationMode: response.collaborationMode?.mode ?? null,
     model: response.model,
+    modelProvider: response.modelProvider ?? null,
     reasoningEffort: normalizeReasoningEffort(response.reasoningEffort),
     serviceTier: parseServiceTier(response.serviceTier),
     approvalsReviewer: response.approvalsReviewer,

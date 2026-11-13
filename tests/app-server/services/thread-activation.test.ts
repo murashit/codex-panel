@@ -20,6 +20,7 @@ describe("app-server thread activation", () => {
       },
       canAcceptDirectInput: false,
       model: "gpt-5.5",
+      modelProvider: "openai",
       serviceTier: "fast",
       approvalsReviewer: "user",
       reasoningEffort: "high",

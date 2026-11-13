@@ -39,6 +39,7 @@ export type ActiveThreadCreatedAction = Omit<ActiveThreadResumedAction, "type"> 
 export interface ActiveThreadSettingsAppliedAction extends RuntimePermissionState, RuntimePermissionKnownState {
   type: "active-thread/settings-applied";
   model: string | null;
+  modelProvider: string | null;
   reasoningEffort: ReasoningEffort | null;
   collaborationMode: CollaborationModeSelection;
   serviceTier: ServiceTier | null;
@@ -47,6 +48,7 @@ export interface ActiveThreadSettingsAppliedAction extends RuntimePermissionStat
 
 export interface ActiveThreadSettingsAppliedActionSettings extends RuntimePermissionState {
   model: string | null;
+  modelProvider: string | null;
   effort: string | null;
   collaborationMode: { mode: CollaborationModeSelection };
   serviceTier: string | null;
@@ -158,6 +160,7 @@ export function activeThreadSettingsAppliedAction(settings: ActiveThreadSettings
   return {
     type: "active-thread/settings-applied",
     model: settings.model,
+    modelProvider: settings.modelProvider,
     reasoningEffort: normalizeReasoningEffort(settings.effort),
     collaborationMode: settings.collaborationMode.mode,
     serviceTier: parseServiceTier(settings.serviceTier),

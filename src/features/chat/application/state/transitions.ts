@@ -386,6 +386,7 @@ function activeRuntimeFromAction(
   return {
     serviceTierKnown: true,
     model: action.model,
+    modelProvider: action.modelProvider,
     reasoningEffort: action.reasoningEffort,
     collaborationMode: action.collaborationMode,
     serviceTier: action.serviceTier,

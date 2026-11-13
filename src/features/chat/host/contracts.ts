@@ -2,6 +2,7 @@ import type { App, Component, EventRef } from "obsidian";
 import type { AppServerContextConnection } from "../../../app-server/connection/context-connection";
 import type { AppServerExecutionContext } from "../../../app-server/connection/execution-context";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
+import type { ModelMetadata } from "../../../domain/runtime/catalog";
 import type { MetadataResourceDiagnostics } from "../../../domain/runtime/diagnostics";
 import type {
   SharedServerMetadataResourceFor,
@@ -61,6 +62,9 @@ export interface WorkspacePanels {
 type ChatThreadCatalog = ThreadCatalogPaginatedActiveReader;
 
 interface ChatAppServerQueries {
+  fetchModels(modelProvider?: string): Promise<readonly ModelMetadata[]>;
+  modelsResourceSnapshot(modelProvider?: string): SharedServerMetadataResourceFor<"models">;
+  observeModelsResource(listener: (resource: SharedServerMetadataResourceFor<"models">) => void, modelProvider?: string): () => void;
   metadataSnapshot<Id extends SharedServerMetadataResourceId>(id: Id): SharedServerMetadataSnapshotValues[Id];
   metadataDiagnosticsSnapshot(): MetadataResourceDiagnostics;
   ensureAppServerMetadata(): Promise<void>;

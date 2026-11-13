@@ -54,7 +54,7 @@ interface ChatPanelSessionRuntimeHost {
 
 export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost) {
   const { environment, stateStore } = host;
-  const sharedResources = createSessionSharedResources(environment);
+  const sharedResources = createSessionSharedResources(environment.plugin, stateStore);
   const localItemIds = createLocalIdSource();
   const resourceContext = environment.plugin.appServerContext;
   const connection = environment.plugin.appServerConnection.createLease();
@@ -101,6 +101,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     },
     {
       connection,
+      ensureModels: () => sharedResources.ensureModels(),
       localItemIds,
       autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
       threadReadState,
@@ -375,6 +376,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     },
     turn,
     shell,
+    sharedResources,
     commands,
     observers: {
       threadCatalog: threadCatalogObserver,
@@ -391,6 +393,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
         unsubscribeGoalChanges();
         threadFeatures.rename.invalidate();
         composerController.dispose();
+        sharedResources.dispose();
         host.threadStreamScrollBinding.dispose();
         unmount();
       } finally {

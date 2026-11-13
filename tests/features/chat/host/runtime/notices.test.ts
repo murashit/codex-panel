@@ -10,7 +10,7 @@ import { chatStateFixture, chatStateWith } from "../../support/state";
 describe("createChatPanelRuntimeNotices", () => {
   it("builds slash-command runtime details from panel state and shared resources", () => {
     let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread-1" } });
+    state = chatStateWith(state, { activeThread: { id: "thread-1" }, runtime: { active: { modelProvider: "saved-provider" } } });
     const runtimeConfig = runtimeConfigFromAppServerFixture({
       model: "gpt-5.5",
       model_provider: "openai",
@@ -38,7 +38,7 @@ describe("createChatPanelRuntimeNotices", () => {
         auditFacts: [
           { key: "Model", value: "gpt-5.5" },
           { key: "Override", value: "(none)" },
-          { key: "Provider", value: "openai" },
+          { key: "Provider", value: "saved-provider" },
           { key: "Effort", value: "high" },
           { key: "Mode", value: "Default" },
           { key: "Service tier", value: "fast" },

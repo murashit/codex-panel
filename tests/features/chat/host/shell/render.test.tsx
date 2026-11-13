@@ -32,14 +32,17 @@ describe("ChatPanelShell", () => {
     store.dispatch({ type: "ui/panel-set", panel: "status-panel" });
     const container = document.body.appendChild(document.createElement("div"));
     const props = shellProps(store);
-    const modelListeners = new Set<(resource: SharedServerMetadataResourceFor<"models">) => void>();
+    const modelListeners = new Set<() => void>();
+    const models = { current: props.modelsSource.modelsResourceSnapshot() };
+    props.modelsSource = {
+      modelsResourceSnapshot: () => models.current,
+      subscribeModels: (listener) => {
+        modelListeners.add(listener);
+        return () => modelListeners.delete(listener);
+      },
+    };
     const limitListeners = new Set<(resource: SharedServerMetadataResourceFor<"rateLimits">) => void>();
     props.appServerQueries.observeMetadataResource = (id, listener) => {
-      if (id === "models") {
-        const receive = listener as (resource: SharedServerMetadataResourceFor<"models">) => void;
-        modelListeners.add(receive);
-        return () => modelListeners.delete(receive);
-      }
       if (id === "rateLimits") {
         const receive = listener as (resource: SharedServerMetadataResourceFor<"rateLimits">) => void;
         limitListeners.add(receive);
@@ -64,8 +67,8 @@ describe("ChatPanelShell", () => {
         ["model-next", 70, "70%"],
       ] as const) {
         await act(async () => {
-          for (const receive of modelListeners)
-            receive({ id: "models", value: [modelMetadataFixture(model)], probe: diagnosticProbeOk("available", 1) });
+          models.current = { id: "models", value: [modelMetadataFixture(model)], probe: diagnosticProbeOk("available", 1) };
+          for (const receive of modelListeners) receive();
           for (const receive of limitListeners)
             receive({
               id: "rateLimits",
