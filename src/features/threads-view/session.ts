@@ -54,6 +54,8 @@ export class ThreadsViewSession {
   private readonly lifecycleBusyThreadIds = new Set<string>();
   private unsubscribeThreads: (() => void) | null = null;
   private archiveConfirmThreadId: string | null = null;
+  private rendering = false;
+  private renderPending = false;
 
   constructor(private readonly environment: ThreadsViewSessionEnvironment) {
     this.renderTask = new DeferredTask(() => this.viewWindow(), 0);
@@ -154,6 +156,27 @@ export class ThreadsViewSession {
 
   private render(): void {
     if (!this.lifetime.isActive()) return;
+    // Focusing an input during rendering can synchronously save another row.
+    if (this.rendering) {
+      this.renderPending = true;
+      return;
+    }
+    this.rendering = true;
+    try {
+      do {
+        this.renderPending = false;
+        this.renderCurrentState();
+      } while (this.hasPendingRender() && this.lifetime.isActive());
+    } finally {
+      this.rendering = false;
+    }
+  }
+
+  private hasPendingRender(): boolean {
+    return this.renderPending;
+  }
+
+  private renderCurrentState(): void {
     const threads = this.threadsResult.value ?? [];
     const initialError = this.threadsResult.value === null ? this.threadsResult.error : null;
     renderThreadsViewShell(

@@ -162,6 +162,7 @@ export function threadRenameControls({
       <ThreadControlButton
         icon={state.generating ? "x" : "sparkles"}
         label={state.generating ? "Cancel auto-name" : "Auto-name thread"}
+        data-thread-rename-control=""
         className={classNames.action}
         disabled={state.saving || (!state.generating && state.autoNameDisabled)}
         onPointerDown={(event) => {
@@ -175,9 +176,9 @@ export function threadRenameControls({
       />
     ),
     onFocusOut: (event) => {
-      const next = event.relatedTarget;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- A browser focus target exposing nodeType is a Node; avoid a realm-specific instanceof check for adopted nodes.
-      if (busy || (next && "nodeType" in next && event.currentTarget.contains(next as Node))) return;
+      const controls = [...event.currentTarget.querySelectorAll("[data-thread-rename-control]")];
+      if (!controls.some((control) => control === event.target)) return;
+      if (busy || controls.some((control) => control === event.relatedTarget)) return;
       save(state.draft);
     },
     onKeyDown: (event) => {
@@ -217,6 +218,7 @@ function ThreadRenameInput({
         ref={inputRef}
         className={`codex-panel-ui__nav-inline-input ${className}`}
         type="text"
+        data-thread-rename-control=""
         aria-labelledby={labelId.current}
         value={value}
         disabled={busy}
