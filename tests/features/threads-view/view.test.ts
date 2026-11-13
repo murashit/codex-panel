@@ -358,7 +358,21 @@ describe("CodexThreadsView", () => {
     const view = await threadsView(host);
     document.body.append(view.containerEl);
 
-    await openRenameEditor(view);
+    const button = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]');
+    if (!button) throw new Error("Missing rename button");
+    button.focus();
+    // Chromium fires focusout on removal of a focused element; jsdom does not.
+    const remove = button.remove.bind(button);
+    const removeSpy = vi.spyOn(button, "remove").mockImplementation(() => {
+      button.blur();
+      remove();
+    });
+    try {
+      button.click();
+      expect(removeSpy).toHaveBeenCalledOnce();
+    } finally {
+      removeSpy.mockRestore();
+    }
     const firstInput = renameInput(view);
     firstInput.click();
     expect(host.openThreadInAvailableView).not.toHaveBeenCalled();
@@ -570,6 +584,9 @@ describe("CodexThreadsView", () => {
     autoName.focus();
     autoName.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(view.containerEl.querySelector(".codex-panel-threads__rename-input")).toBeNull();
+    expect(
+      [...view.containerEl.querySelectorAll(".codex-panel-threads__row button")].map((button) => button.getAttribute("aria-label")),
+    ).toEqual(["Rename thread", "Archive thread", "Pin thread"]);
     moveOutsideThreadsView();
     expect(view.containerEl.querySelector(".codex-panel-threads__row-title")?.textContent).toBe("Thread preview");
     expect(host.threadMutations.renameThread).not.toHaveBeenCalled();
