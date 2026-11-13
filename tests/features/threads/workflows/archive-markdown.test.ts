@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { transcriptEntriesFromTurnRecords } from "../../../../src/app-server/protocol/turn";
-import type { Thread } from "../../../../src/domain/threads/model";
-import type { ThreadTranscriptEntry } from "../../../../src/domain/threads/transcript";
+import type { ThreadTranscript, ThreadTranscriptEntry } from "../../../../src/domain/threads/transcript";
 import { archivedThreadMarkdown } from "../../../../src/features/threads/workflows/archive-markdown";
 import { appServerTurnFixture } from "../../../support/app-server-records";
+import { panelThreadFixture } from "../../../support/panel-thread";
 
 describe("thread archive export", () => {
   it("writes frontmatter and readable user/codex turns with turn timestamps", () => {
@@ -255,18 +255,9 @@ describe("thread archive export", () => {
   });
 });
 
-function thread(
-  overrides: Partial<Thread & { transcriptEntries: ThreadTranscriptEntry[] }> = {},
-): Thread & { transcriptEntries: ThreadTranscriptEntry[] } {
+function thread(overrides: Partial<ThreadTranscript> = {}): ThreadTranscript {
   return {
-    id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
-    preview: "Preview",
-    createdAt: 1,
-    updatedAt: 1,
-    name: null,
-    archived: false,
-    ephemeral: false,
-    provenance: { kind: "interactive" },
+    ...panelThreadFixture({ id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781", preview: "Preview" }),
     transcriptEntries: [],
     ...overrides,
   };
