@@ -1619,7 +1619,7 @@ describe("ChatInboundHandler", () => {
             approvalsReviewer: "auto_review",
             sandboxPolicy: { type: "readOnly", networkAccess: false },
             model: "gpt-5.5",
-            modelProvider: "openai",
+            modelProvider: "team-provider",
             serviceTier,
             approvalPolicy: "on-request",
             effort: "high",
@@ -1636,6 +1636,7 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
 
       expect(handler.currentState().runtime.active.model).toBe("gpt-5.5");
+      expect(handler.currentState().runtime.active.modelProvider).toBe("team-provider");
       expect(handler.currentState().runtime.active.serviceTier).toBe(serviceTier);
       expect(handler.currentState().runtime.active.approvalsReviewer).toBe("auto_review");
       expect(handler.currentState().runtime.active.approvalPolicy).toBe("on-request");

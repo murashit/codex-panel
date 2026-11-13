@@ -131,6 +131,9 @@ function chatHostFixture(): CodexChatHost {
     settings: chatPanelSettingsAccess(settings),
     workspace: workspacePanelsFixture(),
     appServerQueries: {
+      modelsResourceSnapshot: vi.fn(() => ({ id: "models" as const, value: undefined, probe: createServerDiagnostics().probes.models })),
+      observeModelsResource: vi.fn(() => () => undefined),
+      fetchModels: vi.fn().mockResolvedValue([]),
       metadataSnapshot: vi.fn(() => null),
       metadataDiagnosticsSnapshot: vi.fn(() => createServerDiagnostics()),
       ensureAppServerMetadata: vi.fn(() => Promise.resolve()),

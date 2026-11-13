@@ -349,6 +349,7 @@ describe("thread management commands", () => {
       activePermissionProfile: null,
       thread: panelThread("source"),
       model: "gpt-5.6",
+      modelProvider: "openai",
       reasoningEffort: null,
       serviceTier,
       approvalsReviewer: "auto_review",

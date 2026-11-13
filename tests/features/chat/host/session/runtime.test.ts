@@ -456,7 +456,10 @@ describe("chat panel session runtime", () => {
       environment: {
         plugin: {
           appServerConnection: context.connection,
-          appServerQueries: { metadataSnapshot: (id) => (id === "runtimeConfig" ? config : id === "models" ? models : null) as never },
+          appServerQueries: {
+            metadataSnapshot: (id) => (id === "runtimeConfig" ? config : null) as never,
+            modelsResourceSnapshot: () => ({ id: "models", value: models, probe: createServerDiagnostics().probes.models }),
+          },
         },
       },
     });
@@ -823,6 +826,9 @@ describe("chat panel session runtime", () => {
     overrides: Partial<ChatPanelEnvironment["plugin"]["appServerQueries"]> = {},
   ): ChatPanelEnvironment["plugin"]["appServerQueries"] {
     return {
+      modelsResourceSnapshot: vi.fn(() => ({ id: "models" as const, value: undefined, probe: createServerDiagnostics().probes.models })),
+      observeModelsResource: vi.fn(() => () => undefined),
+      fetchModels: vi.fn().mockResolvedValue([]),
       metadataSnapshot: vi.fn(() => null),
       metadataDiagnosticsSnapshot: vi.fn(() => createServerDiagnostics()),
       ensureAppServerMetadata: vi.fn().mockResolvedValue(undefined),

@@ -112,6 +112,18 @@ export class AppServerMetadataQueries {
     return this.observeMetadataQueryResource(descriptor.queryOptions, descriptor.project, listener);
   }
 
+  modelsResourceSnapshot(modelProvider?: string): SharedServerMetadataResourceFor<"models"> {
+    const queryKey = this.createModelsDescriptor(modelProvider).queryOptions.queryKey;
+    const data = this.scope.isDisposed() ? undefined : this.scope.client.getQueryData<MetadataQueryData["models"]>(queryKey);
+    return { id: "models", value: data?.value, probe: this.metadataProbe("models", queryKey) };
+  }
+
+  observeModelsResource(listener: (resource: SharedServerMetadataResourceFor<"models">) => void, modelProvider?: string): () => void {
+    this.scope.assertUsable();
+    const descriptor = this.createModelsDescriptor(modelProvider);
+    return this.observeMetadataQueryResource(descriptor.queryOptions, descriptor.project, listener, modelProvider !== undefined);
+  }
+
   observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>): () => void {
     this.scope.assertUsable();
     return this.scope.observeResult(this.metadataDescriptors["models"].queryOptions, (data) => data.value, listener);
@@ -153,18 +165,18 @@ export class AppServerMetadataQueries {
     if (runtime.status === "rejected") throw runtime.reason;
   }
 
-  async fetchModels(): Promise<readonly ModelMetadata[]> {
+  async fetchModels(modelProvider?: string): Promise<readonly ModelMetadata[]> {
     this.scope.assertUsable();
-    const descriptor = this.metadataDescriptors["models"];
+    const descriptor = this.createModelsDescriptor(modelProvider);
     const data = await this.scope.client.query(descriptor.queryOptions);
     return data.value;
   }
 
-  async refreshModels(): Promise<readonly ModelMetadata[]> {
-    const queryOptions = this.metadataDescriptors["models"].queryOptions;
+  async refreshModels(modelProvider?: string): Promise<readonly ModelMetadata[]> {
+    const queryOptions = this.createModelsDescriptor(modelProvider).queryOptions;
     await this.scope.client.invalidateQueries({ queryKey: queryOptions.queryKey, exact: true, refetchType: "none" });
     this.scope.assertUsable();
-    return this.fetchModels();
+    return this.fetchModels(modelProvider);
   }
 
   async refreshHooks(): Promise<void> {
@@ -204,22 +216,7 @@ export class AppServerMetadataQueries {
         }),
         snapshot: (data) => data,
       },
-      models: {
-        queryOptions: {
-          queryKey: MODELS_QUERY_KEY,
-          queryFn: () =>
-            this.scope.runWithClient(async (client) => {
-              const models = await listModelMetadata(client);
-              return { value: models, summary: `${String(models.length)} models` };
-            }),
-        },
-        project: (result) => ({
-          id: "models",
-          value: result.data?.value,
-          probe: this.metadataProbe("models"),
-        }),
-        snapshot: (data) => data.value,
-      },
+      models: this.createModelsDescriptor(),
       skills: {
         queryOptions: {
           queryKey: SKILLS_QUERY_KEY,
@@ -274,6 +271,21 @@ export class AppServerMetadataQueries {
     };
   }
 
+  private createModelsDescriptor(modelProvider?: string): MetadataResourceDescriptor<"models"> {
+    return {
+      queryOptions: {
+        queryKey: modelProvider === undefined ? MODELS_QUERY_KEY : [...MODELS_QUERY_KEY, modelProvider],
+        queryFn: () =>
+          this.scope.runWithClient(async (client) => {
+            const models = await listModelMetadata(client, modelProvider);
+            return { value: models, summary: `${String(models.length)} models` };
+          }),
+      },
+      project: (result) => ({ id: "models", value: result.data?.value, probe: this.modelsResourceSnapshot(modelProvider).probe }),
+      snapshot: (data) => data.value,
+    };
+  }
+
   private async fetchMetadataResource<Id extends SharedServerMetadataResourceId>(id: Id): Promise<MetadataQueryData[Id]> {
     return this.scope.client.query(this.metadataDescriptors[id].queryOptions);
   }
@@ -291,8 +303,11 @@ export class AppServerMetadataQueries {
     });
   }
 
-  private metadataProbe(resource: MetadataResourceKind): DiagnosticProbeResult {
-    const key = this.metadataDescriptors[resource].queryOptions.queryKey;
+  private metadataProbe(
+    resource: MetadataResourceKind,
+    key = this.metadataDescriptors[resource].queryOptions.queryKey,
+  ): DiagnosticProbeResult {
+    if (this.scope.isDisposed()) return createMetadataResourceDiagnostics().probes[resource];
     const state = this.scope.client.getQueryState<MetadataResourceData<unknown>>(key);
     if (state?.status === "error") return diagnosticProbeError(state.error, state.errorUpdatedAt);
     if (state?.data) return diagnosticProbeOk(state.data.summary, state.dataUpdatedAt);
@@ -303,10 +318,11 @@ export class AppServerMetadataQueries {
     queryOptions: AppServerQueryOptions<TQuery>,
     project: (result: QueryObserverResult<TQuery>) => Resource,
     listener: (resource: Resource) => void,
+    enabled = false,
   ): () => void {
     const observer = new QueryObserver<TQuery>(this.scope.client, {
       ...queryOptions,
-      enabled: false,
+      enabled,
     });
     const emit = (result: QueryObserverResult<TQuery>, includeFetching = false): void => {
       if (this.scope.isDisposed() || (result.isFetching && !includeFetching)) return;

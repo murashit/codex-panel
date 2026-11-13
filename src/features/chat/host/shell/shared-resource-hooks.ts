@@ -48,10 +48,6 @@ const INITIAL_ACTIVE_THREADS: ActiveThreadsDisplayResource = {
 };
 
 const INITIAL_METADATA_DIAGNOSTICS = createMetadataResourceDiagnostics();
-const INITIAL_MODELS: MetadataDisplayResource<readonly ModelMetadata[]> = {
-  value: [],
-  probe: INITIAL_METADATA_DIAGNOSTICS.probes.models,
-};
 const INITIAL_SKILLS: MetadataDisplayResource<readonly SkillMetadata[]> = {
   value: [],
   probe: INITIAL_METADATA_DIAGNOSTICS.probes.skills,
@@ -77,13 +73,19 @@ export function useRuntimeConfigResource(queries: ChatSharedDisplayQueries): Run
   );
 }
 
-export function useModelsResource(queries: ChatSharedDisplayQueries): MetadataDisplayResource<readonly ModelMetadata[]> {
-  return useObservedResource(queries, INITIAL_MODELS, (update) =>
-    queries.observeMetadataResource("models", (resource) => {
-      update((current) => ({
-        value: resource.value ?? current.value,
-        probe: resource.probe,
-      }));
+export interface ChatModelsDisplaySource {
+  modelsResourceSnapshot(): SharedServerMetadataResourceFor<"models">;
+  subscribeModels(listener: () => void): () => void;
+}
+
+export function useModelsResource(source: ChatModelsDisplaySource): MetadataDisplayResource<readonly ModelMetadata[]> {
+  const read = () => {
+    const resource = source.modelsResourceSnapshot();
+    return { value: resource.value ?? [], probe: resource.probe };
+  };
+  return useObservedResource(source, read(), (update) =>
+    source.subscribeModels(() => {
+      update(read);
     }),
   );
 }

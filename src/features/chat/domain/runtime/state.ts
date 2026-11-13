@@ -23,6 +23,7 @@ export interface ChatRuntimeState {
 export interface ActiveThreadRuntimeState extends RuntimePermissionState, RuntimePermissionKnownState {
   readonly serviceTierKnown: boolean;
   readonly model: string | null;
+  readonly modelProvider: string | null;
   readonly reasoningEffort: ReasoningEffort | null;
   readonly collaborationMode: ActiveCollaborationMode;
   readonly serviceTier: ServiceTier | null;
@@ -44,6 +45,7 @@ function initialActiveChatRuntimeState(): ActiveThreadRuntimeState {
     ...initialRuntimePermissionKnownState(),
     serviceTierKnown: false,
     model: null,
+    modelProvider: null,
     reasoningEffort: null,
     collaborationMode: null,
     serviceTier: null,

@@ -10,7 +10,7 @@ import {
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createSessionConnection } from "../../../../../src/features/chat/host/session/connection";
-import { waitForAsyncWork } from "../../../../support/async";
+import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { userInputRequestFixture } from "../../../../support/server-requests";
 import { markdownFileFixture } from "../../../../support/vault-file";
 import { chatStateFixture } from "../../support/state";
@@ -19,6 +19,21 @@ type SessionConnectionHost = Parameters<typeof createSessionConnection>[0];
 type SessionConnectionInput = Parameters<typeof createSessionConnection>[1];
 
 describe("session connection", () => {
+  it("waits for common metadata refresh before ensuring the session models", async () => {
+    const fixture = sessionConnectionFixture();
+    await fixture.connect();
+    const commonRefresh = deferred<void>();
+    vi.mocked(fixture.metadata.refreshAppServerMetadata).mockReturnValueOnce(commonRefresh.promise);
+    vi.mocked(fixture.ensureModels).mockClear();
+    const refreshing = fixture.refreshStatus();
+    await waitForAsyncWork(() => expect(fixture.metadata.refreshAppServerMetadata).toHaveBeenCalledOnce());
+    expect(fixture.ensureModels).not.toHaveBeenCalled();
+    commonRefresh.resolve();
+    await refreshing;
+    expect(fixture.ensureModels).toHaveBeenCalledOnce();
+    fixture.deactivate();
+  });
+
   it("answers wikilink tool calls through the host resolver", async () => {
     const getFirstLinkpathDest = vi.fn(() => markdownFileFixture("topics/Alpha.md"));
     const fixture = sessionConnectionFixture(undefined, {
@@ -207,6 +222,7 @@ function sessionConnectionFixture(lease?: AppServerContextConnectionLease, app =
     refreshTabHeader: vi.fn(),
   };
   const input: SessionConnectionInput = {
+    ensureModels: vi.fn().mockResolvedValue(undefined),
     threadReadState: { receive: vi.fn() },
     connection: lease ?? {
       connect: async (nextHandlers: AppServerContextConnectionLeaseHandlers) => {
@@ -237,6 +253,9 @@ function sessionConnectionFixture(lease?: AppServerContextConnectionLease, app =
   };
   const connection = createSessionConnection(host, input);
   return {
+    metadata: host.environment.plugin.appServerQueries,
+    ensureModels: input.ensureModels,
+    refreshStatus: () => connection.coordinator.refreshStatusPanel(),
     addSystemMessage,
     stateStore,
     connect: () => connection.coordinator.ensureConnected(),

@@ -52,6 +52,7 @@ export interface ThreadActivationSnapshot extends RuntimePermissionState, Runtim
   canAcceptDirectInput: boolean | null;
   collaborationMode: ModeKind | null;
   model: string | null;
+  modelProvider: string | null;
   serviceTier: ServiceTier | null;
   approvalsReviewer: ApprovalsReviewer | null;
   reasoningEffort: ReasoningEffort | null;

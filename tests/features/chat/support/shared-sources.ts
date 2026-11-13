@@ -1,6 +1,8 @@
+import { createMetadataResourceDiagnostics } from "../../../../src/domain/runtime/diagnostics";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { ChatThreadGoalQueries } from "../../../../src/features/chat/host/contracts";
 import type {
+  ChatModelsDisplaySource,
   ChatSharedDisplayQueries,
   ChatToolInventoryDisplayQueries,
 } from "../../../../src/features/chat/host/shell/shared-resource-hooks";
@@ -8,11 +10,16 @@ import type { ThreadCatalogPaginatedActiveReader } from "../../../../src/feature
 
 export function chatSharedSourcesFixture(threads: readonly Thread[] = []): {
   appServerQueries: ChatSharedDisplayQueries;
+  modelsSource: ChatModelsDisplaySource;
   toolInventoryQueries: ChatToolInventoryDisplayQueries;
   threadGoalQueries: ChatThreadGoalQueries;
   threadCatalog: ThreadCatalogPaginatedActiveReader;
 } {
   return {
+    modelsSource: {
+      modelsResourceSnapshot: () => ({ id: "models", value: undefined, probe: createMetadataResourceDiagnostics().probes.models }),
+      subscribeModels: () => () => undefined,
+    },
     appServerQueries: {
       observeMetadataResource: () => () => undefined,
     },

@@ -6,6 +6,7 @@ export function threadActivationFixture(thread: Thread, overrides: Partial<Threa
     canAcceptDirectInput: null,
     collaborationMode: null,
     model: null,
+    modelProvider: "openai",
     reasoningEffort: null,
     serviceTier: null,
     approvalsReviewer: null,
