@@ -1614,6 +1614,7 @@ describe("ChatInboundHandler", () => {
           threadId: "thread-active",
           threadSettings: {
             disabledPluginIds: [],
+            environments: null,
             cwd: "/workspace/active",
             approvalsReviewer: "auto_review",
             sandboxPolicy: { type: "readOnly", networkAccess: false },
@@ -1660,6 +1661,7 @@ describe("ChatInboundHandler", () => {
           threadId: "thread-other",
           threadSettings: {
             disabledPluginIds: [],
+            environments: null,
             cwd: "/workspace/other",
             approvalsReviewer: "auto_review",
             sandboxPolicy: { type: "readOnly", networkAccess: false },

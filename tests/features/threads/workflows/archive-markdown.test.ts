@@ -89,6 +89,7 @@ describe("thread archive export", () => {
               },
               {
                 type: "agentMessage",
+                moderation: null,
                 id: "commentary",
                 text: "Intermediate response",
                 phase: "partial_answer",
@@ -104,6 +105,7 @@ describe("thread archive export", () => {
               },
               {
                 type: "agentMessage",
+                moderation: null,
                 id: "answer",
                 text: "Final response",
                 phase: "final_answer",
