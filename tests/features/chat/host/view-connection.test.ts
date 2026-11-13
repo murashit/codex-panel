@@ -154,6 +154,7 @@ describe("CodexChatView connection lifecycle", () => {
       items: [
         {
           type: "agentMessage",
+          moderation: null,
           id: "answer",
           text: "Snapshot",
           phase: "final_answer",
@@ -233,6 +234,7 @@ describe("CodexChatView connection lifecycle", () => {
           items: [
             {
               type: "agentMessage",
+              moderation: null,
               id: "answer",
               text: "Final result",
               phase: "final_answer",

@@ -19,6 +19,7 @@ describe("turn item conversion preserves app-server semantics", () => {
   it.each(["commentary", "partial_answer", "final_answer", null] as const)("preserves %s assistant text in restored turns", (phase) => {
     const item: TurnItem = {
       type: "agentMessage",
+      moderation: null,
       id: "answer",
       text: "Answer text",
       phase,

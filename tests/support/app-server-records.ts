@@ -37,6 +37,7 @@ export function appServerThreadFixture(input: Pick<Thread, ThreadScenarioFields>
     originator: null,
     daybreakEnabled: null,
     forkedFromId: null,
+    attachedToThreadId: null,
     parentThreadId: null,
     projectId: null,
     model: null,
@@ -72,5 +73,15 @@ export function appServerAgentMessageFixture(
   text: string,
   overrides: Partial<Extract<TurnItem, { type: "agentMessage" }>> = {},
 ): Extract<TurnItem, { type: "agentMessage" }> {
-  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null, delivery: null, questions: null, ...overrides };
+  return {
+    type: "agentMessage",
+    moderation: null,
+    id,
+    text,
+    phase: "final_answer",
+    memoryCitation: null,
+    delivery: null,
+    questions: null,
+    ...overrides,
+  };
 }
