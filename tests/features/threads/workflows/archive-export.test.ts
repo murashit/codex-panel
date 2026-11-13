@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { ThreadTranscript, ThreadTranscriptEntry } from "../../../../src/domain/threads/transcript";
+import type { ThreadTranscript } from "../../../../src/domain/threads/transcript";
 import { type ArchiveExportDestination, exportArchivedThreadMarkdown } from "../../../../src/features/threads/workflows/archive-export";
+import { panelThreadFixture } from "../../../support/panel-thread";
 
 describe("archive export workflow", () => {
   it("uses a fixed folder path and expands the filename template", async () => {
@@ -81,21 +82,10 @@ describe("archive export workflow", () => {
 
 function thread(overrides: Partial<ThreadTranscript> = {}): ThreadTranscript {
   return {
-    id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
-    preview: "Preview",
-    createdAt: 1,
-    updatedAt: 1,
-    name: "Thread",
-    archived: false,
-    ephemeral: false,
-    provenance: { kind: "interactive" },
-    transcriptEntries: [transcriptEntry("user", "Hello", 1)],
+    ...panelThreadFixture({ id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781", preview: "Preview", name: "Thread" }),
+    transcriptEntries: [{ kind: "user", text: "Hello", timestamp: 1 }],
     ...overrides,
   };
-}
-
-function transcriptEntry(kind: ThreadTranscriptEntry["kind"], text: string, timestamp: number | null): ThreadTranscriptEntry {
-  return { kind, text, timestamp };
 }
 
 class MemoryDestination implements ArchiveExportDestination {
