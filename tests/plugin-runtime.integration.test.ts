@@ -1,7 +1,7 @@
 import * as contextConnection from "../src/app-server/connection/context-connection";
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { AppServerClient } from "../src/app-server/connection/client";
 import type { ConnectionManagerHandlers } from "../src/app-server/connection/connection-manager";
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "../src/constants";
@@ -670,12 +670,17 @@ describe("CodexPanelPlugin runtime integration", () => {
 
 async function settingsSurfaces() {
   const chatLeaf = leaf();
-  chatLeaf.view = chatView(CodexChatView, chatLeaf);
-  const refreshChat = vi.spyOn((chatLeaf.view as CodexChatView).surface, "refreshSettings");
+  const view = chatView(CodexChatView, chatLeaf);
+  chatLeaf.view = view;
+  const refreshChat = vi.spyOn(view.surface, "refreshSettings");
   const threadsView = Object.create(CodexThreadsView.prototype) as InstanceType<typeof CodexThreadsView>;
   const refreshThreads = vi.spyOn(threadsView, "refreshSettings");
   const threadsLeaf = leaf();
   threadsLeaf.view = threadsView;
   const plugin = await pluginWithLeaves([chatLeaf], { threadsLeaves: [threadsLeaf] });
+  onTestFinished(async () => {
+    await view.onClose();
+    plugin.runtime.reset();
+  });
   return { plugin, refreshChat, refreshThreads };
 }
