@@ -1,4 +1,3 @@
-import { appServerAgentMessageFixture as agentMessage, appServerCompletedTurnFixture as turn } from "../../support/app-server-records";
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
@@ -12,7 +11,12 @@ import type { ServerNotification } from "../../../src/generated/app-server/Serve
 import type { ServerRequest } from "../../../src/generated/app-server/ServerRequest";
 import type { Thread as AppServerThread } from "../../../src/generated/app-server/v2/Thread";
 import type { ThreadStartResponse } from "../../../src/generated/app-server/v2/ThreadStartResponse";
-import { appServerThreadFixture } from "../../support/app-server-records";
+import {
+  appServerAgentMessageFixture as agentMessage,
+  appServerThreadFixture,
+  appServerCompletedTurnFixture as turn,
+} from "../../support/app-server-records";
+import { deferred } from "../../support/async";
 
 interface TurnStartResponse {
   turn: TurnRecord;
@@ -399,14 +403,10 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
   readonly modelListRequests: ClientRequestParams<"model/list">[] = [];
   readonly rejectServerRequest = vi.fn();
   readonly disconnect = vi.fn();
-  readonly structuredTurnStarted: Promise<void>;
-  private resolveStructuredTurnStarted!: () => void;
+  private readonly structuredTurnStart = deferred<void>();
+  readonly structuredTurnStarted = this.structuredTurnStart.promise;
 
-  constructor(private readonly handlers: AppServerClientHandlers) {
-    this.structuredTurnStarted = new Promise((resolve) => {
-      this.resolveStructuredTurnStarted = resolve;
-    });
-  }
+  constructor(private readonly handlers: AppServerClientHandlers) {}
 
   async connect(): Promise<InitializeResponse> {
     return this.connectImpl ? this.connectImpl() : ({ codexHome: "/tmp/codex" } as InitializeResponse);
@@ -429,7 +429,7 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
           : threadStartResponse("thread")) as unknown as ClientResponseByMethod[M];
       case "turn/start":
         this.startStructuredTurnParams = params as ClientRequestParams<"turn/start">;
-        this.resolveStructuredTurnStarted();
+        this.structuredTurnStart.resolve();
         return (this.startStructuredTurnImpl
           ? await this.startStructuredTurnImpl()
           : { turn: turn([], { id: "turn", status: "inProgress" }) }) as unknown as ClientResponseByMethod[M];

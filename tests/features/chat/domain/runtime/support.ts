@@ -2,6 +2,7 @@ import type { ModelMetadata } from "../../../../../src/domain/runtime/catalog";
 import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../../src/domain/runtime/settings";
 import type { RuntimeSnapshot } from "../../../../../src/features/chat/domain/runtime/snapshot";
 import { initialChatRuntimeState } from "../../../../../src/features/chat/domain/runtime/state";
+import { modelMetadataFixture } from "../../../../support/model-metadata";
 import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";
 
 interface RuntimeSnapshotPatch extends Partial<Omit<RuntimeSnapshot, "active" | "pending">> {
@@ -47,17 +48,5 @@ export function snapshotConfig(snapshot: RuntimeSnapshot): RuntimeConfigSnapshot
 }
 
 export function modelFixture(model: string): ModelMetadata {
-  return {
-    id: model,
-    model,
-    displayName: model,
-    description: "",
-    hidden: false,
-    supportedReasoningEfforts: [],
-    defaultReasoningEffort: "medium",
-    inputModalities: [],
-    serviceTiers: [],
-    defaultServiceTier: null,
-    isDefault: false,
-  };
+  return modelMetadataFixture(model, { supportedReasoningEfforts: [], defaultReasoningEffort: "medium", isDefault: false });
 }

@@ -14,6 +14,7 @@ import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { mountAuthoredStyles } from "../../support/authored-styles";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
+import { panelThreadFixture } from "../../support/panel-thread";
 import { threadMutationCommandsMock } from "../../support/thread-mutations";
 
 const openViews: CodexThreadsView[] = [];
@@ -711,17 +712,7 @@ function queryResult(
 }
 
 function threadFixture(overrides: Partial<Thread> = {}): Thread {
-  return {
-    id: "thread",
-    preview: "",
-    name: null,
-    archived: false,
-    ephemeral: false,
-    provenance: { kind: "interactive" },
-    createdAt: 1,
-    updatedAt: 1,
-    ...overrides,
-  };
+  return panelThreadFixture({ id: "thread", ...overrides });
 }
 
 function renameInput(view: CodexThreadsView): HTMLInputElement {

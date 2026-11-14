@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../../../src/domain/threads/model";
-
 import { createAutoTitleCoordinator } from "../../../../../src/features/chat/application/threads/auto-title-coordinator";
 import { completedTurnTitleContext } from "../../../../../src/features/chat/application/threads/title-context";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 
 describe("AutoTitleCoordinator", () => {
   it("does not submit a title when the thread already has one", () => {
@@ -50,26 +50,8 @@ describe("AutoTitleCoordinator", () => {
 
 function catalogThreadById(name: string | null = null) {
   const threads: Thread[] = [
-    {
-      id: "thread",
-      preview: "Thread preview",
-      name,
-      archived: false,
-      ephemeral: false,
-      provenance: { kind: "interactive" },
-      createdAt: 1,
-      updatedAt: 1,
-    },
-    {
-      id: "thread-b",
-      preview: "Another thread",
-      name: null,
-      archived: false,
-      ephemeral: false,
-      provenance: { kind: "interactive" },
-      createdAt: 2,
-      updatedAt: 2,
-    },
+    panelThreadFixture({ id: "thread", preview: "Thread preview", name }),
+    panelThreadFixture({ id: "thread-b", preview: "Another thread", createdAt: 2, updatedAt: 2 }),
   ];
   return (threadId: string) => threads.find((thread) => thread.id === threadId);
 }

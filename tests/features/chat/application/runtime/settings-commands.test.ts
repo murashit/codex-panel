@@ -17,6 +17,7 @@ import {
   setRuntimeIntentValue,
 } from "../../../../../src/features/chat/domain/runtime/intent";
 import { deferred } from "../../../../support/async";
+import { modelMetadataFixture } from "../../../../support/model-metadata";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { threadActivationFixture } from "../../../../support/thread-activation";
@@ -782,19 +783,11 @@ function runtimeSnapshotFixture(state: ChatState, shared: RuntimeSnapshotFixture
 }
 
 function modelFixture(model: string, fastTierId: string, efforts: readonly string[] = ["low", "medium", "high"]): ModelMetadata {
-  return {
-    id: model,
-    model,
-    displayName: model,
-    description: "",
-    hidden: false,
+  return modelMetadataFixture(model, {
     supportedReasoningEfforts: efforts.map((reasoningEffort) => ({ reasoningEffort, description: "" })),
     defaultReasoningEffort: "medium",
-    inputModalities: [],
     serviceTiers: [{ id: fastTierId, name: "Fast" }],
-    defaultServiceTier: null,
-    isDefault: true,
-  };
+  });
 }
 
 function reopenThread(store: ReturnType<typeof createChatStateStore>): void {

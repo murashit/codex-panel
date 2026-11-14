@@ -7,8 +7,9 @@ import { AppServerToolInventoryQueries } from "../../../../src/app-server/query/
 import { sideChatDraft } from "../../../../src/features/chat/application/threads/fork-draft";
 import type { ThreadGoal } from "../../../../src/generated/app-server/v2/ThreadGoal";
 import { notices } from "../../../mocks/obsidian";
-import { appServerTurnFixture } from "../../../support/app-server-records";
+import { appServerAgentMessageFixture, appServerTurnFixture } from "../../../support/app-server-records";
 import { deferred, waitForAsyncWork } from "../../../support/async";
+import { threadGoalFixture } from "../../../support/thread-goal";
 import {
   chatHost,
   chatView,
@@ -151,18 +152,7 @@ describe("CodexChatView connection lifecycle", () => {
       id: "running",
       status: "inProgress",
       itemsView: "full",
-      items: [
-        {
-          type: "agentMessage",
-          moderation: null,
-          id: "answer",
-          text: "Snapshot",
-          phase: "final_answer",
-          memoryCitation: null,
-          delivery: null,
-          questions: null,
-        },
-      ],
+      items: [appServerAgentMessageFixture("answer", "Snapshot")],
     });
     let receiveResponse: (value: unknown) => void = () => {
       throw new Error("Expected pending resume");
@@ -231,18 +221,7 @@ describe("CodexChatView connection lifecycle", () => {
         turn: appServerTurnFixture({
           ...turn,
           status: "completed",
-          items: [
-            {
-              type: "agentMessage",
-              moderation: null,
-              id: "answer",
-              text: "Final result",
-              phase: "final_answer",
-              memoryCitation: null,
-              delivery: null,
-              questions: null,
-            },
-          ],
+          items: [appServerAgentMessageFixture("answer", "Final result")],
         }),
       },
     });
@@ -693,16 +672,7 @@ describe("CodexChatView connection lifecycle", () => {
 
   it("starts an empty thread when saving a toolbar goal from a blank panel", async () => {
     vi.useFakeTimers();
-    const goal = {
-      threadId: "thread-new",
-      objective: "Ship the feature",
-      status: "active" as const,
-      tokenBudget: null,
-      tokensUsed: 0,
-      timeUsedSeconds: 0,
-      createdAt: 1,
-      updatedAt: 1,
-    };
+    const goal = { ...threadGoalFixture({ threadId: "thread-new", objective: "Ship the feature" }), createdAt: 1, updatedAt: 1 };
     const start = deferred<{ thread: ReturnType<typeof threadFixture> }>();
     const client = connectedClient({
       "thread/start": vi.fn(() => start.promise),
@@ -807,14 +777,9 @@ describe("CodexChatView connection lifecycle", () => {
   });
 
   it("ignores stale connection work after the view closes", async () => {
-    let resolveConfig!: (value: unknown) => void;
+    const config = deferred<unknown>();
     const client = connectedClient({
-      "config/read": vi.fn(
-        () =>
-          new Promise((resolve) => {
-            resolveConfig = resolve;
-          }),
-      ),
+      "config/read": vi.fn(() => config.promise),
     });
     const view = await chatViewForClient(client);
     await view.onOpen();
@@ -825,7 +790,7 @@ describe("CodexChatView connection lifecycle", () => {
     });
     const startedRequestCount = client.request.mock.calls.length;
     await view.onClose();
-    resolveConfig({});
+    config.resolve({});
     await connecting;
 
     expect(notices).toEqual([]);
@@ -898,16 +863,7 @@ describe("CodexChatView connection lifecycle", () => {
 });
 
 function goalSnapshot(objective: string, updatedAt: number): ThreadGoal {
-  return {
-    threadId: "thread-1",
-    objective,
-    status: "active",
-    tokenBudget: null,
-    tokensUsed: 0,
-    timeUsedSeconds: 0,
-    createdAt: 1,
-    updatedAt,
-  };
+  return { ...threadGoalFixture({ threadId: "thread-1", objective }), createdAt: 1, updatedAt };
 }
 
 function mcpStatus(name: string) {

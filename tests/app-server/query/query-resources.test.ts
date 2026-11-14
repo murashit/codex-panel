@@ -19,6 +19,7 @@ import type { RateLimitSnapshot } from "../../../src/domain/runtime/usage";
 import type { ThreadGoal } from "../../../src/domain/threads/goal";
 import type { Thread } from "../../../src/domain/threads/model";
 import { deferred } from "../../support/async";
+import { panelThreadFixture } from "../../support/panel-thread";
 import { threadGoalFixture } from "../../support/thread-goal";
 
 describe("app-server query resources", () => {
@@ -1348,16 +1349,7 @@ function appServerRateLimit(usedPercent: number): RateLimitSnapshot {
 }
 
 function thread(id: string, archived = false): Thread {
-  return {
-    id,
-    preview: "",
-    name: null,
-    archived,
-    ephemeral: false,
-    createdAt: 1,
-    updatedAt: 1,
-    provenance: { kind: "interactive" as const },
-  };
+  return panelThreadFixture({ id, archived });
 }
 
 async function flushMicrotasks(): Promise<void> {

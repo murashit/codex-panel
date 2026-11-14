@@ -3,6 +3,7 @@ import { createThreadAutoTitleWork } from "../../../../src/features/threads/work
 import type { ThreadFact } from "../../../../src/features/threads/workflows/thread-facts";
 import type { ThreadMutationCommands } from "../../../../src/features/threads/workflows/thread-mutation-commands";
 import { deferred } from "../../../support/async";
+import { panelThreadFixture } from "../../../support/panel-thread";
 
 describe("thread auto-title work", () => {
   it("aborts in-flight generation when its execution runtime is disposed", async () => {
@@ -58,16 +59,7 @@ describe("thread auto-title work", () => {
 
     fixture.work.applyThreadFact({
       type: "thread-upserted",
-      thread: {
-        id: "thread",
-        preview: "Thread preview",
-        name: "Existing title",
-        archived: false,
-        ephemeral: false,
-        provenance: { kind: "interactive" },
-        createdAt: 1,
-        updatedAt: 1,
-      },
+      thread: panelThreadFixture({ id: "thread", preview: "Thread preview", name: "Existing title" }),
     });
     fixture.work.submit("thread", titleContext());
 

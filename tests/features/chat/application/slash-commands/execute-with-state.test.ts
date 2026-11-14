@@ -12,6 +12,7 @@ import { submitComposer } from "../../../../../src/features/chat/application/sub
 import { deferred } from "../../../../support/async";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
+import { threadGoalFixture } from "../../../../support/thread-goal";
 import { createThreadActivationFixture } from "../../support/activation";
 import { emptyComposerInputSnapshot } from "../../support/composer-input";
 import { slashGoalsFixture, slashRuntimeSettingsFixture } from "../../support/slash-command-ports";
@@ -87,15 +88,7 @@ describe("executePanelSlashCommand", () => {
           draft,
           claimSubmission: () => ({
             text: draft,
-            inputSnapshot: {
-              sourcePath: "",
-              availableSkills: [],
-              referenceActiveNoteOnSend: false,
-              contextReferences: { activeNote: null, selection: null },
-              activeNoteSnapshots: [],
-              selectionSnapshots: [],
-              attachments: [],
-            },
+            inputSnapshot: { ...emptyComposerInputSnapshot(), sourcePath: "" },
             isCurrent: () => true,
             adoptPanelTarget,
             settle: vi.fn(),
@@ -184,14 +177,7 @@ describe("executePanelSlashCommand", () => {
       }),
       type: "active-thread/resumed",
     });
-    vi.mocked(host.goals.activeGoal).mockReturnValue({
-      threadId: "child",
-      objective: "Inspect",
-      status: "active",
-      tokenBudget: null,
-      tokensUsed: 0,
-      timeUsedSeconds: 0,
-    });
+    vi.mocked(host.goals.activeGoal).mockReturnValue(threadGoalFixture({ threadId: "child", objective: "Inspect" }));
 
     await expect(executePanelSlashCommand(host, "goal", "")).resolves.toBeUndefined();
 

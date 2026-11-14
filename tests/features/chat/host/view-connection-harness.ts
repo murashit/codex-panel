@@ -1,6 +1,7 @@
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import { AppServerContextConnection } from "../../../../src/app-server/connection/context-connection";
 import { chatMetadataCacheFixture, chatVaultFixture, chatWorkspaceFixture } from "../../../support/chat-obsidian";
+import { threadGoalFixture } from "../../../support/thread-goal";
 import { threadTitlePortFixture, workspacePanelsFixture } from "../support/host-contracts";
 // @vitest-environment jsdom
 
@@ -209,16 +210,7 @@ export function expectRequestTimes(client: TestAppServerClient, method: string, 
 }
 
 function goalFixture(threadId: string) {
-  return {
-    threadId,
-    objective: "Finish",
-    status: "active",
-    tokenBudget: null,
-    tokensUsed: 0,
-    timeUsedSeconds: 0,
-    createdAt: 1,
-    updatedAt: 1,
-  };
+  return { ...threadGoalFixture({ threadId }), createdAt: 1, updatedAt: 1 };
 }
 
 function startedThread(threadId: string) {
