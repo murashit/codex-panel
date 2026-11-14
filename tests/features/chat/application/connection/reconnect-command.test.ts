@@ -7,6 +7,7 @@ import {
 import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ActiveThreadResumedAction } from "../../../../../src/features/chat/application/state/transition-actions";
+import { deferred } from "../../../../support/async";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 
@@ -61,32 +62,24 @@ describe("createReconnectPanelCommand", () => {
   it.each([
     {
       label: "persistent",
-      thread: {
+      thread: panelThreadFixture({
         id: "persistent-thread",
         preview: "Persistent preview",
         name: "Persistent title",
-        archived: false,
-        ephemeral: false,
-        createdAt: 1,
-        updatedAt: 1,
         provenance: { kind: "interactive" },
-      },
+      }),
     },
     {
       label: "subagent",
-      thread: {
+      thread: panelThreadFixture({
         id: "subagent-thread",
         preview: "Subagent preview",
         name: "Subagent title",
-        archived: false,
-        ephemeral: false,
-        createdAt: 1,
-        updatedAt: 1,
         provenance: {
           kind: "subagent",
           parentThreadId: "parent-thread",
         },
-      },
+      }),
     },
   ] as const)("resumes the same $label thread after an unexpected exit", async ({ thread }) => {
     const { host, stateStore, reconnect } = createHost();
@@ -130,12 +123,9 @@ describe("createReconnectPanelCommand", () => {
   });
 
   it("coalesces overlapping manual reconnect requests", async () => {
-    let finishConnecting: () => void = () => undefined;
-    const connecting = new Promise<void>((resolve) => {
-      finishConnecting = resolve;
-    });
+    const connecting = deferred<void>();
     const { host, reconnect } = createHost({
-      ensureConnected: vi.fn(() => connecting),
+      ensureConnected: vi.fn(() => connecting.promise),
     });
 
     const first = reconnect();
@@ -144,7 +134,7 @@ describe("createReconnectPanelCommand", () => {
     await vi.waitFor(() => expect(host.ensureConnected).toHaveBeenCalledOnce());
     expect(host.resetConnectionScope).toHaveBeenCalledOnce();
 
-    finishConnecting();
+    connecting.resolve();
     await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
     expect(host.resumeThread).toHaveBeenCalledOnce();
 
@@ -155,18 +145,15 @@ describe("createReconnectPanelCommand", () => {
   });
 
   it("does not resume the old target after navigation while reconnecting", async () => {
-    let finishConnecting: () => void = () => undefined;
-    const connecting = new Promise<void>((resolve) => {
-      finishConnecting = resolve;
-    });
+    const connecting = deferred<void>();
     const { host, stateStore, reconnect } = createHost({
-      ensureConnected: vi.fn(() => connecting),
+      ensureConnected: vi.fn(() => connecting.promise),
     });
 
     const operation = reconnect();
     await vi.waitFor(() => expect(host.ensureConnected).toHaveBeenCalledOnce());
     stateStore.dispatch({ type: "active-thread/cleared" });
-    finishConnecting();
+    connecting.resolve();
 
     await expect(operation).resolves.toBe(false);
     expect(host.resumeThread).not.toHaveBeenCalled();
