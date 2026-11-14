@@ -13,20 +13,11 @@ import {
   threadStreamItemsFromTurns,
 } from "../../../../../src/features/chat/app-server/mappers/thread-stream/turn-items";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
-import { appServerCompletedTurnFixture as completedTurn } from "../../../../support/app-server-records";
+import { appServerAgentMessageFixture, appServerCompletedTurnFixture as completedTurn } from "../../../../support/app-server-records";
 
 describe("turn item conversion preserves app-server semantics", () => {
   it.each(["commentary", "partial_answer", "final_answer", null] as const)("preserves %s assistant text in restored turns", (phase) => {
-    const item: TurnItem = {
-      type: "agentMessage",
-      moderation: null,
-      id: "answer",
-      text: "Answer text",
-      phase,
-      memoryCitation: null,
-      delivery: null,
-      questions: null,
-    };
+    const item: TurnItem = appServerAgentMessageFixture("answer", "Answer text", { phase });
     const expected = {
       id: "answer",
       turnId: "t1",
@@ -40,22 +31,19 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it.each(["failed", "interrupted"] as const)("restores a %s turn's error reason from history", (status) => {
-    const turn: TurnRecord = {
-      rootTurnId: null,
+    const turn: TurnRecord = completedTurn([], {
       id: "error-turn",
       startedAt: 1,
       completedAt: 2,
       durationMs: 1,
       status,
-      itemsView: "full",
-      items: [],
       error: {
         message: "The provider stopped responding.",
         codexErrorInfo: "serverOverloaded",
         additionalDetails: "Try again later.",
         misalignment: null,
       },
-    };
+    });
 
     expect(threadStreamItemsFromTurns([turn])).toMatchObject([
       {

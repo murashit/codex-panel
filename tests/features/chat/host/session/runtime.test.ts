@@ -1,5 +1,11 @@
 import { chatMetadataCacheFixture, chatVaultFixture, chatWorkspaceFixture } from "../../../../support/chat-obsidian";
-import { disconnectedChatLeaseFixture, threadGoalQueriesFixture, threadReplacementPublicationFixture } from "../../support/host-contracts";
+import { threadGoalFixture } from "../../../../support/thread-goal";
+import {
+  disconnectedChatLeaseFixture,
+  threadGoalQueriesFixture,
+  threadReplacementPublicationFixture,
+  threadTitlePortFixture,
+} from "../../support/host-contracts";
 // @vitest-environment jsdom
 
 import { Component } from "obsidian";
@@ -724,10 +730,7 @@ describe("chat panel session runtime", () => {
       plugin: {
         appServerConnection: overrides.plugin?.appServerConnection ?? contextConnectionFixture(),
         appServerContext: overrides.plugin?.appServerContext ?? { codexPath: "codex", vaultPath: "/vault" },
-        threadTitlePort: overrides.plugin?.threadTitlePort ?? {
-          persistedContext: vi.fn().mockResolvedValue(null),
-          generateTitle: vi.fn().mockResolvedValue(null),
-        },
+        threadTitlePort: overrides.plugin?.threadTitlePort ?? threadTitlePortFixture(),
         threadAutoTitleWork: overrides.plugin?.threadAutoTitleWork ?? { submit: vi.fn() },
         settings: overrides.plugin?.settings ?? chatPanelSettingsAccess(settingsSource),
         workspace: {
@@ -858,14 +861,6 @@ describe("chat panel session runtime", () => {
   }
 
   function goalFixture(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
-    return {
-      threadId: "thread-1",
-      objective: "Goal",
-      status: "active",
-      tokenBudget: null,
-      tokensUsed: 0,
-      timeUsedSeconds: 0,
-      ...overrides,
-    };
+    return threadGoalFixture({ threadId: "thread-1", objective: "Goal", ...overrides });
   }
 });

@@ -3,6 +3,7 @@ import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { executeContextSlashCommand } from "../../../../../src/features/chat/application/slash-commands/execute-context";
 import { panelThreadFixture } from "../../../../support/panel-thread";
+import { threadGoalFixture } from "../../../../support/thread-goal";
 import { emptyComposerInputSnapshot } from "../../support/composer-input";
 import { slashGoalsFixture, slashSubmissionFixture } from "../../support/slash-command-ports";
 
@@ -36,15 +37,7 @@ function thread(overrides: Partial<Thread> = {}): Thread {
   });
 }
 function goal(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
-  return {
-    threadId: "thread-1",
-    objective: "Finish",
-    status: "active",
-    tokenBudget: null,
-    tokensUsed: 0,
-    timeUsedSeconds: 0,
-    ...overrides,
-  };
+  return threadGoalFixture({ threadId: "thread-1", ...overrides });
 }
 describe("context slash commands", () => {
   it("rejects /refer when no composer input snapshot is available", async () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { transcriptEntriesFromTurnRecords } from "../../../../src/app-server/protocol/turn";
 import type { ThreadTranscript, ThreadTranscriptEntry } from "../../../../src/domain/threads/transcript";
 import { archivedThreadMarkdown } from "../../../../src/features/threads/workflows/archive-markdown";
-import { appServerTurnFixture } from "../../../support/app-server-records";
+import { appServerAgentMessageFixture, appServerTurnFixture, appServerUserMessageFixture } from "../../../support/app-server-records";
 import { panelThreadFixture } from "../../../support/panel-thread";
 
 describe("thread archive export", () => {
@@ -81,38 +81,10 @@ describe("thread archive export", () => {
             completedAt: timestamp(2026, 5, 18, 9, 5),
             durationMs: 300000,
             items: [
-              {
-                type: "userMessage",
-                id: "prompt",
-                clientId: "prompt",
-                content: [{ type: "text", text: "Initial request", text_elements: [] }],
-              },
-              {
-                type: "agentMessage",
-                moderation: null,
-                id: "commentary",
-                text: "Intermediate response",
-                phase: "partial_answer",
-                memoryCitation: null,
-                delivery: null,
-                questions: null,
-              },
-              {
-                type: "userMessage",
-                id: "steer",
-                clientId: "steer",
-                content: [{ type: "text", text: "Follow-up guidance", text_elements: [] }],
-              },
-              {
-                type: "agentMessage",
-                moderation: null,
-                id: "answer",
-                text: "Final response",
-                phase: "final_answer",
-                memoryCitation: null,
-                delivery: null,
-                questions: null,
-              },
+              appServerUserMessageFixture("prompt", "Initial request", { clientId: "prompt" }),
+              appServerAgentMessageFixture("commentary", "Intermediate response", { phase: "partial_answer" }),
+              appServerUserMessageFixture("steer", "Follow-up guidance", { clientId: "steer" }),
+              appServerAgentMessageFixture("answer", "Final response"),
             ],
           }),
         ]),

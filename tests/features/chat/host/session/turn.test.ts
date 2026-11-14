@@ -93,16 +93,7 @@ describe("createSessionTurn", () => {
 
   it("routes reference preparation failures through the session turn", async () => {
     const stateStore = createChatStateStore();
-    const thread = {
-      id: "thread-1",
-      preview: "Other",
-      name: "Other",
-      createdAt: 1,
-      updatedAt: 1,
-      archived: false,
-      ephemeral: false,
-      provenance: { kind: "interactive" as const },
-    };
+    const thread = panelThreadFixture({ id: "thread-1", preview: "Other", name: "Other" });
     const referThread = vi.fn().mockRejectedValue(new Error("history unavailable"));
     const fixture = sessionTurnFixture({
       stateStore,

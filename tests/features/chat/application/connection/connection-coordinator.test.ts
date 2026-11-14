@@ -6,6 +6,7 @@ import {
 import { createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 
 type ChatConnectionPort = ChatConnectionCoordinatorHost["connection"];
@@ -224,16 +225,7 @@ describe("ChatConnectionCoordinator", () => {
     const initializeResponse = { codexHome: "/codex", platformFamily: "unix", platformOs: "macos", userAgent: "test" } as const;
     stateStore.dispatch({ type: "connection/initialized", initializeResponse });
     stateStore.dispatch({
-      ...threadActivationFixture({
-        id: "thread-1",
-        preview: "Thread 1",
-        name: "Thread 1",
-        archived: false,
-        ephemeral: false,
-        createdAt: 1,
-        updatedAt: 1,
-        provenance: { kind: "interactive" },
-      }),
+      ...threadActivationFixture(panelThreadFixture({ id: "thread-1", preview: "Thread 1", name: "Thread 1" })),
       type: "active-thread/resumed",
     });
 

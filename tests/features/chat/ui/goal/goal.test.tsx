@@ -7,6 +7,7 @@ import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import { GoalPanel, type GoalPanelActions, type GoalPanelEditorState } from "../../../../../src/features/chat/ui/goal/goal";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { threadGoalFixture as goal } from "../../../../support/thread-goal";
 
 installObsidianDomShims();
 
@@ -233,18 +234,6 @@ function actions(): GoalPanelActions {
     onCancelEditing: vi.fn(),
     onObjectiveDraftChange: vi.fn(),
     onObjectiveExpandedChange: vi.fn(),
-  };
-}
-
-function goal(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
-  return {
-    threadId: "thread",
-    objective: "Finish",
-    status: "active",
-    tokenBudget: null,
-    tokensUsed: 0,
-    timeUsedSeconds: 0,
-    ...overrides,
   };
 }
 

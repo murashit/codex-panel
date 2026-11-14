@@ -4,6 +4,7 @@ import type { RuntimePermissionProfileSummary } from "../../../../../src/domain/
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { SlashCommandName } from "../../../../../src/features/chat/application/slash-commands/catalog";
 import { activeSlashCommandSuggestions } from "../../../../../src/features/chat/application/slash-commands/suggestions";
+import { modelMetadataFixture } from "../../../../support/model-metadata";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 
 function suggestions(
@@ -43,20 +44,14 @@ function thread(overrides: Partial<Thread> = {}): Thread {
 }
 
 function model(name: string, efforts: ReasoningEffort[], overrides: Partial<ModelMetadata> = {}): ModelMetadata {
-  return {
-    id: name,
-    model: name,
-    displayName: name,
+  return modelMetadataFixture(name, {
     description: `${name} description`,
-    hidden: false,
     supportedReasoningEfforts: efforts.map((reasoningEffort) => ({ reasoningEffort, description: "" })),
     defaultReasoningEffort: efforts[0] ?? "medium",
     inputModalities: ["text"],
-    serviceTiers: [],
-    defaultServiceTier: null,
     isDefault: false,
     ...overrides,
-  };
+  });
 }
 
 describe("activeSlashCommandSuggestions", () => {

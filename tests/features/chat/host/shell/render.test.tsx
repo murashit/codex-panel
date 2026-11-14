@@ -15,6 +15,7 @@ import {
 } from "../../../../../src/features/chat/host/shell/render.dom";
 import { createToolbarPanelActions, createToolbarUiActions } from "../../../../../src/features/chat/host/toolbar/actions";
 import type { ThreadStreamScrollPortBinding } from "../../../../../src/features/chat/ui/thread-stream/flow-scroll";
+import { type Deferred, deferred } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { modelMetadataFixture } from "../../../../support/model-metadata";
 import { panelThreadFixture } from "../../../../support/panel-thread";
@@ -316,7 +317,7 @@ describe("ChatPanelShell", () => {
     const other = panelThreadFixture({ id: "other", name: "Other" });
     store.dispatch(resumedThreadAction({ response: threadActivationFixture(thread) }));
     store.dispatch({ type: "ui/panel-set", panel: "history" });
-    let rejectSave: (error: Error) => void = () => undefined;
+    let saving!: Deferred<boolean>;
     const rename = createThreadRenameEditorActions({
       stateStore: store,
       threadById: (id) => (id === thread.id ? thread : id === other.id ? other : undefined),
@@ -327,10 +328,10 @@ describe("ChatPanelShell", () => {
         new Promise((_resolve, reject) => {
           signal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true });
         }),
-      renameThread: () =>
-        new Promise((_resolve, reject) => {
-          rejectSave = reject;
-        }),
+      renameThread: () => {
+        saving = deferred<boolean>();
+        return saving.promise;
+      },
     });
     const parts = shellParts();
     parts.toolbar.actions = createToolbarUiActions({
@@ -389,7 +390,7 @@ describe("ChatPanelShell", () => {
       });
       expect(header?.querySelector<HTMLInputElement>("input")?.disabled).toBe(true);
       await act(async () => {
-        rejectSave(new Error("offline"));
+        saving.reject(new Error("offline"));
         await settleShellEffects();
       });
       expect(container.querySelectorAll(".codex-panel-ui__nav-inline-input")).toHaveLength(1);
@@ -408,7 +409,7 @@ describe("ChatPanelShell", () => {
       expect(otherInput?.disabled).toBe(true);
       expect(header?.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.disabled).toBe(true);
       await act(async () => {
-        rejectSave(new Error("offline"));
+        saving.reject(new Error("offline"));
         await settleShellEffects();
       });
       expect(document.activeElement).toBe(container.querySelector(".codex-panel__toolbar .codex-panel-ui__nav-inline-input"));

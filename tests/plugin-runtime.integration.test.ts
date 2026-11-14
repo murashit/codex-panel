@@ -292,17 +292,11 @@ describe("CodexPanelPlugin runtime integration", () => {
   });
 
   it("keeps shared thread list refreshes separate across app-server cache contexts", async () => {
-    let resolveFirst!: (threads: Thread[]) => void;
+    const firstThreads = deferred<Thread[]>();
     const plugin = await pluginWithLeaves([]);
     await publishCodexPath(plugin, "codex-a");
     contextConnectionClientMock.mockImplementation(() =>
-      threadListClient(() =>
-        plugin.settings.codexPath === "codex-a"
-          ? new Promise<Thread[]>((resolve) => {
-              resolveFirst = resolve;
-            })
-          : Promise.resolve([thread("second")]),
-      ),
+      threadListClient(() => (plugin.settings.codexPath === "codex-a" ? firstThreads.promise : Promise.resolve([thread("second")]))),
     );
 
     const first = threadCatalog(plugin).refreshActiveThreads();
@@ -318,7 +312,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     await second;
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("second")]);
 
-    resolveFirst([thread("first")]);
+    firstThreads.resolve([thread("first")]);
     await flushMicrotasks();
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("second")]);
     await publishCodexPath(plugin, "codex-a");

@@ -11,7 +11,11 @@ import {
   threadFromAppServerRecord,
 } from "../../../src/app-server/services/threads";
 import type { ThreadHistoryMode } from "../../../src/generated/app-server/v2/ThreadHistoryMode";
-import { appServerTurnFixture, appServerUserMessageFixture as userMessage } from "../../support/app-server-records";
+import {
+  appServerAgentMessageFixture,
+  appServerTurnFixture,
+  appServerUserMessageFixture as userMessage,
+} from "../../support/app-server-records";
 import { deferred } from "../../support/async";
 
 describe("app-server thread response adapters", () => {
@@ -316,7 +320,7 @@ function archiveTurn(id: string, items: readonly TurnItem[] = []): TurnRecord {
 }
 
 function agentMessage(id: string, text: string): TurnItem {
-  return { type: "agentMessage", moderation: null, id, text, phase: null, memoryCitation: null, delivery: null, questions: null };
+  return appServerAgentMessageFixture(id, text, { phase: null });
 }
 
 function paginatedArchiveFixture(itemPage: unknown) {

@@ -509,12 +509,8 @@ describe("WorkspacePanelCoordinator", () => {
     (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValue(sideLeaf);
     const sideView = chatView(CodexChatView, sideLeaf);
     const focus = vi.spyOn(sideView.surface, "focusComposer");
-    let resolveOpening!: (opened: boolean) => void;
-    vi.spyOn(sideView.surface, "applyForkDraft").mockReturnValue(
-      new Promise<boolean>((resolve) => {
-        resolveOpening = resolve;
-      }),
-    );
+    const pendingOpening = deferred<boolean>();
+    vi.spyOn(sideView.surface, "applyForkDraft").mockReturnValue(pendingOpening.promise);
     sideLeaf.setViewState.mockImplementation(async () => {
       sideLeaf.view = sideView;
       leaves.push(sideLeaf);
@@ -523,7 +519,7 @@ describe("WorkspacePanelCoordinator", () => {
     const opening = panels(plugin).openForkDraft(sideChatDraft("source", "Source"));
     await vi.waitFor(() => expect(plugin.app.workspace.revealLeaf).toHaveBeenCalledWith(sideLeaf));
     expect(focus).not.toHaveBeenCalled();
-    resolveOpening(false);
+    pendingOpening.resolve(false);
     await opening;
 
     expect(focus).not.toHaveBeenCalled();

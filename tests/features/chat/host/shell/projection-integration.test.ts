@@ -1,5 +1,6 @@
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";
+import { threadGoalFixture } from "../../../../support/thread-goal";
 import { threadStreamDependenciesFixture } from "../../support/thread-stream-dependencies";
 import { toolbarActionsFixture } from "../../support/toolbar-actions";
 // @vitest-environment jsdom
@@ -825,14 +826,7 @@ function modelFixture(model: string, fastTierId?: string) {
 }
 
 function goalFixture(threadId: string): ThreadGoal {
-  return {
-    threadId,
-    objective: "Ship it",
-    status: "active",
-    tokenBudget: null,
-    tokensUsed: 0,
-    timeUsedSeconds: 0,
-  };
+  return threadGoalFixture({ threadId, objective: "Ship it" });
 }
 
 function renderToolbar(

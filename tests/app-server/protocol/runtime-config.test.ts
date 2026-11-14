@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../../src/app-server/protocol/runtime-config";
+import { runtimeConfigSnapshotFromAppServerConfig } from "../../../src/app-server/protocol/runtime-config";
+import { runtimeConfigFromAppServerFixture } from "../../support/runtime-config";
 
 describe("runtime config protocol mapping", () => {
   it("maps the complete non-permission runtime snapshot", () => {
@@ -153,11 +154,3 @@ describe("runtime config protocol mapping", () => {
     });
   });
 });
-
-function runtimeConfigFromAppServerFixture(config: Record<string, unknown>) {
-  return runtimeConfigSnapshotFromAppServerConfig({
-    config: config as ConfigReadResult["config"],
-    origins: {},
-    layers: null,
-  });
-}

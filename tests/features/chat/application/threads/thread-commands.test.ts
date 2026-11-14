@@ -338,22 +338,14 @@ describe("thread management commands", () => {
     { serviceTier: "priority", intent: "reset" },
   ])("preserves inherited runtime through preparation and creation without resending it (%j)", async ({ serviceTier, intent }) => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
-    const activation: ThreadActivationSnapshot = {
-      collaborationMode: null,
+    const activation: ThreadActivationSnapshot = threadActivationFixture(panelThread("source"), {
       canAcceptDirectInput: true,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
       approvalPolicy: "never",
       sandboxPolicy: { type: "readOnly", networkAccess: false },
-      activePermissionProfile: null,
-      thread: panelThread("source"),
       model: "gpt-5.6",
-      modelProvider: "openai",
-      reasoningEffort: null,
       serviceTier,
       approvalsReviewer: "auto_review",
-    };
+    });
     host.stateStore.dispatch({ type: "active-thread/resumed", ...activation, items: turnItems() });
     host.stateStore.dispatch({ type: "active-thread/settings-applied", ...activation, collaborationMode: "plan" });
     if (intent !== "unchanged")
