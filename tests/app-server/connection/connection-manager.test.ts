@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppServerClient } from "../../../src/app-server/connection/client";
@@ -52,6 +53,10 @@ class SilentTransport implements AppServerTransport {
 
   emitLine(message: unknown): void {
     this.handlers.onLine(JSON.stringify(message));
+  }
+
+  emitLog(message: string): void {
+    this.handlers.onLog(message);
   }
 }
 
@@ -182,6 +187,150 @@ describe("ConnectionManager", () => {
 
     expect(transport.running).toBe(false);
     expect(manager.currentClient()).toBeNull();
+  });
+
+  it("shares connection attempts and isolates retired transports across sampled lifecycle events", async () => {
+    const events = fc.array(
+      fc.record({
+        kind: fc.constantFrom("connect", "ready", "fail", "exit", "disconnect", "notify", "request", "log"),
+        slot: fc.nat(9),
+        flush: fc.constantFrom("none", "microtask", "turn"),
+      }),
+      { maxLength: 60, size: "max" },
+    );
+    await expect(
+      fc.assert(
+        fc.asyncProperty(events, async (sequence) => {
+          const transports: SilentTransport[] = [];
+          const clients: AppServerClient[] = [];
+          const outcomes: Promise<void>[] = [];
+          const failures: unknown[] = [];
+          const retiredInitializations = new Set<AppServerClient>();
+          const handlers = {
+            onNotification: vi.fn(),
+            onServerRequest: vi.fn(),
+            onLog: vi.fn(),
+            onExit: vi.fn(),
+          };
+          const observers = new Map([
+            ["notify", handlers.onNotification],
+            ["request", handlers.onServerRequest],
+            ["log", handlers.onLog],
+          ]);
+          const factory = testClientFactory({ requestTimeoutMs: 60_000, onTransport: (next) => transports.push(next) });
+          const manager = new ConnectionManager("/bin/codex", "/vault", TEST_INITIALIZE_PARAMS, (...args) => {
+            const client = factory(...args);
+            clients.push(client);
+            return client;
+          });
+          function connect(): void {
+            const connecting = manager.connect(handlers);
+            const attempt = clients.at(-1);
+            const expectedHome = `/tmp/connection-${clients.length}`;
+            outcomes.push(
+              connecting.then(
+                (response) => {
+                  if (attempt && retiredInitializations.has(attempt)) failures.push("retired initialization succeeded");
+                  if (response.codexHome !== expectedHome) failures.push(response);
+                },
+                (error: unknown) => {
+                  if (!(error instanceof Error)) failures.push(error);
+                  if (attempt && retiredInitializations.has(attempt) && !(error instanceof StaleConnectionError)) failures.push(error);
+                },
+              ),
+            );
+          }
+          try {
+            for (const event of sequence) {
+              const transport = transports[event.slot % transports.length];
+              const running = transport?.running ?? false;
+              let expectedTransportCount = transports.length;
+              const observer = observers.get(event.kind);
+              const deliveriesBefore = observer?.mock.calls.length ?? 0;
+              switch (event.kind) {
+                case "connect": {
+                  connect();
+                  expectedTransportCount = transports.length;
+                  connect();
+                  break;
+                }
+                case "ready":
+                  transport?.emitLine({ id: 1, result: { codexHome: `/tmp/connection-${transports.indexOf(transport) + 1}` } });
+                  break;
+                case "fail":
+                  transport?.emitLine({ id: 1, error: { code: -32603, message: "Generated initialization failure" } });
+                  break;
+                case "exit":
+                  transport?.emitExit();
+                  break;
+                case "disconnect": {
+                  // The client can finish initialization while the manager still
+                  // awaits its continuation. Retiring at that boundary must make
+                  // pending connect callers stale, even though their RPC succeeded.
+                  const initializing = clients.at(-1);
+                  if (!manager.currentClient() && initializing?.isConnected()) retiredInitializations.add(initializing);
+                  manager.disconnect();
+                  break;
+                }
+                case "notify": {
+                  transport?.emitLine({ method: "thread/name/updated", params: { threadId: "thread", threadName: "Generated" } });
+                  break;
+                }
+                case "request": {
+                  transport?.emitLine(commandApprovalRequestFixture(46));
+                  break;
+                }
+                case "log": {
+                  transport?.emitLog("generated log");
+                  break;
+                }
+              }
+              expect(transports).toHaveLength(expectedTransportCount);
+              expect((observer?.mock.calls.length ?? 0) - deliveriesBefore).toBe(Number(observer !== undefined && running));
+              // Allow shutdown both before client initialization continues and
+              // between client initialization and the manager's continuation.
+              if (event.flush === "microtask") await Promise.resolve();
+              if (event.flush === "turn") await new Promise((resolve) => setImmediate(resolve));
+              expect(transports.filter((candidate) => candidate.running).length).toBeLessThanOrEqual(event.kind === "disconnect" ? 0 : 1);
+              expect([null, clients.at(-1)]).toContain(manager.currentClient());
+              expect(failures).toEqual([]);
+            }
+            // Arbitrary failures and shutdowns must still permit a fresh attempt.
+            manager.disconnect();
+            await Promise.all(outcomes);
+            const reconnecting = manager.connect(handlers);
+            const transport = transports.at(-1);
+            transport?.emitLine({ id: 1, result: { codexHome: "/tmp/recovered" } });
+            await expect(reconnecting).resolves.toMatchObject({ codexHome: "/tmp/recovered" });
+            const recovered = manager.currentClient();
+            expect(recovered).toBe(clients.at(-1));
+            const exits = handlers.onExit.mock.calls.length;
+            for (const retired of transports.slice(0, -1)) retired.emitExit();
+            expect(manager.currentClient()).toBe(recovered);
+            expect(transport?.running).toBe(true);
+            expect(handlers.onExit).toHaveBeenCalledTimes(exits);
+          } finally {
+            manager.disconnect();
+            for (const client of clients) client.disconnect();
+            await Promise.all(outcomes);
+          }
+          expect(failures).toEqual([]);
+          expect(transports.every((transport) => !transport.running)).toBe(true);
+        }),
+        {
+          numRuns: 200,
+          examples: [
+            [
+              [
+                { kind: "connect", slot: 0, flush: "none" },
+                { kind: "ready", slot: 0, flush: "microtask" },
+                { kind: "disconnect", slot: 0, flush: "turn" },
+              ],
+            ],
+          ],
+        },
+      ),
+    ).resolves.toBeUndefined();
   });
 });
 
