@@ -2,8 +2,8 @@ import { chatMetadataCacheFixture, chatVaultFixture, chatWorkspaceFixture } from
 import { threadGoalFixture } from "../../../../support/thread-goal";
 import {
   disconnectedChatLeaseFixture,
+  threadCatalogPublicationFixture,
   threadGoalQueriesFixture,
-  threadReplacementPublicationFixture,
   threadTitlePortFixture,
 } from "../../support/host-contracts";
 // @vitest-environment jsdom
@@ -751,7 +751,6 @@ describe("chat panel session runtime", () => {
           apply: overrides.plugin?.threadFacts?.apply ?? vi.fn(),
           applyBatch: overrides.plugin?.threadFacts?.applyBatch ?? vi.fn(),
         },
-        threadReplacementPublication: threadReplacementPublicationFixture(),
         threadMutations: overrides.plugin?.threadMutations ?? threadMutationCommandsMock(),
         runtimeSettingsCommitQueue: overrides.plugin?.runtimeSettingsCommitQueue ?? createKeyedOperationCoordinator({ whenBusy: "queue" }),
       },
@@ -814,6 +813,7 @@ describe("chat panel session runtime", () => {
     overrides: Partial<ChatPanelEnvironment["plugin"]["threadCatalog"]> = {},
   ): ChatPanelEnvironment["plugin"]["threadCatalog"] {
     return {
+      ...threadCatalogPublicationFixture(),
       hasMoreActiveThreads: vi.fn(() => false),
       loadMoreActiveThreads: vi.fn().mockResolvedValue(undefined),
       fetchActiveThreads: vi.fn().mockResolvedValue([]),

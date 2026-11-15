@@ -24,9 +24,9 @@ export function threadGoalQueriesFixture(): CodexChatHost["threadGoalQueries"] {
   };
 }
 
-export function threadReplacementPublicationFixture(): CodexChatHost["threadReplacementPublication"] {
+export function threadCatalogPublicationFixture(): Pick<CodexChatHost["threadCatalog"], "beginReplacement" | "visibleThreadId"> {
   return {
-    begin: vi.fn(() => ({ attach: vi.fn(), finish: vi.fn() })),
+    beginReplacement: vi.fn(() => ({ attach: vi.fn(), finish: vi.fn() })),
     visibleThreadId: vi.fn((_threads, threadId) => threadId),
   };
 }

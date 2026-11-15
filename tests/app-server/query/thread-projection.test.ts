@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { Thread } from "../../../../src/domain/threads/model";
-import { projectThreadFacts } from "../../../../src/features/threads/workflows/thread-projection";
-import { panelThreadFixture } from "../../../support/panel-thread";
+import { projectThreadFacts } from "../../../src/app-server/query/thread-projection";
+import type { Thread } from "../../../src/domain/threads/model";
+import { panelThreadFixture } from "../../support/panel-thread";
 
 describe("thread projection", () => {
   it("projects an ordered fact batch without mutating its snapshots", () => {

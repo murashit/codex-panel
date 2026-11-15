@@ -1,7 +1,7 @@
 import type { ServerNotification } from "../../../app-server/connection/rpc-messages";
 import { isPinnedThreadSection } from "../../../app-server/services/threads";
+import type { ThreadFact } from "../../../domain/threads/facts";
 import { normalizeExplicitThreadName } from "../../../domain/threads/model";
-import type { ThreadFact } from "../workflows/thread-facts";
 
 export function threadFactFromLifecycleNotification(notification: ServerNotification): ThreadFact | null {
   switch (notification.method) {

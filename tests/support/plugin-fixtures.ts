@@ -1,7 +1,7 @@
 import {
   disconnectedChatLeaseFixture,
+  threadCatalogPublicationFixture,
   threadGoalQueriesFixture,
-  threadReplacementPublicationFixture,
   threadTitlePortFixture,
   workspacePanelsFixture,
 } from "../features/chat/support/host-contracts";
@@ -163,6 +163,7 @@ function chatHostFixture(): CodexChatHost {
     },
     threadGoalQueries: threadGoalQueriesFixture(),
     threadCatalog: {
+      ...threadCatalogPublicationFixture(),
       fetchActiveThreads: vi.fn(() => Promise.resolve([])),
       refreshActiveThreads: vi.fn(() => Promise.resolve()),
       activeThreadsSnapshot: vi.fn(() => null),
@@ -175,7 +176,6 @@ function chatHostFixture(): CodexChatHost {
       apply: vi.fn(),
       applyBatch: vi.fn(),
     },
-    threadReplacementPublication: threadReplacementPublicationFixture(),
   };
 }
 

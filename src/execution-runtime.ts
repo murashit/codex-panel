@@ -4,10 +4,11 @@ import { AppServerContextConnection } from "./app-server/connection/context-conn
 import type { AppServerExecutionContext } from "./app-server/connection/execution-context";
 import { AppServerMetadataQueries } from "./app-server/query/metadata-queries";
 import { AppServerQueryScope } from "./app-server/query/query-scope";
-import { AppServerThreadCatalog } from "./app-server/query/thread-catalog-queries";
+import { ThreadCatalog } from "./app-server/query/thread-catalog-queries";
 import { AppServerThreadGoalQueries } from "./app-server/query/thread-goal-queries";
 import { AppServerToolInventoryQueries } from "./app-server/query/tool-inventory-queries";
 import { type EphemeralStructuredTurnRunner, runEphemeralStructuredTurn } from "./app-server/services/ephemeral-structured-turn";
+import type { ThreadFact } from "./domain/threads/facts";
 import type {
   ChatPanelSettingsAccess,
   ChatRuntimeView,
@@ -21,13 +22,7 @@ import { openThreadPicker, type ThreadPickerController } from "./features/thread
 import { threadFactFromLifecycleNotification } from "./features/threads/app-server/thread-lifecycle-notifications";
 import { createThreadMutationAdapter, createThreadTitleAdapter } from "./features/threads/app-server/workflow-adapters";
 import { createThreadAutoTitleWork, type ThreadAutoTitleWork } from "./features/threads/workflows/thread-auto-title-work";
-import type { ThreadFact, ThreadFactSink } from "./features/threads/workflows/thread-facts";
 import { createThreadMutationCommands, type ThreadMutationCommands } from "./features/threads/workflows/thread-mutation-commands";
-import { projectThreadFacts } from "./features/threads/workflows/thread-projection";
-import {
-  createThreadReplacementPublication,
-  type ThreadReplacementPublicationOwner,
-} from "./features/threads/workflows/thread-replacement-publication";
 import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import type { ThreadsRuntimeView } from "./features/threads-view/view.obsidian";
@@ -56,9 +51,7 @@ export class CodexExecutionRuntime {
   private readonly appServerQueries: AppServerMetadataQueries;
   private readonly toolInventoryQueries: AppServerToolInventoryQueries;
   private readonly threadGoalQueries: AppServerThreadGoalQueries;
-  private readonly threadCatalog: AppServerThreadCatalog;
-  private readonly threadFacts: ThreadFactSink;
-  private readonly threadReplacementPublication: ThreadReplacementPublicationOwner;
+  private readonly threadCatalog: ThreadCatalog;
   private readonly threadMutations: ThreadMutationCommands;
   private threadAutoTitleWork: ThreadAutoTitleWork | null = null;
   readonly settingsResources: SettingsResources;
@@ -82,7 +75,7 @@ export class CodexExecutionRuntime {
           }
           const fact = threadFactFromLifecycleNotification(notification);
           if (fact) {
-            this.threadFacts.apply(fact);
+            this.threadCatalog.facts.apply(fact);
             return true;
           }
           if (notification.method === "skills/changed") {
@@ -119,17 +112,11 @@ export class CodexExecutionRuntime {
     this.appServerQueries = new AppServerMetadataQueries(this.queryScope);
     this.toolInventoryQueries = new AppServerToolInventoryQueries(this.queryScope);
     this.threadGoalQueries = new AppServerThreadGoalQueries(this.queryScope);
-    const applyThreadFacts = (facts: readonly ThreadFact[]): void => {
+    this.threadCatalog = new ThreadCatalog(this.queryScope, (facts) => {
       if (this.disposed) return;
       for (const fact of facts) this.threadAutoTitleWork?.applyThreadFact(fact);
-      this.threadCatalog.applyThreadCatalogChanges(projectThreadFacts(this.threadCatalog, facts));
       options.onThreadFacts(facts);
-    };
-    this.threadCatalog = new AppServerThreadCatalog(this.queryScope);
-    this.threadReplacementPublication = createThreadReplacementPublication(applyThreadFacts, () =>
-      this.threadCatalog.freezeActiveThreads(),
-    );
-    this.threadFacts = this.threadReplacementPublication.facts;
+    });
     this.threadMutations = createThreadMutationCommands({
       port: createThreadMutationAdapter(this.appServerConnection),
       archiveExport: {
@@ -166,8 +153,7 @@ export class CodexExecutionRuntime {
       toolInventoryQueries: this.toolInventoryQueries,
       threadGoalQueries: this.threadGoalQueries,
       threadCatalog: this.threadCatalog,
-      threadFacts: this.threadFacts,
-      threadReplacementPublication: this.threadReplacementPublication,
+      threadFacts: this.threadCatalog.facts,
       threadMutations: this.threadMutations,
       threadTitlePort: this.threadTitlePort(),
       threadAutoTitleWork: this.currentThreadAutoTitleWork(),
@@ -187,7 +173,7 @@ export class CodexExecutionRuntime {
       visiblePanelActivities: (threads) =>
         this.options.workspace.openPanelActivities().map((activity) => ({
           ...activity,
-          threadId: this.threadReplacementPublication.visibleThreadId(threads, activity.threadId),
+          threadId: this.threadCatalog.visibleThreadId(threads, activity.threadId),
         })),
     };
   }

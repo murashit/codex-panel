@@ -304,7 +304,7 @@ describe("CodexChatView thread state", () => {
         }),
       });
       const shared = sharedConnectionFixture(client);
-      const beginPublication = vi.spyOn(shared.host.threadReplacementPublication, "begin");
+      const beginPublication = vi.spyOn(shared.host.threadCatalog, "beginReplacement");
       const view = await chatView({
         host: { ...shared.host, threadMutations: { ...shared.host.threadMutations, archiveThread } },
       });

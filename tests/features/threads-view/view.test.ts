@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import type { Thread } from "../../../src/domain/threads/model";
 import type { ThreadTitleContext } from "../../../src/domain/threads/title";
 import type { ArchiveThreadResult, ThreadTitlePort } from "../../../src/features/threads/workflows/ports";
-import { createThreadReplacementPublication } from "../../../src/features/threads/workflows/thread-replacement-publication";
 import type { ThreadsViewHost } from "../../../src/features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "../../../src/features/threads-view/state";
 import type { CodexThreadsView } from "../../../src/features/threads-view/view.obsidian";
@@ -15,6 +14,7 @@ import { deferred, waitForAsyncWork } from "../../support/async";
 import { mountAuthoredStyles } from "../../support/authored-styles";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 import { panelThreadFixture } from "../../support/panel-thread";
+import { threadCatalogFixture as realCatalogFixture } from "../../support/thread-catalog";
 import { threadMutationCommandsMock } from "../../support/thread-mutations";
 
 const openViews: CodexThreadsView[] = [];
@@ -312,41 +312,41 @@ describe("CodexThreadsView", () => {
   it("keeps replacement panel activity on a visible row while the catalog observer is delayed", async () => {
     const source = threadFixture({ id: "source", preview: "Source" });
     const replacement = threadFixture({ id: "replacement", preview: "Replacement" });
-    let cachedThreads: readonly Thread[] = [source];
+    let serverThreads: readonly Thread[] = [source];
+    const { catalog } = realCatalogFixture(async (archived) => (archived ? [] : serverThreads));
+    await catalog.fetchActiveThreads();
     let activities: readonly ThreadsViewPanelActivity[] = [
       { threadId: "source", selected: true, pending: false, running: false, unread: false },
     ];
-    const publication = createThreadReplacementPublication((facts) => {
-      for (const fact of facts) {
-        if (fact.type === "thread-upserted") cachedThreads = [fact.thread, ...cachedThreads.filter((item) => item.id !== fact.thread.id)];
-        if (fact.type === "thread-archived") cachedThreads = cachedThreads.filter((item) => item.id !== fact.threadId);
-      }
-    });
-    const pending = publication.begin("source");
+    const pending = catalog.beginReplacement("source");
     pending.attach(replacement);
     const view = await threadsView(
       threadsHost({
         threadCatalog: {
           ...catalogFixture(queryResult([source])).catalog,
-          activeThreadsSnapshot: () => cachedThreads,
+          activeThreadsSnapshot: () => catalog.activeThreadsSnapshot(),
         },
         visiblePanelActivities: (threads: readonly Thread[]) =>
           activities.map((activity) => ({
             ...activity,
-            threadId: publication.visibleThreadId(threads, activity.threadId),
+            threadId: catalog.visibleThreadId(threads, activity.threadId),
           })),
       }),
     );
 
-    activities = [{ threadId: "replacement", selected: true, pending: false, running: false, unread: false }];
+    activities = [{ threadId: "replacement", selected: true, pending: false, running: true, unread: false }];
     view.refreshLiveState();
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     expect(view.containerEl.querySelector(".codex-panel-threads__row--selected")?.textContent).toContain("Source");
 
+    expect(view.containerEl.querySelector(".codex-panel-threads__row--selected.codex-panel-threads__row--running")).not.toBeNull();
+    serverThreads = [replacement];
     view.refreshLiveState();
     pending.finish(true);
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     expect(view.containerEl.querySelector(".codex-panel-threads__row--selected")?.textContent).toContain("Replacement");
+    expect(view.containerEl.querySelectorAll(".codex-panel-threads__row")).toHaveLength(1);
+    expect(view.containerEl.querySelector(".codex-panel-threads__row--selected.codex-panel-threads__row--running")).not.toBeNull();
   });
 
   it("locks a rename save, restores its draft on failure, and closes after a successful retry", async () => {

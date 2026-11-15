@@ -1,6 +1,6 @@
-import { applyThreadCatalogChange, type ThreadCatalogChange, threadCatalogChangeList } from "../../../domain/threads/catalog";
-import { isThreadVisibleInCatalog, type Thread } from "../../../domain/threads/model";
-import type { ThreadFact } from "./thread-facts";
+import { applyThreadCatalogChange, type ThreadCatalogChange, threadCatalogChangeList } from "../../domain/threads/catalog";
+import type { ThreadFact } from "../../domain/threads/facts";
+import { isThreadVisibleInCatalog, type Thread } from "../../domain/threads/model";
 
 interface ThreadReadModelSnapshots {
   activeThreadsSnapshot(): readonly Thread[] | null;

@@ -1,5 +1,6 @@
 import type { App } from "obsidian";
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
+import type { ThreadFact } from "./domain/threads/facts";
 import { CodexExecutionRuntime } from "./execution-runtime";
 import type {
   ChatRuntimeView,
@@ -10,7 +11,6 @@ import type {
 import { CodexChatView } from "./features/chat/host/view.obsidian";
 import type { SelectionRewriteCommandController } from "./features/selection-rewrite/command.obsidian";
 import type { SelectionRewritePort } from "./features/selection-rewrite/port";
-import type { ThreadFact } from "./features/threads/workflows/thread-facts";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import { CodexThreadsView, type ThreadsRuntimeView, type ThreadsViewRuntimeOwner } from "./features/threads-view/view.obsidian";
 import type { TurnDiffViewState } from "./features/turn-diff/model";
