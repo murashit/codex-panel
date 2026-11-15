@@ -11,7 +11,7 @@ import {
 import { BUILT_IN_PINNED_THREAD_SECTION_ID } from "../../../src/app-server/protocol/thread";
 import { AppServerMetadataQueries } from "../../../src/app-server/query/metadata-queries";
 import { AppServerQueryScope } from "../../../src/app-server/query/query-scope";
-import { AppServerThreadCatalog } from "../../../src/app-server/query/thread-catalog-queries";
+import { ThreadCatalog } from "../../../src/app-server/query/thread-catalog-queries";
 import { AppServerThreadGoalQueries } from "../../../src/app-server/query/thread-goal-queries";
 import { AppServerToolInventoryQueries } from "../../../src/app-server/query/tool-inventory-queries";
 import type { RuntimePermissionProfileSummary } from "../../../src/domain/runtime/permissions";
@@ -448,13 +448,13 @@ describe("app-server query resources", () => {
     const cache = cacheWithThreads(fetchThreads);
     await cache.threadCatalog.refreshActiveThreads();
 
-    const release = cache.threadCatalog.freezeActiveThreads();
+    const replacement = cache.threadCatalog.beginReplacement("source");
 
     await cache.threadCatalog.refreshActiveThreads();
     expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("source")]);
     expect(fetchThreads).toHaveBeenCalledOnce();
 
-    release();
+    replacement.finish(false);
     await vi.waitFor(() => expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("replacement")]));
   });
 
@@ -468,11 +468,11 @@ describe("app-server query resources", () => {
     const initialRefresh = cache.threadCatalog.refreshActiveThreads();
     await flushMicrotasks();
 
-    const release = cache.threadCatalog.freezeActiveThreads();
+    const replacement = cache.threadCatalog.beginReplacement("source");
 
     await initialRefresh;
     expect(fetchThreads).toHaveBeenCalledOnce();
-    release();
+    replacement.finish(false);
     await vi.waitFor(() => expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("replacement")]));
 
     staleRequest.resolve([thread("source"), thread("replacement")]);
@@ -1260,7 +1260,7 @@ function cacheWithRequestHandlers(
 interface TestQueryResources {
   readonly scope: AppServerQueryScope;
   readonly metadataQueries: AppServerMetadataQueries;
-  readonly threadCatalog: AppServerThreadCatalog;
+  readonly threadCatalog: ThreadCatalog;
   readonly toolInventoryQueries: AppServerToolInventoryQueries;
   readonly threadGoalQueries: AppServerThreadGoalQueries;
 }
@@ -1270,7 +1270,7 @@ function createCache(clientAccess: AppServerClientAccess, context: AppServerExec
   return {
     scope,
     metadataQueries: new AppServerMetadataQueries(scope),
-    threadCatalog: new AppServerThreadCatalog(scope),
+    threadCatalog: new ThreadCatalog(scope),
     toolInventoryQueries: new AppServerToolInventoryQueries(scope),
     threadGoalQueries: new AppServerThreadGoalQueries(scope),
   };

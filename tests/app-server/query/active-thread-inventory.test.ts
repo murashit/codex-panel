@@ -46,7 +46,7 @@ describe("active thread inventory", () => {
   it("applies active upserts across pages", () => {
     const original = inventory([page([thread("existing", 1)], "next", 1), page([thread("other", 2)], null, 1)]);
     const unchanged = applyActiveThreadMutation(original, { kind: "upsert", thread: thread("existing", 1) });
-    // Identity is consumed by thread-catalog-queries to avoid publishing unchanged data.
+    // Identity is consumed by the catalogue to avoid publishing unchanged data.
     expect(unchanged).toBe(original);
 
     const updated = applyActiveThreadMutation(original, {

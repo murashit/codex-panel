@@ -277,7 +277,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       connected: () => connection.isConnected(),
     },
     visibleThreadId: (threads: readonly Thread[], threadId: string | null) =>
-      environment.plugin.threadReplacementPublication.visibleThreadId(threads, threadId),
+      environment.plugin.threadCatalog.visibleThreadId(threads, threadId),
     settings: {
       vaultPath: () => environment.plugin.appServerContext.vaultPath,
       configuredCommand: () => environment.plugin.appServerContext.codexPath,

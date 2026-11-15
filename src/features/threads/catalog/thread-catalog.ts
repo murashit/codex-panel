@@ -23,3 +23,13 @@ export interface ThreadCatalogArchivedReader {
   refreshArchivedThreads(): Promise<readonly Thread[]>;
   observeArchivedThreadsResult(observer: ArchivedThreadListObserver): () => void;
 }
+
+interface ThreadReplacementPublication {
+  attach(replacementThread: Thread): void;
+  finish(sourceArchived: boolean): void;
+}
+
+export interface ThreadCatalogPublication {
+  beginReplacement(sourceThreadId: string): ThreadReplacementPublication;
+  visibleThreadId(visibleThreads: readonly Thread[], threadId: string | null): string | null;
+}

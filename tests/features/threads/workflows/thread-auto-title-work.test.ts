@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import type { ThreadFact } from "../../../../src/domain/threads/facts";
 import { createThreadAutoTitleWork } from "../../../../src/features/threads/workflows/thread-auto-title-work";
-import type { ThreadFact } from "../../../../src/features/threads/workflows/thread-facts";
 import type { ThreadMutationCommands } from "../../../../src/features/threads/workflows/thread-mutation-commands";
 import { deferred } from "../../../support/async";
 import { panelThreadFixture } from "../../../support/panel-thread";

@@ -1,4 +1,4 @@
-import type { Thread } from "../../../domain/threads/model";
+import type { Thread } from "./model";
 
 export type ThreadFact =
   | { type: "thread-upserted"; thread: Thread }

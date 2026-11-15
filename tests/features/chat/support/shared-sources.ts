@@ -1,13 +1,13 @@
 import type { Thread } from "../../../../src/domain/threads/model";
-import type { ChatMetadataSource, ChatThreadGoalQueries } from "../../../../src/features/chat/host/contracts";
+import type { ChatMetadataSource, ChatThreadGoalQueries, CodexChatHost } from "../../../../src/features/chat/host/contracts";
 import type { ChatToolInventoryDisplayQueries } from "../../../../src/features/chat/host/shell/shared-resource-hooks";
-import type { ThreadCatalogPaginatedActiveReader } from "../../../../src/features/threads/catalog/thread-catalog";
+import { threadCatalogPublicationFixture } from "./host-contracts";
 
 export function chatSharedSourcesFixture(threads: readonly Thread[] = []): {
   metadata: ChatMetadataSource;
   toolInventoryQueries: ChatToolInventoryDisplayQueries;
   threadGoalQueries: ChatThreadGoalQueries;
-  threadCatalog: ThreadCatalogPaginatedActiveReader;
+  threadCatalog: CodexChatHost["threadCatalog"];
 } {
   return {
     metadata: {
@@ -28,6 +28,7 @@ export function chatSharedSourcesFixture(threads: readonly Thread[] = []): {
       observeChanges: () => () => undefined,
     },
     threadCatalog: {
+      ...threadCatalogPublicationFixture(),
       fetchActiveThreads: async () => threads,
       refreshActiveThreads: async () => undefined,
       activeThreadsSnapshot: () => threads,

@@ -12,12 +12,10 @@ import type { TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { ActiveThreadData } from "../../../../src/app-server/query/active-thread-inventory";
 import { AppServerMetadataQueries } from "../../../../src/app-server/query/metadata-queries";
 import { AppServerQueryScope } from "../../../../src/app-server/query/query-scope";
-import { AppServerThreadCatalog } from "../../../../src/app-server/query/thread-catalog-queries";
+import { ThreadCatalog } from "../../../../src/app-server/query/thread-catalog-queries";
 import { AppServerThreadGoalQueries } from "../../../../src/app-server/query/thread-goal-queries";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { ChatRuntimeView, ChatViewRuntimeOwner, CodexChatHost } from "../../../../src/features/chat/host/contracts";
-import { projectThreadFacts } from "../../../../src/features/threads/workflows/thread-projection";
-import { createThreadReplacementPublication } from "../../../../src/features/threads/workflows/thread-replacement-publication";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/preferences";
 import { createKeyedOperationCoordinator } from "../../../../src/shared/async/keyed-operation-coordinator";
 import { notices } from "../../../mocks/obsidian";
@@ -408,12 +406,8 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
   );
   createdQueryScopes.push(queryScope);
   const appServerQueries = new AppServerMetadataQueries(queryScope);
-  const threadCatalog = new AppServerThreadCatalog(queryScope);
+  const threadCatalog = new ThreadCatalog(queryScope);
   const threadGoalQueries = new AppServerThreadGoalQueries(queryScope);
-  const replacementPublication = createThreadReplacementPublication(
-    (facts) => threadCatalog.applyThreadCatalogChanges(projectThreadFacts(threadCatalog, facts)),
-    () => threadCatalog.freezeActiveThreads(),
-  );
   const appServerConnection = contextConnectionMock(
     (notification) => {
       if (notification.method === "thread/goal/updated" || notification.method === "thread/goal/cleared") {
@@ -471,8 +465,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       }),
     },
     threadCatalog,
-    threadFacts: replacementPublication.facts,
-    threadReplacementPublication: replacementPublication,
+    threadFacts: threadCatalog.facts,
   };
 }
 

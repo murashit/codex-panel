@@ -1,6 +1,6 @@
+import type { ThreadFact } from "../../../domain/threads/facts";
 import type { ThreadTitleContext } from "../../../domain/threads/title";
 import type { ThreadTitlePort } from "./ports";
-import type { ThreadFact } from "./thread-facts";
 import type { ThreadMutationCommands } from "./thread-mutation-commands";
 
 export interface ThreadAutoTitleWork {

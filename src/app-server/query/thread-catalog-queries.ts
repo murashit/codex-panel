@@ -5,6 +5,7 @@ import {
   type InfiniteQueryObserverResult,
 } from "@tanstack/query-core";
 import { applyThreadCatalogChange, type ThreadCatalogChange, threadCatalogChangeList } from "../../domain/threads/catalog";
+import type { ThreadFact, ThreadFactSink } from "../../domain/threads/facts";
 import type { Thread } from "../../domain/threads/model";
 import type { ObservedPaginatedResult, ObservedPaginatedResultListener, ObservedResultListener } from "../../shared/async/observed-result";
 import { listPinnedThreads, listThreads, readThreadPage, type ThreadPage } from "../services/threads";
@@ -17,6 +18,7 @@ import {
   recentActiveThreadsFromData,
 } from "./active-thread-inventory";
 import type { AppServerQueryOptions, AppServerQueryScope } from "./query-scope";
+import { projectThreadFacts } from "./thread-projection";
 
 const ACTIVE_THREADS_QUERY_KEY = ["threads", "active"] as const;
 const ACTIVE_THREAD_SEARCH_INVENTORY_QUERY_KEY = ["threads", "active-search-inventory"] as const;
@@ -24,30 +26,94 @@ const ARCHIVED_THREADS_QUERY_KEY = ["threads", "archived"] as const;
 
 type ActiveThreadsQueryKey = typeof ACTIVE_THREADS_QUERY_KEY;
 
-export class AppServerThreadCatalog {
-  private activeThreadsFreezeCount = 0;
+interface PendingReplacement {
+  readonly sourceThreadId: string;
+  initialReplacement: Thread | null;
+  readonly facts: ThreadFact[];
+  finished: boolean;
+}
+
+export class ThreadCatalog {
+  private readonly pendingByThreadId = new Map<string, PendingReplacement>();
   private activeThreadsRefreshRequested = false;
 
-  constructor(private readonly scope: AppServerQueryScope) {}
+  readonly facts: ThreadFactSink = {
+    apply: (fact) => {
+      this.acceptFacts([fact]);
+    },
+    applyBatch: (facts) => {
+      this.acceptFacts(facts);
+    },
+  };
 
-  freezeActiveThreads(): () => void {
-    this.scope.assertUsable();
-    this.activeThreadsFreezeCount += 1;
-    if (this.scope.client.getQueryState(ACTIVE_THREADS_QUERY_KEY)?.fetchStatus === "fetching") {
-      this.activeThreadsRefreshRequested = true;
+  constructor(
+    private readonly scope: AppServerQueryScope,
+    private readonly onPublishedFacts: (facts: readonly ThreadFact[]) => void = () => undefined,
+  ) {}
+
+  private acceptFacts(facts: readonly ThreadFact[]): void {
+    const immediate: ThreadFact[] = [];
+    for (const fact of facts) {
+      const pending = this.pendingByThreadId.get(threadIdForFact(fact));
+      if (!pending || pending.finished) immediate.push(fact);
+      else pending.facts.push(fact);
     }
+    this.publishFacts(immediate);
+  }
+
+  private publishFacts(facts: readonly ThreadFact[]): void {
+    if (this.scope.isDisposed() || facts.length === 0) return;
+    this.applyThreadCatalogChanges(projectThreadFacts(this, facts));
+    this.onPublishedFacts(facts);
+  }
+
+  visibleThreadId(visibleThreads: readonly Thread[], threadId: string | null): string | null {
+    if (!threadId) return null;
+    const pending = this.pendingByThreadId.get(threadId);
+    if (!pending || pending.initialReplacement?.id !== threadId) return threadId;
+    const replacementVisible = visibleThreads.some((thread) => thread.id === threadId);
+    const sourceVisible = visibleThreads.some((thread) => thread.id === pending.sourceThreadId);
+    return !replacementVisible && sourceVisible ? pending.sourceThreadId : threadId;
+  }
+
+  beginReplacement(sourceThreadId: string) {
+    this.scope.assertUsable();
+    if (this.pendingByThreadId.has(sourceThreadId)) throw new Error("A replacement publication is already in progress for this thread.");
+    const pending: PendingReplacement = { sourceThreadId, initialReplacement: null, facts: [], finished: false };
+    this.pendingByThreadId.set(sourceThreadId, pending);
+    if (this.scope.client.getQueryState(ACTIVE_THREADS_QUERY_KEY)?.fetchStatus === "fetching") this.activeThreadsRefreshRequested = true;
     void this.scope.client.cancelQueries({ queryKey: ACTIVE_THREADS_QUERY_KEY, exact: true });
-    let released = false;
-    return () => {
-      if (released) return;
-      released = true;
-      this.activeThreadsFreezeCount -= 1;
-      if (this.activeThreadsFreezeCount === 0 && this.activeThreadsRefreshRequested) {
-        this.activeThreadsRefreshRequested = false;
-        void this.refreshActiveThreads().catch(() => {
-          // Observers retain the last visible snapshot when the deferred refresh fails.
-        });
-      }
+    return {
+      attach: (replacementThread: Thread) => {
+        if (pending.finished) throw new Error("The replacement publication has already finished.");
+        if (pending.initialReplacement) throw new Error("A replacement thread is already attached.");
+        if (this.pendingByThreadId.has(replacementThread.id))
+          throw new Error("A replacement publication is already in progress for this thread.");
+        pending.initialReplacement = replacementThread;
+        this.pendingByThreadId.set(replacementThread.id, pending);
+      },
+      finish: (sourceArchived: boolean) => {
+        if (pending.finished) return;
+        pending.finished = true;
+        const completedFacts: ThreadFact[] = pending.initialReplacement
+          ? [{ type: "thread-upserted", thread: pending.initialReplacement }, ...pending.facts]
+          : [...pending.facts];
+        if (sourceArchived && !pending.facts.some((fact) => factRemovesThread(fact, sourceThreadId))) {
+          completedFacts.push({ type: "thread-archived", threadId: sourceThreadId });
+        }
+        try {
+          this.publishFacts(completedFacts);
+        } finally {
+          this.pendingByThreadId.delete(sourceThreadId);
+          if (pending.initialReplacement) this.pendingByThreadId.delete(pending.initialReplacement.id);
+          if (this.pendingByThreadId.size === 0 && this.activeThreadsRefreshRequested && !this.scope.isDisposed()) {
+            this.activeThreadsRefreshRequested = false;
+            void this.refreshActiveThreads().catch(() => {
+              // Observers retain the last visible snapshot when the deferred refresh fails.
+            });
+          }
+        }
+      },
     };
   }
 
@@ -232,7 +298,7 @@ export class AppServerThreadCatalog {
   }
 
   private activeThreadsFrozenSnapshot(): readonly Thread[] | undefined {
-    if (this.activeThreadsFreezeCount === 0) return undefined;
+    if (this.pendingByThreadId.size === 0) return undefined;
     this.activeThreadsRefreshRequested = true;
     return this.activeThreadsSnapshot() ?? [];
   }
@@ -301,4 +367,12 @@ function selectActiveThreads(data: ActiveThreadData): readonly Thread[] {
 
 function activeThreadChangeInvalidatesPages(change: ThreadCatalogChange): boolean {
   return change.kind !== "update" || Object.hasOwn(change.changes, "isPinned") || Object.hasOwn(change.changes, "recencyAt");
+}
+
+function factRemovesThread(fact: ThreadFact, threadId: string): boolean {
+  return (fact.type === "thread-archived" || fact.type === "thread-deleted") && fact.threadId === threadId;
+}
+
+function threadIdForFact(fact: ThreadFact): string {
+  return fact.type === "thread-upserted" ? fact.thread.id : fact.threadId;
 }

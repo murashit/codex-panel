@@ -10,14 +10,13 @@ import type {
   SharedServerMetadataSnapshotValues,
 } from "../../../domain/runtime/metadata";
 import type { ToolInventorySnapshot } from "../../../domain/runtime/tool-inventory";
+import type { ThreadFactSink } from "../../../domain/threads/facts";
 import type { ThreadGoal } from "../../../domain/threads/goal";
 import type { KeyedOperationCoordinator } from "../../../shared/async/keyed-operation-coordinator";
-import type { ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
+import type { ThreadCatalogPaginatedActiveReader, ThreadCatalogPublication } from "../../threads/catalog/thread-catalog";
 import type { ThreadTitlePort } from "../../threads/workflows/ports";
 import type { ThreadAutoTitleWork } from "../../threads/workflows/thread-auto-title-work";
-import type { ThreadFactSink } from "../../threads/workflows/thread-facts";
 import type { ThreadMutationCommands } from "../../threads/workflows/thread-mutation-commands";
-import type { ThreadReplacementPublicationOwner } from "../../threads/workflows/thread-replacement-publication";
 import type { TurnDiffViewState } from "../../turn-diff/model";
 import type { ForkDisplaySnapshot } from "../application/threads/fork-display-snapshot";
 import type { ForkDraftPreparation } from "../application/threads/fork-draft";
@@ -32,7 +31,6 @@ export interface CodexChatHost {
   readonly threadGoalQueries: ChatThreadGoalQueries;
   readonly threadCatalog: ChatThreadCatalog;
   readonly threadFacts: ThreadFactSink;
-  readonly threadReplacementPublication: Pick<ThreadReplacementPublicationOwner, "begin" | "visibleThreadId">;
   readonly threadMutations: ThreadMutationCommands;
   readonly threadTitlePort: ThreadTitlePort;
   readonly threadAutoTitleWork: Pick<ThreadAutoTitleWork, "submit">;
@@ -65,7 +63,7 @@ export interface WorkspacePresentation {
 
 export type WorkspacePanels = Omit<RuntimePanelOperations, "openThreadInCurrentView"> & WorkspacePresentation;
 
-type ChatThreadCatalog = ThreadCatalogPaginatedActiveReader;
+type ChatThreadCatalog = ThreadCatalogPaginatedActiveReader & ThreadCatalogPublication;
 
 export interface ChatMetadataSource {
   observeMetadataResource<Id extends SharedServerMetadataResourceId>(
