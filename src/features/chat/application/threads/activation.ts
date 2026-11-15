@@ -50,6 +50,11 @@ export class ThreadActivation {
 
   constructor(private readonly host: ThreadActivationHost) {}
 
+  isLoading(): boolean {
+    const current = this.current;
+    return current !== null && current.loading !== null && !this.isStaleResume(current, current.panelTarget);
+  }
+
   invalidate(): void {
     this.current = null;
   }

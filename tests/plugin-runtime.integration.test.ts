@@ -98,6 +98,129 @@ describe("CodexPanelPlugin runtime integration", () => {
     vi.useRealTimers();
   });
 
+  it("drops old pending and queued selections while accepting navigation from the replacement", async () => {
+    const pending = deferred<ReturnType<typeof resumedThread>>();
+    const oldClient = connectedClient({ "thread/resume": vi.fn(() => pending.promise) });
+    const nextClient = connectedClient();
+    contextConnectionClientMock.mockImplementation((path: string) => (path === "codex" ? oldClient : nextClient));
+    const target = leaf();
+    const plugin = await pluginWithLeaves([target]);
+    const view = chatView(CodexChatView, target, plugin.runtime);
+    target.view = view;
+    onTestFinished(async () => {
+      await view.onClose();
+      plugin.runtime.reset();
+    });
+    const old = currentChatHost(plugin).workspace;
+    const opening = old.openThreadInAvailableView("thread-1");
+    await vi.waitFor(() => {
+      expect(oldClient.request).toHaveBeenCalledWith("thread/resume", expect.anything(), expect.anything());
+    });
+    const queued = old.openThreadInAvailableView("thread-1");
+    await publishCodexPath(plugin, "codex-next");
+    pending.resolve(resumedThread("thread-1"));
+    await Promise.all([opening, queued]);
+    expect(nextClient.request).not.toHaveBeenCalledWith("thread/resume", expect.anything(), expect.anything());
+    expect(view.surface.openPanelSnapshot().threadId).toBeNull();
+    await currentChatHost(plugin).workspace.openThreadInAvailableView("thread-1");
+    expect(view.surface.openPanelSnapshot().threadId).toBe("thread-1");
+  });
+
+  it.each([false, true])("uses activation-owned loading to allocate panels, clear=%s", async (clear) => {
+    const pending = deferred<ReturnType<typeof resumedThread>>();
+    const client = connectedClient({
+      "thread/resume": vi.fn((params: unknown) =>
+        params && typeof params === "object" && "threadId" in params && params.threadId === "one"
+          ? pending.promise
+          : Promise.resolve(resumedThread("two")),
+      ),
+    });
+    contextConnectionClientMock.mockReturnValue(client);
+    const first = leaf();
+    const leaves = [first];
+    const plugin = await pluginWithLeaves(leaves);
+    const view = chatView(CodexChatView, first, plugin.runtime);
+    first.view = view;
+    const additional = leaf();
+    const other = chatView(CodexChatView, additional, plugin.runtime);
+    additional.setViewState.mockImplementation(async (state: { state: unknown }) => {
+      additional.view = other;
+      leaves.push(additional);
+      await other.setState(state.state, { history: false });
+    });
+    (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValue(additional);
+    onTestFinished(async () => {
+      await view.onClose();
+      await other.onClose();
+      plugin.runtime.reset();
+    });
+    const workspace = currentChatHost(plugin).workspace;
+    const one = workspace.openThreadInAvailableView("one");
+    await vi.waitFor(() => {
+      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "one" }), expect.anything());
+    });
+    if (clear) await view.surface.startNewThread({ focus: false });
+    await workspace.openThreadInAvailableView("two");
+    pending.resolve(resumedThread("one"));
+    await one;
+    expect(
+      [view, other]
+        .filter((panel) => leaves.some((entry) => entry.view === panel))
+        .map((panel) => panel.surface.openPanelSnapshot().threadId),
+    ).toEqual(clear ? ["two"] : ["one", "two"]);
+  });
+
+  it("keeps scoped navigation usable after a failed save and revokes it across A-to-B-to-A replacement", async () => {
+    const target = leaf();
+    const plugin = await pluginWithLeaves([target]);
+    const view = chatView(CodexChatView, target, plugin.runtime);
+    target.view = view;
+    onTestFinished(async () => {
+      await view.onClose();
+      plugin.runtime.reset();
+    });
+    const original = currentChatHost(plugin).workspace;
+    const firstActivation = vi.spyOn(view.surface, "activateThread").mockResolvedValue(true);
+    vi.spyOn(plugin, "saveData").mockRejectedValueOnce(new Error("disk full")).mockResolvedValue(undefined);
+    await expect(publishCodexPath(plugin, "codex-next")).rejects.toThrow("disk full");
+    await original.openThreadInAvailableView("first");
+    expect(firstActivation).toHaveBeenCalledOnce();
+    await publishCodexPath(plugin, "codex-next");
+    await publishCodexPath(plugin, "codex");
+    const currentActivation = vi.spyOn(view.surface, "activateThread").mockResolvedValue(true);
+    await original.openThreadInAvailableView("stale");
+    expect(currentActivation).not.toHaveBeenCalled();
+    await currentChatHost(plugin).workspace.openThreadInAvailableView("fresh");
+    expect(currentActivation).toHaveBeenCalledWith("fresh", { focus: false });
+  });
+
+  it.each(["replace", "reset"])("keeps static diff presentation workspace-owned during %s", async (action) => {
+    const plugin = await pluginWithLeaves([]);
+    onTestFinished(() => {
+      plugin.runtime.reset();
+    });
+    const diffLeaf = leaf();
+    const diffView = new CodexTurnDiffView({ ...diffLeaf, containerEl: document.createElement("div") } as never);
+    diffLeaf.view = diffView;
+    const setPayload = vi.spyOn(diffView, "setDiffPayload");
+    const loading = deferred<void>();
+    diffLeaf.loadIfDeferred.mockReturnValue(loading.promise);
+    Object.assign(plugin.app.workspace, { getLeaf: () => diffLeaf });
+    const payload = { threadId: "thread", turnId: "turn", files: [], diff: "old snapshot" };
+    const opening = currentChatHost(plugin).workspace.openTurnDiff(payload);
+    await vi.waitFor(() => {
+      expect(diffLeaf.loadIfDeferred).toHaveBeenCalledOnce();
+    });
+    if (action === "replace") await publishCodexPath(plugin, "codex-next");
+    else {
+      plugin.runtime.reset();
+      plugin.runtime.initialize();
+    }
+    loading.resolve();
+    await opening;
+    expect(setPayload.mock.calls).toEqual(action === "replace" ? [[payload]] : []);
+  });
+
   it("repairs duplicate ownership on panel activity changes without hydrating panels", async () => {
     vi.useFakeTimers();
     const first = leaf({ state: { threadId: "same" } });

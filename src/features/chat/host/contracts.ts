@@ -49,15 +49,21 @@ export interface ChatPanelSettingsAccess {
   newConversationsEphemeral(): boolean;
 }
 
-export interface WorkspacePanels {
+export interface RuntimePanelOperations {
+  openThreadInCurrentView(threadId: string): Promise<void>;
   returnFromForkDraft(threadId: string, originViewId: string, isCurrent: () => boolean): Promise<boolean>;
   openForkDraft(preparation: ForkDraftPreparation, initialMessage?: string): Promise<void>;
   openThreadInNewView(threadId: string, displaySnapshot?: ForkDisplaySnapshot): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
   openThreadFromPanel(threadId: string, originViewId: string, originSwitchable: boolean): Promise<void>;
+}
+
+export interface WorkspacePresentation {
   openTurnDiff(state: TurnDiffViewState): Promise<void>;
   notifyPanelActivityChanged(): void;
 }
+
+export type WorkspacePanels = Omit<RuntimePanelOperations, "openThreadInCurrentView"> & WorkspacePresentation;
 
 type ChatThreadCatalog = ThreadCatalogPaginatedActiveReader;
 
@@ -125,6 +131,7 @@ export interface ChatRuntimeView {
 }
 
 export interface ChatWorkspacePanelSnapshot {
+  loadingThread: boolean;
   viewId: string;
   threadId: string | null;
   turnBusy: boolean;

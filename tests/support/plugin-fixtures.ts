@@ -205,6 +205,7 @@ export function panelSnapshot(
 ): ReturnType<CodexChatView["surface"]["openPanelSnapshot"]> {
   return {
     viewId: "view",
+    loadingThread: false,
     threadId: "thread",
     turnBusy: false,
     pending: false,
