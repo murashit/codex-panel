@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 
+import { StateEffect } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { type Command, type Editor, type EditorPosition, MarkdownView, Plugin, TFile } from "obsidian";
+import { type Command, type Editor, type EditorPosition, editorInfoField, MarkdownView, Plugin, TFile } from "obsidian";
 import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { registerSelectionRewriteCommand } from "../../../src/features/selection-rewrite/command.obsidian";
 import type { SelectionRewritePort } from "../../../src/features/selection-rewrite/port";
-import { editorSelectionEmphasisExtension } from "../../../src/shared/ui/editor-selection-emphasis.obsidian";
 import { deferred } from "../../support/async";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 
@@ -69,42 +69,52 @@ describe("selection rewrite command", () => {
     },
   );
 
-  it("protects pending edits and recovers after reselecting text and reopening Rewrite selection", async () => {
-    const result = deferred<{ replacementText: string }>();
-    const generate = vi
-      .fn<SelectionRewritePort["generate"]>()
-      .mockImplementationOnce(() => result.promise)
-      .mockResolvedValueOnce({ replacementText: "Recovered rewrite." });
-    const { run, cm, editor } = commandHarness({ generate });
-    void act(() => {
-      run();
-    });
-    await startGeneration();
-    cm.dispatch({ changes: { from: 0, to: cm.state.doc.length, insert: "Edited this sentence." } });
-    await act(async () => {
-      result.resolve({ replacementText: "Rewritten sentence." });
-    });
-    void act(() => button("Apply").click());
+  it.each(["changed", "restored", "replaced-file", "renamed-file"])(
+    "rejects a %s target and recovers after reselecting and reopening",
+    async (change) => {
+      const result = deferred<{ replacementText: string }>();
+      const generate = vi
+        .fn<SelectionRewritePort["generate"]>()
+        .mockImplementationOnce(() => result.promise)
+        .mockResolvedValueOnce({ replacementText: "Recovered rewrite." });
+      const { run, cm, editor, view } = commandHarness({ generate });
+      void act(() => {
+        run();
+      });
+      await startGeneration();
+      if (change === "replaced-file") view.file = Object.assign(new TFile(), { path: "Other.md" });
+      else if (change === "renamed-file" && view.file) view.file.path = "Renamed.md";
+      else {
+        cm.dispatch({ changes: { from: 0, to: cm.state.doc.length, insert: "Edited this sentence." } });
+        if (change === "restored") cm.dispatch({ changes: { from: 0, to: cm.state.doc.length, insert: "Revise this sentence." } });
+      }
+      await act(async () => {
+        result.resolve({ replacementText: "Rewritten sentence." });
+      });
+      void act(() => button("Apply").click());
+      void act(() => button("Regenerate").click());
 
-    expect(editor.replaceRange).not.toHaveBeenCalled();
-    expect(cm.state.doc.toString()).toBe("Edited this sentence.");
-    expect(document.querySelector(".codex-panel-selection-rewrite__status")?.textContent).toMatch(
-      /select the text again.*reopen Rewrite selection/i,
-    );
-    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+      expect(editor.replaceRange).not.toHaveBeenCalled();
+      expect(document.querySelector(".codex-panel-selection-emphasis")).toBeNull();
+      expect(generate).toHaveBeenCalledOnce();
+      expect(document.querySelector(".codex-panel-selection-rewrite__status")?.textContent).toMatch(
+        /select the text again.*reopen Rewrite selection/i,
+      );
+      expect(document.querySelector('[role="dialog"]')).not.toBeNull();
 
-    cm.dispatch({ selection: { anchor: 0, head: cm.state.doc.length } });
-    void act(() => {
-      run();
-    });
-    await startGeneration();
-    expect(generate).toHaveBeenCalledTimes(2);
-    expect(generate.mock.calls[1]?.[0].prompt).toContain("Selected text:\n```text\nEdited this sentence.\n```");
-    void act(() => button("Apply").click());
+      cm.dispatch({ changes: { from: 0, to: cm.state.doc.length, insert: "Edited this sentence." }, selection: { anchor: 0, head: 21 } });
+      void act(() => {
+        run();
+      });
+      await startGeneration();
+      expect(generate).toHaveBeenCalledTimes(2);
+      expect(generate.mock.calls[1]?.[0].prompt).toContain("Selected text:\n```text\nEdited this sentence.\n```");
+      void act(() => button("Apply").click());
 
-    expect(cm.state.doc.toString()).toBe("Recovered rewrite.");
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
-  });
+      expect(cm.state.doc.toString()).toBe("Recovered rewrite.");
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+    },
+  );
 
   it.each(["resolve", "reject"])("replaces a pending rewrite and ignores its late %s", async (outcome) => {
     const pending = deferred<{ replacementText: string }>();
@@ -160,13 +170,23 @@ describe("selection rewrite command", () => {
   });
 
   it("releases an interaction closed during opening and allows a fresh command", () => {
-    const { run, cm, controller } = commandHarness();
-    cm.dom.remove();
+    const { run, cm, controller, view } = commandHarness();
+    let detachOnUpdate = false;
+    cm.dispatch({
+      effects: StateEffect.appendConfig.of(
+        EditorView.updateListener.of(() => {
+          if (!detachOnUpdate) return;
+          detachOnUpdate = false;
+          cm.dom.remove();
+        }),
+      ),
+    });
+    detachOnUpdate = true;
     void act(() => {
       expect(run()).toBe(true);
     });
     expect(document.querySelector('[role="dialog"]')).toBeNull();
-    document.body.appendChild(cm.dom);
+    view.containerEl.appendChild(cm.dom);
     expect(document.querySelector(".codex-panel-selection-emphasis")).toBeNull();
     void act(() => {
       run();
@@ -176,6 +196,42 @@ describe("selection rewrite command", () => {
     void act(() => controller.closeAll());
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.querySelector(".codex-panel-selection-emphasis")).toBeNull();
+  });
+
+  it.each([
+    { name: "repeated text inserted before the target", changes: { from: 0, insert: "same\n" }, expected: "same\nsame\nREWRITTEN" },
+    { name: "insertion at the start boundary", changes: { from: 5, insert: "prefix " }, expected: "same\nprefix REWRITTEN" },
+    { name: "insertion at the end boundary", changes: { from: 9, insert: " suffix" }, expected: "same\nREWRITTEN suffix" },
+    {
+      name: "multiple surrounding edits",
+      changes: [
+        { from: 0, to: 1, insert: "long" },
+        { from: 9, insert: " suffix" },
+      ],
+      expected: "longame\nREWRITTEN suffix",
+    },
+    { name: "deletion before the target", changes: { from: 0, to: 5 }, expected: "REWRITTEN" },
+  ])("keeps the chosen occurrence after $name during generation", async ({ changes, expected }) => {
+    const result = deferred<{ replacementText: string }>();
+    const { run, cm } = commandHarness({ noteText: "same\nsame", anchor: 5, head: 9, generate: () => result.promise });
+    void act(() => {
+      run();
+    });
+    await startGeneration();
+    cm.dispatch({ changes });
+    expect(document.querySelector(".codex-panel-selection-emphasis")?.textContent).toBe("same");
+    await act(async () => {
+      result.resolve({ replacementText: "REWRITTEN" });
+    });
+    void act(() => button("Apply").click());
+    expect(cm.state.doc.toString()).toBe(expected);
+  });
+
+  it("refuses capture without a public editor association", () => {
+    const { run, view } = commandHarness();
+    Object.assign(view, { editor: undefined });
+    expect(run()).toBe(false);
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
   it("keeps the command unavailable without a non-empty markdown selection", () => {
@@ -196,7 +252,6 @@ function commandHarness(options: { noteText?: string; anchor?: number; head?: nu
     parent: document.body,
     doc: noteText,
     selection: { anchor: options.anchor ?? 0, head: options.head ?? noteText.length },
-    extensions: [editorSelectionEmphasisExtension],
   });
   // jsdom does not measure CodeMirror's DOM selection geometry.
   vi.spyOn(cm, "coordsAtPos").mockReturnValue(new DOMRect(100, 100, 20, 20));
@@ -204,6 +259,10 @@ function commandHarness(options: { noteText?: string; anchor?: number; head?: nu
   const editor = {
     cm,
     posToOffset,
+    offsetToPos: (offset: number) => {
+      const line = cm.state.doc.lineAt(offset);
+      return { line: line.number - 1, ch: offset - line.from };
+    },
     getCursor: (side: "from" | "to" | "head" | "anchor" = "head") => {
       const offset = cm.state.selection.main[side];
       const line = cm.state.doc.lineAt(offset);
@@ -222,13 +281,19 @@ function commandHarness(options: { noteText?: string; anchor?: number; head?: nu
   const plugin = {
     settings: { sendShortcut: "enter", rewriteSelectionModel: null, rewriteSelectionEffort: null },
     register: (cleanup: () => void) => lifetime.register(cleanup),
+    registerEditorExtension: (extension: Parameters<Plugin["registerEditorExtension"]>[0]) => {
+      cm.dispatch({ effects: StateEffect.appendConfig.of([editorInfoField.init(() => view), extension]) });
+    },
     addCommand: (command: Command) => {
       callback = command.editorCheckCallback;
     },
   };
   const view = new MarkdownView({} as never);
-  Object.assign(view, { containerEl: document.createElement("div") });
+  const container = document.body.createDiv();
+  container.append(cm.dom);
+  Object.assign(view, { containerEl: container });
   view.file = Object.assign(new TFile(), { path: "Draft.md", basename: "Draft" });
+  Object.assign(view, { editor });
   const controller = registerSelectionRewriteCommand(plugin as never, {
     generate: options.generate ?? (async () => ({ replacementText: "Rewritten sentence." })),
   });
