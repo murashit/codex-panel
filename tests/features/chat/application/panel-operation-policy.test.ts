@@ -89,12 +89,15 @@ describe("active panel operation policy", () => {
   it.each([
     { provenance: { kind: "interactive" } as const, decision: { kind: "resume-required" } },
     { provenance: agent, decision: { kind: "blocked", message: "Goals are read-only in agent threads." } },
-  ])("checks provenance before restoring a goal mutation ($provenance.kind)", ({ provenance, decision }) => {
+  ])("applies restored conversation restrictions ($provenance.kind)", ({ provenance, decision }) => {
     const state: ChatState = {
       ...createChatState(),
       panelThread: { kind: "awaiting-resume", threadId: "thread", fallbackTitle: null, provenance },
     };
     expect(activePanelOperationDecision(state, "goal-mutation")).toEqual(decision);
+    expect(activePanelOperationDecision(state, "thread-settings").kind).toBe("blocked");
+    expect(activePanelOperationDecision(state, "permission-settings").kind).toBe("blocked");
+    expect(activePanelOperationDecision(state, "goal-read").kind).toBe("allowed");
   });
 });
 

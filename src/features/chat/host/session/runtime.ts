@@ -393,7 +393,6 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
         unsubscribeGoalChanges();
         threadFeatures.rename.invalidate();
         composerController.dispose();
-        sharedResources.dispose();
         host.threadStreamScrollBinding.dispose();
         unmount();
       } finally {
