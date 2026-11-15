@@ -1,4 +1,4 @@
-import { QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
+import { QueryObserver, type QueryObserverOptions, type QueryObserverResult } from "@tanstack/query-core";
 import type { HookCatalog, HookItem, ModelMetadata, SkillMetadata } from "../../domain/runtime/catalog";
 import {
   createMetadataResourceDiagnostics,
@@ -118,10 +118,34 @@ export class AppServerMetadataQueries {
     return { id: "models", value: data?.value, probe: this.metadataProbe("models", queryKey) };
   }
 
-  observeModelsResource(listener: (resource: SharedServerMetadataResourceFor<"models">) => void, modelProvider?: string): () => void {
+  observeModelsResource(
+    listener: (resource: SharedServerMetadataResourceFor<"models">) => void,
+    readProvider: () => string | undefined,
+    subscribeProvider: (listener: () => void) => () => void,
+  ): () => void {
     this.scope.assertUsable();
-    const descriptor = this.createModelsDescriptor(modelProvider);
-    return this.observeMetadataQueryResource(descriptor.queryOptions, descriptor.project, listener, modelProvider !== undefined);
+    let provider = readProvider();
+    const options = (): QueryObserverOptions<MetadataQueryData["models"]> => ({
+      ...this.createModelsDescriptor(provider).queryOptions,
+      enabled: provider !== undefined,
+      notifyOnChangeProps: ["data", "error", "dataUpdatedAt", "errorUpdatedAt"],
+    });
+    const observer = new QueryObserver(this.scope.client, options());
+    const emit = () => {
+      if (!this.scope.isDisposed()) listener(this.modelsResourceSnapshot(readProvider()));
+    };
+    const stopProvider = subscribeProvider(() => {
+      const next = readProvider();
+      if (provider === next) return;
+      provider = next;
+      observer.setOptions(options());
+    });
+    observer.subscribe(emit);
+    emit();
+    return this.scope.trackObserver(() => {
+      stopProvider();
+      observer.destroy();
+    });
   }
 
   observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>): () => void {

@@ -5,7 +5,6 @@ import {
   type DiagnosticProbeResult,
   type MetadataResourceDiagnostics,
 } from "../../../../domain/runtime/diagnostics";
-import type { SharedServerMetadataResourceFor, SharedServerMetadataResourceId } from "../../../../domain/runtime/metadata";
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/settings";
 import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
 import type { RateLimitSnapshot } from "../../../../domain/runtime/usage";
@@ -13,14 +12,7 @@ import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ObservedPaginatedResult } from "../../../../shared/async/observed-result";
 import type { ThreadCatalogPaginatedActiveReader } from "../../../threads/catalog/thread-catalog";
-import type { ChatThreadGoalQueries } from "../contracts";
-
-export interface ChatSharedDisplayQueries {
-  observeMetadataResource<Id extends SharedServerMetadataResourceId>(
-    id: Id,
-    listener: (resource: SharedServerMetadataResourceFor<Id>) => void,
-  ): () => void;
-}
+import type { ChatMetadataSource, ChatThreadGoalQueries } from "../contracts";
 
 export interface ChatToolInventoryDisplayQueries {
   observe(threadId: string | null, listener: (snapshot: ToolInventorySnapshot | null) => void): () => void;
@@ -65,7 +57,7 @@ export function useActiveThreadsResource(threadCatalog: ThreadCatalogPaginatedAc
   );
 }
 
-export function useRuntimeConfigResource(queries: ChatSharedDisplayQueries): RuntimeConfigSnapshot | null {
+export function useRuntimeConfigResource(queries: ChatMetadataSource): RuntimeConfigSnapshot | null {
   return useObservedResource<RuntimeConfigSnapshot | null>(queries, null, (update) =>
     queries.observeMetadataResource("runtimeConfig", (resource) => {
       if (resource.value !== undefined) update(() => resource.value ?? null);
@@ -73,24 +65,18 @@ export function useRuntimeConfigResource(queries: ChatSharedDisplayQueries): Run
   );
 }
 
-export interface ChatModelsDisplaySource {
-  modelsResourceSnapshot(): SharedServerMetadataResourceFor<"models">;
-  subscribeModels(listener: () => void): () => void;
-}
-
-export function useModelsResource(source: ChatModelsDisplaySource): MetadataDisplayResource<readonly ModelMetadata[]> {
-  const read = () => {
-    const resource = source.modelsResourceSnapshot();
-    return { value: resource.value ?? [], probe: resource.probe };
-  };
-  return useObservedResource(source, read(), (update) =>
-    source.subscribeModels(() => {
-      update(read);
-    }),
+export function useModelsResource(source: ChatMetadataSource): MetadataDisplayResource<readonly ModelMetadata[]> {
+  return useObservedResource<MetadataDisplayResource<readonly ModelMetadata[]>>(
+    source,
+    { value: [], probe: INITIAL_METADATA_DIAGNOSTICS.probes.models },
+    (update) =>
+      source.observeMetadataResource("models", (resource) => {
+        update(() => ({ value: resource.value ?? [], probe: resource.probe }));
+      }),
   );
 }
 
-export function useSkillsResource(queries: ChatSharedDisplayQueries): MetadataDisplayResource<readonly SkillMetadata[]> {
+export function useSkillsResource(queries: ChatMetadataSource): MetadataDisplayResource<readonly SkillMetadata[]> {
   return useObservedResource(queries, INITIAL_SKILLS, (update) =>
     queries.observeMetadataResource("skills", (resource) => {
       update((current) => ({
@@ -101,7 +87,7 @@ export function useSkillsResource(queries: ChatSharedDisplayQueries): MetadataDi
   );
 }
 
-export function usePermissionProfilesProbe(queries: ChatSharedDisplayQueries): DiagnosticProbeResult {
+export function usePermissionProfilesProbe(queries: ChatMetadataSource): DiagnosticProbeResult {
   return useObservedResource(queries, INITIAL_METADATA_DIAGNOSTICS.probes.permissionProfiles, (update) =>
     queries.observeMetadataResource("permissionProfiles", (resource) => {
       update(() => resource.probe);
@@ -109,7 +95,7 @@ export function usePermissionProfilesProbe(queries: ChatSharedDisplayQueries): D
   );
 }
 
-export function useRateLimitsResource(queries: ChatSharedDisplayQueries): MetadataDisplayResource<RateLimitSnapshot | null> {
+export function useRateLimitsResource(queries: ChatMetadataSource): MetadataDisplayResource<RateLimitSnapshot | null> {
   return useObservedResource(queries, INITIAL_RATE_LIMITS, (update) =>
     queries.observeMetadataResource("rateLimits", (resource) => {
       update((current) => ({

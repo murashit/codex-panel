@@ -20,7 +20,7 @@ import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { chatSharedSourcesFixture } from "../../support/shared-sources";
 
-it("shares the session catalog with its display and model action while isolating other panels and failed restores", async () => {
+it("uses the provider catalogue for restored controls and display while isolating panels and failures", async () => {
   let providerAModel = "A-only";
   const pending = deferred<{ data: ReturnType<typeof modelMetadataFixture>[] }>();
   const listModels = vi.fn((provider?: string) =>
@@ -72,7 +72,6 @@ it("shares the session catalog with its display and model action while isolating
       });
     onTestFinished(() => {
       unmountUiRoot(root);
-      resources.dispose();
     });
     return { store, resources, root, resume };
   };
@@ -80,23 +79,8 @@ it("shares the session catalog with its display and model action while isolating
   await queries.fetchModels();
   const first = makePanel();
   const second = makePanel();
-  await act(async () => {
-    renderUiRoot(first.root, <ModelsValue source={first.resources} />);
-    renderUiRoot(second.root, <ModelsValue source={second.resources} />);
-  });
-  expect(first.root.textContent).toBe("shared,B-only|ok");
-  await act(async () => {
-    first.resume("A");
-    second.resume("B");
-  });
-  await vi.waitFor(() => expect(first.root.textContent).toBe("shared,A-only|ok"));
-  expect(second.root.textContent).toBe("shared,B-only|ok");
-
+  first.store.dispatch({ type: "panel/restored-thread-applied", threadId: "thread-A", fallbackTitle: null });
   const snapshot = () => runtimeSnapshotForChatState(first.store.getState(), first.resources);
-  expect(resolveRuntimeControls(snapshot(), runtimeConfigFixture({ modelProvider: "B" }))).toMatchObject({
-    supportedReasoningEfforts: ["high"],
-    fastMode: { available: true },
-  });
   const updateThreadSettings = vi.fn().mockResolvedValue({ kind: "accepted" });
   const commands = createChatRuntimeSettingsCommands(
     {
@@ -108,9 +92,39 @@ it("shares the session catalog with its display and model action while isolating
     },
     createKeyedOperationCoordinator({ whenBusy: "queue" }),
   );
-  await commands.requestModel("shared");
+  const skills = vi.fn();
+  onTestFinished(first.resources.observeMetadataResource("skills", skills));
+  await act(async () => {
+    renderUiRoot(first.root, <ModelsValue source={first.resources} />);
+    renderUiRoot(second.root, <ModelsValue source={second.resources} />);
+  });
+  expect(first.root.textContent).toBe("shared,B-only|ok");
+  const pendingSettings = first.store.getState().runtime.pending;
+  await expect(commands.requestModel("shared")).resolves.toBe(false);
+  expect(first.store.getState().runtime.pending).toBe(pendingSettings);
+  expect(updateThreadSettings).not.toHaveBeenCalled();
+  await act(async () => {
+    first.resume("A");
+    second.resume("B");
+  });
+  await vi.waitFor(() => expect(first.root.textContent).toBe("shared,A-only|ok"));
+  expect(second.root.textContent).toBe("shared,B-only|ok");
+  expect(skills).toHaveBeenCalledOnce();
+
+  expect(resolveRuntimeControls(snapshot(), runtimeConfigFixture({ modelProvider: "B" }))).toMatchObject({
+    supportedReasoningEfforts: ["high"],
+    fastMode: { available: true },
+  });
+  await expect(commands.requestModel("shared")).resolves.toBe(true);
   expect(updateThreadSettings).toHaveBeenCalledExactlyOnceWith("thread-A", { model: "shared" });
   expect(first.store.getState().runtime.active.reasoningEffort).toBe("high");
+
+  listModels.mockRejectedValueOnce(new Error("A unavailable"));
+  scope.invalidate();
+  await act(async () => {
+    await first.resources.ensureModels();
+  });
+  expect(first.root.textContent).toBe("shared,A-only|failed");
 
   // Reconnect can invalidate a fork draft's catalog while retaining the same provider.
   providerAModel = "A-refreshed";
@@ -124,8 +138,8 @@ it("shares the session catalog with its display and model action while isolating
   await act(async () => {
     first.store.dispatch({ type: "connection/scoped-cleared" });
   });
-  expect(first.root.textContent).toBe("|unknown");
-  expect(snapshot().availableModels).toEqual([]);
+  expect(first.root.textContent).toBe("shared,B-only|ok");
+  expect(snapshot().availableModels.map((model) => model.model)).toEqual(["shared", "B-only"]);
   await act(async () => {
     first.resume("C");
   });
@@ -142,6 +156,10 @@ it("shares the session catalog with its display and model action while isolating
     first.store.dispatch({ type: "panel/view-state-cleared" });
   });
   expect(first.root.textContent).toBe("shared,B-only|ok");
+  await act(async () => unmountUiRoot(first.root));
+  first.resume("D");
+  expect(listModels).not.toHaveBeenCalledWith("D");
+  expect(second.root.textContent).toBe("shared,B-only|ok");
 });
 
 function ModelsValue({ source }: { source: SessionSharedResources }) {

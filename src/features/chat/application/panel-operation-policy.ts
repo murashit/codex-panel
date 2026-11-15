@@ -33,6 +33,9 @@ export function activePanelOperationDecision(state: ChatState, operation: Active
   switch (panel.kind) {
     case "awaiting-resume":
       if (panel.provenance?.kind === "subagent") return agentThreadBlocked(operation);
+      if (operation === "thread-settings" || operation === "permission-settings") {
+        return { kind: "blocked", message: "Wait for the conversation to load before changing its settings." };
+      }
       return operation === "goal-mutation" ? { kind: "resume-required" } : ALLOWED;
     case "empty":
       return panel.operation

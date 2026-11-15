@@ -17,14 +17,12 @@ import { toolbarThreadRows } from "../../ui/toolbar/thread-rows";
 import { Toolbar, type ToolbarActions } from "../../ui/toolbar/toolbar";
 import type { ChatPanelComposerActions, ChatPanelComposerPresenter } from "../composer/view-projection";
 import { selectChatPanelComposer } from "../composer/view-projection";
-import type { ChatThreadGoalQueries } from "../contracts";
+import type { ChatMetadataSource, ChatThreadGoalQueries } from "../contracts";
 import { type ChatPanelGoalDependencies, projectChatPanelGoal, selectChatPanelGoal } from "../goal/view-projection";
 import { conversationIdentity } from "../header/view-projection";
 import { type ChatThreadStreamDependencies, projectThreadStream, selectChatPanelThreadStream } from "../thread-stream/view-projection";
 import { type ChatPanelToolbarDependencies, projectChatPanelToolbar, selectChatPanelToolbar } from "../toolbar/view-projection";
 import {
-  type ChatModelsDisplaySource,
-  type ChatSharedDisplayQueries,
   type ChatToolInventoryDisplayQueries,
   metadataDiagnosticsFromResources,
   useActiveThreadsResource,
@@ -56,8 +54,7 @@ export interface ChatPanelShellParts {
 
 interface ChatPanelShellProps {
   stateStore: ChatStateStore;
-  appServerQueries: ChatSharedDisplayQueries;
-  modelsSource: ChatModelsDisplaySource;
+  metadata: ChatMetadataSource;
   toolInventoryQueries: ChatToolInventoryDisplayQueries;
   threadGoalQueries: ChatThreadGoalQueries;
   threadCatalog: ThreadCatalogPaginatedActiveReader;
@@ -88,8 +85,7 @@ export function unmountChatPanelShell(container: HTMLElement | null): void {
 
 function ChatPanelShell({
   stateStore,
-  appServerQueries,
-  modelsSource,
+  metadata,
   toolInventoryQueries,
   threadGoalQueries,
   threadCatalog,
@@ -102,8 +98,7 @@ function ChatPanelShell({
         <div key="toolbar" className="codex-panel__toolbar">
           <ChatPanelToolbarRegion
             stateStore={stateStore}
-            appServerQueries={appServerQueries}
-            modelsSource={modelsSource}
+            metadata={metadata}
             toolInventoryQueries={toolInventoryQueries}
             threadCatalog={threadCatalog}
             dependencies={parts.toolbar.dependencies}
@@ -128,8 +123,7 @@ function ChatPanelShell({
         <div className="codex-panel__region codex-panel__region--composer">
           <ChatPanelComposerRegion
             stateStore={stateStore}
-            appServerQueries={appServerQueries}
-            modelsSource={modelsSource}
+            metadata={metadata}
             presenter={parts.composer.presenter}
             actions={parts.composer.actions}
           />
@@ -213,27 +207,25 @@ function ChatPanelIdentityRegion({
 
 function ChatPanelToolbarRegion({
   stateStore,
-  appServerQueries,
-  modelsSource,
+  metadata,
   toolInventoryQueries,
   threadCatalog,
   dependencies,
   actions,
 }: {
   stateStore: ChatStateStore;
-  appServerQueries: ChatSharedDisplayQueries;
-  modelsSource: ChatModelsDisplaySource;
+  metadata: ChatMetadataSource;
   toolInventoryQueries: ChatToolInventoryDisplayQueries;
   threadCatalog: ThreadCatalogPaginatedActiveReader;
   dependencies: ChatPanelToolbarDependencies;
   actions: ToolbarActions;
 }): UiNode {
   const activeThreads = useActiveThreadsResource(threadCatalog);
-  const runtimeConfig = useRuntimeConfigResource(appServerQueries);
-  const models = useModelsResource(modelsSource);
-  const skills = useSkillsResource(appServerQueries);
-  const permissionProfilesProbe = usePermissionProfilesProbe(appServerQueries);
-  const rateLimits = useRateLimitsResource(appServerQueries);
+  const runtimeConfig = useRuntimeConfigResource(metadata);
+  const models = useModelsResource(metadata);
+  const skills = useSkillsResource(metadata);
+  const permissionProfilesProbe = usePermissionProfilesProbe(metadata);
+  const rateLimits = useRateLimitsResource(metadata);
   const { threadId, enabled: toolInventoryEnabled } = useChatSelector(stateStore, selectToolInventoryKey);
   const toolInventory = useToolInventoryResource(toolInventoryQueries, threadId, toolInventoryEnabled);
   const metadataDiagnostics = useMemo(
@@ -316,20 +308,18 @@ function ChatPanelThreadStreamRegion({
 
 function ChatPanelComposerRegion({
   stateStore,
-  appServerQueries,
-  modelsSource,
+  metadata,
   presenter,
   actions,
 }: {
   stateStore: ChatStateStore;
-  appServerQueries: ChatSharedDisplayQueries;
-  modelsSource: ChatModelsDisplaySource;
+  metadata: ChatMetadataSource;
   presenter: ChatPanelComposerPresenter;
   actions: ChatPanelComposerActions;
 }): UiNode {
-  const runtimeConfig = useRuntimeConfigResource(appServerQueries);
-  const models = useModelsResource(modelsSource);
-  const rateLimits = useRateLimitsResource(appServerQueries);
+  const runtimeConfig = useRuntimeConfigResource(metadata);
+  const models = useModelsResource(metadata);
+  const rateLimits = useRateLimitsResource(metadata);
   const selector = useMemo(
     () => (state: ChatState) =>
       selectChatPanelComposer(state, {

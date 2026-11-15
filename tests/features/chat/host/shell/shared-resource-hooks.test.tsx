@@ -6,11 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 import { diagnosticProbeError, diagnosticProbeOk } from "../../../../../src/domain/runtime/diagnostics";
 import type { SkillsMetadataResource } from "../../../../../src/domain/runtime/metadata";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import {
-  type ChatSharedDisplayQueries,
-  useActiveThreadsResource,
-  useSkillsResource,
-} from "../../../../../src/features/chat/host/shell/shared-resource-hooks";
+import type { ChatMetadataSource } from "../../../../../src/features/chat/host/contracts";
+import { useActiveThreadsResource, useSkillsResource } from "../../../../../src/features/chat/host/shell/shared-resource-hooks";
 import type { ThreadCatalogPaginatedActiveReader } from "../../../../../src/features/threads/catalog/thread-catalog";
 import type { ObservedPaginatedResult } from "../../../../../src/shared/async/observed-result";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
@@ -101,7 +98,7 @@ describe("shared display resource hooks", () => {
   });
 });
 
-function queriesWithSkills(skillListeners: Set<(resource: SkillsMetadataResource) => void>): ChatSharedDisplayQueries {
+function queriesWithSkills(skillListeners: Set<(resource: SkillsMetadataResource) => void>): ChatMetadataSource {
   return {
     observeMetadataResource: vi.fn((id, listener) => {
       if (id !== "skills") return () => undefined;
@@ -128,7 +125,7 @@ function catalogWithListeners(
 }
 
 function sharedSources(skillListeners: Set<(resource: SkillsMetadataResource) => void>): {
-  queries: ChatSharedDisplayQueries;
+  queries: ChatMetadataSource;
   catalog: ThreadCatalogPaginatedActiveReader;
 } {
   return {
@@ -139,13 +136,7 @@ function sharedSources(skillListeners: Set<(resource: SkillsMetadataResource) =>
   };
 }
 
-function SharedValues({
-  queries,
-  catalog,
-}: {
-  queries: ChatSharedDisplayQueries;
-  catalog: ThreadCatalogPaginatedActiveReader;
-}): ComponentChild {
+function SharedValues({ queries, catalog }: { queries: ChatMetadataSource; catalog: ThreadCatalogPaginatedActiveReader }): ComponentChild {
   const threads = useActiveThreadsResource(catalog);
   const skills = useSkillsResource(queries);
   return [

@@ -67,18 +67,25 @@ export type WorkspacePanels = Omit<RuntimePanelOperations, "openThreadInCurrentV
 
 type ChatThreadCatalog = ThreadCatalogPaginatedActiveReader;
 
-interface ChatAppServerQueries {
-  fetchModels(modelProvider?: string): Promise<readonly ModelMetadata[]>;
-  modelsResourceSnapshot(modelProvider?: string): SharedServerMetadataResourceFor<"models">;
-  observeModelsResource(listener: (resource: SharedServerMetadataResourceFor<"models">) => void, modelProvider?: string): () => void;
-  metadataSnapshot<Id extends SharedServerMetadataResourceId>(id: Id): SharedServerMetadataSnapshotValues[Id];
-  metadataDiagnosticsSnapshot(): MetadataResourceDiagnostics;
-  ensureAppServerMetadata(): Promise<void>;
-  refreshAppServerMetadata(): Promise<void>;
+export interface ChatMetadataSource {
   observeMetadataResource<Id extends SharedServerMetadataResourceId>(
     id: Id,
     listener: (resource: SharedServerMetadataResourceFor<Id>) => void,
   ): () => void;
+}
+
+interface ChatAppServerQueries extends ChatMetadataSource {
+  fetchModels(modelProvider?: string): Promise<readonly ModelMetadata[]>;
+  modelsResourceSnapshot(modelProvider?: string): SharedServerMetadataResourceFor<"models">;
+  observeModelsResource(
+    listener: (resource: SharedServerMetadataResourceFor<"models">) => void,
+    readProvider: () => string | undefined,
+    subscribeProvider: (listener: () => void) => () => void,
+  ): () => void;
+  metadataSnapshot<Id extends SharedServerMetadataResourceId>(id: Id): SharedServerMetadataSnapshotValues[Id];
+  metadataDiagnosticsSnapshot(): MetadataResourceDiagnostics;
+  ensureAppServerMetadata(): Promise<void>;
+  refreshAppServerMetadata(): Promise<void>;
 }
 
 interface ChatToolInventoryQueries {
