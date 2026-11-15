@@ -8,7 +8,13 @@ import { AppServerThreadCatalog } from "./app-server/query/thread-catalog-querie
 import { AppServerThreadGoalQueries } from "./app-server/query/thread-goal-queries";
 import { AppServerToolInventoryQueries } from "./app-server/query/tool-inventory-queries";
 import { type EphemeralStructuredTurnRunner, runEphemeralStructuredTurn } from "./app-server/services/ephemeral-structured-turn";
-import type { ChatPanelSettingsAccess, ChatRuntimeView, CodexChatHost, WorkspacePanels } from "./features/chat/host/contracts";
+import type {
+  ChatPanelSettingsAccess,
+  ChatRuntimeView,
+  CodexChatHost,
+  RuntimePanelOperations,
+  WorkspacePresentation,
+} from "./features/chat/host/contracts";
 import { createAppServerSelectionRewriteAdapter } from "./features/selection-rewrite/app-server-adapter";
 import type { SelectionRewritePort } from "./features/selection-rewrite/port";
 import { openThreadPicker, type ThreadPickerController } from "./features/thread-picker/modal.obsidian";
@@ -38,9 +44,8 @@ export interface CodexExecutionRuntimeOptions {
   onThreadFacts(facts: readonly ThreadFact[]): void;
 }
 
-interface ExecutionWorkspaceOperations extends WorkspacePanels {
+interface ExecutionWorkspaceOperations extends RuntimePanelOperations, WorkspacePresentation {
   openNewPanel(): Promise<unknown>;
-  openThreadInCurrentView(threadId: string): Promise<void>;
   openPanelActivities(): readonly ThreadsViewPanelActivity[];
 }
 

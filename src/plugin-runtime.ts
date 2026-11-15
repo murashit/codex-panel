@@ -18,6 +18,7 @@ import { CodexTurnDiffView } from "./features/turn-diff/view.obsidian";
 import type { SettingsResources } from "./settings/application/resources";
 import type { SettingsTabHost } from "./settings/host/contracts";
 import type { CodexPanelSettings } from "./settings/preferences";
+import { OwnerLifetime } from "./shared/async/owner-lifetime";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
 
 interface CodexPanelRuntimeSettingsRef {
@@ -31,14 +32,21 @@ export interface CodexPanelRuntimeOptions {
   saveSettings(settings: CodexPanelSettings): Promise<void>;
 }
 
+interface ExecutionBinding {
+  runtime: CodexExecutionRuntime;
+  lifetime: OwnerLifetime;
+}
+
 export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRuntimeOwner {
   private readonly panels: WorkspacePanelCoordinator;
-  private executionRuntime: CodexExecutionRuntime | null = null;
+  private execution: ExecutionBinding | null = null;
+  private readonly workspaceLifetime = new OwnerLifetime();
   private selectionRewriteController: SelectionRewriteCommandController | null = null;
 
   constructor(private readonly options: CodexPanelRuntimeOptions) {
     this.panels = new WorkspacePanelCoordinator({
       app: options.app,
+      workspaceSignal: () => this.workspaceLifetime.signal(),
       refreshThreadsViewLiveState: () => {
         this.refreshThreadsViewLiveState();
       },
@@ -46,8 +54,9 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
   }
 
   initialize(): void {
-    if (this.executionRuntime) throw new Error("Codex execution runtime is already initialized.");
-    this.executionRuntime = this.createExecutionRuntime(this.options.settingsRef.settings.codexPath);
+    if (this.execution) throw new Error("Codex execution runtime is already initialized.");
+    this.workspaceLifetime.activate();
+    this.execution = this.createExecutionRuntime(this.options.settingsRef.settings.codexPath);
   }
 
   reconnectWorkspaceViews(): void {
@@ -57,10 +66,12 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
   reset(): void {
     this.selectionRewriteController?.closeAll();
     this.selectionRewriteController = null;
-    const executionRuntime = this.executionRuntime;
+    const executionRuntime = this.execution;
+    this.workspaceLifetime.dispose();
+    executionRuntime?.lifetime.dispose();
     const viewCleanup = executionRuntime ? this.detachWorkspaceViews() : Promise.resolve();
-    this.executionRuntime = null;
-    executionRuntime?.dispose();
+    this.execution = null;
+    executionRuntime?.runtime.dispose();
     void viewCleanup.catch(() => undefined);
     this.panels.reset();
   }
@@ -101,7 +112,7 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
   }
 
   scheduleWorkspacePanelReconcile(options: { restore?: boolean } = {}): void {
-    if (!this.executionRuntime) return;
+    if (!this.execution) return;
     this.panels.scheduleWorkspacePanelReconcile(options);
   }
 
@@ -129,27 +140,28 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
 
   private async publishSettings(settings: CodexPanelSettings): Promise<{ replacementResources: SettingsResources | null }> {
     const previousSettings = { ...this.options.settingsRef.settings };
-    const previousRuntime = this.executionRuntime;
+    const previousRuntime = this.execution;
     await this.options.saveSettings(settings);
     const codexPathChanged = previousSettings.codexPath !== settings.codexPath;
     let replacementResources: SettingsResources | null = null;
     if (codexPathChanged) {
-      if (!previousRuntime || this.executionRuntime !== previousRuntime) {
+      if (!previousRuntime || this.execution !== previousRuntime) {
         throw new Error("Codex execution runtime reset while replacing the execution runtime.");
       }
+      previousRuntime.lifetime.dispose();
       this.selectionRewriteController?.closeAll();
       const cleanup = this.detachWorkspaceViews();
       void cleanup.catch(() => undefined);
-      if (this.executionRuntime !== previousRuntime) {
+      if (this.execution !== previousRuntime) {
         throw new Error("Codex execution runtime reset while replacing the execution runtime.");
       }
-      this.executionRuntime = null;
-      previousRuntime.dispose();
+      this.execution = null;
+      previousRuntime.runtime.dispose();
       Object.assign(this.options.settingsRef.settings, settings);
       const nextRuntime = this.createExecutionRuntime(settings.codexPath);
-      this.executionRuntime = nextRuntime;
-      this.reattachWorkspaceViews(nextRuntime);
-      replacementResources = nextRuntime.settingsResources;
+      this.execution = nextRuntime;
+      this.reattachWorkspaceViews(nextRuntime.runtime);
+      replacementResources = nextRuntime.runtime.settingsResources;
     } else {
       Object.assign(this.options.settingsRef.settings, settings);
     }
@@ -165,16 +177,21 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
   }
 
   private async openTurnDiff(state: TurnDiffViewState): Promise<void> {
+    const signal = this.workspaceLifetime.signal();
+    const isCurrent = () => !signal.aborted;
+    if (!isCurrent()) return;
     const existing = this.options.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_TURN_DIFF).at(0);
     const leaf = existing ?? this.options.app.workspace.getLeaf("tab");
     if (!existing) {
       await leaf.setViewState({ type: VIEW_TYPE_CODEX_TURN_DIFF, active: true });
     }
+    if (!isCurrent()) return;
     await leaf.loadIfDeferred();
+    if (!isCurrent()) return;
     if (leaf.view instanceof CodexTurnDiffView) {
       leaf.view.setDiffPayload(state);
     }
-    await this.options.app.workspace.revealLeaf(leaf);
+    if (isCurrent()) await this.options.app.workspace.revealLeaf(leaf);
   }
 
   private refreshChatViewSettings(): void {
@@ -210,7 +227,7 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
   }
 
   private refreshThreadsViewLiveState(): void {
-    if (!this.executionRuntime) return;
+    if (!this.execution) return;
     for (const view of this.threadsViews()) {
       view.refreshLiveState();
     }
@@ -251,34 +268,32 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
   }
 
   private currentExecutionRuntime(): CodexExecutionRuntime {
-    if (!this.executionRuntime) throw new Error("Codex execution runtime is not initialized.");
-    return this.executionRuntime;
+    if (!this.execution) throw new Error("Codex execution runtime is not initialized.");
+    return this.execution.runtime;
   }
 
-  private createExecutionRuntime(codexPath: string): CodexExecutionRuntime {
-    return new CodexExecutionRuntime({
+  private createExecutionRuntime(codexPath: string): ExecutionBinding {
+    const lifetime = new OwnerLifetime();
+    const workspaceSignal = this.workspaceLifetime.signal();
+    const runtime = new CodexExecutionRuntime({
       app: this.options.app,
       context: { codexPath, vaultPath: this.options.settingsRef.vaultPath },
       settings: () => this.options.settingsRef.settings,
       workspace: {
-        returnFromForkDraft: (threadId, originViewId, isCurrent) => this.panels.returnFromForkDraft(threadId, originViewId, isCurrent),
-        openForkDraft: (preparation, initialMessage) => this.panels.openForkDraft(preparation, initialMessage),
-        openThreadInNewView: (threadId, displaySnapshot) => this.panels.openThreadInNewView(threadId, displaySnapshot),
-        openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
-        openThreadFromPanel: (threadId, originViewId, originSwitchable) =>
-          this.panels.openThreadFromPanel(threadId, originViewId, originSwitchable),
-        openTurnDiff: (state) => this.openTurnDiff(state),
+        ...this.panels.forRuntime(lifetime.signal()),
+        openTurnDiff: (state) => (workspaceSignal.aborted ? Promise.resolve() : this.openTurnDiff(state)),
         notifyPanelActivityChanged: () => {
+          if (workspaceSignal.aborted) return;
           this.scheduleWorkspacePanelReconcile({ restore: false });
           this.refreshThreadsViewLiveState();
         },
-        openNewPanel: () => this.panels.openNewPanel(),
-        openThreadInCurrentView: (threadId) => this.panels.openThreadInCurrentView(threadId),
+        openNewPanel: () => (workspaceSignal.aborted ? Promise.resolve() : this.panels.openNewPanel()),
         openPanelActivities: () => this.openPanelActivities(),
       },
       onThreadFacts: (facts) => {
         this.applyThreadFacts(facts);
       },
     });
+    return { runtime, lifetime };
   }
 }

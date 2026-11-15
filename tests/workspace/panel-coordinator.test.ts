@@ -19,6 +19,65 @@ describe("WorkspacePanelCoordinator", () => {
     vi.useRealTimers();
   });
 
+  it("drops a scoped selection after empty-leaf creation without persisting its thread", async () => {
+    const target = leaf();
+    const leaves: ReturnType<typeof leaf>[] = [];
+    const plugin = await pluginWithLeaves(leaves);
+    const view = chatView(CodexChatView, target);
+    const activated = vi.spyOn(view.surface, "activateThread").mockResolvedValue(true);
+    const pending = deferred<void>();
+    target.setViewState.mockImplementation(async () => {
+      target.view = view;
+      leaves.push(target);
+      await pending.promise;
+    });
+    (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValue(target);
+    const controller = new AbortController();
+    const scoped = panels(plugin).forRuntime(controller.signal);
+    const opening = scoped.openThreadInNewView("old-thread");
+    await vi.waitFor(() => {
+      expect(target.setViewState).toHaveBeenCalledOnce();
+    });
+    controller.abort();
+    pending.resolve();
+    await opening;
+    expect(target.setViewState).toHaveBeenCalledWith({ type: VIEW_TYPE_CODEX_PANEL, active: false, state: { version: 1 } });
+    expect(activated).not.toHaveBeenCalled();
+    expect(target.detach).not.toHaveBeenCalled();
+    plugin.runtime.reset();
+  });
+
+  it("keeps thread opens independent while the first panel materializes", async () => {
+    const first = leaf();
+    const second = leaf();
+    const leaves: ReturnType<typeof leaf>[] = [];
+    const plugin = await pluginWithLeaves(leaves);
+    const firstView = chatView(CodexChatView, first);
+    const secondView = chatView(CodexChatView, second);
+    const pending = deferred<void>();
+    const firstActivation = vi.spyOn(firstView.surface, "activateThread").mockResolvedValue(true);
+    const secondActivation = vi.spyOn(secondView.surface, "activateThread").mockResolvedValue(true);
+    first.setViewState.mockImplementation(async () => {
+      first.view = firstView;
+      leaves.push(first);
+      await pending.promise;
+    });
+    installLeafView(second, secondView, leaves);
+    (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValueOnce(first).mockReturnValueOnce(second);
+    const coordinator = panels(plugin);
+    const one = coordinator.openThreadInNewView("one");
+    await vi.waitFor(() => {
+      expect(first.setViewState).toHaveBeenCalledOnce();
+    });
+    await coordinator.openThreadInAvailableView("two");
+    expect(secondActivation).toHaveBeenCalledWith("two", { focus: false });
+    pending.resolve();
+    await one;
+    expect(firstActivation).toHaveBeenCalledTimes(1);
+    expect(firstActivation).toHaveBeenCalledWith("one", { focus: false });
+    plugin.runtime.reset();
+  });
+
   it("records focus on activation while snapshot reads stay passive", async () => {
     const restored = leaf({ state: { threadId: "same" } });
     const active = leaf();
@@ -497,7 +556,7 @@ describe("WorkspacePanelCoordinator", () => {
     expect(newLeaf.setViewState).toHaveBeenCalledWith({
       type: VIEW_TYPE_CODEX_PANEL,
       active: false,
-      state: { version: 1, threadId: "thread-1" },
+      state: { version: 1 },
     });
     expect(open).toHaveBeenCalledWith("thread-1", { focus: false, displaySnapshot });
   });
@@ -552,6 +611,7 @@ describe("WorkspacePanelCoordinator", () => {
     expect(sideLeaf.setViewState).toHaveBeenCalledWith({
       type: VIEW_TYPE_CODEX_PANEL,
       active: false,
+      state: { version: 1 },
     });
     expect(applyDraft).toHaveBeenCalledWith(
       expect.objectContaining({ draft: { kind: "side-chat", sourceThreadId: "source", sourceThreadTitle: "Source thread" } }),
@@ -560,8 +620,14 @@ describe("WorkspacePanelCoordinator", () => {
   });
 });
 
-function panels(plugin: CodexPanelPlugin): WorkspacePanelCoordinator {
-  return new WorkspacePanelCoordinator({ app: plugin.app, refreshThreadsViewLiveState: vi.fn() });
+function panels(plugin: CodexPanelPlugin) {
+  const lifetime = new AbortController();
+  const coordinator = new WorkspacePanelCoordinator({
+    app: plugin.app,
+    refreshThreadsViewLiveState: vi.fn(),
+    workspaceSignal: () => lifetime.signal,
+  });
+  return Object.assign(coordinator, coordinator.forRuntime(lifetime.signal));
 }
 
 function installLeafView(target: ReturnType<typeof leaf>, view: CodexChatView, leaves: ReturnType<typeof leaf>[]): void {

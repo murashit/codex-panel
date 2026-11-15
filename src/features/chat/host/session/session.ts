@@ -107,6 +107,7 @@ export class ChatPanelSession implements ChatPanelHandle {
       viewId: this.environment.obsidian.viewId,
       ...activity,
       threadId: this.closing ? null : activity.threadId,
+      loadingThread: this.runtime.thread.activation.isLoading(),
       hasComposerDraft: this.state.composer.draft.trim().length > 0,
       hasForkDraft: this.state.panelThread.kind === "fork-draft",
       connected: this.runtime.connection.manager.isConnected(),

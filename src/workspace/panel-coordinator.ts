@@ -1,6 +1,12 @@
 import type { App, WorkspaceLeaf } from "obsidian";
 import { VIEW_TYPE_CODEX_PANEL } from "../constants";
-import type { ChatSharedThreadSurface, ChatWorkspacePanelSnapshot, WorkspacePanels } from "../features/chat/host/contracts";
+import type {
+  ChatPanelHandle,
+  ChatSharedThreadSurface,
+  ChatWorkspacePanelSnapshot,
+  RuntimePanelOperations,
+  WorkspacePanels,
+} from "../features/chat/host/contracts";
 import { CodexChatView } from "../features/chat/host/view.obsidian";
 import { parseChatPanelViewState } from "../features/chat/host/view-state";
 
@@ -10,6 +16,15 @@ type ForkDisplaySnapshot = Parameters<WorkspacePanels["openThreadInNewView"]>[1]
 import { DeferredTask } from "../shared/async/deferred-task";
 import { createKeyedOperationCoordinator } from "../shared/async/keyed-operation-coordinator";
 import { duplicatePanels } from "./panel-ownership";
+
+type OperationCurrent = () => boolean;
+
+interface PanelTarget {
+  leaf: WorkspaceLeaf;
+  view: CodexChatView;
+  surface: ChatPanelHandle;
+  isCurrent: OperationCurrent;
+}
 
 type WorkspacePanelReconcileMode = "repair" | "foreground" | "restore";
 
@@ -22,6 +37,7 @@ export interface WorkspacePanelSnapshot extends ChatWorkspacePanelSnapshot {
 export interface WorkspacePanelCoordinatorOptions {
   app: App;
   refreshThreadsViewLiveState: () => void;
+  workspaceSignal: () => AbortSignal;
 }
 
 export class WorkspacePanelCoordinator {
@@ -32,9 +48,44 @@ export class WorkspacePanelCoordinator {
   private lastFocusedPanelViewId: string | null = null;
   private readonly deferredLeafLoads = new WeakMap<WorkspaceLeaf, Promise<void>>();
   private readonly threadPanelOperations = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
+  private readonly materializingPanels = new WeakMap<WorkspaceLeaf, { isCurrent: OperationCurrent }>();
   private duplicatePanelLeaves = new WeakSet<WorkspaceLeaf>();
 
   constructor(private readonly options: WorkspacePanelCoordinatorOptions) {}
+
+  forRuntime(signal: AbortSignal): RuntimePanelOperations {
+    const workspace = this.options.workspaceSignal();
+    const isCurrent = () => !signal.aborted && !workspace.aborted;
+    return {
+      openThreadInNewView: (id, snapshot) =>
+        this.openThread(isCurrent, id, () => this.findOpenThreadPanelLeaf(id) ?? this.findRestoredThreadPanelLeaf(id), snapshot),
+      openThreadInAvailableView: (id) => this.openThread(isCurrent, id, () => this.findThreadPanelLeaf(id)),
+      openThreadInCurrentView: (id) =>
+        this.openThread(
+          isCurrent,
+          id,
+          () => this.findOpenThreadPanelLeaf(id) ?? this.findRestoredThreadPanelLeaf(id) ?? this.findCurrentThreadPanelLeaf(),
+        ),
+      openThreadFromPanel: (id, origin, switchable) =>
+        this.openThread(
+          isCurrent,
+          id,
+          () =>
+            this.findOpenThreadPanelLeaf(id) ??
+            this.findRestoredThreadPanelLeaf(id) ??
+            (switchable ? this.findPanelLeafByViewId(origin) : null) ??
+            this.findIdleEmptyThreadPanelLeaf(),
+        ),
+      openForkDraft: (preparation, message) => this.openForkDraftScoped(isCurrent, preparation, message),
+      returnFromForkDraft: (id, origin, originIsCurrent) =>
+        this.returnFromForkDraftScoped(() => isCurrent() && originIsCurrent(), id, origin),
+    };
+  }
+
+  private workspaceIsCurrent(): OperationCurrent {
+    const signal = this.options.workspaceSignal();
+    return () => !signal.aborted;
+  }
 
   reset(): void {
     this.cancelWorkspacePanelReconcile();
@@ -44,122 +95,139 @@ export class WorkspacePanelCoordinator {
   }
 
   async activateView(): Promise<CodexChatView | null> {
+    const isCurrent = this.workspaceIsCurrent();
+    if (!isCurrent()) return null;
     const target = this.findCurrentThreadPanelLeaf();
-    if (target) return this.activatePanelLeaf(target, true);
+    if (target) return this.activatePanelLeaf(isCurrent, target, true);
 
     const leaf = await this.options.app.workspace.ensureSideLeaf(VIEW_TYPE_CODEX_PANEL, "right", {
       active: false,
       reveal: false,
     });
-    if (!isAttachedChatView(leaf.view)) return null;
-    const view = leaf.view;
-    if (!(await this.revealAndVerifyPanel(leaf, view))) return null;
-    const surface = view.surface;
-    await surface.connect();
-    this.focusOwnedPanel(leaf, view);
-    return view;
+    if (!isCurrent() || !isAttachedChatView(leaf.view)) return null;
+    const targetPanel = this.captureTarget(isCurrent, leaf, leaf.view);
+    if (!targetPanel || !(await this.revealAndVerifyPanel(targetPanel))) return null;
+    await targetPanel.surface.connect();
+    return this.focusOwnedPanel(targetPanel) ? targetPanel.view : null;
   }
 
   async startNewChat(): Promise<void> {
+    const isCurrent = this.workspaceIsCurrent();
+    if (!isCurrent()) return;
     const target = this.findCurrentThreadPanelLeaf();
     if (target && isAttachedChatView(target.view)) {
-      await this.startNewChatInView(target, target.view);
+      await this.startNewChatInView(isCurrent, target, target.view);
       return;
     }
     if (target) {
-      const view = await this.activatePanelLeaf(target, false);
+      const view = await this.activatePanelLeaf(isCurrent, target, false);
       if (!view) return;
       const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
       if (!leaf) return;
-      await view.surface.startNewThread({ focus: false });
-      this.focusOwnedPanel(leaf, view);
+      await this.startNewChatInView(isCurrent, leaf, view);
       return;
     }
 
-    const view = await this.createNewViewNow();
+    const view = await this.createNewViewNow(isCurrent);
     if (!view) return;
     const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
     if (!leaf) return;
-    await this.startNewChatInView(leaf, view);
+    await this.startNewChatInView(isCurrent, leaf, view);
   }
 
   async activateNewView(options: { focus?: boolean } = {}): Promise<CodexChatView | null> {
-    const view = await this.createNewViewNow();
+    const isCurrent = this.workspaceIsCurrent();
+    if (!isCurrent()) return null;
+    const view = await this.createNewViewNow(isCurrent);
     if (!view) return null;
     const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
     if (!leaf) return null;
-    if (!(await this.revealAndVerifyPanel(leaf, view))) return null;
-    const surface = view.surface;
-    await surface.connect();
-    if (options.focus === false) return view;
-    this.focusOwnedPanel(leaf, view);
-    return view;
+    const target = this.captureTarget(isCurrent, leaf, view);
+    if (!target || !(await this.revealAndVerifyPanel(target))) return null;
+    await target.surface.connect();
+    if (options.focus !== false) this.focusOwnedPanel(target);
+    return target.isCurrent() ? view : null;
   }
 
-  private async createNewViewNow(state?: Record<string, unknown>): Promise<CodexChatView | null> {
+  private async createNewViewNow(isCurrent: OperationCurrent): Promise<CodexChatView | null> {
+    return this.withNewView(isCurrent, async (_leaf, view) => view);
+  }
+
+  private async withNewView<T>(
+    isCurrent: OperationCurrent,
+    operation: (leaf: WorkspaceLeaf, view: CodexChatView) => Promise<T>,
+  ): Promise<T | null> {
+    if (!isCurrent()) return null;
     const leaf = this.createRightSidebarTab();
     if (!leaf) throw new Error("Could not create a right sidebar leaf.");
-
-    await leaf.setViewState({ type: VIEW_TYPE_CODEX_PANEL, active: false, ...(state ? { state } : {}) });
-    if (!isAttachedChatView(leaf.view)) return null;
-    return leaf.view;
+    return this.materializePanel(
+      isCurrent,
+      leaf,
+      () => leaf.setViewState({ type: VIEW_TYPE_CODEX_PANEL, active: false, state: { version: 1 } }),
+      operation,
+    );
   }
 
-  async openThreadInNewView(threadId: string, displaySnapshot?: ForkDisplaySnapshot): Promise<void> {
-    await this.runThreadPanelOperation(threadId, () => {
-      const target = this.findOpenThreadPanelLeaf(threadId) ?? this.findRestoredThreadPanelLeaf(threadId);
-      return this.openThreadAtLeaf(target, threadId, displaySnapshot);
+  private async materializePanel<T>(
+    isCurrent: OperationCurrent,
+    leaf: WorkspaceLeaf,
+    load: () => Promise<void>,
+    operation: (leaf: WorkspaceLeaf, view: CodexChatView) => Promise<T>,
+  ): Promise<T | null> {
+    const claim = { isCurrent };
+    this.materializingPanels.set(leaf, claim);
+    let result: Promise<T>;
+    try {
+      await load();
+      if (!isCurrent() || !isAttachedChatView(leaf.view)) return null;
+      // Dispatch hands loading/fork ownership to the session before releasing materialization.
+      result = operation(leaf, leaf.view);
+    } finally {
+      if (this.materializingPanels.get(leaf) === claim) this.materializingPanels.delete(leaf);
+    }
+    return result;
+  }
+
+  private async openThread(
+    isCurrent: OperationCurrent,
+    threadId: string,
+    selectLeaf: () => WorkspaceLeaf | null,
+    displaySnapshot?: ForkDisplaySnapshot,
+  ): Promise<void> {
+    await this.runThreadPanelOperation(isCurrent, threadId, () =>
+      this.openThreadAtLeaf(isCurrent, selectLeaf(), threadId, displaySnapshot),
+    );
+  }
+
+  private async openForkDraftScoped(
+    isCurrent: OperationCurrent,
+    preparation: ForkDraftPreparation,
+    initialMessage?: string,
+  ): Promise<void> {
+    await this.withNewView(isCurrent, (leaf, view) => {
+      const target = this.captureTarget(isCurrent, leaf, view);
+      return target
+        ? this.completePanelOperation(target, () => target.surface.applyForkDraft(preparation, initialMessage))
+        : Promise.resolve(false);
     });
-  }
-
-  async openForkDraft(preparation: ForkDraftPreparation, initialMessage?: string): Promise<void> {
-    const view = await this.createNewViewNow();
-    if (!view) return;
-    const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
-    if (!leaf) return;
-    await this.completePanelOperation(leaf, view, view.surface.applyForkDraft(preparation, initialMessage));
   }
 
   async openNewPanel(): Promise<void> {
     await this.activateNewView();
   }
 
-  async openThreadInAvailableView(threadId: string): Promise<void> {
-    await this.runThreadPanelOperation(threadId, () => this.openThreadAtLeaf(this.findThreadPanelLeaf(threadId), threadId));
-  }
-
-  async returnFromForkDraft(threadId: string, originViewId: string, isCurrent: () => boolean): Promise<boolean> {
-    return this.runThreadPanelOperation(threadId, async () => {
+  private async returnFromForkDraftScoped(isCurrent: OperationCurrent, threadId: string, originViewId: string): Promise<boolean> {
+    return this.runThreadPanelOperation(isCurrent, threadId, async () => {
       const origin = this.findPanelLeafByViewId(originViewId);
       if (!origin || !isCurrent()) return false;
       const target = this.findOpenThreadPanelLeaf(threadId) ?? this.findRestoredThreadPanelLeaf(threadId) ?? origin;
-      if (!(await this.openThreadAtLeaf(target, threadId))) return false;
-      if (!isAttachedChatView(target.view) || target.view.surface.openPanelSnapshot().threadId !== threadId) return false;
+      if (!(await this.openThreadAtLeaf(isCurrent, target, threadId))) return false;
+      if (!isCurrent() || !isAttachedChatView(target.view) || target.view.surface.openPanelSnapshot().threadId !== threadId) return false;
       if (target !== origin) {
         if (!isCurrent() || this.findPanelLeafByViewId(originViewId) !== origin) return false;
         origin.detach();
       }
       return true;
-    });
-  }
-
-  async openThreadFromPanel(threadId: string, originViewId: string, originSwitchable: boolean): Promise<void> {
-    await this.runThreadPanelOperation(threadId, () => {
-      const origin = this.findPanelLeafByViewId(originViewId);
-      const target =
-        this.findOpenThreadPanelLeaf(threadId) ??
-        this.findRestoredThreadPanelLeaf(threadId) ??
-        (originSwitchable ? origin : null) ??
-        this.findIdleEmptyThreadPanelLeaf();
-      return this.openThreadAtLeaf(target, threadId);
-    });
-  }
-
-  async openThreadInCurrentView(threadId: string): Promise<void> {
-    await this.runThreadPanelOperation(threadId, () => {
-      const target =
-        this.findOpenThreadPanelLeaf(threadId) ?? this.findRestoredThreadPanelLeaf(threadId) ?? this.findCurrentThreadPanelLeaf();
-      return this.openThreadAtLeaf(target, threadId);
     });
   }
 
@@ -197,6 +265,7 @@ export class WorkspacePanelCoordinator {
   }
 
   reconcileWorkspacePanels(hintLeaf: WorkspaceLeaf | null = null, mode: WorkspacePanelReconcileMode = "foreground"): void {
+    if (this.options.workspaceSignal().aborted) return;
     const leaves = this.panelLeaves();
     const duplicatePanelLeaves = this.repairDuplicatePanels(leaves);
     const activeLeaves = leaves.filter((leaf) => !duplicatePanelLeaves.has(leaf));
@@ -269,15 +338,17 @@ export class WorkspacePanelCoordinator {
   }
 
   private findIdleEmptyThreadPanelLeaf(): WorkspaceLeaf | null {
-    return this.findAttachedPanelLeaf(isIdleEmptyPanelSnapshot);
+    return this.findAttachedPanelLeaf(
+      (snapshot, leaf) => !this.materializingPanels.get(leaf)?.isCurrent() && isIdleEmptyPanelSnapshot(snapshot),
+    );
   }
 
   private findPanelLeafByViewId(viewId: string): WorkspaceLeaf | null {
     return this.findAttachedPanelLeaf((snapshot) => snapshot.viewId === viewId);
   }
 
-  private findAttachedPanelLeaf(matches: (snapshot: ChatWorkspacePanelSnapshot) => boolean): WorkspaceLeaf | null {
-    return this.panelLeaves().find((leaf) => isAttachedChatView(leaf.view) && matches(leaf.view.surface.openPanelSnapshot())) ?? null;
+  private findAttachedPanelLeaf(matches: (snapshot: ChatWorkspacePanelSnapshot, leaf: WorkspaceLeaf) => boolean): WorkspaceLeaf | null {
+    return this.panelLeaves().find((leaf) => isAttachedChatView(leaf.view) && matches(leaf.view.surface.openPanelSnapshot(), leaf)) ?? null;
   }
 
   private findCurrentThreadPanelLeaf(): WorkspaceLeaf | null {
@@ -335,8 +406,9 @@ export class WorkspacePanelCoordinator {
     return null;
   }
 
-  private runThreadPanelOperation<T>(threadId: string, operation: () => Promise<T>): Promise<T> {
+  private runThreadPanelOperation(isCurrent: OperationCurrent, threadId: string, operation: () => Promise<boolean>): Promise<boolean> {
     return this.threadPanelOperations.run(threadId, async () => {
+      if (!isCurrent()) return false;
       this.repairDuplicatePanels(this.panelLeaves());
       return operation();
     });
@@ -398,75 +470,89 @@ export class WorkspacePanelCoordinator {
     );
   }
 
-  private async activatePanelLeaf(leaf: WorkspaceLeaf, focus: boolean): Promise<CodexChatView | null> {
+  private async activatePanelLeaf(isCurrent: OperationCurrent, leaf: WorkspaceLeaf, focus: boolean): Promise<CodexChatView | null> {
+    if (!isCurrent()) return null;
     await this.options.app.workspace.revealLeaf(leaf);
+    if (!isCurrent()) return null;
     if (!isAttachedChatView(leaf.view)) return this.activateNewView({ focus });
-    const view = leaf.view;
-    if (!this.panelStillOwnsView(leaf, view)) return null;
-    const surface = view.surface;
-    await surface.connect();
-    await surface.activateThread(undefined, { focus: false });
-    if (focus) this.focusOwnedPanel(leaf, view);
-    return view;
+    const target = this.captureTarget(isCurrent, leaf, leaf.view);
+    if (!target) return null;
+    await target.surface.connect();
+    if (!target.isCurrent()) return null;
+    await target.surface.activateThread(undefined, { focus: false });
+    if (focus) this.focusOwnedPanel(target);
+    return target.isCurrent() ? target.view : null;
   }
 
-  private async openThreadAtLeaf(leaf: WorkspaceLeaf | null, threadId: string, displaySnapshot?: ForkDisplaySnapshot): Promise<boolean> {
-    if (!leaf) return this.openThreadInNewViewNow(threadId, displaySnapshot);
-    const wasDeferred = !isAttachedChatView(leaf.view);
-    if (wasDeferred) {
-      await this.options.app.workspace.revealLeaf(leaf);
-      if (!isAttachedChatView(leaf.view)) return false;
+  private async openThreadAtLeaf(
+    isCurrent: OperationCurrent,
+    leaf: WorkspaceLeaf | null,
+    threadId: string,
+    displaySnapshot?: ForkDisplaySnapshot,
+  ): Promise<boolean> {
+    if (!isCurrent()) return false;
+    const activate = (leaf: WorkspaceLeaf, view: CodexChatView, reveal = true) => {
+      const target = this.captureTarget(isCurrent, leaf, view);
+      return target
+        ? this.completePanelOperation(
+            target,
+            () => target.surface.activateThread(threadId, { focus: false, ...(displaySnapshot ? { displaySnapshot } : {}) }),
+            { reveal },
+          )
+        : Promise.resolve(false);
+    };
+    if (!leaf) return (await this.withNewView(isCurrent, activate)) ?? false;
+    if (!isAttachedChatView(leaf.view)) {
+      return (
+        (await this.materializePanel(
+          isCurrent,
+          leaf,
+          () => this.options.app.workspace.revealLeaf(leaf),
+          (leaf, view) => activate(leaf, view, false),
+        )) ?? false
+      );
     }
-    if (!isAttachedChatView(leaf.view)) return false;
-    const view = leaf.view;
-    if (!this.panelStillOwnsView(leaf, view)) return false;
-    const surface = view.surface;
-    const opening = surface.activateThread(threadId, { focus: false, ...(displaySnapshot ? { displaySnapshot } : {}) });
-    return this.completePanelOperation(leaf, view, opening, { reveal: !wasDeferred });
+    return activate(leaf, leaf.view);
   }
 
-  private async openThreadInNewViewNow(threadId: string, displaySnapshot?: ForkDisplaySnapshot): Promise<boolean> {
-    const view = await this.createNewViewNow({ version: 1, threadId });
-    if (!view) return false;
-    const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
-    if (!leaf) return false;
-    const surface = view.surface;
-    const opening = surface.activateThread(threadId, { focus: false, ...(displaySnapshot ? { displaySnapshot } : {}) });
-    return this.completePanelOperation(leaf, view, opening);
-  }
-
-  private async startNewChatInView(leaf: WorkspaceLeaf, view: CodexChatView): Promise<void> {
-    const surface = view.surface;
-    const starting = surface.startNewThread({ focus: false });
-    await this.completePanelOperation(leaf, view, starting);
+  private async startNewChatInView(isCurrent: OperationCurrent, leaf: WorkspaceLeaf, view: CodexChatView): Promise<void> {
+    const target = this.captureTarget(isCurrent, leaf, view);
+    if (target) await this.completePanelOperation(target, () => target.surface.startNewThread({ focus: false }));
   }
 
   private panelStillOwnsView(leaf: WorkspaceLeaf, view: CodexChatView): boolean {
     return this.panelLeaves().includes(leaf) && leaf.view === view && isAttachedChatView(leaf.view);
   }
 
-  private async revealAndVerifyPanel(leaf: WorkspaceLeaf, view: CodexChatView): Promise<boolean> {
-    await this.options.app.workspace.revealLeaf(leaf);
-    return this.panelStillOwnsView(leaf, view);
+  private captureTarget(isCurrent: OperationCurrent, leaf: WorkspaceLeaf, view: CodexChatView): PanelTarget | null {
+    if (!isCurrent() || !this.panelStillOwnsView(leaf, view)) return null;
+    const surface = view.surface;
+    return { leaf, view, surface, isCurrent: () => isCurrent() && this.panelStillOwnsView(leaf, view) && view.surface === surface };
   }
 
-  private focusOwnedPanel(leaf: WorkspaceLeaf, view: CodexChatView): boolean {
-    if (!this.panelStillOwnsView(leaf, view)) return false;
-    view.surface.focusComposer({ force: true });
+  private async revealAndVerifyPanel(target: PanelTarget): Promise<boolean> {
+    if (!target.isCurrent()) return false;
+    await this.options.app.workspace.revealLeaf(target.leaf);
+    return target.isCurrent();
+  }
+
+  private focusOwnedPanel(target: PanelTarget): boolean {
+    if (!target.isCurrent()) return false;
+    target.surface.focusComposer({ force: true });
     return true;
   }
 
   private async completePanelOperation(
-    leaf: WorkspaceLeaf,
-    view: CodexChatView,
-    operation: Promise<void> | Promise<boolean>,
+    target: PanelTarget,
+    operation: () => Promise<void> | Promise<boolean>,
     options: { reveal?: boolean } = {},
   ): Promise<boolean> {
+    if (!target.isCurrent()) return false;
     const [completed, ownsPanel] = await Promise.all([
-      operation,
-      options.reveal === false ? Promise.resolve(true) : this.revealAndVerifyPanel(leaf, view),
+      operation(),
+      options.reveal === false ? Promise.resolve(true) : this.revealAndVerifyPanel(target),
     ]);
-    return completed !== false && ownsPanel && this.focusOwnedPanel(leaf, view);
+    return completed !== false && ownsPanel && this.focusOwnedPanel(target);
   }
 
   private initialFocusedPanelViewId(leaves: readonly WorkspaceLeaf[]): string | null {
@@ -485,11 +571,12 @@ export class WorkspacePanelCoordinator {
   }
 
   private async hydratePanelLeaf(leaf: WorkspaceLeaf): Promise<void> {
+    const isCurrent = this.workspaceIsCurrent();
     if (!isAttachedChatView(leaf.view)) {
       if (leaf.getViewState().type !== VIEW_TYPE_CODEX_PANEL) return;
       await this.loadDeferredPanelLeaf(leaf);
     }
-    if (isAttachedChatView(leaf.view)) {
+    if (isCurrent() && isAttachedChatView(leaf.view)) {
       this.recordLastFocusedPanel(leaf);
       await leaf.view.surface.activateThread(undefined, { focus: false });
     }
@@ -509,7 +596,14 @@ export class WorkspacePanelCoordinator {
 }
 
 function isIdleEmptyPanelSnapshot(snapshot: ChatWorkspacePanelSnapshot): boolean {
-  return snapshot.threadId === null && !snapshot.turnBusy && !snapshot.pending && !snapshot.hasComposerDraft && !snapshot.hasForkDraft;
+  return (
+    !snapshot.loadingThread &&
+    snapshot.threadId === null &&
+    !snapshot.turnBusy &&
+    !snapshot.pending &&
+    !snapshot.hasComposerDraft &&
+    !snapshot.hasForkDraft
+  );
 }
 
 function focusedPanelViewId(leaf: WorkspaceLeaf | null): string | null {
@@ -530,6 +624,7 @@ function restoredPanelSnapshot(leaf: WorkspaceLeaf, index: number): WorkspacePan
   if (!threadId) return null;
   return {
     viewId: `restored:${String(index)}:${threadId}`,
+    loadingThread: false,
     threadId,
     turnBusy: false,
     pending: false,
