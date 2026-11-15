@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { describe, expect, it, vi } from "vitest";
 import type { ThreadTokenUsage } from "../../../../../src/domain/runtime/usage";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
@@ -29,6 +30,137 @@ function createActions(
 }
 
 describe("ThreadActivation", () => {
+  it("only publishes the latest selection across sampled resume completion orders", async () => {
+    const selections = fc
+      .array(fc.record({ thread: fc.constantFrom("a", "b"), fail: fc.boolean() }), { minLength: 2, maxLength: 8, size: "max" })
+      .chain((choices) =>
+        fc.record({
+          // Consecutive targets differ so activate starts a new request; later
+          // selections can return to an earlier ID with a distinct history marker.
+          choices: fc.constant(choices.map((choice, index) => ({ ...choice, thread: `${choice.thread}-${index % 2}` }))),
+          order: fc.shuffledSubarray(
+            choices.map((_, index) => index),
+            { minLength: choices.length, maxLength: choices.length },
+          ),
+        }),
+      );
+    await expect(
+      fc.assert(
+        fc.asyncProperty(selections, async ({ choices, order }) => {
+          const replies: ReturnType<typeof deferred<void>>[] = [];
+          const resumeThread = vi.fn<ThreadResumeEffects["resumeThread"]>(async (threadId, adopt) => {
+            const index = replies.length;
+            const reply = deferred<void>();
+            replies.push(reply);
+            await reply.promise;
+            adopt(
+              activation(threadId, {
+                initialHistoryPage: historyPage([message(`reply-${index}`, `Response ${index}`, "assistant")], null),
+              }),
+            );
+          });
+          const { commands, stateStore, host, readHistoryPage } = createThreadActivationFixture({ effects: { resumeThread } });
+          const openings: Promise<boolean>[] = [];
+          try {
+            for (const choice of choices) {
+              openings.push(commands.activate(choice.thread));
+              await waitForAsyncWork(() => expect(replies).toHaveLength(openings.length));
+            }
+            let expectedThread: string | null = null;
+            let expectedItems: string[] = [];
+            for (const index of order) {
+              const choice = choices[index];
+              const reply = replies[index];
+              if (!choice || !reply) throw new Error("Missing generated resume");
+              const before = stateStore.getState();
+              if (choice.fail) reply.reject(new Error("Generated resume failure"));
+              else reply.resolve();
+              const latest = index === choices.length - 1;
+              await expect(openings[index]).resolves.toBe(latest && !choice.fail);
+              if (latest && !choice.fail) {
+                expectedThread = choice.thread;
+                expectedItems = [`reply-${index}`];
+              }
+              expect(!latest && stateStore.getState() !== before).toBe(false);
+              expect(activeThreadId(stateStore.getState())).toBe(expectedThread);
+              expect(
+                stateStore
+                  .getState()
+                  .threadStream.stableItems.filter((item) => item.kind === "dialogue")
+                  .map((item) => item.id),
+              ).toEqual(expectedItems);
+            }
+            const expectedRecords = order.filter((index) => !choices[index]?.fail).map((index) => choices[index]?.thread);
+            expect(vi.mocked(host.recordResumedThread).mock.calls.map(([thread]) => thread.id)).toEqual(expectedRecords);
+            expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledTimes(choices.at(-1)?.fail ? 0 : 1);
+            expect(host.addSystemMessage).toHaveBeenCalledTimes(choices.at(-1)?.fail ? 1 : 0);
+            expect(readHistoryPage).not.toHaveBeenCalled();
+          } finally {
+            commands.invalidate();
+            for (const reply of replies) reply.resolve();
+            await Promise.all(openings);
+          }
+        }),
+        { numRuns: 200 },
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("fences pending connection and resume results after navigation returns to the same thread", async () => {
+    const navigation = fc.array(fc.constantFrom("a", "b"), { maxLength: 8, size: "max" }).map((ids) => [...ids, "a"]);
+    await expect(
+      fc.assert(
+        fc.asyncProperty(
+          navigation,
+          fc.constantFrom("connection", "resume"),
+          fc.string({ maxLength: 40 }),
+          async (targets, stage, draft) => {
+            const gate = deferred<void>();
+            const ensureConnected = vi.fn(async () => {
+              if (stage === "connection") await gate.promise;
+              return true;
+            });
+            const resumeThread = vi.fn<ThreadResumeEffects["resumeThread"]>(async (threadId, adopt) => {
+              if (stage === "resume") await gate.promise;
+              adopt(
+                activation(threadId, {
+                  initialHistoryPage: historyPage([message("fresh", "Fresh history", "assistant")], null),
+                }),
+              );
+            });
+            const { commands, stateStore, host } = createThreadActivationFixture({ ensureConnected, effects: { resumeThread } });
+            const restore = (threadId: string) =>
+              stateStore.dispatch({ type: "panel/restored-thread-applied", threadId, fallbackTitle: null });
+            restore("a");
+            const opening = commands.ensureRestoredThreadLoaded();
+            try {
+              await waitForAsyncWork(() => expect(stage === "connection" ? ensureConnected : resumeThread).toHaveBeenCalledOnce());
+              for (const target of targets) restore(target);
+              stateStore.dispatch({ type: "composer/draft-set", draft });
+              const before = stateStore.getState();
+              gate.resolve();
+              await expect(opening).resolves.toBe(false);
+              expect(stateStore.getState()).toBe(before);
+              // A successful stale resume still records a shared fact; a stale
+              // connection result must not start a resume in the first place.
+              expect(host.recordResumedThread).toHaveBeenCalledTimes(stage === "resume" ? 1 : 0);
+              expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
+              expect(host.addSystemMessage).not.toHaveBeenCalled();
+              await expect(commands.ensureRestoredThreadLoaded()).resolves.toBe(true);
+              expect(activeThreadId(stateStore.getState())).toBe("a");
+              expect(stateStore.getState().threadStream.stableItems.map((item) => item.id)).toEqual(["fresh"]);
+            } finally {
+              commands.invalidate();
+              gate.resolve();
+              await opening;
+            }
+          },
+        ),
+        { numRuns: 200 },
+      ),
+    ).resolves.toBeUndefined();
+  });
+
   it.each(["reselect", "focus"] as const)("preserves explicit navigation intent across %s", async (action) => {
     const { commands, resumeThread, stateStore, host } = createThreadActivationFixture();
     await commands.activate("first");
