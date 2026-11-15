@@ -1,4 +1,11 @@
+import { StateField } from "@codemirror/state";
 import Moment from "moment";
+import type { MarkdownFileInfo } from "obsidian";
+
+export const editorInfoField = StateField.define<MarkdownFileInfo>({
+  create: () => ({ file: null }) as MarkdownFileInfo,
+  update: (value) => value,
+});
 
 import { installObsidianElementHelpers } from "../support/obsidian-dom";
 

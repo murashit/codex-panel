@@ -2,7 +2,6 @@ import { type Editor, Notice } from "obsidian";
 import type { TargetedKeyboardEvent, ComponentChild as UiNode } from "preact";
 import { isComposerSendKey, type SendShortcut } from "../../domain/input/send-shortcut";
 import { type DiffDisplayLine, DiffLineList } from "../../shared/ui/diff-view";
-import { retainEditorSelectionEmphasis, type SelectionEmphasis } from "../../shared/ui/editor-selection-emphasis.obsidian";
 import { listenDomEscapeKey, listenDomEvent, listenOutsideDomEvent } from "../../shared/ui/events.dom";
 import { IconButton } from "../../shared/ui/icon.dom";
 import { unmountUiRoot } from "../../shared/ui/preact-root.dom";
@@ -14,6 +13,7 @@ import type { SelectionRewriteInput, SelectionRewriteRuntimeSettings } from "./m
 import { SelectionRewriteOutputError, type SelectionRewritePort } from "./port";
 import { positionSelectionRewritePopover } from "./position.dom";
 import { buildSelectionRewritePrompt } from "./prompt";
+import type { RewriteTarget } from "./target.obsidian";
 
 type SelectionRewriteInstructionHistoryDirection = -1 | 1;
 
@@ -67,6 +67,7 @@ function isSelectionRewriteActionKey(event: {
 
 export interface SelectionRewritePopoverOptions {
   editor: Editor;
+  target: RewriteTarget;
   runtimeSettings: SelectionRewriteRuntimeSettings;
   sendShortcut: SendShortcut;
   input: SelectionRewriteInput;
@@ -97,7 +98,6 @@ export function openSelectionRewritePopover(options: SelectionRewritePopoverOpti
 
 class SelectionRewritePopover {
   private readonly lifetime = new AbortController();
-  private selectionEmphasis: SelectionEmphasis | null = null;
   private elements: SelectionRewriteElements | null = null;
   private readonly cleanups: Cleanup[] = [];
   private historyCursor: number | null = null;
@@ -117,7 +117,6 @@ class SelectionRewritePopover {
   ) {}
 
   open(): void {
-    this.selectionEmphasis = retainEditorSelectionEmphasis(this.options.editor, this.options.input.targetRange);
     const elements = this.createElements();
     this.elements = elements;
 
@@ -168,7 +167,7 @@ class SelectionRewritePopover {
       this.elements.root.remove();
     }
     this.elements = null;
-    this.selectionEmphasis?.release();
+    this.options.target.release();
     this.onClose();
   }
 
@@ -179,6 +178,10 @@ class SelectionRewritePopover {
   private async generate(): Promise<void> {
     const signal = this.lifetime.signal;
     if (this.isClosed() || this.state.status === "generating") return;
+    if (!this.options.target.resolve()) {
+      this.reportChangedSelection();
+      return;
+    }
     const instruction = this.instructionDraft.trim();
     if (!instruction) {
       new Notice("Enter a rewrite instruction first.");
@@ -244,17 +247,21 @@ class SelectionRewritePopover {
 
     const { editor } = this.options;
     const input = this.options.input;
-    const currentText = editor.getRange(input.targetRange.from, input.targetRange.to);
-    if (currentText !== input.originalText) {
-      const message = "Selection changed. Select the text again and reopen Rewrite selection.";
-      new Notice(message);
-      this.status = { text: message, active: false };
-      this.renderView();
+    const range = this.options.target.resolve();
+    if (!range || editor.getRange(range.from, range.to) !== input.originalText) {
+      this.reportChangedSelection();
       return;
     }
 
-    editor.replaceRange(replacement, input.targetRange.from, input.targetRange.to, "codex-panel-rewrite");
+    editor.replaceRange(replacement, range.from, range.to, "codex-panel-rewrite");
     this.close();
+  }
+
+  private reportChangedSelection(): void {
+    const message = "Selection changed. Select the text again and reopen Rewrite selection.";
+    new Notice(message);
+    this.status = { text: message, active: false };
+    this.renderView();
   }
 
   private focusApplyButton(): void {

@@ -4,6 +4,7 @@ import { fileReferencePath } from "../../shared/obsidian/file-path.obsidian";
 import type { SelectionRewriteInput, SelectionRewriteRuntimeSettings } from "./model";
 import { openSelectionRewritePopover, type SelectionRewritePopoverHandle } from "./popover.dom";
 import type { SelectionRewritePort } from "./port";
+import { createRewriteTargets } from "./target.obsidian";
 
 export interface SelectionRewriteCommandHost extends Plugin {
   settings: { sendShortcut: SendShortcut } & SelectionRewriteRuntimeSettings;
@@ -17,6 +18,8 @@ export function registerSelectionRewriteCommand(
   plugin: SelectionRewriteCommandHost,
   port: SelectionRewritePort,
 ): SelectionRewriteCommandController {
+  const targets = createRewriteTargets();
+  plugin.registerEditorExtension(targets.extension);
   let popover: SelectionRewritePopoverHandle | null = null;
   const closeAll = (): void => {
     popover?.close();
@@ -54,7 +57,13 @@ export function registerSelectionRewriteCommand(
       };
 
       popover?.close();
+      const target = targets.capture(editor, view, input.selectionOffsets);
+      if (!target) {
+        new Notice("Could not track this selection. Reopen the note and try again.");
+        return false;
+      }
       popover = openSelectionRewritePopover({
+        target,
         editor,
         runtimeSettings: plugin.settings,
         sendShortcut: plugin.settings.sendShortcut,

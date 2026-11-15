@@ -614,6 +614,8 @@ async function generateInstructionHistoryItem(instructionText: string): Promise<
 function popoverOptions(overrides: Partial<SelectionRewritePopoverOptions> = {}): SelectionRewritePopoverOptions {
   return {
     editor: editorFixture().editor,
+    // Popover-only cases replace the external editor target; command tests exercise real CodeMirror tracking.
+    target: { resolve: () => (overrides.input ?? rewriteInput()).targetRange, release: vi.fn() },
     runtimeSettings: { rewriteSelectionModel: null, rewriteSelectionEffort: null },
     sendShortcut: "enter",
     input: rewriteInput(),
