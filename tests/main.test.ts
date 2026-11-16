@@ -20,6 +20,30 @@ describe("CodexPanelPlugin lifecycle", () => {
     vi.useRealTimers();
   });
 
+  it("opens the panel through its registered command and ribbon action", async () => {
+    vi.useFakeTimers();
+    const plugin = await pluginWithLeaves([]);
+    const commands = vi.spyOn(plugin, "addCommand");
+    const ribbons = vi.spyOn(plugin, "addRibbonIcon");
+    try {
+      await plugin.onload();
+      const activate = vi.spyOn(plugin.runtime, "activatePanel").mockResolvedValue(null);
+      const command = commands.mock.calls.map(([entry]) => entry).find((entry) => entry.id === "open-panel");
+      expect(command?.callback).toBeTypeOf("function");
+      command?.callback?.();
+      await Promise.resolve();
+      expect(activate).toHaveBeenCalledOnce();
+
+      const ribbon = ribbons.mock.calls.find(([, title]) => title === "Open panel");
+      expect(ribbon?.[2]).toBeTypeOf("function");
+      ribbon?.[2](new MouseEvent("click"));
+      await Promise.resolve();
+      expect(activate).toHaveBeenCalledTimes(2);
+    } finally {
+      plugin.onunload();
+    }
+  });
+
   it("loads restored Codex panel leaves after startup without blocking onload", async () => {
     vi.useFakeTimers();
     const firstLeaf = leaf();

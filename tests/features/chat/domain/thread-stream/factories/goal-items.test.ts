@@ -3,6 +3,11 @@ import { goalChangeItem } from "../../../../../../src/features/chat/domain/threa
 import { threadGoalFixture } from "../../../../../support/thread-goal";
 
 describe("goal thread stream items", () => {
+  it.each([{ objective: "Updated objective" }, { tokenBudget: 100 }])("records a single-field goal update (%j)", (changes) => {
+    const previous = threadGoalFixture();
+    expect(goalChangeItem("goal", previous, { ...previous, ...changes })).toMatchObject({ action: "updated" });
+  });
+
   it("keeps goal event summaries compact while retaining the full objective in details", () => {
     const objective = `Ship ${"the feature ".repeat(20)}`.trim();
     const item = goalChangeItem("goal", null, threadGoalFixture({ objective }));

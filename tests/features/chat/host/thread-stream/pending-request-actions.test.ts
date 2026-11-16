@@ -7,6 +7,24 @@ import { pendingRequestFixture } from "../../support/pending-requests";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
 describe("pending request actions", () => {
+  it.each([false, true])("keeps concurrent answers with their request, shared question ID=%s", (sharedQuestionId) => {
+    const { stateStore, receive, pendingRequests, handler } = pendingRequestFixture();
+    const question = (id: string) => ({ id, header: "Answer", question: "What now?", isOther: false, isSecret: false, options: null });
+    const secondQuestionId = sharedQuestionId ? "first" : "second";
+    const first = receive(userInputRequestFixture(1, { isBlocking: true, questions: [question("first")] }));
+    const second = receive(userInputRequestFixture(2, { isBlocking: true, questions: [question(secondQuestionId)] }));
+    pendingRequests.actions.setUserInputDraft(1, "1:first", "first answer");
+    pendingRequests.actions.setUserInputDraft(2, `2:${secondQuestionId}`, "second answer");
+
+    pendingRequests.actions.resolveUserInput(2);
+
+    expect(second.respond).toHaveBeenCalledExactlyOnceWith({ answers: { [secondQuestionId]: { answers: ["second answer"] } } });
+    expect(first.respond).not.toHaveBeenCalled();
+    expect(stateStore.getState().requests.pendingUserInputs.map((input) => input.requestId)).toEqual([1]);
+    expect(stateStore.getState().requests.userInputDrafts.get("1:first")).toBe("first answer");
+    handler.clearServerRequests("close");
+  });
+
   it.each(["disconnect", "close"] as const)(
     "retains unanswered human requests across resume and leaves %s without rejecting them",
     (reason) => {
@@ -402,6 +420,8 @@ describe("pending request actions", () => {
       vi.advanceTimersByTime(119_999);
       expect(response.respond).not.toHaveBeenCalled();
       if (action === "skip") pendingRequests.actions.skipUserInput(7);
+      expect(response.respond).toHaveBeenCalledTimes(action === "skip" ? 1 : 0);
+      expect(stateStore.getState().requests.pendingUserInputs).toHaveLength(action === "skip" ? 0 : 1);
       vi.advanceTimersByTime(1);
       expect(response.respond).toHaveBeenCalledExactlyOnceWith({ answers: {} });
       expect(response.reject).not.toHaveBeenCalled();

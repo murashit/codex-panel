@@ -18,6 +18,7 @@ describe("file path helpers", () => {
         expect(vaultRelativePath(root, file)).toBe(`${segments.join("/")}/note.md`);
         expect(vaultRelativePath(root, escapingFile)).toBeNull();
         expect(vaultRelativePath(root, siblingFile)).toBeNull();
+        expect(vaultRelativePath(nested, [root, ...segments.slice(0, -1)].join(separator))).toBeNull();
       }),
     );
   });
@@ -56,6 +57,7 @@ describe("file path helpers", () => {
     expect(vaultRelativePath("/Vault", "/Vault/docs/../Guide.md")).toBe("Guide.md");
     expect(vaultRelativePath("/Vault", "/Vault/../outside.md")).toBeNull();
     expect(vaultRelativePath("/Vault", "../outside.md", { allowRelative: true })).toBeNull();
+    expect(vaultRelativePath("/Vault", "..", { allowRelative: true })).toBeNull();
     expect(vaultRelativePath("C:\\Vault", "C:outside.md", { allowRelative: true })).toBeNull();
     expect(vaultRelativePath("\\\\server\\share\\Vault", "\\\\server\\share\\Vault\\Notes\\Guide.md")).toBe("Notes/Guide.md");
   });

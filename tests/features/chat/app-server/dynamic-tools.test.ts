@@ -14,8 +14,18 @@ describe("Codex Panel dynamic tools", () => {
             type: "function",
             name: "resolve_wikilinks",
             inputSchema: expect.objectContaining({
+              type: "object",
               required: ["wikilinks"],
               additionalProperties: false,
+              properties: {
+                sourcePath: expect.objectContaining({ type: "string", minLength: 1, maxLength: 1024 }),
+                wikilinks: expect.objectContaining({
+                  type: "array",
+                  minItems: 1,
+                  maxItems: 16,
+                  items: expect.objectContaining({ type: "string", minLength: 4, maxLength: 1024 }),
+                }),
+              },
             }),
           }),
         ],

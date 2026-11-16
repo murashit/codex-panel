@@ -24,6 +24,28 @@ import { threadActivationFixture } from "../../../../support/thread-activation";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("createChatRuntimeSettingsCommands", () => {
+  it("does not publish Fast intent or send settings for an unsupported model", async () => {
+    const store = createChatStateStore(
+      chatStateWith(chatStateFixture(), {
+        activeThread: { id: "thread" },
+        runtime: { active: { model: "no-fast", serviceTier: null } },
+      }),
+    );
+    const port = settingsPortFixture({ updateThreadSettings: vi.fn().mockResolvedValue({ kind: "not-started" }) });
+    const messages: string[] = [];
+    const commands = runtimeCommandsFixture(store, port, messages, {
+      runtimeConfig: runtimeConfigFixture({ model: "no-fast" }),
+      availableModels: [modelMetadataFixture("no-fast")],
+    });
+
+    await commands.toggleFastMode();
+
+    expect(port.updateThreadSettings).not.toHaveBeenCalled();
+    expect(store.getState().runtime.pending.fastMode).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.active.serviceTier).toBeNull();
+    expect(messages).toEqual([expect.stringContaining("unavailable")]);
+  });
+
   it("does not confirm a notification superseded before its acknowledgement", async () => {
     const store = createChatStateStore(chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } }));
     const ack = deferred<RuntimeSettingsUpdateResult>();

@@ -8,6 +8,17 @@ import { createToolbarPanelActions, createToolbarUiActions } from "../../../../.
 import { createServerDiagnostics } from "../../../../support/runtime-diagnostics";
 
 describe("createToolbarPanelActions", () => {
+  it.each([
+    { method: "toggleChatActions", panel: "chat-actions" },
+    { method: "toggleStatus", panel: "status-panel" },
+  ] as const)("closes $panel when the same toolbar action is repeated", ({ method, panel }) => {
+    const { stateStore, actions } = toolbarPanelActionsFixture();
+    actions[method]();
+    expect(stateStore.getState().ui.toolbarPanel).toBe(panel);
+    actions[method]();
+    expect(stateStore.getState().ui.toolbarPanel).toBeNull();
+  });
+
   it("tracks archive confirmation and delegates archive actions", async () => {
     const stateStore = createChatStateStore(createChatState());
     const archiveThread = vi.fn().mockResolvedValue(undefined);

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { activeThreadState, type ChatState } from "../../../../../src/features/chat/application/state/model";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../../../../src/features/chat/application/state/panel-target";
@@ -15,6 +15,20 @@ import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 
 describe("chatReducer", () => {
+  it("stops notifying an unsubscribed listener while continuing to update state", () => {
+    const store = createChatStateStore();
+    const listener = vi.fn();
+    const unsubscribe = store.subscribe(listener);
+    store.dispatch({ type: "composer/draft-set", draft: "before" });
+    expect(listener).toHaveBeenCalledOnce();
+
+    unsubscribe();
+    store.dispatch({ type: "composer/draft-set", draft: "after" });
+
+    expect(store.getState().composer.draft).toBe("after");
+    expect(listener).toHaveBeenCalledOnce();
+  });
+
   it("leaves composer restoration to its owner when the connection scope clears pending web context", () => {
     const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
     if (!pending) throw new Error("Expected pending web submission");

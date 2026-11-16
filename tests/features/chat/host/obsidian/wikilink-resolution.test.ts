@@ -71,10 +71,17 @@ describe("Obsidian wikilink resolution", () => {
     expect(result.sourcePath).toBeNull();
   });
 
+  it("accepts a batch at the 16-link limit", () => {
+    const resolver = vi.fn(() => null);
+    expect(resolveObsidianWikilinks(appWithResolver(resolver), { wikilinks: Array(16).fill("[[Note]]") }).results).toHaveLength(16);
+    expect(resolver).toHaveBeenCalledTimes(16);
+  });
+
   it.each([
     { name: "non-object input", input: null, message: "must be an object" },
     { name: "empty source path", input: { sourcePath: " ", wikilinks: ["[[Note]]"] }, message: "sourcePath" },
     { name: "empty batch", input: { sourcePath: "Source.md", wikilinks: [] }, message: "between 1 and 16" },
+    { name: "oversized batch", input: { wikilinks: Array(17).fill("[[Note]]") }, message: "between 1 and 16" },
     { name: "embed", input: { sourcePath: "Source.md", wikilinks: ["![[Note]]"] }, message: "Embeds are not supported" },
     { name: "markdown link", input: { sourcePath: "Source.md", wikilinks: ["[Note](Note.md)"] }, message: "Invalid raw wikilink" },
     { name: "empty target", input: { sourcePath: "Source.md", wikilinks: ["[[#Heading]]"] }, message: "file target" },

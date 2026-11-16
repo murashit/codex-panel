@@ -6,6 +6,14 @@ import type { Thread } from "../../../src/domain/threads/model";
 import { panelThreadFixture } from "../../support/panel-thread";
 
 describe("thread catalog read model", () => {
+  it("publishes a changed preview without requiring a name or timestamp change", () => {
+    const previous = thread("first");
+    const unrelated = thread("second");
+    const next = { ...previous, preview: "New preview" };
+
+    expect(applyThreadCatalogChange([previous, unrelated], { kind: "upsert", thread: next })).toEqual([next, unrelated]);
+  });
+
   it("upserts one thread without reordering or replacing unrelated entries", () => {
     fc.assert(
       fc.property(
