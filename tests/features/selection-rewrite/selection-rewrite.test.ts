@@ -35,6 +35,25 @@ afterEach(() => {
 });
 
 describe("selection rewrite prompt", () => {
+  it("bounds note context when the selection itself is larger than the context budget", () => {
+    const originalText = "S".repeat(25_000);
+    const prompt = buildSelectionRewritePrompt(
+      rewriteInput({
+        originalText,
+        noteText: `${"a".repeat(100)}${originalText}${"z".repeat(100)}`,
+        targetRange: { from: { line: 0, ch: 100 }, to: { line: 0, ch: 25_100 } },
+        selectionOffsets: { from: 100, to: 25_100 },
+      }),
+      "Make it clearer.",
+    );
+    const context = prompt.match(/Current note context:\n```text\n([\s\S]*?)\n```\n\nReminder:/u)?.[1];
+
+    expect(context).toBeDefined();
+    expect(context?.length).toBeLessThanOrEqual(20_000);
+    expect(context).toContain("S".repeat(100));
+    expect(prompt).toContain(`Selected text:\n\`\`\`text\n${originalText}\n\`\`\``);
+  });
+
   it("uses fences that cannot be closed by note code blocks", () => {
     const prompt = buildSelectionRewritePrompt(
       rewriteInput({
@@ -417,6 +436,36 @@ describe("selection rewrite popover", () => {
     });
 
     expect(document.querySelector(".codex-panel-selection-rewrite")).toBeNull();
+  });
+
+  it.each([
+    { keyName: "IME Enter", event: { key: "Enter", isComposing: true } },
+    { keyName: "Shift Enter", event: { key: "Enter", shiftKey: true } },
+    { keyName: "Alt Enter", event: { key: "Enter", altKey: true } },
+    { keyName: "letter", event: { key: "a" } },
+  ])("does not regenerate the preview on $keyName", async ({ event }) => {
+    const editor = editorFixture();
+    selectionRewriteGenerate.mockResolvedValue({ replacementText: "Replacement." });
+    const popover = openPopover(popoverOptions({ editor: editor.editor }));
+    try {
+      await act(async () => {
+        expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]')).click();
+        await flushPromises();
+      });
+      expect(selectionRewriteGenerate).toHaveBeenCalledOnce();
+      const control = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
+
+      await act(async () => {
+        control.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, ...event }));
+        await flushPromises();
+      });
+
+      expect(selectionRewriteGenerate).toHaveBeenCalledOnce();
+      expect(editor.replaceRange).not.toHaveBeenCalled();
+      expect(document.querySelector(".codex-panel-selection-rewrite")).not.toBeNull();
+    } finally {
+      closePopover(popover);
+    }
   });
 
   it("uses mod-enter initially and plain Enter to regenerate a preview with a new instruction", async () => {

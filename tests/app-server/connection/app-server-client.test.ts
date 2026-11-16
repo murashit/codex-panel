@@ -527,7 +527,10 @@ describe("AppServerClient", () => {
     expect(onExit).toHaveBeenCalledOnce();
   });
 
-  it.each(["rpc", "permission"] as const)("cleans up a startup %s failure and allows reconnecting", async (failure) => {
+  it.each([
+    { failure: "rpc", guidance: "Could not connect to Codex" },
+    { failure: "permission", guidance: "Check permission to run the Codex executable and access the vault folder" },
+  ] as const)("cleans up a startup $failure failure and allows reconnecting", async ({ failure, guidance }) => {
     const transports: FakeTransport[] = [];
     const onExit = vi.fn();
     const client = createTestClient({
@@ -548,7 +551,7 @@ describe("AppServerClient", () => {
     if (failure === "rpc") firstTransport.emitLine({ id: initialize.id, error });
     else firstTransport.emitError(Object.assign(new Error(error.message), { code: error.code }));
 
-    await expect(connecting).rejects.toBeInstanceOf(Error);
+    await expect(connecting).rejects.toThrow(guidance);
     expect(client.isConnected()).toBe(false);
     expect(firstTransport.isRunning()).toBe(false);
 
@@ -583,6 +586,25 @@ describe("AppServerClient", () => {
 
     transport.emitExit(1);
     expect(onExit).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { diagnostic: "Error: authentication requirements do not permit any usable login method", guidance: "Check the sign-in requirements" },
+    {
+      diagnostic: "Error: windows.require_mxc = true requires MXC to be selected on this Windows host",
+      guidance: "Check the Codex sandbox configuration",
+    },
+    {
+      diagnostic: 'Error: approval_policy = "untrusted" is no longer supported; remove this setting',
+      guidance: "Check the approval policy",
+    },
+  ])("shows actionable startup guidance for $diagnostic", async ({ diagnostic, guidance }) => {
+    const fixture = clientFixture();
+    const connecting = fixture.client.connect();
+    fixture.transport.emitLog(diagnostic);
+    fixture.transport.emitExit(1);
+    await expect(connecting).rejects.toThrow(guidance);
+    expect(fixture.client.isConnected()).toBe(false);
   });
 
   it("keeps unrecognized startup logs out of failure guidance and allows reconnecting", async () => {

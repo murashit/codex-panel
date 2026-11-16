@@ -80,7 +80,9 @@ describe("app-server request input", () => {
       expect(entry.kind).toBe("untrusted");
       expect(Buffer.byteLength(entry.value, "utf8")).toBeLessThan(4_000);
       const separator = entry.value.indexOf("\n\n");
-      return entry.value.slice(separator + 2);
+      const body = entry.value.slice(separator + 2);
+      expect(Buffer.byteLength(body, "utf8")).toBeLessThanOrEqual(2_800);
+      return body;
     });
     const truncationNotice = "\n\n[Context truncated by Codex Panel: remaining content omitted.]";
     const serializedBody = bodies.join("");
@@ -103,19 +105,22 @@ describe("app-server request input", () => {
     expect(first).not.toEqual(second);
   });
 
-  it("reserves at least one part for every explicit context source", () => {
+  it.each([
+    { size: "small", selection: "selected text" },
+    { size: "large", selection: "s".repeat(30_000) },
+  ])("reserves a part for a $size second context without exceeding the shared budget", ({ selection }) => {
     const prepared = appServerTurnInputFromCodexInput(
       [
         { type: "text", text: "compare them" },
         { type: "additionalContext", key: "web", kind: "untrusted", value: "w".repeat(30_000) },
-        { type: "additionalContext", key: "selection", kind: "untrusted", value: "selected text" },
+        { type: "additionalContext", key: "selection", kind: "untrusted", value: selection },
       ],
       PANEL_SUBMISSION_ID,
     );
     const entries = Object.entries(prepared.additionalContext ?? {});
 
     expect(entries).toHaveLength(ADDITIONAL_CONTEXT_MAX_PARTS);
-    expect(entries.some(([key, entry]) => key.includes(".selection.") && entry.value.includes("selected text"))).toBe(true);
+    expect(entries.some(([key, entry]) => key.includes(".selection.") && entry.value.includes(selection.slice(0, 100)))).toBe(true);
     expect(entries.filter(([key]) => key.includes(".web."))).toHaveLength(7);
   });
 

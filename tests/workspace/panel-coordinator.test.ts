@@ -185,6 +185,31 @@ describe("WorkspacePanelCoordinator", () => {
     expect(focus).not.toHaveBeenCalled();
   });
 
+  it("retries a failed restored-panel load and hydrates the recovered view", async () => {
+    const restored = leaf({ state: { threadId: "recoverable" } });
+    const plugin = await pluginWithLeaves([restored]);
+    const coordinator = panels(plugin);
+    const pending = deferred<void>();
+    const view = chatView(CodexChatView, restored);
+    const activate = vi.spyOn(view.surface, "activateThread").mockResolvedValue(true);
+    restored.loadIfDeferred.mockReturnValueOnce(pending.promise).mockImplementationOnce(async () => {
+      restored.view = view;
+    });
+
+    coordinator.reconcileWorkspacePanels(null, "restore");
+    expect(restored.loadIfDeferred).toHaveBeenCalledOnce();
+    pending.reject(new Error("Transient host failure"));
+    await pending.promise.catch(() => undefined);
+    coordinator.reconcileWorkspacePanels(null, "restore");
+    await Promise.resolve();
+
+    expect(restored.loadIfDeferred).toHaveBeenCalledTimes(2);
+    expect(restored.view).toBe(view);
+    coordinator.activeLeafChanged(restored as never);
+    expect(activate).toHaveBeenCalledWith(undefined, { focus: false });
+    plugin.runtime.reset();
+  });
+
   it("deduplicates concurrent restored-panel loads for each leaf", async () => {
     const firstLeaf = leaf({ state: { threadId: "first" } });
     const secondLeaf = leaf({ state: { threadId: "second" } });

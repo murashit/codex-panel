@@ -547,6 +547,24 @@ describe("ChatComposerController", () => {
     expect(controller.input.captureInputSnapshot().attachments).toEqual([]);
   });
 
+  it("saves a pasted attachment supplied only through DataTransfer.items", async () => {
+    const file = new File(["image"], "diagram.png", { type: "image/png" });
+    const saveFiles = vi.fn().mockResolvedValue(attachmentSaveResult([attachmentFixture("diagram")]));
+    const { parent, stateStore, renderShell } = composerControllerFixture({ controller: { attachmentHandler: { saveFiles } } });
+    const event = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "clipboardData", {
+      value: { files: [], items: [{ kind: "file", getAsFile: () => file }] },
+    });
+
+    renderShell();
+    composer(parent).dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(saveFiles).toHaveBeenCalledWith([file]);
+    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+    expect(composer(parent).value).toBe("![[Codex Attachments/diagram.png]]");
+  });
+
   it("saves dropped files, restores focus immediately, and preserves later focus on completion", async () => {
     const stateStore = createChatStateStore();
     const attachmentHandler: ComposerAttachmentHandler = {

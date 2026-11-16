@@ -31,13 +31,21 @@ function approvalResponseAt(request: ApprovalRequest, approval: NonNullable<Retu
 }
 
 describe("approval model", () => {
-  it("rejects persistent decisions for required human approval in both directions", () => {
-    const invalid = commandApprovalRequestFixture(82, { kind: "humanCommand", availableDecisions: ["acceptForSession"] });
-    expect(toPendingApproval(invalid)).toBeNull();
-    expect(() =>
-      approvalResponse(invalid, { kind: "approval-option", optionId: "approval-option:0:acceptForSession", intent: "accept-session" }),
-    ).toThrow("one-time decision");
-  });
+  it.each([{ availableDecisions: ["acceptForSession"] }, { availableDecisions: ["accept", "acceptForSession"] }] as const)(
+    "rejects persistent decisions for required human approval in both directions ($availableDecisions)",
+    ({ availableDecisions }) => {
+      const invalid = commandApprovalRequestFixture(82, { kind: "humanCommand", availableDecisions: [...availableDecisions] });
+      const sessionIndex = availableDecisions.indexOf("acceptForSession");
+      expect(toPendingApproval(invalid)).toBeNull();
+      expect(() =>
+        approvalResponse(invalid, {
+          kind: "approval-option",
+          optionId: `approval-option:${sessionIndex}:acceptForSession`,
+          intent: "accept-session",
+        }),
+      ).toThrow("one-time decision");
+    },
+  );
 
   it("classifies command approvals and builds v2 decisions", () => {
     const request: ApprovalRequest = commandApprovalRequestFixture(1, { command: "npm run build", itemId: "item" });
