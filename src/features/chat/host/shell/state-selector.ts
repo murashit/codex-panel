@@ -1,18 +1,18 @@
 import { useLayoutEffect, useReducer, useRef } from "preact/hooks";
 import { isObjectValue } from "../../../../domain/objects/object-value";
 import type { ChatState } from "../../application/state/model";
-import type { ChatStateStore } from "../../application/state/store";
+import type { ChatStateSource } from "../../application/state/store";
 
 type ChatSelector<Selection> = (state: ChatState) => Selection;
 
 interface SelectionCache<Selection> {
-  store: ChatStateStore;
+  store: ChatStateSource;
   selector: ChatSelector<Selection>;
   state: ChatState;
   selection: Selection;
 }
 
-export function useChatSelector<Selection extends object>(store: ChatStateStore, selector: ChatSelector<Selection>): Selection {
+export function useChatSelector<Selection extends object>(store: ChatStateSource, selector: ChatSelector<Selection>): Selection {
   const cacheRef = useRef<SelectionCache<Selection> | null>(null);
   const [, rerender] = useReducer((version: number) => version + 1, 0);
   const state = store.getState();
@@ -50,7 +50,7 @@ export function useChatSelector<Selection extends object>(store: ChatStateStore,
 
 function selectionFor<Selection extends object>(
   previous: SelectionCache<Selection> | null,
-  store: ChatStateStore,
+  store: ChatStateSource,
   selector: ChatSelector<Selection>,
   state: ChatState,
 ): Selection {

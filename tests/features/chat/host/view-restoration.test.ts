@@ -30,17 +30,22 @@ import {
 describe("CodexChatView workspace restoration", () => {
   setupViewConnectionHarness();
 
-  it("keeps temporary identity and workspace persistence after the first turn fails", async () => {
+  it("keeps the chosen temporary identity and workspace persistence after the first turn fails", async () => {
     const client = connectedClient({
       "thread/start": vi.fn().mockResolvedValue(resumedThread("temporary", { ephemeral: true, name: null, preview: "" })),
       "turn/start": vi.fn().mockRejectedValue(new Error("turn rejected")),
       "turn/interrupt": vi.fn().mockResolvedValue({}),
     });
     connectionMockState().client = client;
-    const host = chatHost({ settings: { newConversationsEphemeral: true, showToolbar: false } });
+    const host = chatHost({ settings: { newConversationsEphemeral: false, showToolbar: false } });
     const view = await chatView({ host });
     await view.onOpen();
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.querySelector('button[aria-label="Use temporary conversation"]')).not.toBeNull();
+    });
+    requiredButton(view.containerEl, '[aria-label="Use temporary conversation"]').click();
     await waitForAsyncWork(() => expect(view.containerEl.querySelector('button[aria-label="Use regular conversation"]')).not.toBeNull());
+    expect(view.containerEl.querySelector('[aria-label="Rename thread"]')).toBeNull();
     view.surface.setComposerText("Keep this conversation");
     await submitComposerByEnter(view);
 
@@ -51,6 +56,8 @@ describe("CodexChatView workspace restoration", () => {
       expect(view.containerEl.querySelector(".codex-panel__conversation-title")?.textContent).toBe("Keep this conversation");
       expect(view.containerEl.querySelector('[aria-label="Temporary conversation"]')).not.toBeNull();
     });
+    expect(client.request).toHaveBeenCalledWith("thread/start", expect.objectContaining({ ephemeral: true }));
+    expect(view.containerEl.querySelectorAll(".codex-panel__conversation-header button")).toHaveLength(0);
     host.settingsSource.newConversationsEphemeral = false;
     view.surface.refreshSettings();
     expect(view.getState()).toEqual({ version: 1 });

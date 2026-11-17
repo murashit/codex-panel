@@ -11,8 +11,12 @@ js_module_reference() as $stmt where {
   $stmt <: contains `$source` where {
     or {
       $source <: r"^[\"'](?:(?:\.\./)+(?:application|app-server|host)|src/(?:app-server|features/chat/(?:application|app-server|host)))(?:/.*)?[\"']$",
-      $source <: r"^[\"']obsidian[\"']$"
+      $source <: r"^[\"']obsidian[\"']$",
+      $source <: r"^[\"'].*\.obsidian(?:\.[cm]?[jt]sx?)?[\"']$",
+      $source <: r"^[\"'](?:(?:\.\./)+(?:features/)?[^/]+|src/features/[^/]+)/(?:application|workflows|app-server|host)(?:/.*)?[\"']$",
+      // These features keep their execution entry points beside their UI, not in layer directories.
+      $source <: r"^[\"'](?:(?:\.\./)+(?:features/)?|src/features/)(?:threads-view/session|selection-rewrite/app-server-adapter)(?:\.[cm]?[jt]sx?)?[\"']$"
     }
   },
-  register_diagnostic(span=$stmt, message="Chat UI modules must not import application, app-server, host, or Obsidian layers; pass render-ready props and actions through UI contracts.", severity="error")
+  register_diagnostic(span=$stmt, message="Chat UI modules must not import feature execution layers or Obsidian adapters; pass render-ready props and actions through UI contracts.", severity="error")
 }

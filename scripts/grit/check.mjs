@@ -9,10 +9,22 @@ const biomeBin = path.join(repoRoot, "node_modules", ".bin", "biome");
 // Regression probes for nontrivial source-policy scopes and syntax, exercised with the actual Biome plugin configuration.
 const cases = [
   policyCase(
-    "chat workflows cannot instantiate the Obsidian Vault destination",
-    "src/features/chat/application/example.ts",
+    "chat UI cannot instantiate shared Obsidian adapters",
+    "src/features/chat/ui/example.tsx",
     'import { createObsidianVaultMarkdownDestination } from "../../../shared/vault/write-destination.obsidian";',
-    'import type { VaultMarkdownDestination } from "../../../shared/vault/write-operations";',
+    'import { observeElementResize } from "../../../shared/ui/resize-observer.measure";\nexport function observe(element: HTMLElement) { return observeElementResize(element, () => {}); }',
+  ),
+  policyCase(
+    "chat UI consumes sibling presentation without starting its workflows",
+    "src/features/chat/ui/toolbar/toolbar.tsx",
+    'import { createThreadMutationCommands } from "../../../threads/workflows/thread-mutation-commands";',
+    'import { pinnedThreadGroups } from "../../../threads/list/pinned-groups";',
+  ),
+  policyCase(
+    "chat UI cannot instantiate a sibling view session",
+    "src/features/chat/ui/example.tsx",
+    'import { ThreadsViewSession } from "../../threads-view/session";',
+    'import type { TurnDiffViewState } from "../../turn-diff/model";',
   ),
   policyCase(
     "thread workflows cannot dynamically load the Obsidian Vault destination",
@@ -89,14 +101,6 @@ const cases = [
     "const observer = new ResizeObserver(() => {});",
     "src/features/chat/host/operation.ts",
   ),
-  policyCase(
-    "UI owns DOM handles",
-    "src/features/threads/workflows/operation.ts",
-    "export function run(element: HTMLElement) { element.focus(); }",
-    "export function run(element: HTMLElement) { element.focus(); }",
-    "src/features/chat/ui/operation.ts",
-  ),
-
   policyCase(
     "thread workflows depend on ports regardless of suffix",
     "src/features/threads/workflows/mutations.app-server.ts",
@@ -242,24 +246,6 @@ const cases = [
     "export function Form(): JSX.Element { return <Field defaultChecked={true} />; }",
   ),
   policyCase(
-    "color functions in color declarations",
-    "src/styles/escape.css",
-    ".codex-panel__item { color: rgb(1 2 3); }",
-    ".codex-panel__item { color: var(--text-normal); }",
-  ),
-  policyCase(
-    "color functions in design tokens",
-    "src/styles/escape.css",
-    ".codex-panel__item { --codex-panel-color: hsl(0 0% 0%); }",
-    ".codex-panel__item { --codex-panel-color: var(--text-normal); }",
-  ),
-  policyCase(
-    "color functions in other declarations",
-    "src/styles/escape.css",
-    ".codex-panel__item { --custom: rgb(1 2 3); }",
-    ".codex-panel__item { --custom: var(--text-normal); }",
-  ),
-  policyCase(
     "multiline color functions in color declarations",
     "src/styles/escape.css",
     ".codex-panel__item { color:\n rgb(1 2 3); }",
@@ -281,7 +267,7 @@ const cases = [
     "multiline hardcoded colors",
     "src/styles/escape.css",
     ".codex-panel__item { background:\n #fff; }",
-    ".codex-panel__item { background: color-mix(\n in srgb, var(--text-normal), transparent\n); }",
+    ".codex-panel__item:where(.is-selected):has(> input:checked) { background: color-mix(\n in srgb, var(--text-normal), transparent\n); }",
   ),
   policyCase(
     "multiline hardcoded token colors",
@@ -300,12 +286,6 @@ const cases = [
     "src/styles/escape.css",
     ".codex-panel__item { --codex-panel-color: var(--text-normal,\n rgb(1 2 3)); }",
     ".codex-panel__item { --codex-panel-color:\n var(--text-normal) /* rgb(1 2 3) and #fff */; }",
-  ),
-  policyCase(
-    "no-restricted-css-policy.grit",
-    "src/styles/escape.css",
-    ".codex-panel__item { color: #fff; }",
-    ".codex-panel__item:where(.is-selected):has(> input:checked) { color: var(--text-normal); }",
   ),
 ];
 

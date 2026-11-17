@@ -12,6 +12,7 @@ import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../applic
 import type { ChatStateStore } from "../../application/state/store";
 import type { ForkDraftPreparation } from "../../application/threads/fork-draft";
 import { sideChatDraft } from "../../application/threads/fork-draft";
+import { applyGoalChange } from "../../application/threads/goal-commands";
 import { createThreadStartCommand } from "../../application/threads/thread-start-command";
 import { collaborationModeIntentValue } from "../../domain/runtime/intent";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../../domain/runtime/labels";
@@ -20,7 +21,6 @@ import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items
 import { toolbarOutsidePointerHit } from "../../ui/toolbar/hit-test.dom";
 import { ChatComposerController } from "../composer/controller";
 import type { ChatPanelEnvironment } from "../contracts";
-import { applyGoalChange } from "../goal/view-projection";
 import { createVaultComposerAttachmentHandler } from "../obsidian/composer-attachments.obsidian";
 import { obsidianFuzzyMatcher } from "../obsidian/fuzzy-search.obsidian";
 import { VaultComposerContextReferenceProvider } from "../obsidian/vault-composer-context-reference-provider.obsidian";
