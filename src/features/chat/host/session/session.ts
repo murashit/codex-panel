@@ -247,6 +247,9 @@ export class ChatPanelSession implements ChatPanelHandle {
     if (!root) return;
     renderChatPanelShell(root, {
       stateStore: this.stateStore,
+      setNewConversationEphemeral: (ephemeral) => {
+        this.stateStore.dispatch({ type: "panel/ephemeral-choice-set", ephemeral });
+      },
       metadata: this.runtime.sharedResources,
       toolInventoryQueries: this.environment.plugin.toolInventoryQueries,
       threadGoalQueries: this.environment.plugin.threadGoalQueries,

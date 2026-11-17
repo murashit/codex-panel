@@ -4,7 +4,7 @@ import type { ComponentChild } from "preact";
 import { act } from "preact/test-utils";
 import { describe, expect, it } from "vitest";
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
-import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import type { ChatStateSource } from "../../../../../src/features/chat/application/state/store";
 import type { RuntimeSnapshot } from "../../../../../src/features/chat/domain/runtime/snapshot";
 import { selectChatPanelComposer } from "../../../../../src/features/chat/host/composer/view-projection";
 import { useChatSelector } from "../../../../../src/features/chat/host/shell/state-selector";
@@ -82,11 +82,11 @@ describe("useChatSelector", () => {
   });
 });
 
-function ComposerValue({ store }: { store: ChatStateStore }): ComponentChild {
+function ComposerValue({ store }: { store: ChatStateSource }): ComponentChild {
   return useChatSelector(store, composerSelector).draft;
 }
 
-interface ControllableStore extends ChatStateStore {
+interface ControllableStore extends ChatStateSource {
   listenerCount(): number;
   replace(state: ChatState): void;
   replaceWithoutNotification(state: ChatState): void;
@@ -97,7 +97,6 @@ function controllableStore(initialState: ChatState, onSubscribe?: (store: Contro
   const listeners = new Set<() => void>();
   const store: ControllableStore = {
     getState: () => state,
-    dispatch: () => state,
     subscribe(listener) {
       listeners.add(listener);
       onSubscribe?.(store);

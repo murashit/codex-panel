@@ -6,7 +6,7 @@ import { renderObsidianUiRoot } from "../../../../shared/ui/preact-root.obsidian
 import type { ThreadCatalogPaginatedActiveReader } from "../../../threads/catalog/thread-catalog";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { activeThreadId, type ChatState } from "../../application/state/model";
-import type { ChatStateStore } from "../../application/state/store";
+import type { ChatStateSource } from "../../application/state/store";
 import { chatTurnBusy } from "../../application/turns/turn-state";
 import { ComposerShell } from "../../ui/composer/composer";
 import { GoalPanel } from "../../ui/goal/goal";
@@ -53,7 +53,8 @@ export interface ChatPanelShellParts {
 }
 
 interface ChatPanelShellProps {
-  stateStore: ChatStateStore;
+  stateStore: ChatStateSource;
+  setNewConversationEphemeral: (ephemeral: boolean) => void;
   metadata: ChatMetadataSource;
   toolInventoryQueries: ChatToolInventoryDisplayQueries;
   threadGoalQueries: ChatThreadGoalQueries;
@@ -85,6 +86,7 @@ export function unmountChatPanelShell(container: HTMLElement | null): void {
 
 function ChatPanelShell({
   stateStore,
+  setNewConversationEphemeral,
   metadata,
   toolInventoryQueries,
   threadGoalQueries,
@@ -110,6 +112,7 @@ function ChatPanelShell({
         <div className="codex-panel__region codex-panel__region--heading">
           <ChatPanelIdentityRegion
             stateStore={stateStore}
+            setNewConversationEphemeral={setNewConversationEphemeral}
             threadCatalog={threadCatalog}
             dependencies={parts.toolbar.dependencies}
             actions={parts.toolbar.actions}
@@ -135,11 +138,12 @@ function ChatPanelShell({
 
 function ChatPanelIdentityRegion({
   stateStore,
+  setNewConversationEphemeral,
   threadCatalog,
   dependencies,
   actions,
   showToolbar,
-}: Pick<ChatPanelShellProps, "stateStore" | "threadCatalog" | "showToolbar"> & {
+}: Pick<ChatPanelShellProps, "stateStore" | "setNewConversationEphemeral" | "threadCatalog" | "showToolbar"> & {
   dependencies: ChatPanelToolbarDependencies;
   actions: ToolbarActions;
 }): UiNode {
@@ -197,7 +201,9 @@ function ChatPanelIdentityRegion({
                 kind: "selectable",
                 ephemeral: model.ephemeral,
                 disabled: model.disabled,
-                onToggle: () => stateStore.dispatch({ type: "panel/ephemeral-choice-set", ephemeral: !model.ephemeral }),
+                onToggle: () => {
+                  setNewConversationEphemeral(!model.ephemeral);
+                },
               }
             : { kind: "fixed", ephemeral: model.ephemeral }
       }
@@ -213,7 +219,7 @@ function ChatPanelToolbarRegion({
   dependencies,
   actions,
 }: {
-  stateStore: ChatStateStore;
+  stateStore: ChatStateSource;
   metadata: ChatMetadataSource;
   toolInventoryQueries: ChatToolInventoryDisplayQueries;
   threadCatalog: ThreadCatalogPaginatedActiveReader;
@@ -261,7 +267,7 @@ function ChatPanelGoalRegion({
   threadGoalQueries,
   dependencies,
 }: {
-  stateStore: ChatStateStore;
+  stateStore: ChatStateSource;
   threadGoalQueries: ChatThreadGoalQueries;
   dependencies: ChatPanelGoalDependencies;
 }): UiNode {
@@ -288,7 +294,7 @@ function ChatPanelThreadStreamRegion({
   stateStore,
   dependencies,
 }: {
-  stateStore: ChatStateStore;
+  stateStore: ChatStateSource;
   dependencies: ChatPanelShellParts["threadStream"];
 }): UiNode {
   const model = useChatSelector(stateStore, selectChatPanelThreadStream);
@@ -312,7 +318,7 @@ function ChatPanelComposerRegion({
   presenter,
   actions,
 }: {
-  stateStore: ChatStateStore;
+  stateStore: ChatStateSource;
   metadata: ChatMetadataSource;
   presenter: ChatPanelComposerPresenter;
   actions: ChatPanelComposerActions;

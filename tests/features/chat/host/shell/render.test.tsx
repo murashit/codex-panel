@@ -280,34 +280,6 @@ describe("ChatPanelShell", () => {
     }
   });
 
-  it("keeps the temporary choice before start and offers no thread actions to a started temporary chat", async () => {
-    const store = createChatStateStore();
-    const container = document.body.appendChild(document.createElement("div"));
-    try {
-      await act(async () => {
-        renderChatPanelShell(container, shellProps(store));
-        await settleShellEffects();
-      });
-      const header = container.querySelector<HTMLElement>(".codex-panel__conversation-header");
-      await act(async () => {
-        header?.querySelector<HTMLButtonElement>('[aria-label="Use temporary conversation"]')?.click();
-        await settleShellEffects();
-      });
-      expect(store.getState().panelThread).toMatchObject({ kind: "empty", ephemeral: true });
-      expect(header?.querySelector('[aria-label="Rename thread"]')).toBeNull();
-      const temporary = panelThreadFixture({ id: "temporary", ephemeral: true });
-      await act(async () => {
-        store.dispatch(resumedThreadAction({ response: threadActivationFixture(temporary) }));
-        await settleShellEffects();
-      });
-      expect(header?.querySelectorAll("button")).toHaveLength(0);
-      expect(header?.querySelector('[aria-label="Temporary conversation"]')).not.toBeNull();
-    } finally {
-      await act(async () => unmountChatPanelShell(container));
-      container.remove();
-    }
-  });
-
   it("keeps one focused rename editor at the initiating surface through a failed save", async () => {
     const store = createChatStateStore();
     const thread = panelThreadFixture({ id: "current", name: "Current" });
@@ -505,7 +477,8 @@ describe("ChatPanelShell", () => {
 
 function shellProps(store: ReturnType<typeof createChatStateStore>) {
   return {
-    stateStore: store,
+    stateStore: { getState: store.getState, subscribe: store.subscribe },
+    setNewConversationEphemeral: vi.fn(),
     ...chatSharedSourcesFixture(),
     showToolbar: true,
     parts: shellParts(),

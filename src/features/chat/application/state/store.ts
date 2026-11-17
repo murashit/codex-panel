@@ -7,6 +7,8 @@ export interface ChatStateStore {
   subscribe(listener: () => void): () => void;
 }
 
+export type ChatStateSource = Pick<ChatStateStore, "getState" | "subscribe">;
+
 export function createChatStateStore(initialState: ChatState = createChatState()): ChatStateStore {
   let current = initialState;
   const listeners = new Set<() => void>();

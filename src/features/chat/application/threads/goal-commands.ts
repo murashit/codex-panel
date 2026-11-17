@@ -1,5 +1,7 @@
 import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../../domain/threads/goal";
+import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items";
 import type { EffectOutcome } from "../effect-outcome";
+import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { activeThreadId } from "../state/model";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
@@ -192,4 +194,29 @@ function currentGoal(host: GoalCommandsHost): ThreadGoal | null {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+export function applyGoalChange(
+  stateStore: ChatStateStore,
+  localItemIds: LocalIdSource,
+  threadId: string,
+  previous: ThreadGoal | null,
+  next: ThreadGoal | null,
+): void {
+  const state = stateStore.getState();
+  if (activeThreadId(state) !== threadId) return;
+  if (goalPresentationChanged(previous, next) && state.ui.disclosures.goalObjectiveExpanded.has(threadId)) {
+    stateStore.dispatch({ type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: threadId, open: false });
+  }
+  const item = goalChangeItem(localItemIds.next("goal"), previous, next);
+  if (item) stateStore.dispatch({ type: "thread-stream/item-upserted", item });
+}
+
+function goalPresentationChanged(previous: ThreadGoal | null, next: ThreadGoal | null): boolean {
+  return (
+    previous?.threadId !== next?.threadId ||
+    previous?.objective !== next?.objective ||
+    previous?.status !== next?.status ||
+    previous?.tokenBudget !== next?.tokenBudget
+  );
 }
