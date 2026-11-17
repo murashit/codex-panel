@@ -36,7 +36,9 @@ Design the complete interaction, including relevant placement, accessible names,
 
 Trace affected owners, callers, contracts, tests, and consequential failure or concurrency paths, including relevant paths outside the diff. Reproduce defects at the cheapest reliable layer and verify assumptions against actual producers and the supported dependency version. For performance concerns, establish expected size and frequency and measure where needed.
 
-A behavioral finding needs a reachable path and violated contract; a structural finding needs a concrete maintenance cost. Compare repair, removal, or consolidation with keeping the current model, including guarantees supplied by existing owners. Apply this equally to code, tests, and fixtures. Distinguish demonstrated problems, optional improvements, and questions blocked by missing evidence; keep unrelated work separate. Make coupled assumptions discoverable where they affect maintenance.
+A behavioral finding needs a reachable path and violated contract; a structural finding needs a concrete maintenance cost. Compare repair, removal, or consolidation across the resulting implementation and related existing code, tests, and fixtures. Identify which existing owner or dependency can supply the required guarantees, and which responsibilities, state, or coordination callers still need. Distinguish demonstrated problems, optional improvements, and questions blocked by missing evidence; keep unrelated work separate. Make coupled assumptions discoverable where they affect maintenance.
+
+For promising simplification candidates within the implementation task, the primary agent tries the change before deciding to keep the current model. Check requirements, failure and concurrency paths, and existing guarantees; passing tests alone does not establish equivalence. Resolve candidates through an applied simplification or a concrete reason to retain the responsibility, including any guarantee the simpler version would lose. Report material decisions without requiring a quota of alternatives, findings, or deleted lines. When the same issue recurs, look for an owner or API change that removes the need for callers to reconstruct the coordination.
 
 ### Investigate Duplication
 
@@ -74,7 +76,7 @@ Use the [Obsidian Dev skill](../.agents/skills/codex-panel-obsidian-dev/SKILL.md
 
 Test reachable user actions, external contracts, and meaningful state transitions through production code without redefining app-server semantics. Use minimal doubles for external effects or timing/failure conditions that cannot be exercised reliably at reasonable cost; explain their reason and verification limits in the change discussion. Self-authored responses do not establish API compatibility.
 
-Review the suite's guarantees rather than preserving every case. Strengthen or combine existing cases where useful; remove redundant, unreachable, or implementation-coupled cases. Timing and captured-state assertions must cross the actual wait or capture boundary and observe its consequence.
+Review changed and related existing tests together. Identify the regression each case detects and whether strengthening or combining an existing case can cover it. Weigh that protection against maintenance cost and restrictions on valid refactoring; remove redundant, unreachable, or implementation-coupled cases. Consolidation must preserve independent detection of failures. Timing and captured-state assertions must cross the actual wait or capture boundary and observe its consequence.
 
 For development scripts, prefer direct validation with real tools and representative inputs. Retain permanent tests only for concrete product or source-policy risks that justify their maintenance.
 
