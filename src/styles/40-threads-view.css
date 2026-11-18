@@ -69,6 +69,10 @@
 .codex-panel-threads__row-title {
   display: block;
   color: var(--codex-panel-threads-row-title-color);
+}
+
+.codex-panel-threads__row-title,
+.codex-panel-threads__rename-field {
   font-size: var(--font-ui-small);
   font-weight: var(--nav-item-weight, var(--font-normal));
   line-height: var(--line-height-tight);
@@ -135,9 +139,6 @@
   min-width: 0;
   min-height: var(--nav-item-size, var(--codex-panel-size-nav-item));
   overflow: visible;
-  font-size: var(--font-ui-small);
-  font-weight: var(--nav-item-weight, var(--font-normal));
-  line-height: var(--line-height-tight);
 }
 
 .codex-panel-threads__pin-button--pinned svg {

@@ -99,7 +99,7 @@ function stripCssComments(text) {
 
 function collectDynamicClassPrefixes(text) {
   const prefixes = new Set();
-  const templatePrefixPattern = /codex-panel(?:-[a-z]+)?__[a-z0-9-]+--\$\{/g;
+  const templatePrefixPattern = /codex-panel(?:-[a-z0-9]+)*__[a-z0-9-]+--\$\{/g;
   for (const match of text.matchAll(templatePrefixPattern)) {
     prefixes.add(match[0].slice(0, -"${".length));
   }

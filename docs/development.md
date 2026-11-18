@@ -6,7 +6,7 @@ Start with the behavior the change must support. The [README](../README.md) desc
 
 Use the Node.js version in `.node-version` and install dependencies with `npm ci` before running project tools. Read-only investigation and prose edits can proceed without installing dependencies or the CLI. The project’s `.npmrc` disables install scripts and automatic audits. Explicit npm scripts run without pre/post hooks. Use `npm audit` when investigating dependency vulnerabilities.
 
-While editing, use the focused commands in [package.json](../package.json) or run `npm run check` for lint, CSS usage, unused code, types, tests, and a build. Edit styles in `src/styles/`. Use `npm run build:styles` to check their source order and regenerate the stylesheet. Obsidian loads the built `main.js` and `styles.css`. Keep these local build products out of version control.
+While editing, use the focused commands in [package.json](../package.json) or run `npm run check` for lint, CSS usage, unused code, types, tests, and a build. Edit styles in `src/styles/`. The numbered filenames set the cascade order. Run `npm run build:styles` to regenerate the stylesheet. Obsidian loads the built `main.js` and `styles.css`. Keep these local build products out of version control.
 
 ## Implement the behavior
 
