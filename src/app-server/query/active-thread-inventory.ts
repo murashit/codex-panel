@@ -11,14 +11,13 @@ import type { ThreadPage } from "../services/threads";
 export type ActiveThreadCursor = string | null;
 export type ActiveThreadData = InfiniteData<ThreadPage, ActiveThreadCursor>;
 
-export function activeThreadsFromData(data: ActiveThreadData | undefined): readonly Thread[] | null {
-  if (!data) return null;
+export function activeThreadsFromData(data: ActiveThreadData): readonly Thread[] {
   return orderedUniqueThreads(data.pages.flatMap((page) => page.threads));
 }
 
 export function recentActiveThreadsFromData(data: ActiveThreadData | undefined): readonly Thread[] | null {
   if (!data) return null;
-  const threads = activeThreadsFromData(data) ?? [];
+  const threads = activeThreadsFromData(data);
   const recentWindowCapacity = Math.max(data.pages[0]?.fetchedSize ?? 0, threads.length > 0 ? 1 : 0);
   return threads.slice(0, recentWindowCapacity);
 }

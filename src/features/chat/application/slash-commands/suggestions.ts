@@ -8,7 +8,7 @@ import {
 import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime/permissions";
 import type { Thread } from "../../../../domain/threads/model";
 import { shortThreadId } from "../../../../domain/threads/model";
-import { compareThreadSearchMatches, threadSearchMatches } from "../../../../domain/threads/search";
+import { threadSearchMatches } from "../../../../domain/threads/search";
 import { threadCommandDisplayTitle } from "../../../../domain/threads/title";
 import type { ComposerSuggestion } from "../composer/suggestion";
 import { isSlashCommandName, SLASH_COMMANDS, type SlashCommandName, slashCommandSubcommands } from "./catalog";
@@ -128,21 +128,22 @@ function threadCommandSuggestions(
   const policy = THREAD_COMMAND_SUGGESTION_POLICIES[command];
   const candidateThreads = threads.filter((thread) => !policy.excludeActiveThread || thread.id !== activeThreadId);
 
-  const prioritizeActive = policy.prioritizeActiveThreadForEmptyQuery && query.length === 0;
-  return threadSearchMatches(candidateThreads, query)
-    .map((match) => ({ ...match, activePriority: prioritizeActive && match.thread.id === activeThreadId ? 0 : 1 }))
-    .sort((a, b) => a.activePriority - b.activePriority || compareThreadSearchMatches(a, b))
-    .map(({ thread }) => {
-      const title = threadCommandDisplayTitle(thread);
-      return {
-        display: title,
-        detail: shortThreadId(thread.id),
-        replacement: quotedThreadTitleArgument(title),
-        start,
-        appendSpaceOnInsert: true,
-        threadCommandTarget: { command, threadId: thread.id, title },
-      };
-    });
+  const matches = threadSearchMatches(candidateThreads, query);
+  if (policy.prioritizeActiveThreadForEmptyQuery && !query && activeThreadId) {
+    const activeIndex = matches.findIndex(({ thread }) => thread.id === activeThreadId);
+    if (activeIndex > 0) matches.unshift(...matches.splice(activeIndex, 1));
+  }
+  return matches.map(({ thread }) => {
+    const title = threadCommandDisplayTitle(thread);
+    return {
+      display: title,
+      detail: shortThreadId(thread.id),
+      replacement: quotedThreadTitleArgument(title),
+      start,
+      appendSpaceOnInsert: true,
+      threadCommandTarget: { command, threadId: thread.id, title },
+    };
+  });
 }
 
 function activeThreadCommandCompletionQuery(beforeCursor: string): { command: ThreadTitleCommand; query: string; start: number } | null {

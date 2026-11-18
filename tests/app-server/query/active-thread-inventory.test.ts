@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import {
   type ActiveThreadData,
   activeThreadDataHasMore,
@@ -16,12 +16,12 @@ describe("active thread inventory", () => {
       page([thread("same", 3), thread("newer", 5)], null, 2),
     ]);
 
-    expect(activeThreadsFromData(data)?.map((item) => item.id)).toEqual(["newer", "same", "peer", "older"]);
+    expect(activeThreadsFromData(data).map((item) => item.id)).toEqual(["newer", "same", "peer", "older"]);
   });
 
   it("keeps subagent threads out of the catalog inventory", () => {
     expect(
-      activeThreadsFromData(inventory([page([thread("interactive", 2), subagent("child", 3)], null, 2)]))?.map((item) => item.id),
+      activeThreadsFromData(inventory([page([thread("interactive", 2), subagent("child", 3)], null, 2)])).map((item) => item.id),
     ).toEqual(["interactive"]);
   });
 
@@ -36,7 +36,6 @@ describe("active thread inventory", () => {
   });
 
   it("reports pagination and empty data without throwing", () => {
-    expect(activeThreadsFromData(undefined)).toBeNull();
     expect(recentActiveThreadsFromData(undefined)).toBeNull();
     expect(activeThreadDataHasMore(undefined)).toBe(false);
     expect(activeThreadDataHasMore(inventory([page([], "next", 0)]))).toBe(true);
@@ -53,13 +52,15 @@ describe("active thread inventory", () => {
       kind: "upsert",
       thread: { ...thread("existing", 3), name: "Renamed" },
     });
-    expect(activeThreadsFromData(updated)?.map((item) => [item.id, item.name, item.recencyAt])).toEqual([
+    assert(updated);
+    expect(activeThreadsFromData(updated).map((item) => [item.id, item.name, item.recencyAt])).toEqual([
       ["existing", "Renamed", 3],
       ["other", null, 2],
     ]);
 
     const inserted = applyActiveThreadMutation(original, { kind: "upsert", thread: thread("new", 4) });
-    expect(activeThreadsFromData(inserted)?.map((item) => item.id)).toEqual(["new", "other", "existing"]);
+    assert(inserted);
+    expect(activeThreadsFromData(inserted).map((item) => item.id)).toEqual(["new", "other", "existing"]);
   });
 
   it("applies meaningful updates and removals, while ignoring unrelated changes", () => {

@@ -120,15 +120,13 @@ export class ThreadCatalog {
   activeThreadsSnapshot(): readonly Thread[] | null {
     if (this.scope.isDisposed()) return null;
     const data = this.scope.client.getQueryData<ActiveThreadData>(ACTIVE_THREADS_QUERY_KEY);
-    const threads = activeThreadsFromData(data);
-    return threads ?? null;
+    return data ? activeThreadsFromData(data) : null;
   }
 
   recentActiveThreadsSnapshot(): readonly Thread[] | null {
     if (this.scope.isDisposed()) return null;
     const data = this.scope.client.getQueryData<ActiveThreadData>(ACTIVE_THREADS_QUERY_KEY);
-    const threads = recentActiveThreadsFromData(data);
-    return threads ?? null;
+    return recentActiveThreadsFromData(data);
   }
 
   archivedThreadsSnapshot(): readonly Thread[] | null {
@@ -143,7 +141,7 @@ export class ThreadCatalog {
       this.scope.client,
       {
         ...this.activeThreadsQueryOptions(),
-        select: selectActiveThreads,
+        select: activeThreadsFromData,
         enabled: false,
       },
     );
@@ -168,7 +166,7 @@ export class ThreadCatalog {
     if (frozenSnapshot) return frozenSnapshot;
     try {
       const data = await this.scope.client.infiniteQuery(this.activeThreadsQueryOptions());
-      return activeThreadsFromData(data) ?? [];
+      return activeThreadsFromData(data);
     } catch (error) {
       if (error instanceof CancelledError) {
         this.scope.assertUsable();
@@ -359,10 +357,6 @@ export class ThreadCatalog {
       isFetchingNextPage: result.isFetchingNextPage,
     };
   }
-}
-
-function selectActiveThreads(data: ActiveThreadData): readonly Thread[] {
-  return activeThreadsFromData(data) ?? [];
 }
 
 function activeThreadChangeInvalidatesPages(change: ThreadCatalogChange): boolean {

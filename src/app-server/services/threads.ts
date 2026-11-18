@@ -17,7 +17,7 @@ import {
   type TurnRecord,
   transcriptEntriesFromTurnRecords,
 } from "../protocol/turn";
-import { collectCursorPages } from "./cursor-pages";
+import { collectCursorPages, cursorPages } from "./cursor-pages";
 import type { AppServerRequestClient } from "./request-client";
 
 interface TurnTranscriptSummaryPage {
@@ -219,23 +219,22 @@ async function readLegacyThreadForArchiveExport(client: AppServerRequestClient, 
 async function readCompletePaginatedThreadHistory(client: AppServerRequestClient, threadId: string): Promise<TurnRecord[]> {
   const turns = await readAllArchiveTurns(client, threadId);
   const turnsById = new Map(turns.map((turn) => [turn.id, turn]));
-  const seenCursors = new Set<string>();
-  let cursor: string | null = null;
-
-  for (;;) {
-    const page = await client.request("thread/items/list", {
-      threadId,
-      cursor,
-      limit: ARCHIVE_HISTORY_PAGE_LIMIT,
-      sortDirection: "asc",
-    });
-    for (const entry of page.data) {
+  const pages = cursorPages(
+    (cursor) =>
+      client.request("thread/items/list", {
+        threadId,
+        cursor,
+        limit: ARCHIVE_HISTORY_PAGE_LIMIT,
+        sortDirection: "asc",
+      }),
+    "archive item",
+  );
+  for await (const entries of pages) {
+    for (const entry of entries) {
       const turn = turnsById.get(entry.turnId);
       if (!turn) throw new Error(`Codex app-server returned an archive item for unknown turn ${entry.turnId}.`);
       turn.items.push(entry.item);
     }
-    cursor = advancingArchiveItemCursor(page.nextCursor, seenCursors);
-    if (!cursor) break;
   }
   for (const turn of turns) turn.itemsView = "full";
   return turns;
@@ -252,13 +251,6 @@ async function readAllArchiveTurns(client: AppServerRequestClient, threadId: str
     });
     return { data: page.data.map((turn) => ({ ...turn, items: [] })), nextCursor: page.nextCursor };
   }, "archive turn");
-}
-
-function advancingArchiveItemCursor(next: string | null, seen: Set<string>): string | null {
-  if (!next) return null;
-  if (seen.has(next)) throw new Error("Codex app-server returned a repeated archive item cursor.");
-  seen.add(next);
-  return next;
 }
 
 export async function readCompletedTurnTranscriptSummariesPage(
