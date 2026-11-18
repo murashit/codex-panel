@@ -42,7 +42,9 @@ For promising simplification candidates within the implementation task, the prim
 
 ### Investigate Duplication
 
-Run `npm run review:duplication` when changing product or test structure, evaluating shared abstractions, or reviewing repository-wide simplification. It is optional for small local changes without structural impact.
+During implementation review, run `npm run review:duplication` after changing product or test structure. It scans authored source and tests for pairs touching an added or modified line, including copies of unchanged code. Use `npm run review:duplication:all` for the full report.
+
+Both diff review commands compare the current working tree (including untracked, non-ignored files) to the merge base of HEAD and `origin/main`. Pass e.g. `-- --base HEAD` for just local edits. Deleted lines have no current location to review.
 
 Read both matches and their callers, applying the criteria above equally to existing and new code. Extract shared setup or rules when that improves ownership and maintenance; preserve independent test expectations and meaningful operation and observation order. Use matches as review evidence and retain useful local repetition. Reuse the report for an unchanged source state; generated app-server code is excluded by the script.
 
@@ -82,12 +84,15 @@ For development scripts, prefer direct validation with real tools and representa
 
 Vitest reuses workers with `isolate: false`. Restore boundary spies, timers, globals, and DOM overrides after each test. Shared setup modules that register hooks must export an installer called by each test file, because importing a cached module does not register its hooks again.
 
-### Investigate Coverage Gaps
+### Review Test Quality with Mutation Testing
 
-These are optional diagnostics, not additional handoff gates:
+For behavior changes, consider `npm run review:mutation` during implementation review to see which changes to production code the tests can distinguish. It targets changed lines in authored TypeScript and TSX under `src/` and skips generated bindings and declarations. Read the source location and replacement in the terminal alongside the affected tests. If Vitest finds no related tests, it reports that directly.
 
-- `npm run test:coverage` reports unexercised authored source, including modules not imported by tests, in `coverage/index.html`. Use it to find missing behavior coverage; there is no percentage threshold.
-- `npm run test:mutation` explores authored runtime and interaction code selected by directory-level globs in `stryker.config.mjs` and writes `reports/mutation/mutation.html`. Targets include chat host integration, selection-rewrite UI, workspace coordination, and plugin entry points; generated bindings remain outside the scope. Review surviving mutants individually: add tests for meaningful gaps, simplify equivalent or redundant code, and leave cases alone when neither improves the contract. Do not optimize for the aggregate score.
+For each relevant mutation, name the observable behavior a caller relies on. If the mutation breaks that behavior and the tests still pass, inspect what the existing test actually observes. For example, a test that checks a helper was called can pass even when the user sees the wrong result. Replace that assertion with one on the result. An expectation tied to that helper can kill a mutant yet block a valid refactor. Remove it once the observable result is protected. Merge or delete a whole test when it protects no distinct behavior.
+
+If the original and mutated code are equivalent for supported inputs, look for a redundant branch or operation to simplify. Leave the result alone when changing the tests or implementation would add no value. Add a case when a specific regression warrants its own protection. The mutation score is a diagnostic, with no target.
+
+For a broader review, `npm run test:mutation` uses the directory globs in `stryker.config.mjs` and writes `reports/mutation/mutation.html`. For line coverage, `npm run test:coverage` reports unexercised authored source in `coverage/index.html`. Both are optional diagnostics.
 
 See [Automation](automation.md) for CI failure reproduction, scheduled mutation runs, and checkpoint handling.
 
