@@ -16,7 +16,7 @@ import type { PendingRequestBlockContext } from "../../../../../../src/features/
 import type { PendingRequestBlockSnapshot } from "../../../../../../src/features/chat/ui/thread-stream/model";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../../src/features/chat/ui/thread-stream/pending-requests";
 import { appServerAgentMessageFixture, appServerTurnFixture, appServerUserMessageFixture } from "../../../../../support/app-server-records";
-import { changeInputValue, textContents } from "../../../../../support/dom";
+import { changeInputValue, popoutWindow, textContents } from "../../../../../support/dom";
 import { commandApprovalRequestFixture, mcpFormRequestFixture } from "../../../../../support/server-requests";
 import { pendingRequestFixture } from "../../../support/pending-requests";
 import { chatStateThreadStreamItems } from "../../../support/thread-stream";
@@ -332,9 +332,7 @@ describe("panel pending request rendering", () => {
   });
 
   it.each(["main document", "iframe"])("commits other Plan mode IME answers in the %s", (target) => {
-    const iframe = target === "iframe" ? document.createElement("iframe") : null;
-    if (iframe) document.body.appendChild(iframe);
-    const targetDocument = iframe ? expectPresent(iframe.contentDocument) : document;
+    const targetDocument = target === "iframe" ? popoutWindow().document : document;
     const targetWindow = expectPresent(targetDocument.defaultView);
     const parent = targetDocument.createElement("div");
     targetDocument.body.appendChild(parent);
@@ -343,7 +341,7 @@ describe("panel pending request rendering", () => {
       render();
       const otherInput = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text"));
       expect(otherInput.ownerDocument).toBe(targetDocument);
-      expect(otherInput instanceof HTMLInputElement).toBe(iframe === null);
+      expect(otherInput instanceof HTMLInputElement).toBe(target === "main document");
 
       actEvent(() => {
         otherInput.dispatchEvent(new targetWindow.CompositionEvent("compositionstart", { bubbles: true }));
@@ -376,7 +374,6 @@ describe("panel pending request rendering", () => {
     } finally {
       unmountUiRootInAct(parent);
       parent.remove();
-      iframe?.remove();
     }
   });
 

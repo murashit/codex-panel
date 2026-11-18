@@ -1,4 +1,4 @@
-import { beforeEach, vi } from "vitest";
+import { beforeEach, onTestFinished, vi } from "vitest";
 
 import { installObsidianElementHelpers, type ObsidianElementOptions } from "./obsidian-dom";
 
@@ -47,4 +47,11 @@ export function composerSuggestionScrollFixture(metrics: {
   container.scrollTop = metrics.scrollTop;
 
   return { container, option };
+}
+
+export function popoutWindow(): Window {
+  const frame = document.body.appendChild(document.createElement("iframe"));
+  onTestFinished(() => frame.remove());
+  if (!frame.contentWindow) throw new Error("Expected a popout window.");
+  return frame.contentWindow;
 }

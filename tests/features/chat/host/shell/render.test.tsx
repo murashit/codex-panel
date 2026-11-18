@@ -133,10 +133,12 @@ describe("ChatPanelShell", () => {
     const parts = shellParts();
     const props = shellProps(store);
 
-    await act(async () => {
-      renderChatPanelShell(container, { ...props, showToolbar: false, parts });
-      await settleShellEffects();
-    });
+    const renderToolbar = (showToolbar: boolean) =>
+      act(async () => {
+        renderChatPanelShell(container, { ...props, showToolbar, parts });
+        await settleShellEffects();
+      });
+    await renderToolbar(false);
 
     expect(container.querySelector(".codex-panel__toolbar")).toBeNull();
     expect(container.querySelector(".codex-panel__conversation-title")?.textContent).toBe("New chat");
@@ -150,34 +152,16 @@ describe("ChatPanelShell", () => {
     initialComposer.setSelectionRange(2, 9);
     initialThreadStream.scrollTop = 42;
 
-    await act(async () => {
-      renderChatPanelShell(container, { ...props, showToolbar: true, parts });
-      await settleShellEffects();
-    });
-
-    expect(container.querySelector(".codex-panel__toolbar")).not.toBeNull();
-    expect(container.querySelector(".codex-panel__conversation-header")).toBe(initialHeader);
-    expect(document.activeElement).toBe(composer(container));
-    expect(composer(container).selectionStart).toBe(2);
-    expect(composer(container).selectionEnd).toBe(9);
-    expect(container.querySelector<HTMLElement>(".codex-panel__region--thread-stream")?.scrollTop).toBe(42);
-
-    await act(async () => {
-      renderChatPanelShell(container, { ...props, showToolbar: false, parts });
-      await settleShellEffects();
-    });
-
-    expect(container.querySelector(".codex-panel__toolbar")).toBeNull();
-    expect(container.querySelector(".codex-panel__conversation-header")).toBe(initialHeader);
-    expect(document.activeElement).toBe(composer(container));
-    expect(composer(container).selectionStart).toBe(2);
-    expect(composer(container).selectionEnd).toBe(9);
-    expect(container.querySelector<HTMLElement>(".codex-panel__region--thread-stream")?.scrollTop).toBe(42);
-
-    await act(async () => {
-      renderChatPanelShell(container, { ...props, showToolbar: true, parts });
-      await settleShellEffects();
-    });
+    for (const visible of [true, false]) {
+      await renderToolbar(visible);
+      expect(!!container.querySelector(".codex-panel__toolbar")).toBe(visible);
+      expect(container.querySelector(".codex-panel__conversation-header")).toBe(initialHeader);
+      expect(document.activeElement).toBe(composer(container));
+      expect(composer(container).selectionStart).toBe(2);
+      expect(composer(container).selectionEnd).toBe(9);
+      expect(container.querySelector<HTMLElement>(".codex-panel__region--thread-stream")?.scrollTop).toBe(42);
+    }
+    await renderToolbar(true);
     await act(async () => {
       store.dispatch({ type: "ui/panel-set", panel: "history" });
       store.dispatch({ type: "ui/goal-editor-started", threadId: null, objective: "A goal", tokenBudget: null });

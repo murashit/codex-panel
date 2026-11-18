@@ -182,15 +182,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("accumulates command output from inbound notifications", () => {
-      const handler = handlerForState(chatStateFixture({ activeThread: { id: "thread-active" } }));
-      handler.handleNotification(
-        turnNotification("turn/started", "thread-active", {
-          id: "turn-active",
-          status: "inProgress",
-          itemsView: "full",
-          items: [],
-        }),
-      );
+      const handler = handlerForState(activeRunningState());
       handler.handleNotification({
         method: "item/started",
         params: {
@@ -228,10 +220,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("keeps MCP progress on the running tool instead of creating separate activity items", () => {
-      const handler = handlerForState(chatStateFixture({ activeThread: { id: "thread-active" } }));
-      handler.handleNotification(
-        turnNotification("turn/started", "thread-active", { id: "turn-active", status: "inProgress", itemsView: "full", items: [] }),
-      );
+      const handler = handlerForState(activeRunningState());
       handler.handleNotification({
         method: "item/started",
         params: {

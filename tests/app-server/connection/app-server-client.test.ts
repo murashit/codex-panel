@@ -560,9 +560,7 @@ describe("AppServerClient", () => {
 
     const reconnecting = client.connect();
     const secondTransport = expectTransport(transports[1]);
-    const secondInitialize = latestSent(secondTransport);
-    if (!("id" in secondInitialize) || typeof secondInitialize.id !== "number") throw new Error("Expected initialize request.");
-    secondTransport.emitLine({ id: secondInitialize.id, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    respondToInitialize(secondTransport);
 
     await expect(reconnecting).resolves.toMatchObject({ codexHome: "/tmp/codex" });
     expect(client.isConnected()).toBe(true);
@@ -661,9 +659,7 @@ describe("AppServerClient", () => {
     const secondConnect = client.connect();
     const secondTransport = expectTransport(transports[1]);
     secondTransport.emitLog("second startup");
-    const secondInitialize = latestSent(secondTransport);
-    if (!("id" in secondInitialize) || typeof secondInitialize.id !== "number") throw new Error("Expected initialize request.");
-    secondTransport.emitLine({ id: secondInitialize.id, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    respondToInitialize(secondTransport);
     await secondConnect;
 
     firstTransport.emitLine({ method: "warning", params: { message: "stale" } });
@@ -760,3 +756,9 @@ describe("AppServerClient", () => {
     await expect(listing).rejects.toThrow("Codex app-server returned an invalid error response for model/list.");
   });
 });
+
+function respondToInitialize(transport: FakeTransport): void {
+  const request = latestSent(transport);
+  if (!("method" in request) || request.method !== "initialize" || !("id" in request)) throw new Error("Expected initialize request.");
+  transport.emitLine({ id: request.id, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+}

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from "vitest";
-
 import { toolbarOutsidePointerHit } from "../../../../../src/features/chat/ui/toolbar/hit-test.dom";
+import { popoutWindow } from "../../../../support/dom";
 
 function pointerAt(target: EventTarget | null): PointerEvent {
   return { target } as PointerEvent;
@@ -41,22 +41,16 @@ describe("toolbarOutsidePointerHit", () => {
   });
 
   it("recognizes toolbar descendants in a separate view window", () => {
-    const iframe = document.body.appendChild(document.createElement("iframe"));
-    const viewWindow = iframe.contentWindow;
-    if (!viewWindow) throw new Error("Expected a separate view window.");
-    try {
-      const root = viewWindow.document.createElement("div");
-      const panel = root.appendChild(viewWindow.document.createElement("div"));
-      panel.className = "codex-panel__toolbar-panel";
-      const target = panel.appendChild(viewWindow.document.createElement("button"));
+    const viewWindow = popoutWindow();
+    const root = viewWindow.document.createElement("div");
+    const panel = root.appendChild(viewWindow.document.createElement("div"));
+    panel.className = "codex-panel__toolbar-panel";
+    const target = panel.appendChild(viewWindow.document.createElement("button"));
 
-      expect(toolbarOutsidePointerHit(pointerAt(target), root, viewWindow)).toEqual({
-        insideToolbarPanel: true,
-        insideArchiveConfirm: false,
-      });
-    } finally {
-      iframe.remove();
-    }
+    expect(toolbarOutsidePointerHit(pointerAt(target), root, viewWindow)).toEqual({
+      insideToolbarPanel: true,
+      insideArchiveConfirm: false,
+    });
   });
 
   it.each([

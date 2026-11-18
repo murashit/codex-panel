@@ -43,14 +43,7 @@ describe("HistoryController", () => {
     });
     stateStore.dispatch({ type: "thread-stream/content-replaced", items: [message("old", "Old history", "old-turn")] });
     const loading = loader.loadLatest();
-    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "running" });
-    stateStore.dispatch({ type: "thread-stream/assistant-delta-appended", itemId: "answer", turnId: "running", delta: "Hello" });
-    stateStore.dispatch({
-      type: "turn/completed",
-      turnId: "running",
-      outcome: "completed",
-      items: chatStateThreadStreamItems(stateStore.getState()),
-    });
+    completeLiveTurn(stateStore);
 
     pending.resolve(historyPage([], null));
     await loading;
@@ -61,14 +54,7 @@ describe("HistoryController", () => {
 
   it("preserves live completion before applying a preloaded resume page", () => {
     const { loader, stateStore } = historyFixture({ readHistoryPage: vi.fn<HistoryPageReader>() });
-    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "running" });
-    stateStore.dispatch({ type: "thread-stream/assistant-delta-appended", itemId: "answer", turnId: "running", delta: "Hello" });
-    stateStore.dispatch({
-      type: "turn/completed",
-      turnId: "running",
-      outcome: "completed",
-      items: chatStateThreadStreamItems(stateStore.getState()),
-    });
+    completeLiveTurn(stateStore);
 
     loader.applyInitialPage("thread", historyPage([message("older", "Earlier", "older-turn")], null));
 
@@ -437,5 +423,16 @@ function applyForkDraft(
       runtime: stateStore.getState().runtime,
       display: { items: [message(turnId, turnId, turnId)], turnDiffs: new Map(), historyCursor },
     },
+  });
+}
+
+function completeLiveTurn(stateStore: ReturnType<typeof createChatStateStore>): void {
+  stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "running" });
+  stateStore.dispatch({ type: "thread-stream/assistant-delta-appended", itemId: "answer", turnId: "running", delta: "Hello" });
+  stateStore.dispatch({
+    type: "turn/completed",
+    turnId: "running",
+    outcome: "completed",
+    items: chatStateThreadStreamItems(stateStore.getState()),
   });
 }

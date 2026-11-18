@@ -6,6 +6,7 @@ import type { Thread } from "../../../src/domain/threads/model";
 import { openThreadPicker, type ThreadPickerHost } from "../../../src/features/thread-picker/modal.obsidian";
 import { notices } from "../../mocks/obsidian";
 import { deferred } from "../../support/async";
+import { popoutWindow } from "../../support/dom";
 import { panelThreadFixture } from "../../support/panel-thread";
 
 describe("threadPickerSuggestions", () => {
@@ -98,19 +99,13 @@ describe("threadOpenModeFromEvent", () => {
   it.each(["main window", "popout window"])("uses an available panel for Cmd/Ctrl+Enter from the %s", async (target) => {
     const host = threadPickerHost([thread({ id: "thread" })]);
     const modal = await openedThreadPicker(host);
-    const frame = target === "popout window" ? document.body.appendChild(document.createElement("iframe")) : null;
-    const viewWindow = frame?.contentWindow ?? window;
+    const viewWindow = target === "popout window" ? popoutWindow() : window;
+    const EventConstructor = (viewWindow as Window & { KeyboardEvent: typeof KeyboardEvent }).KeyboardEvent;
+    modal.onChooseSuggestion(await firstSuggestion(modal), new EventConstructor("keydown", { key: "Enter", metaKey: true }));
+    modal.onChooseSuggestion(await firstSuggestion(modal), new EventConstructor("keydown", { key: "Enter", ctrlKey: true }));
 
-    try {
-      const EventConstructor = (viewWindow as Window & { KeyboardEvent: typeof KeyboardEvent }).KeyboardEvent;
-      modal.onChooseSuggestion(await firstSuggestion(modal), new EventConstructor("keydown", { key: "Enter", metaKey: true }));
-      modal.onChooseSuggestion(await firstSuggestion(modal), new EventConstructor("keydown", { key: "Enter", ctrlKey: true }));
-
-      expect(host.openedCurrent).toEqual([]);
-      expect(host.openedAvailable).toEqual(["thread", "thread"]);
-    } finally {
-      frame?.remove();
-    }
+    expect(host.openedCurrent).toEqual([]);
+    expect(host.openedAvailable).toEqual(["thread", "thread"]);
   });
 });
 
