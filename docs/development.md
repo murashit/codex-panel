@@ -1,123 +1,91 @@
 # Development
 
-Use this guide to implement, validate, and maintain changes to Codex Panel. See [README](../README.md) for supported behavior and requirements, [Design](design.md) for product and ownership decisions, and [Release](release.md) for version selection and publication.
+Start with the behavior the change must support. The [README](../README.md) describes supported use, [Design](design.md) identifies the product boundaries, and [AGENTS.md](../AGENTS.md#review-and-completion) defines when to involve independent reviewers.
 
-## Set Up and Iterate
+## Work locally
 
-For code execution and tool-based checks, use the Node.js version in `.node-version` and install dependencies with `npm ci`. Read-only investigation and prose-only changes do not themselves require dependency or CLI installation.
+Use the Node.js version in `.node-version` and install dependencies with `npm ci` before running project tools. Read-only investigation and prose edits can proceed without installing dependencies or the CLI. The project’s `.npmrc` disables install scripts and automatic audits. Explicit npm scripts run without pre/post hooks. Use `npm audit` when investigating dependency vulnerabilities.
 
-Use `npm run check` for ordinary local iteration. It runs lint, CSS usage, unused-code and type checks, and product tests, then builds the plugin. Use focused scripts from `package.json` for narrower feedback while editing.
+While editing, use the focused commands in [package.json](../package.json) or run `npm run check` for lint, CSS usage, unused code, types, tests, and a build. Edit styles in `src/styles/`. Use `npm run build:styles` to check their source order and regenerate the stylesheet. Obsidian loads the built `main.js` and `styles.css`. Keep these local build products out of version control.
 
-The project `.npmrc` disables lifecycle scripts and automatic install-time audits. Explicit `npm run` commands still run, without pre/post hooks. Run `npm audit` separately when reviewing dependency vulnerabilities.
+## Implement the behavior
 
-Obsidian loads the generated `main.js` and `styles.css`, not the TypeScript or authored CSS. Run `npm run build` before live validation unless `npm run check` has already built the current source. Edit CSS in `src/styles/`; `npm run build:styles` regenerates only the stylesheet and checks its source order. Keep generated load artifacts out of version control.
+Trace the existing path from the caller to the code responsible for the result. Keep feature-specific rules with that feature. Shared values, rules, and their pure calculations belong in `src/domain/`. Reusable execution and UI support belong in `src/shared/`. Keep both roots independent of feature implementations and group related types and helpers by responsibility, even when a directory contains a single module.
 
-## Choose the Owner of a Change
+Translate the app-server protocol at its adapters. Let the runtime and workspace owners coordinate behavior that spans features. Place host adapters beside the code they connect, using `.obsidian`, `.dom`, or `.measure` to identify the boundary. Component-specific DOM work stays with the component. In Chat, application code owns state and workflows and connects to the host through contracts. Give the UI the values and actions it needs. Group host selectors and projections by area, keep screen composition and session lifetime with their owners, and put display transformations beside their UI consumers.
 
-Choose ownership from required behavior and existing contracts. Use [Design](design.md) for product boundaries and [AGENTS.md](../AGENTS.md#review-and-completion) for independent review requirements.
+Name modules for the responsibility they own. Reserve lifecycle and boundary names for objects that manage them, and use data names for values. Prefer functions and factories. Use classes for mutable resource ownership, external class APIs, and `Error` types.
 
-Keep feature-specific behavior with its feature. Extract shared values and rules, including the pure calculations they need, to root `domain/`, and reusable execution or UI support to `shared/`; neither should depend on a feature's implementation. Group those roots by responsibility and keep related types and helpers together, even when a directory contains only one cohesive module.
+[Biome](../biome.jsonc), [ESLint](../eslint.config.mjs), [Grit matchers](../scripts/grit/), and the CSS checks enforce source patterns and import boundaries. Review ownership against the actual behavior as well. Fix diagnostics in the code. If a concrete constraint requires a suppression, keep it local and explain the constraint, including any Obsidian-specific reason for departing from a browser rule.
 
-Keep protocol translation in app-server adapters. Wire behavior spanning features through the plugin's runtime and workspace owners rather than making one feature coordinate another. Put host adapters beside the code they connect; `.obsidian`, `.dom`, and `.measure` suffixes identify integration boundaries without making the host library a directory category. Keep component-specific DOM operations with their UI owner.
+### UI changes
 
-In Chat, keep state and workflows in application code and connect them to the host through contracts. Supply UI with values and actions rather than letting it reach into application, app-server, host, or Obsidian. Within host, keep area-specific selectors and projections together, separate from screen composition and session lifetime. Put display-only transformations beside their UI consumers.
+Inspect the existing flow and apply the [interaction principles](design.md#interaction-principles). Follow the action from its placement and accessible name through keyboard use, narrow layouts, visibility settings, and the resulting selection or input state. On failure, tell the user what happened to the operation and what they can do with the resource now. Include implementation details in product copy only when they help the user act. Verify material desktop interactions [in Obsidian](#validate-in-obsidian).
 
-Name modules by their owned responsibility. Use lifecycle or boundary nouns only for objects that own that lifecycle or boundary, and passive-data names for values. Prefer functions and factories; reserve classes for mutable resource ownership, external class APIs, and `Error` types.
+### Tests
 
-Source-policy diagnostics come from [Biome](../biome.jsonc), [ESLint](../eslint.config.mjs), [Grit matchers](../scripts/grit/), and the CSS checks. These enforce source patterns and import boundaries, not semantic ownership. Fix the code rather than suppressing a diagnostic. When a concrete constraint prevents a conforming implementation, keep the suppression local and explain the constraint, including why an Obsidian UI pattern needs to differ from a generic browser rule.
+Exercise reachable user actions, external contracts, and meaningful state transitions through production code. For timing or captured state, cross the actual wait or capture boundary and assert its consequence. Use a minimal double for an external effect or a timing or failure condition that is impractical to reproduce reliably. Explain what the double establishes and where verification ends. Check app-server semantics against the supported producer and version.
 
-## Design a UI Change
+Vitest reuses workers with `isolate: false`. Restore spies, timers, globals, and DOM overrides after each test. If shared setup registers hooks, export an installer and call it from each test file so module caching cannot skip registration. For development scripts, exercise the real tool with representative inputs. Keep a permanent test when it protects a concrete product or source-policy contract worth maintaining.
 
-Inspect the existing flow and apply the [interaction principles](design.md#interaction-principles) before proposing or changing UI.
+## Review and simplify a change
 
-Design the complete interaction, including relevant placement, accessible names, keyboard access, narrow widths, visibility settings, and resulting selection, input, and recovery state. Failure feedback should distinguish the operation's result from the resource's state. Implementation details belong in product copy only when they support a user decision or action. Use [live Obsidian validation](#validate-in-obsidian) for material integration behavior that source inspection and automation cannot establish.
+Review the resulting behavior across owners, callers, related tests, and fixtures, including paths outside the diff. For a behavioral finding, identify a reachable failure and the contract it violates. Reproduce it at the cheapest reliable layer. For a structural finding, identify the maintenance cost. For a performance concern, establish the expected workload and frequency and measure where needed.
 
-## Review and Simplify a Change
+Try promising simplifications within scope. Compare repair, removal, and consolidation against requirements, failure paths, and concurrent use. Check which guarantees an existing owner or dependency provides and which responsibilities the caller still needs. If a simpler version loses a guarantee, record the concrete reason for retaining the responsibility. Where callers repeatedly reconstruct the same coordination, examine the owning API. Document coupled assumptions where the next maintainer will encounter them. Report demonstrated problems, optional improvements, and missing evidence separately, keeping unrelated work out of the change.
 
-Trace affected owners, callers, contracts, tests, and consequential failure or concurrency paths, including relevant paths outside the diff. Reproduce defects at the cheapest reliable layer and verify assumptions against actual producers and the supported dependency version. For performance concerns, establish expected size and frequency and measure where needed.
+Two commands support implementation review. Both compare the working tree, including untracked, non-ignored files, with the merge base of HEAD and `origin/main`. Pass `-- --base HEAD` to either command to inspect local edits. Deleted lines and pure renames have no changed lines in the current source.
 
-A behavioral finding needs a reachable path and violated contract; a structural finding needs a concrete maintenance cost. Compare repair, removal, or consolidation across the resulting implementation and related existing code, tests, and fixtures. Identify which existing owner or dependency can supply the required guarantees, and which responsibilities, state, or coordination callers still need. Distinguish demonstrated problems, optional improvements, and questions blocked by missing evidence; keep unrelated work separate. Make coupled assumptions discoverable where they affect maintenance.
+### Investigate duplication
 
-For promising simplification candidates within the implementation task, the primary agent tries the change before deciding to keep the current model. Check requirements, failure and concurrency paths, and existing guarantees; passing tests alone does not establish equivalence. Resolve candidates through an applied simplification or a concrete reason to retain the responsibility, including any guarantee the simpler version would lose. Report material decisions without requiring a quota of alternatives, findings, or deleted lines. When the same issue recurs, look for an owner or API change that removes the need for callers to reconstruct the coordination.
+After changing product or test structure, run `npm run review:duplication`. It scans authored source and tests and prints clone pairs when either side touches an added or modified line. The other side may be unchanged code. For a repository-wide design review, use `npm run review:duplication:all`. Both exclude generated app-server code. Reuse findings while the source is unchanged.
 
-### Investigate Duplication
+Read both sites and their callers. Extract shared rules or setup when one owner can maintain them more reliably. Keep local repetition when it preserves independent test expectations or makes the order of actions and observations clear.
 
-During implementation review, run `npm run review:duplication` after changing product or test structure. It scans authored source and tests for pairs touching an added or modified line, including copies of unchanged code. Use `npm run review:duplication:all` for the full report.
+### Evaluate what the tests protect
 
-Both diff review commands compare the current working tree (including untracked, non-ignored files) to the merge base of HEAD and `origin/main`. Pass e.g. `-- --base HEAD` for just local edits. Deleted lines have no current location to review.
+For behavior changes, consider `npm run review:mutation`. It mutates changed lines in authored TypeScript and TSX under `src/`, excluding generated bindings and declarations. Read the location and replacement in the terminal alongside the affected tests. Vitest reports when it finds no related tests.
 
-Read both matches and their callers, applying the criteria above equally to existing and new code. Extract shared setup or rules when that improves ownership and maintenance; preserve independent test expectations and meaningful operation and observation order. Use matches as review evidence and retain useful local repetition. Reuse the report for an unchanged source state; generated app-server code is excluded by the script.
+For each relevant mutation, identify the observable behavior a caller relies on. A test can verify that a helper ran and still pass when the user sees the wrong result. Replace that assertion with one on the result. A helper-call expectation can also kill a mutant while blocking a valid refactor. Remove expectations that impose this cost. Merge or delete tests when the remaining cases still detect each distinct regression independently.
 
-## Validate a Change
+If the original and mutated code behave identically for supported inputs, look for a redundant branch or operation to simplify. Add a case when a specific regression warrants independent protection. Leave a mutation alone when changing the tests or implementation would add no value. There is no target score.
 
-For source, test, dependency, or executable configuration changes, run `npm run fix`, inspect its diff, then run `npm run check` before handoff. For prose-only changes, check local links and anchors, verify instructions against the current implementation, and complete the applicable review in AGENTS.md; product tests are not required. Read-only investigations need checks that establish their findings, not a blanket handoff suite.
+Use `npm run test:coverage` when you need to locate unexercised authored source, including modules the tests never import. The terminal report lists coverage by file and uncovered lines. For broader mutation analysis, `npm run test:mutation` uses the directories in [the Stryker configuration](../stryker.config.mjs) and writes `reports/mutation/mutation.html`. [Automation](automation.md) covers scheduled runs and checkpoints.
 
-Select additional checks by the affected contract, even when the edited file is documentation. Release preparation always requires `fix`, diff review, and `check`, plus its metadata checks. CI test mode is a diagnostic, not an extra gate for every change.
+## Validate a change
 
-`api:baseline` checks compatibility declarations and dependency pins; `release:check` checks version-file consistency and the last-compatible release boundary using Git tags. They do not establish runtime API compatibility or readiness to publish.
+For source, test, dependency, or executable configuration changes, run `npm run fix`, inspect the resulting diff, then run `npm run check` on the final result. For prose-only edits, verify local links, anchors, and instructions against the implementation and complete the applicable review. For a read-only investigation, choose checks that establish the finding.
 
-Run additional checks for the affected contracts:
+Select additional checks by the affected contract, including changes to declarations in documentation.
 
-| Change | Additional validation |
+| Affected contract | Validation |
 | --- | --- |
-| Compatibility declarations (including the README Compatibility table), related dependency or lockfile inputs, or API-baseline validation logic | `npm run api:baseline` |
-| Version files, Obsidian runtime floor or compatibility history, or release validation logic | `npm run release:check` |
-| Release preparation | Both metadata checks; follow [Release](release.md) |
-| Biome configuration or version, Grit matchers, policy scenarios/runner, or their Node.js version | `npm run test:policies` |
-| API baselines or generated bindings | Follow the compatibility procedure below |
+| README compatibility table, compatibility declarations, related dependency or lockfile inputs, API-baseline logic | `npm run api:baseline` checks recorded compatibility metadata and dependency pins. |
+| Version files, Obsidian runtime floor or compatibility history, release-check logic | `npm run release:check` checks version consistency and the last compatible release boundary using Git tags. |
+| Release preparation | Run `fix`, inspect the diff, run `check`, and run both metadata checks. Follow [Release](release.md) for publication. |
+| Biome configuration or version, Grit matchers, policy scenarios or their runner, Node.js version used by those tools | `npm run test:policies` checks the policy configuration against fixed examples. |
+| API baselines or generated bindings | Follow the [compatibility procedures](#update-api-compatibility) for the affected integration. |
 
-[GitHub Actions](../.github/workflows/check.yml) runs `check`, both metadata checks, and source-policy scenarios as separate steps on every change. The scenarios validate policy configuration against fixed examples; Biome within `check` applies those policies to the source. CI also checks generated bindings on main and recovery runs, and on PRs changing binding-generation inputs: the Check workflow, Node version, package manifests, app-server scripts, compatibility metadata, or generated bindings. These CI conditions are distinct from the local validation requirements above.
+The [Check workflow](../.github/workflows/check.yml) runs the ordinary checks, both metadata checks, and policy scenarios on every change. Biome within `check` applies the policies to project source. CI verifies generated bindings on main, on recovery runs, and on PRs that change generation inputs (the workflow, Node version, manifests, app-server scripts, compatibility metadata, or bindings). Use the [CI reproduction instructions](automation.md#diagnose-a-ci-failure) when investigating a CI-specific failure.
 
 ### Validate in Obsidian
 
-Use live Obsidian validation when material integration behavior is not covered by automation; a deterministic test that exercises the cause is sufficient for an otherwise reproducible defect. Automated tests use mocked Obsidian and DOM boundaries and do not establish desktop integration behavior.
+Use a deterministic test when it reproduces the cause of a defect. Exercise the plugin in Obsidian when material integration behavior depends on the real desktop, DOM, or vault. Build the current source with `npm run build` if `check` has not already built it. Follow the [Obsidian Dev skill](../.agents/skills/codex-panel-obsidian-dev/SKILL.md) for artifact checks, CLI commands, and interaction inspection.
 
-Use the [Obsidian Dev skill](../.agents/skills/codex-panel-obsidian-dev/SKILL.md) for vault/artifact checks, CLI commands, and interaction inspection.
+## Update API compatibility
 
-### Write Tests That Survive Refactoring
-
-Test reachable user actions, external contracts, and meaningful state transitions through production code without redefining app-server semantics. Use minimal doubles for external effects or timing/failure conditions that cannot be exercised reliably at reasonable cost; explain their reason and verification limits in the change discussion. Self-authored responses do not establish API compatibility.
-
-Review changed and related existing tests together. Identify the regression each case detects and whether strengthening or combining an existing case can cover it. Weigh that protection against maintenance cost and restrictions on valid refactoring; remove redundant, unreachable, or implementation-coupled cases. Consolidation must preserve independent detection of failures. Timing and captured-state assertions must cross the actual wait or capture boundary and observe its consequence.
-
-For development scripts, prefer direct validation with real tools and representative inputs. Retain permanent tests only for concrete product or source-policy risks that justify their maintenance.
-
-Vitest reuses workers with `isolate: false`. Restore boundary spies, timers, globals, and DOM overrides after each test. Shared setup modules that register hooks must export an installer called by each test file, because importing a cached module does not register its hooks again.
-
-### Review Test Quality with Mutation Testing
-
-For behavior changes, consider `npm run review:mutation` during implementation review to see which changes to production code the tests can distinguish. It targets changed lines in authored TypeScript and TSX under `src/` and skips generated bindings and declarations. Read the source location and replacement in the terminal alongside the affected tests. If Vitest finds no related tests, it reports that directly.
-
-For each relevant mutation, name the observable behavior a caller relies on. If the mutation breaks that behavior and the tests still pass, inspect what the existing test actually observes. For example, a test that checks a helper was called can pass even when the user sees the wrong result. Replace that assertion with one on the result. An expectation tied to that helper can kill a mutant yet block a valid refactor. Remove it once the observable result is protected. Merge or delete a whole test when it protects no distinct behavior.
-
-If the original and mutated code are equivalent for supported inputs, look for a redundant branch or operation to simplify. Leave the result alone when changing the tests or implementation would add no value. Add a case when a specific regression warrants its own protection. The mutation score is a diagnostic, with no target.
-
-For a broader review, `npm run test:mutation` uses the directory globs in `stryker.config.mjs` and writes `reports/mutation/mutation.html`. For line coverage, `npm run test:coverage` prints file coverage and uncovered line numbers in the terminal. Both are optional diagnostics.
-
-See [Automation](automation.md) for CI failure reproduction, scheduled mutation runs, and checkpoint handling.
-
-## Update API Compatibility
-
-Run `npm run api:baseline` after changing compatibility metadata and keep the README Compatibility table aligned. This checks recorded metadata; it does not prove runtime compatibility or replace regenerating bindings.
+Keep compatibility declarations and the README Compatibility table aligned. Metadata checks establish consistency. Runtime behavior and generated bindings need verification against their own integrations.
 
 ### Obsidian
 
-`manifest.minAppVersion` is the runtime floor; keep the `obsidian` type package current independently. `obsidianmd/no-unsupported-api` checks annotated APIs against that floor and permits guarded use through `requireApiVersion()`. Manually review type-only, dynamic, unannotated, and runtime-dependent behavior that lint cannot verify.
-
-`versions.json` records compatibility boundaries, not every release. When raising the floor, map the current released plugin version to its old `minAppVersion`.
+`manifest.minAppVersion` defines the runtime floor. Keep the `obsidian` type package current independently. The `obsidianmd/no-unsupported-api` rule checks annotated APIs against the floor and permits guarded calls through `requireApiVersion()`. Review type-only, dynamic, unannotated, and runtime-dependent uses manually. When raising the floor, record the current released plugin version and its old minimum in `versions.json`, which tracks compatibility boundaries.
 
 ### Codex App-Server
 
-Compatibility is managed by CLI minor version, while bindings are generated and verified against an exact patch. `src/app-server/compatibility.json` records the tested version, generation arguments, and capabilities.
+Manage compatibility by CLI minor version and verify generated bindings against an exact patch. `src/app-server/compatibility.json` records the tested version, generation arguments, and capabilities. Follow the [App-Server Update skill](../.agents/skills/codex-panel-app-server-update/SKILL.md) to align versions, regenerate bindings, and review affected runtime paths. Generate binding changes through that procedure. [Automation](automation.md#codex-cli-update-automation) describes scheduled updates and GitHub App setup.
 
-Use the [App-Server Update skill](../.agents/skills/codex-panel-app-server-update/SKILL.md) for version alignment, generation, affected runtime review, and validation. Do not hand-edit generated bindings. See [Automation](automation.md#codex-cli-update-automation) for scheduled update PRs and GitHub App setup.
+## Prepare the pull request
 
-## Record the Change
+Group commits by concern and fold corrections into the change they complete. Prefer Jujutsu when available. Follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) with concise subjects such as `feat(composer): add daily note context suggestions`. Scopes are optional. Mark breaking changes with `!` or a `BREAKING CHANGE:` footer. Use commit bodies for rationale that the diff cannot convey.
 
-Use [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/), for example `feat(composer): add daily note context suggestions`. Scopes are optional; mark disruptive changes with `!` or a `BREAKING CHANGE:` footer.
-
-Keep final commits coherent, normally folding corrections into their concern and splitting unrelated changes. Prefer Jujutsu when available. Use concise subjects; reserve bodies for rationale not evident in the diff, and put routine check results in the PR or work report.
-
-CI validates introduced commit messages on pull requests and pushes. Check a range locally with `npm run commitlint -- --from <base> --to <head> --verbose`. Follow [Release](release.md) when preparing a version for publication.
-
-Write PR descriptions from the final diff: purpose, resulting behavior, validation, and material limitations. Follow recent PRs for language and detail; include references only when needed to understand the change. Verify the body against the final diff before publication.
+Check the final range with `npm run commitlint -- --from <base> --to <head> --verbose`. CI also validates introduced commit messages on PRs and pushes. Write the PR description from the final diff, covering purpose, resulting behavior, validation, and material limitations. Follow recent PRs for language and detail, and verify the description before publication.
