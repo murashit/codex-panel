@@ -21,6 +21,6 @@ Follow the [compatibility policy](../../../docs/development.md#codex-app-server)
 
 Do not hand-edit `src/generated/app-server/`; put necessary output normalization in `scripts/app-server/normalize-types.mjs` and regenerate. The check command compares fresh output without replacing tracked bindings.
 
-For every CLI update, investigate follow-up opportunities to add, remove, or change Panel behavior or implementation. Use the [review criteria](../../../docs/development.md#review-and-simplify-a-change) to verify what would improve in a concrete Panel workflow against current code and upstream contracts before proposing it. Report worthwhile proposals separately from required compatibility work, with their benefits and maintenance costs. If none qualify, say so in the update report. Do not implement optional proposals without a separate request.
+For every CLI update, start with what people use Panel to do. Identify a concrete problem or opportunity, then use the [review criteria](../../../docs/development.md#review-and-simplify-a-change) to compare keeping Panel as-is with a change grounded in current code and upstream contracts. Propose only changes whose user benefit justifies the trade-offs and maintenance cost. Report proposals separately from compatibility work, or say none qualify. Do not implement optional changes without a separate request.
 
 For scheduled update PRs and recovery, see [Automation](../../../docs/automation.md#codex-cli-update-automation).
