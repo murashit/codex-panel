@@ -14,19 +14,11 @@ export function questionDefaultAnswer(question: PendingUserInputQuestion): strin
 }
 
 export function userInputDraftKey(requestId: PendingRequestId, questionId: string): string {
-  return pendingRequestDerivedKey(requestId, questionId);
+  return JSON.stringify([requestId, questionId]);
 }
 
 export function userInputOtherDraftKey(requestId: PendingRequestId, questionId: string): string {
-  return pendingRequestDerivedKey(requestId, `${questionId}:other`);
-}
-
-export function pendingRequestDerivedKeyPrefix(requestId: PendingRequestId): string {
-  return `${String(requestId)}:`;
-}
-
-function pendingRequestDerivedKey(requestId: PendingRequestId, suffix: string): string {
-  return `${pendingRequestDerivedKeyPrefix(requestId)}${suffix}`;
+  return JSON.stringify([requestId, questionId, "other"]);
 }
 
 export function answersForPendingUserInput(input: PendingUserInput, drafts: ReadonlyMap<string, string>): Record<string, string> {

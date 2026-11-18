@@ -30,42 +30,6 @@ export type ChatAction = ChatTransitionAction | ChatSliceAction;
 
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
-    case "panel/ephemeral-default-set":
-    case "panel/ephemeral-choice-set":
-    case "panel/creation-state-set":
-    case "active-thread/renamed":
-    case "panel/fork-operation-set":
-    case "panel/fork-draft-applied":
-    case "active-thread/fork-replacement-settled":
-    case "connection/scoped-cleared":
-    case "active-thread/cleared":
-    case "active-thread/created":
-    case "active-thread/resumed":
-    case "active-thread/settings-applied":
-    case "panel/restored-thread-applied":
-    case "panel/restored-thread-renamed":
-    case "panel/view-state-cleared":
-    case "panel/disposed":
-    case "turn/started":
-    case "turn/completed":
-    case "turn/scoped-cleared":
-    case "turn/optimistic-started":
-    case "turn/start-acknowledged":
-    case "turn/start-failed":
-    case "request/resolved":
-    case "web-submission/pending":
-    case "web-submission/committed":
-    case "web-submission/cancelled":
-    case "web-submission/failed":
-    case "web-submission/steer-pending":
-      return reduceChatTransition(state, action);
-    default:
-      return reduceChatSlice(state, action);
-  }
-}
-
-function reduceChatSlice(state: ChatState, action: ChatSliceAction): ChatState {
-  switch (action.type) {
     case "connection/status-set":
     case "connection/initialized":
       return patchObject(state, { connection: reduceConnectionSlice(state.connection, action) });
@@ -80,13 +44,6 @@ function reduceChatSlice(state: ChatState, action: ChatSliceAction): ChatState {
     case "composer/input-set":
     case "composer/suggestions-set":
       return patchObject(state, { composer: reduceComposerSlice(state.composer, action) });
-    default:
-      return reduceGuardedSlice(state, action);
-  }
-}
-
-function reduceGuardedSlice(state: ChatState, action: RequestAction | TurnScopeAction | UiAction): ChatState {
-  switch (action.type) {
     case "request/approval-queued":
     case "request/user-input-queued":
     case "request/user-input-auto-resolution-extended":
@@ -127,10 +84,8 @@ function reduceGuardedSlice(state: ChatState, action: RequestAction | TurnScopeA
     case "ui/thread-stream-fork-menu-set":
     case "ui/disclosure-set":
       return patchObject(state, { ui: reduceUiSlice(state.ui, action) });
-    default: {
-      const unhandledAction: never = action;
-      return unhandledAction;
-    }
+    default:
+      return reduceChatTransition(state, action);
   }
 }
 

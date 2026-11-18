@@ -15,7 +15,7 @@ export type ThreadStreamItemProvenance =
       source: "localUser";
       channel: "preflight" | "optimistic" | "response";
       interaction: "prompt" | "steer" | "approvalResponse" | "userInputResponse";
-      sourceId?: string;
+      sourceId?: string | number;
     }
   | {
       source: "panel";
