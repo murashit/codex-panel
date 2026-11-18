@@ -1,7 +1,7 @@
 export type DeferredTaskWindow = Pick<Window, "setTimeout" | "clearTimeout">;
 
 export class DeferredTask {
-  private timer: ReturnType<DeferredTaskWindow["setTimeout"]> | null = null;
+  private pending: { owner: DeferredTaskWindow; timer: number } | null = null;
 
   constructor(
     private readonly getWindow: () => DeferredTaskWindow,
@@ -9,16 +9,18 @@ export class DeferredTask {
   ) {}
 
   schedule(callback: () => void): void {
-    if (this.timer !== null) return;
-    this.timer = this.getWindow().setTimeout(() => {
-      this.timer = null;
+    if (this.pending !== null) return;
+    const owner = this.getWindow();
+    const timer = owner.setTimeout(() => {
+      this.pending = null;
       callback();
     }, this.delay);
+    this.pending = { owner, timer };
   }
 
   clear(): void {
-    if (this.timer === null) return;
-    this.getWindow().clearTimeout(this.timer);
-    this.timer = null;
+    if (this.pending === null) return;
+    this.pending.owner.clearTimeout(this.pending.timer);
+    this.pending = null;
   }
 }

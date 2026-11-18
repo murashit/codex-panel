@@ -41,6 +41,7 @@ export function installObsidianElementHelpers(): void {
     });
   }
 
+  HTMLElement.prototype.onWindowMigrated = () => () => undefined;
   HTMLElement.prototype.addClass = function addClass(className: string): void {
     this.classList.add(...className.split(/\s+/).filter(Boolean));
   };

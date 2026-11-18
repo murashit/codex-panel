@@ -1,6 +1,7 @@
 import { Component, ItemView, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import { VIEW_TYPE_CODEX_PANEL } from "../../../constants";
 import { isObjectValue } from "../../../domain/objects/object-value";
+import { registerViewPointerDown } from "../../../shared/ui/view-pointer.obsidian";
 import { createLocalIdSource } from "../application/local-id-source";
 import type { ChatPanelHandle, ChatViewRuntimeOwner, CodexChatHost } from "./contracts";
 import { ChatPanelSession } from "./session/session";
@@ -44,7 +45,7 @@ export class CodexChatView extends ItemView {
               owner.registerEvent(eventRef);
             },
             registerPointerDown: (handler) => {
-              owner.registerDomEvent(this.containerEl.doc, "pointerdown", handler);
+              registerViewPointerDown(owner, this.containerEl, handler);
             },
             requestWorkspaceLayoutSave: () => {
               void this.app.workspace.requestSaveLayout();

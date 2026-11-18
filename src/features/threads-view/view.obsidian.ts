@@ -1,6 +1,6 @@
 import { Component, ItemView, type WorkspaceLeaf } from "obsidian";
-
 import { VIEW_TYPE_CODEX_THREADS } from "../../constants";
+import { registerViewPointerDown } from "../../shared/ui/view-pointer.obsidian";
 import { type ThreadsViewHost, ThreadsViewSession } from "./session";
 
 export interface ThreadsRuntimeView {
@@ -34,7 +34,7 @@ export class CodexThreadsView extends ItemView {
         root: this.containerEl,
         host: plugin,
         registerPointerDown: (handler) => {
-          owner.registerDomEvent(this.containerEl.doc, "pointerdown", handler);
+          registerViewPointerDown(owner, this.containerEl, handler);
         },
         viewWindow: () => this.containerEl.doc.defaultView,
       });
