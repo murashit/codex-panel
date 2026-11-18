@@ -1,3 +1,4 @@
+import { errorMessage } from "../../../../domain/text/error-message";
 import { parseThreadAndTextArgs, parseThreadOnlyArgs, resolveThreadArgument, usageError } from "./execution-arguments";
 import type { SlashCommandExecutionContext, SlashCommandExecutionResult } from "./execution-contracts";
 
@@ -24,7 +25,7 @@ export async function executeThreadSlashCommand(
   context: ThreadSlashCommandContext,
 ): Promise<SlashCommandExecutionResult | undefined> {
   const reportFailure = (error: unknown): void => {
-    context.addSystemMessage(error instanceof Error ? error.message : String(error));
+    context.addSystemMessage(errorMessage(error));
   };
   const forkSourceThreadId = context.forkSourceThreadId ?? context.activeThreadId;
   switch (command) {

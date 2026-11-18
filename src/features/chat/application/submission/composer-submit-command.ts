@@ -1,3 +1,4 @@
+import { errorMessage } from "../../../../domain/text/error-message";
 import { ordinaryComposerAction } from "../../domain/composer/action";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { NoteCandidateProvider } from "../composer/note-context";
@@ -182,7 +183,7 @@ async function executeSlashCommandAndRestoreOnFailure(
     if (!submission.isCurrent()) return { failed: true };
     if (pendingWebSubmissionId && !pendingWebSubmissionIsCurrent(host, pendingWebSubmissionId)) return { failed: true };
     if (pendingWebSubmissionId) cancelPendingWebSubmission(host, pendingWebSubmissionId);
-    host.status.addSystemMessage(error instanceof Error ? error.message : String(error));
+    host.status.addSystemMessage(errorMessage(error));
     return { failed: true };
   }
 }
@@ -236,6 +237,6 @@ async function interruptTurn(host: ComposerSubmitCommandHost, panelTarget: Panel
     host.status.setStatus(STATUS_INTERRUPT_REQUESTED);
   } catch (error) {
     if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return;
-    host.status.addSystemMessage(error instanceof Error ? error.message : String(error));
+    host.status.addSystemMessage(errorMessage(error));
   }
 }

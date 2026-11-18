@@ -1,3 +1,4 @@
+import { errorMessage } from "../../domain/text/error-message";
 import type { ThreadSubscriptionInterest } from "../../domain/threads/model";
 import type { AppServerClient } from "./client";
 import { StaleConnectionError } from "./connection-manager";
@@ -90,7 +91,7 @@ export class ThreadSubscriptions {
       return true;
     } catch (error) {
       if (generation !== this.generation || client !== this.currentClient()) return false;
-      this.reportFailure(`Could not update thread subscription ${threadId}: ${error instanceof Error ? error.message : String(error)}`);
+      this.reportFailure(`Could not update thread subscription ${threadId}: ${errorMessage(error)}`);
       return false;
     }
   }

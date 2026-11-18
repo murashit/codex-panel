@@ -1,4 +1,5 @@
 import type { ServerInitialization } from "../../../../domain/runtime/metadata";
+import { errorMessage } from "../../../../domain/text/error-message";
 import type { ChatConnectionPhase } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 
@@ -105,7 +106,7 @@ async function refreshActiveThreads(host: ChatConnectionCoordinatorHost): Promis
     await host.refreshSharedThreads();
     host.refreshTabHeader();
   } catch (error) {
-    host.addSystemMessage(error instanceof Error ? error.message : String(error));
+    host.addSystemMessage(errorMessage(error));
   }
 }
 
@@ -149,8 +150,4 @@ async function hydrateConnectedResources(host: ChatConnectionCoordinatorHost, is
       if (!isStale()) host.addSystemMessage(`Could not refresh Codex threads: ${errorMessage(error)}`);
     }),
   ]);
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

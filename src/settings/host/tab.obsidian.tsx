@@ -8,9 +8,9 @@ import {
   type SettingDefinitionItem,
 } from "obsidian";
 import type { ComponentChild as UiNode } from "preact";
-
 import { DEFAULT_CODEX_PATH } from "../../constants";
 import type { SendShortcut } from "../../domain/input/send-shortcut";
+import { errorMessage } from "../../domain/text/error-message";
 import { listenDomEvent } from "../../shared/ui/events.dom";
 import { IconButton } from "../../shared/ui/icon.dom";
 import { unmountUiRoot } from "../../shared/ui/preact-root.dom";
@@ -417,7 +417,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         }
       } catch (error) {
         this.settingsRefreshNeeded = true;
-        new Notice(`Could not apply Codex Panel settings: ${error instanceof Error ? error.message : String(error)}`);
+        new Notice(`Could not apply Codex Panel settings: ${errorMessage(error)}`);
         return;
       }
     });

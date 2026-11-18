@@ -29,7 +29,7 @@ export interface ToolbarPanelActions {
 }
 
 interface ToolbarUiActionDependencies {
-  captureFailureRecipient: () => (error: unknown) => void;
+  runPanelAction: (action: () => Promise<unknown>) => void;
   connectionCoordinator: ChatConnectionCoordinator;
   reconnectCommand: () => Promise<void>;
   threadCommands: ThreadCommands;
@@ -157,16 +157,14 @@ export function createToolbarUiActions(deps: ToolbarUiActionDependencies): Toolb
         void deps.navigation.selectThreadFromToolbar(threadId);
       },
       setPinned: (threadId, isPinned) => {
-        const reportFailure = deps.captureFailureRecipient();
-        void deps.threadCommands.setThreadPinned(threadId, isPinned).catch(reportFailure);
+        deps.runPanelAction(() => deps.threadCommands.setThreadPinned(threadId, isPinned));
       },
       archive: {
         start: (threadId) => {
           deps.toolbarPanel.startArchive(threadId);
         },
         confirm: (threadId, saveMarkdown) => {
-          const reportFailure = deps.captureFailureRecipient();
-          void deps.toolbarPanel.archiveThread(threadId, saveMarkdown).catch(reportFailure);
+          deps.runPanelAction(() => deps.toolbarPanel.archiveThread(threadId, saveMarkdown));
         },
       },
       rename: {

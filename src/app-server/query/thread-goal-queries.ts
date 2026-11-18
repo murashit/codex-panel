@@ -1,4 +1,5 @@
 import { QueryObserver } from "@tanstack/query-core";
+import { errorMessage } from "../../domain/text/error-message";
 import type { ThreadGoal } from "../../domain/threads/goal";
 import type { ServerNotification } from "../connection/rpc-messages";
 import { threadGoalFromAppServerGoal } from "../protocol/thread-goal";
@@ -61,10 +62,6 @@ export class AppServerThreadGoalQueries {
       queryFn: () => this.scope.runWithClient((client) => readThreadGoal(client, threadId)),
     };
   }
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function threadGoalQueryKey(threadId: string): readonly ["threads", string, "goal"] {

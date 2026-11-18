@@ -1,3 +1,4 @@
+import { errorMessage } from "../../../../domain/text/error-message";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadTitleContext } from "../../../../domain/threads/title";
 import { threadRenameDraftTitle } from "../../../../domain/threads/title";
@@ -44,7 +45,7 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
     resolveTitleContext: (threadId) => host.resolveThreadTitleContext(threadId),
     generateTitle: (context, signal) => host.generateThreadTitle(context, signal),
     reportError: (error) => {
-      host.addSystemMessage(error instanceof Error ? error.message : String(error));
+      host.addSystemMessage(errorMessage(error));
     },
   });
 

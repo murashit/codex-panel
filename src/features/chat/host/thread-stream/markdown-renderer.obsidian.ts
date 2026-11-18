@@ -1,6 +1,7 @@
 import { micromark } from "micromark";
 import { type App, type Component, Keymap, MarkdownPreviewRenderer, MarkdownRenderer, Notice, parseLinktext } from "obsidian";
 import { isFilesystemAbsolutePath, isVaultConfigPath, vaultRelativePath } from "../../../../domain/files/paths";
+import { errorMessage } from "../../../../domain/text/error-message";
 import { codexThreadIdFromHref } from "../../../../domain/threads/links";
 import { notifyThreadStreamContentRendered } from "../../ui/thread-stream/content-rendered-event.dom";
 
@@ -58,7 +59,7 @@ export class ThreadStreamMarkdownRenderer {
       })
       .catch((error: unknown) => {
         if (!parent.isConnected || this.renderGenerations.get(parent) !== generation) return;
-        new Notice(`Failed to render Codex message: ${error instanceof Error ? error.message : String(error)}`);
+        new Notice(`Failed to render Codex message: ${errorMessage(error)}`);
       })
       .finally(() => {
         this.renderRoots.delete(staging);

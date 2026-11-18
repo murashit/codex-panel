@@ -90,7 +90,7 @@ export class StdioAppServerTransport implements AppServerTransport {
 
     child.once("error", (error) => {
       this.releaseProcess();
-      this.handlers.onError(error instanceof Error ? error : new Error(String(error)));
+      this.handlers.onError(error);
     });
 
     child.once("exit", (code, signal) => {
@@ -98,11 +98,11 @@ export class StdioAppServerTransport implements AppServerTransport {
       this.handlers.onExit(code, signal);
     });
 
-    child.stderr.on("data", (chunk: Buffer) => {
-      this.handleStderr(chunk.toString("utf8"));
+    child.stderr.setEncoding("utf8").on("data", (text: string) => {
+      this.handleStderr(text);
     });
     child.stdin.on("error", (error) => {
-      this.handlers.onError(error instanceof Error ? error : new Error(String(error)));
+      this.handlers.onError(error);
     });
 
     const reader = readline.createInterface({ input: child.stdout });
@@ -118,7 +118,7 @@ export class StdioAppServerTransport implements AppServerTransport {
       throw new Error("Codex app-server is not running.");
     }
     child.stdin.write(`${JSON.stringify(message)}\n`, (error) => {
-      if (error) this.handlers.onError(error instanceof Error ? error : new Error(String(error)));
+      if (error) this.handlers.onError(error);
     });
   }
 

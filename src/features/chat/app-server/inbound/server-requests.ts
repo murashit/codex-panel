@@ -1,5 +1,6 @@
 import type { AppServerServerRequestResponder } from "../../../../app-server/connection/client";
 import type { RequestId, ServerRequest } from "../../../../app-server/connection/rpc-messages";
+import { errorMessage } from "../../../../domain/text/error-message";
 import type { DynamicToolCallResponse } from "../../../../generated/app-server/v2/DynamicToolCallResponse";
 import { dynamicToolFailure, type PanelDynamicToolCall, type PanelDynamicToolResponse } from "../../application/dynamic-tools";
 import type { LocalIdSource } from "../../application/local-id-source";
@@ -167,7 +168,7 @@ export class ChatServerRequests {
     try {
       response = this.host.executeDynamicTool(call);
     } catch (error) {
-      response = dynamicToolFailure(error instanceof Error ? error.message : String(error));
+      response = dynamicToolFailure(errorMessage(error));
     }
     const result: DynamicToolCallResponse = { success: response.success, contentItems: [...response.contentItems] };
     if (!this.respond(requestId, result)) {

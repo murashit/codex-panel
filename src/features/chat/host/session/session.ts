@@ -1,5 +1,6 @@
 import { Notice } from "obsidian";
 import { codexTextInput } from "../../../../domain/input/input";
+import { errorMessage } from "../../../../domain/text/error-message";
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../../domain/threads/title";
 import { DeferredTask } from "../../../../shared/async/deferred-task";
 import { disposeDomListeners, listenDomEvent } from "../../../../shared/ui/events.dom";
@@ -145,7 +146,7 @@ export class ChatPanelSession implements ChatPanelHandle {
       );
       if (!returned && isCurrent()) new Notice("Could not return to the source thread. Your draft was kept.");
     } catch (error) {
-      if (isCurrent()) new Notice(`Could not return to the source thread: ${error instanceof Error ? error.message : String(error)}`);
+      if (isCurrent()) new Notice(`Could not return to the source thread: ${errorMessage(error)}`);
     } finally {
       if (isCurrent()) {
         this.stateStore.dispatch({ type: "panel/fork-operation-set", revision: target.revision });

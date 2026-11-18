@@ -101,7 +101,7 @@ describe("createToolbarPanelActions", () => {
   it("copies debug details from the latest state at invocation time", () => {
     const stateStore = createChatStateStore();
     const actions = createToolbarUiActions({
-      captureFailureRecipient: () => vi.fn(),
+      runPanelAction: (action) => void action(),
       connectionCoordinator: {} as never,
       reconnectCommand: vi.fn(),
       threadCommands: {} as never,

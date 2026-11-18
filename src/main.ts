@@ -1,6 +1,6 @@
 import { Notice, Plugin } from "obsidian";
-
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
+import { errorMessage } from "./domain/text/error-message";
 import { CodexChatView } from "./features/chat/host/view.obsidian";
 import { registerSelectionRewriteCommand } from "./features/selection-rewrite/command.obsidian";
 import { CodexThreadsView } from "./features/threads-view/view.obsidian";
@@ -112,5 +112,5 @@ export default class CodexPanelPlugin extends Plugin {
 }
 
 function reportCommandError(error: unknown): void {
-  new Notice(`Codex Panel command failed: ${error instanceof Error ? error.message : String(error)}`);
+  new Notice(`Codex Panel command failed: ${errorMessage(error)}`);
 }

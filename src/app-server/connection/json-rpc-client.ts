@@ -1,3 +1,4 @@
+import { errorMessage } from "../../domain/text/error-message";
 import type { RequestId } from "../../generated/app-server/RequestId";
 import type {
   ClientRequestMethod,
@@ -282,10 +283,6 @@ function requiredStringFields(method: string): readonly string[] | null {
     default:
       return null;
   }
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function isRpcError(value: unknown): value is RpcError {

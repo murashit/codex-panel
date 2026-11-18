@@ -1,5 +1,6 @@
 import type { HookCatalog, HookItem, ModelMetadata, ReasoningEffort } from "../../domain/runtime/catalog";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../../domain/runtime/catalog";
+import { errorMessage } from "../../domain/text/error-message";
 import type { Thread } from "../../domain/threads/model";
 import type { ObservedResult } from "../../shared/async/observed-result";
 import { OwnerLifetime } from "../../shared/async/owner-lifetime";
@@ -254,8 +255,4 @@ function lifecycleFromObservedResult<T>(result: ObservedResult<T>, label: string
   if (result.isFetching) return { kind: "loading" };
   if (result.error) return { kind: "failed", error: `${label}: ${result.error.message}` };
   return { kind: "idle" };
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

@@ -1,3 +1,4 @@
+import { errorMessage } from "../../../../domain/text/error-message";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { activeThreadId, type ChatState } from "../state/model";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
@@ -107,7 +108,7 @@ export class HistoryController {
       applyPage(response, load.stableItems);
     } catch (error) {
       if (!this.isCurrent(load)) return;
-      this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
+      this.host.addSystemMessage(errorMessage(error));
     } finally {
       this.finishLoading(load);
     }

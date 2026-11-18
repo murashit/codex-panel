@@ -1,6 +1,7 @@
 import { type Editor, Notice } from "obsidian";
 import type { TargetedKeyboardEvent, ComponentChild as UiNode } from "preact";
 import { isComposerSendKey, type SendShortcut } from "../../domain/input/send-shortcut";
+import { errorMessage } from "../../domain/text/error-message";
 import { type DiffDisplayLine, DiffLineList } from "../../shared/ui/diff-view";
 import { listenDomEscapeKey, listenDomEvent, listenOutsideDomEvent } from "../../shared/ui/events.dom";
 import { IconButton } from "../../shared/ui/icon.dom";
@@ -225,7 +226,7 @@ class SelectionRewritePopover {
         replacementText: null,
         debugText: error instanceof SelectionRewriteOutputError ? error.rawText : null,
       };
-      this.status = { text: error instanceof Error ? error.message : String(error), active: false };
+      this.status = { text: errorMessage(error), active: false };
     }
     if (this.isClosed()) return;
     this.renderView();

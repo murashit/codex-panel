@@ -1,3 +1,4 @@
+import { errorMessage } from "../text/error-message";
 import type { ServerInitialization } from "./metadata";
 import type { McpServerDiagnostic } from "./tool-inventory";
 
@@ -93,7 +94,7 @@ export function upsertMcpServerDiagnostic(
 }
 
 export function shortDiagnosticErrorMessage(error: unknown, maxLength = 160): string {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = errorMessage(error);
   const compact = message.replace(/\s+/g, " ").trim() || "Codex app-server request failed.";
   return compact.length > maxLength ? `${compact.slice(0, maxLength - 3)}...` : compact;
 }

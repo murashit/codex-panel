@@ -76,7 +76,7 @@ describe("chat panel session runtime", () => {
     await runtime.dispose(() => {});
   });
 
-  it.each(["pin", "archive-result", "slash-archive", "slash-rename", "fork", "slash-fork"] as const)(
+  it.each(["pin", "diff", "archive-result", "slash-archive", "slash-rename", "fork", "slash-fork"] as const)(
     "delivers delayed %s failures only to the initiating conversation",
     async (operation) => {
       const origin = threadFixture({ id: "source-with-history" });
@@ -93,7 +93,7 @@ describe("chat panel session runtime", () => {
           environment: {
             plugin: {
               appServerConnection: contextConnection.connection,
-              workspace: { openForkDraft: mutation },
+              workspace: { openForkDraft: mutation, openTurnDiff: mutation },
               threadCatalog: { activeThreadsSnapshot: () => [origin] },
               threadMutations: threadMutationCommandsMock({
                 setThreadPinned: mutation,
@@ -112,6 +112,8 @@ describe("chat panel session runtime", () => {
         let submission: Promise<void> | undefined;
         if (operation === "pin") runtime.shell.parts.toolbar.actions.threads.setPinned(origin.id, true);
         else if (operation === "archive-result") runtime.shell.parts.toolbar.actions.threads.archive.confirm(origin.id, false);
+        else if (operation === "diff")
+          runtime.shell.parts.threadStream.context.actions.openTurnDiff({ threadId: origin.id, turnId: "turn", files: [], diff: "" });
         else if (operation === "fork") runtime.shell.parts.threadStream.context.actions.forkThreadFromTurn(origin.id, "turn", false);
         else {
           runtime.composer.input.setDraft(

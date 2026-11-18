@@ -1,3 +1,4 @@
+import { errorMessage } from "../../../../domain/text/error-message";
 import { OwnerLifetime } from "../../../../shared/async/owner-lifetime";
 import type { ChatState } from "../state/model";
 import type { ChatAction } from "../state/reducer";
@@ -73,7 +74,7 @@ export class ComposerAttachmentTransfers {
     } catch (error) {
       if (!this.lifetime.isCurrent(lifetime)) return;
       this.settlePendingSave(pending, null);
-      this.options.onError(error instanceof Error ? error.message : String(error));
+      this.options.onError(errorMessage(error));
     }
   }
 

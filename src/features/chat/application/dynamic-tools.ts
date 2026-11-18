@@ -1,3 +1,4 @@
+import { errorMessage } from "../../../domain/text/error-message";
 export interface PanelDynamicToolCall {
   readonly namespace: string | null;
   readonly tool: string;
@@ -20,7 +21,7 @@ export function executePanelDynamicTool(call: PanelDynamicToolCall, effects: Pan
   try {
     return dynamicToolSuccess(effects.resolveWikilinks(call.arguments));
   } catch (error) {
-    return dynamicToolFailure(error instanceof Error ? error.message : String(error));
+    return dynamicToolFailure(errorMessage(error));
   }
 }
 

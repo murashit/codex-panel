@@ -1,4 +1,5 @@
 import { type App, Notice, Platform, SuggestModal } from "obsidian";
+import { errorMessage } from "../../domain/text/error-message";
 import { compareThreadsPinnedFirst, type Thread } from "../../domain/threads/model";
 import { threadSearchMatches } from "../../domain/threads/search";
 import { threadDisplayTitle } from "../../domain/threads/title";
@@ -46,7 +47,7 @@ export function openThreadPicker(host: ThreadPickerHost, onClosed: () => void): 
       state.modal = new ThreadPickerModal(host, recentThreads, finish);
       state.modal.open();
     } catch (error) {
-      if (!state.closed) new Notice(error instanceof Error ? error.message : String(error));
+      if (!state.closed) new Notice(errorMessage(error));
       finish();
     }
   };
@@ -111,7 +112,7 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
       const threads = await this.loadCompleteThreadList();
       return this.closed ? [] : threadSearchMatches(threads, query);
     } catch (error) {
-      if (!this.closed) new Notice(error instanceof Error ? error.message : String(error));
+      if (!this.closed) new Notice(errorMessage(error));
       return [];
     } finally {
       if (!this.closed) this.emptyStateText = "No matching Codex threads";
@@ -142,7 +143,7 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
         await this.host.openThreadInCurrentView(threadId);
       }
     } catch (error) {
-      new Notice(error instanceof Error ? error.message : String(error));
+      new Notice(errorMessage(error));
     }
   }
 
