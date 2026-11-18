@@ -2,6 +2,7 @@ import {
   type EphemeralStructuredTurnRunner,
   runEphemeralStructuredTurnForLastAgentText,
   type StructuredTurnOutputSchema,
+  structuredTurnStringField,
 } from "../../../app-server/services/ephemeral-structured-turn";
 import type { ReasoningEffort } from "../../../domain/runtime/catalog";
 import { normalizeExplicitThreadName } from "../../../domain/threads/model";
@@ -67,17 +68,8 @@ export async function generateThreadTitleWithCodex(
     },
     options.runner,
   );
-  return response ? threadTitleFromGeneratedText(response) : null;
-}
-
-function threadTitleFromGeneratedText(text: string): string | null {
-  try {
-    const parsed = JSON.parse(text) as unknown;
-    if (!parsed || typeof parsed !== "object" || !("title" in parsed) || typeof parsed.title !== "string") return null;
-    return normalizeExplicitThreadName(parsed.title)?.slice(0, THREAD_TITLE_MAX_CHARS).trimEnd() ?? null;
-  } catch {
-    return null;
-  }
+  const title = structuredTurnStringField(response, "title");
+  return normalizeExplicitThreadName(title)?.slice(0, THREAD_TITLE_MAX_CHARS).trimEnd() ?? null;
 }
 
 function threadTitlePrompt(context: ThreadTitleContext): string {

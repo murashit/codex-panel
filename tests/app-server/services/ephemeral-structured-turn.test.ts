@@ -38,6 +38,21 @@ describe("runEphemeralStructuredTurn", () => {
     expect(result.itemsView).toBe("full");
   });
 
+  it("enforces the deadline when completion precedes a stalled start reply", async () => {
+    const timers = timerHarness();
+    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
+      fake.startStructuredTurnImpl = () => {
+        fake.emit(turnCompletedNotification("thread", turn([], { id: "turn", status: "completed" })));
+        return deferred<TurnStartResponse>().promise;
+      };
+    });
+    const running = runEphemeralStructuredTurn(runOptions(), { clientFactory, timers });
+    await expectPresent(client.current).structuredTurnStarted;
+    timers.fireTimeout();
+    await expect(running).rejects.toThrow("Structured test timed out.");
+    expect(expectPresent(client.current).disconnect).toHaveBeenCalledOnce();
+  });
+
   it("collects only matching progress and completion after turn/start resolves", async () => {
     const progress: unknown[] = [];
     const { clientFactory, client } = fakeStructuredTurnClientFactory();

@@ -1,3 +1,4 @@
+import { backtickDelimiter } from "../../domain/text/markdown";
 import type { SelectionRewriteInput } from "./model";
 
 const MAX_NOTE_CONTEXT_CHARS = 20_000;
@@ -45,13 +46,8 @@ function positionLabel(position: { line: number; ch: number }): string {
 }
 
 function fenced(text: string): string {
-  const fence = safeBacktickFence(text);
+  const fence = backtickDelimiter(text, 3);
   return [`${fence}text`, text, fence].join("\n");
-}
-
-function safeBacktickFence(text: string): string {
-  const longestRun = Math.max(2, ...Array.from(text.matchAll(/`+/g), (match) => match[0].length));
-  return "`".repeat(longestRun + 1);
 }
 
 function selectionCenteredNoteContext(input: SelectionRewriteInput): string {
