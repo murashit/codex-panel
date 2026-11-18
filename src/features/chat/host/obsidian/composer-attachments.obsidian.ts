@@ -1,6 +1,6 @@
 import type { App } from "obsidian";
 
-import { sanitizeVaultPathSegment, splitVaultFilename, vaultRelativeFolderPath } from "../../../../domain/files/vault-write-paths";
+import { sanitizeVaultFilename, splitVaultFilename, vaultRelativeFolderPath } from "../../../../domain/files/vault-write-paths";
 import { DEFAULT_ATTACHMENT_FOLDER } from "../../../../settings/preferences";
 import { createObsidianVaultPathDestination } from "../../../../shared/vault/write-destination.obsidian";
 import { ensureVaultFolder, uniqueVaultPath, withVaultWriteLock } from "../../../../shared/vault/write-operations";
@@ -82,20 +82,13 @@ function attachmentFolderPath(value: string, normalizePath: (path: string) => st
 
 function attachmentFilename(file: File, now: Date): string {
   const originalName = file.name.trim();
-  const filename = sanitizeFilename(originalName || generatedAttachmentFilename(file, now));
+  const filename = sanitizeVaultFilename(originalName || generatedAttachmentFilename(file, now));
   return filename || generatedAttachmentFilename(file, now);
 }
 
 function generatedAttachmentFilename(file: File, now: Date): string {
   const extension = extensionForMimeType(file.type);
   return `${GENERATED_ATTACHMENT_PREFIX}-${formatTimestamp(now)}${extension ? `.${extension}` : ""}`;
-}
-
-function sanitizeFilename(value: string): string {
-  const normalized = value.replace(/[\\/]+/g, "-").trim();
-  const sanitized = sanitizeVaultPathSegment(normalized);
-  if (sanitized && sanitized !== "." && sanitized !== "..") return sanitized;
-  return "";
 }
 
 function isImageFile(file: File, path: string): boolean {

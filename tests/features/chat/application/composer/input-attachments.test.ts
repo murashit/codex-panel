@@ -56,7 +56,7 @@ describe("ComposerInput attachment lifetime", () => {
     expect(input.attachmentSaveBlocksSubmit(false)).toBe(true);
     saved.resolve(attachmentSaveResult([attachmentFixture("first")]));
     await saved.promise;
-    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+    await vi.waitFor(() => expect(stateStore.getState().composer.attachmentSavePending).toBe(false));
     claim?.settle("failed");
     expect(input.draft).toBe("First prompt\n\nNext draft\n![[Codex Attachments/first.png]]");
     expect(input.captureInputSnapshot().attachments).toEqual([attachmentFixture("first")]);
@@ -72,7 +72,7 @@ describe("ComposerInput attachment lifetime", () => {
     select(input.draft.length - 3);
     saved.resolve(attachmentSaveResult([attachmentFixture("first")]));
     await saved.promise;
-    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+    await vi.waitFor(() => expect(stateStore.getState().composer.attachmentSavePending).toBe(false));
 
     const expectedDraft = "edited before\n![[Codex Attachments/first.png]]\n after";
     expect(input.draft).toBe(expectedDraft);
@@ -83,6 +83,45 @@ describe("ComposerInput attachment lifetime", () => {
       direction: "none",
     });
     expect(input.captureInputSnapshot().attachments).toEqual([attachmentFixture("first")]);
+  });
+
+  it.each(["saved", "failed"])("keeps surrounding wikilinks and text after a placeholder is damaged (%s)", async (outcome) => {
+    const { input, edit, saved } = pendingAttachmentFixture();
+    input.setDraft("[[Keep]] user text");
+    input.transferAttachments([new File(["file"], "diagram.png")]);
+    const edited = input.draft.replace("[Saving", "Saving");
+    edit(edited);
+    if (outcome === "saved") saved.resolve(attachmentSaveResult([attachmentFixture("diagram")]));
+    else saved.reject(new Error("Write failed"));
+    await saved.promise.catch(() => undefined);
+    expect(input.draft).toBe(edited);
+    expect(input.attachmentSaveBlocksSubmit(false)).toBe(false);
+  });
+
+  it("resolves both copies of a pending attachment link", async () => {
+    const { input, edit, saved } = pendingAttachmentFixture();
+    input.transferAttachments([new File(["file"], "diagram.png")]);
+    edit([input.draft, input.draft].join("\n"));
+    const attachment = attachmentFixture("diagram");
+    saved.resolve(attachmentSaveResult([attachment]));
+    await saved.promise;
+    expect(input.draft).toBe([attachment.marker, attachment.marker].join("\n"));
+  });
+
+  it("keeps the first save visible when dropping another file onto its pending link", async () => {
+    const first = deferred<ComposerAttachmentSaveResult>();
+    const second = deferred<ComposerAttachmentSaveResult>();
+    const { input, select } = createInput({
+      attachmentHandler: { saveFiles: vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise) },
+    });
+    input.transferAttachments([new File(["one"], "one.png")]);
+    select(0, input.draft.length);
+    input.transferAttachments([new File(["two"], "two.png")]);
+    first.resolve(attachmentSaveResult([attachmentFixture("one")]));
+    await first.promise;
+    second.reject(new Error("Write failed"));
+    await second.promise.catch(() => undefined);
+    expect(input.draft).toBe(attachmentFixture("one").marker);
   });
 
   it("prunes captured note context when an attachment replaces its draft marker", async () => {
@@ -100,7 +139,7 @@ describe("ComposerInput attachment lifetime", () => {
     expect(input.captureInputSnapshot().activeNoteSnapshots).toEqual([activeNote]);
     saved.resolve(attachmentSaveResult([attachmentFixture("first")]));
     await saved.promise;
-    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+    await vi.waitFor(() => expect(stateStore.getState().composer.attachmentSavePending).toBe(false));
 
     expect(input.captureInputSnapshot().activeNoteSnapshots).toEqual([]);
   });
@@ -133,7 +172,7 @@ describe("ComposerInput attachment lifetime", () => {
 
     if (outcome === "saved") saved.resolve(attachmentSaveResult([attachmentFixture("first")]));
     else saved.reject(new Error("Attachment save failed."));
-    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+    await vi.waitFor(() => expect(stateStore.getState().composer.attachmentSavePending).toBe(false));
 
     const snapshot = input.captureInputSnapshot();
     expect(snapshot.selectionSnapshots).toEqual(outcome === "saved" ? [] : [{ reference: selection, marker: '[[Alpha]] "text"' }]);
@@ -178,7 +217,7 @@ describe("ComposerInput attachment lifetime", () => {
     await vi.waitFor(() => expect(input.captureInputSnapshot().attachments).toEqual([attachmentFixture("current")]));
     expect(input.draft).toBe("Current draft\n![[Codex Attachments/current.png]]");
     expect(input.captureInputSnapshot().attachments).toEqual([attachmentFixture("current")]);
-    expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]);
+    expect(stateStore.getState().composer.attachmentSavePending).toBe(false);
   });
 
   it("inserts multiple transfers that began at the same draft anchor", async () => {
@@ -195,10 +234,10 @@ describe("ComposerInput attachment lifetime", () => {
     input.transferAttachments([new File(["image"], "second.png", { type: "image/png" })]);
 
     second.resolve(attachmentSaveResult([attachmentFixture("second")]));
-    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toHaveLength(1));
+    await vi.waitFor(() => expect(stateStore.getState().composer.attachmentSavePending).toBe(true));
     expect(input.draft).toContain("![[Codex Attachments/second.png]]");
     first.resolve(attachmentSaveResult([attachmentFixture("first")]));
-    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+    await vi.waitFor(() => expect(stateStore.getState().composer.attachmentSavePending).toBe(false));
 
     expect(input.draft).toBe("note\n![[Codex Attachments/first.png]]\n![[Codex Attachments/second.png]]");
     expect(input.captureInputSnapshot().attachments.map((attachment) => attachment.name)).toEqual(["first", "second"]);
@@ -211,7 +250,7 @@ describe("ComposerInput attachment lifetime", () => {
     dispose();
     saved.resolve({ attachments: [attachmentFixture("diagram")], failures: [{ name: "broken.txt", message: "Write failed" }] });
     await saved.promise;
-    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+    await vi.waitFor(() => expect(stateStore.getState().composer.attachmentSavePending).toBe(false));
     expect(input.captureInputSnapshot().attachments).toEqual([]);
     expect(onAttachmentError).not.toHaveBeenCalled();
   });

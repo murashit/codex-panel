@@ -134,7 +134,7 @@ export class ChatPanelSession implements ChatPanelHandle {
       panel.kind !== "fork-draft" ||
       panel.operation ||
       state.pendingSubmission ||
-      state.composer.pendingAttachmentSaveIds.length ||
+      state.composer.attachmentSavePending ||
       this.runtime.composer.input.isSubmissionPreparing()
     )
       return;
@@ -143,7 +143,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.stateStore.dispatch({ type: "panel/fork-operation-set", revision: target.revision, operation: "cancelling" });
     try {
       if (state.composer.draft !== (panel.draft.initialPrompt ?? "") && !(await confirmForkDiscard(this.environment.obsidian.app))) return;
-      if (!isCurrent() || this.state.composer.draft !== state.composer.draft || this.state.composer.pendingAttachmentSaveIds.length) return;
+      if (!isCurrent() || this.state.composer.draft !== state.composer.draft || this.state.composer.attachmentSavePending) return;
       const returned = await this.environment.plugin.workspace.returnFromForkDraft(
         panel.draft.sourceThreadId,
         this.environment.obsidian.viewId,

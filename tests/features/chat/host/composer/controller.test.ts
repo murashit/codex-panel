@@ -431,7 +431,7 @@ describe("ChatComposerController", () => {
 
     if (outcome === "saved") saved.resolve(attachmentSaveResult([attachmentFixture("diagram")]));
     else saved.reject(new Error("Attachment save failed."));
-    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+    await vi.waitFor(() => expect(stateStore.getState().composer.attachmentSavePending).toBe(false));
     expect(composer(parent).value).toBe(expected);
     expect(onAttachmentError.mock.calls).toEqual(outcome === "failed" ? [["Attachment save failed."]] : []);
     expect(parent.querySelector<HTMLButtonElement>(".codex-panel__send")?.disabled).toBe(false);
@@ -465,7 +465,7 @@ describe("ChatComposerController", () => {
     composer(parent).dispatchEvent(
       transferEvent("drop", "dataTransfer", [new File(["first"], "first.txt"), new File(["broken"], "broken.txt")]),
     );
-    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+    await vi.waitFor(() => expect(stateStore.getState().composer.attachmentSavePending).toBe(false));
     expect(composer(parent).value).toBe("Read these\n[[Files/first.txt]]");
     expect(controller.input.captureInputSnapshot().attachments.map((attachment) => attachment.path)).toEqual(["Files/first.txt"]);
     expect(onAttachmentError).toHaveBeenCalledWith("Could not save attachments:\nbroken.txt: Write failed");
@@ -490,7 +490,7 @@ describe("ChatComposerController", () => {
 
     if (outcome === "saved") saved.resolve(attachmentSaveResult([attachmentFixture("diagram")]));
     else saved.reject(new Error("Attachment save failed."));
-    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+    await vi.waitFor(() => expect(stateStore.getState().composer.attachmentSavePending).toBe(false));
     expect(composer(parent).value).toBe(expected);
     expect(composer(parent).selectionStart).toBe(0);
     expect(composer(parent).selectionEnd).toBe(0);
@@ -561,7 +561,7 @@ describe("ChatComposerController", () => {
 
     expect(event.defaultPrevented).toBe(true);
     expect(saveFiles).toHaveBeenCalledWith([file]);
-    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+    await vi.waitFor(() => expect(stateStore.getState().composer.attachmentSavePending).toBe(false));
     expect(composer(parent).value).toBe("![[Codex Attachments/diagram.png]]");
   });
 
@@ -596,7 +596,7 @@ describe("ChatComposerController", () => {
     composer(parent).dispatchEvent(transferEvent("drop", "dataTransfer", [new File(["pdf"], "paper.pdf", { type: "application/pdf" })]));
     expect(document.activeElement).toBe(composer(parent));
     otherControl.focus();
-    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+    await vi.waitFor(() => expect(stateStore.getState().composer.attachmentSavePending).toBe(false));
 
     expect(document.activeElement).toBe(otherControl);
     expect(attachmentHandler.saveFiles).toHaveBeenCalledOnce();

@@ -1,4 +1,5 @@
 import { sanitizeVaultPathSegment, vaultRelativeFolderPath } from "../../../domain/files/vault-write-paths";
+import { truncateUtf8 } from "../../../domain/text/text";
 import { shortThreadId } from "../../../domain/threads/model";
 import { threadDisplayTitle } from "../../../domain/threads/title";
 import type { ThreadTranscript } from "../../../domain/threads/transcript";
@@ -61,7 +62,7 @@ function filenameFromTemplate(template: string, thread: ThreadTranscript, now: D
     .replace(/[\\/]+/g, "-");
   const filename = normalizePath(sanitizeVaultPathSegment(expanded));
   if (!filename || filename === "." || filename === "..") throw new Error("Archive export filename template produced an empty filename.");
-  return filename.toLowerCase().endsWith(".md") ? filename : `${filename}.md`;
+  return filename.toLowerCase().endsWith(".md") ? filename : `${truncateUtf8(filename, 252)}.md`;
 }
 
 function pad2(value: number): string {

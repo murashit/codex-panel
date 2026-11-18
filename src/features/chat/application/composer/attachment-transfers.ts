@@ -38,18 +38,10 @@ export class ComposerAttachmentTransfers {
   }
 
   reconcileDraft(draft = this.state.composer.draft, options: { clearSuggestions?: boolean } = {}): void {
-    const ids = [...this.insertions.values()]
-      .filter((pending) => pendingAttachmentLinkRange(draft, pending.destination) !== null)
-      .map((pending) => pending.id);
+    const attachmentSavePending = this.insertions.size > 0 && pendingAttachmentLinks(draft).some((link) => this.insertions.has(link.id));
     const composer = this.state.composer;
-    if (
-      !options.clearSuggestions &&
-      draft === composer.draft &&
-      ids.length === composer.pendingAttachmentSaveIds.length &&
-      ids.every((id, index) => id === composer.pendingAttachmentSaveIds[index])
-    )
-      return;
-    this.dispatch({ type: "composer/draft-set", draft, pendingAttachmentSaveIds: ids, ...options });
+    if (!options.clearSuggestions && draft === composer.draft && attachmentSavePending === composer.attachmentSavePending) return;
+    this.dispatch({ type: "composer/draft-set", draft, attachmentSavePending, ...options });
   }
 
   reset(): void {
@@ -58,7 +50,7 @@ export class ComposerAttachmentTransfers {
   }
 
   blocksSubmission(canInterrupt: boolean): boolean {
-    if (this.state.composer.pendingAttachmentSaveIds.length === 0) return false;
+    if (!this.state.composer.attachmentSavePending) return false;
     return !(canInterrupt && this.state.composer.draft.trim().length === 0);
   }
 
@@ -90,42 +82,54 @@ export class ComposerAttachmentTransfers {
     const draft = this.state.composer.draft;
     const source = this.options.selection();
     const selection = source && source.value === draft ? source : null;
+    let start = selection?.start ?? draft.length;
+    let end = selection?.end ?? draft.length;
+    const last = this.insertions.size
+      ? pendingAttachmentLinks(draft)
+          .filter((link) => this.insertions.has(link.id) && start < link.end && end > link.start)
+          .at(-1)
+      : undefined;
+    if (last) {
+      start = last.end;
+      end = last.end;
+    }
     const placeholder = pendingAttachmentPlaceholder(id, files.length);
-    const insertion = applyAttachmentMarkerInsertion(draft, selection?.start ?? draft.length, selection?.end ?? draft.length, [
-      placeholder,
-    ]);
-    const placeholderOffset = insertion.insertedText.indexOf(placeholder);
-    const pending = {
-      id,
-      destination: pendingAttachmentDestination(id),
-      displacedText: selection ? draft.slice(selection.start, selection.end) : "",
-      syntheticPrefix: insertion.insertedText.slice(0, placeholderOffset),
-      syntheticSuffix: insertion.insertedText.slice(placeholderOffset + placeholder.length),
-    };
+    const prefix = draft.slice(0, start);
+    const suffix = draft.slice(end);
+    const syntheticPrefix = prefix && !prefix.endsWith("\n") ? "\n" : "";
+    const syntheticSuffix = suffix && !suffix.startsWith("\n") ? "\n" : "";
+    const beforeCursor = prefix + syntheticPrefix + placeholder;
+    const value = beforeCursor + syntheticSuffix + suffix;
+    const pending = { id, displacedText: draft.slice(start, end), syntheticPrefix, syntheticSuffix };
     this.insertions.set(id, pending);
-    this.options.setSelection(collapsedComposerSelection(insertion.value, insertion.cursor));
-    this.reconcileDraft(insertion.value, { clearSuggestions: true });
+    this.options.setSelection(collapsedComposerSelection(value, beforeCursor.length));
+    this.reconcileDraft(value, { clearSuggestions: true });
     this.options.focus();
     return pending;
   }
 
   private settlePendingSave(pending: PendingAttachmentSave, savedAttachments: readonly ComposerAttachment[] | null): void {
     this.insertions.delete(pending.id);
-    const draft = this.state.composer.draft;
-    const range = pendingAttachmentLinkRange(draft, pending.destination);
-    if (!range) return;
-    const replacement = savedAttachments?.length
-      ? replaceDraftRange(draft, range.start, range.end, savedAttachments.map((attachment) => attachment.marker).join("\n"))
-      : replacePendingAttachmentWithOriginalText(draft, pending, range);
-    this.options.setSelection(adjustedComposerSelection(this.options.selection(), draft, replacement));
-    if (savedAttachments !== null) this.options.onDraftReplaced(replacement.value, savedAttachments);
-    this.reconcileDraft(replacement.value);
+    let draft = this.state.composer.draft;
+    const ranges = pendingAttachmentLinks(draft).filter((link) => link.id === pending.id);
+    if (ranges.length === 0) return;
+    let selection = this.options.selection();
+    const markers = savedAttachments?.map((attachment) => attachment.marker).join("\n");
+    for (const range of ranges.reverse()) {
+      const replacement = markers
+        ? replaceDraftRange(draft, range.start, range.end, markers)
+        : replacePendingAttachmentWithOriginalText(draft, pending, range);
+      selection = adjustedComposerSelection(selection, draft, replacement);
+      draft = replacement.value;
+    }
+    this.options.setSelection(selection);
+    if (savedAttachments !== null) this.options.onDraftReplaced(draft, savedAttachments);
+    this.reconcileDraft(draft);
   }
 }
 
 interface PendingAttachmentSave {
   readonly id: number;
-  readonly destination: string;
   readonly displacedText: string;
   readonly syntheticPrefix: string;
   readonly syntheticSuffix: string;
@@ -140,11 +144,7 @@ interface DraftReplacement {
 
 function pendingAttachmentPlaceholder(id: number, fileCount: number): string {
   const label = fileCount === 1 ? "Saving attachment…" : `Saving ${String(fileCount)} attachments…`;
-  return `[${label}](${pendingAttachmentDestination(id)})`;
-}
-
-function pendingAttachmentDestination(id: number): string {
-  return `codex-panel-pending-attachment:${String(id)}`;
+  return `[${label}](codex-panel-pending-attachment:${String(id)})`;
 }
 
 function replacePendingAttachmentWithOriginalText(
@@ -178,31 +178,12 @@ function adjustedComposerSelection(
   };
 }
 
-function applyAttachmentMarkerInsertion(
-  value: string,
-  start: number,
-  end: number,
-  markers: readonly string[],
-): { value: string; cursor: number; insertedText: string } {
-  const prefix = value.slice(0, start);
-  const suffix = value.slice(end);
-  const before = prefix && !prefix.endsWith("\n") ? "\n" : "";
-  const after = suffix && !suffix.startsWith("\n") ? "\n" : "";
-  const inserted = markers.join("\n");
-  const nextValue = `${prefix}${before}${inserted}${after}${suffix}`;
-  return {
-    value: nextValue,
-    cursor: prefix.length + before.length + inserted.length,
-    insertedText: `${before}${inserted}${after}`,
-  };
-}
-
-function pendingAttachmentLinkRange(draft: string, destination: string): { start: number; end: number } | null {
-  const suffix = `](${destination})`;
-  const suffixStart = draft.indexOf(suffix);
-  if (suffixStart < 0) return null;
-  const start = draft.lastIndexOf("[", suffixStart);
-  return start < 0 ? null : { start, end: suffixStart + suffix.length };
+function pendingAttachmentLinks(draft: string): { id: number; start: number; end: number }[] {
+  return Array.from(draft.matchAll(/\[[^[\]\r\n]*\]\(codex-panel-pending-attachment:([1-9]\d*)\)/g), (match) => ({
+    id: Number(match[1]),
+    start: match.index,
+    end: match.index + match[0].length,
+  }));
 }
 
 function replaceDraftRange(draft: string, start: number, end: number, replacement: string): DraftReplacement {

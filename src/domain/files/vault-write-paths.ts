@@ -1,3 +1,5 @@
+import { truncateUtf8, utf8ByteLength } from "../text/text";
+
 export interface VaultRelativeFolderPathOptions {
   normalizePath(path: string): string;
   emptyPathMessage: string;
@@ -22,28 +24,40 @@ export function vaultRelativeFolderPath(value: string, options: VaultRelativeFol
   if (rawSegments.length === 0) return vaultFolderFallback(options);
   if (rawSegments.some((segment) => segment === "." || segment === "..")) throw new Error(options.relativeSegmentMessage);
 
-  const folder = options.normalizePath(rawSegments.map(sanitizeVaultPathSegment).filter(Boolean).join("/"));
+  const folder = options.normalizePath(
+    rawSegments
+      .map((segment) => sanitizeVaultPathSegment(segment))
+      .filter(Boolean)
+      .join("/"),
+  );
   if (!folder) return vaultFolderFallback(options);
   if (folder.split("/").some((segment) => segment === "." || segment === "..")) throw new Error(options.relativeSegmentMessage);
   return folder;
 }
 
-export function sanitizeVaultPathSegment(value: string): string {
-  const normalized = Array.from(value)
+function normalizeVaultSegment(value: string): string {
+  return Array.from(value)
     .map((char) => (isUnsafeVaultPathChar(char) ? "-" : char))
     .join("")
     .replace(/\s+/g, " ")
     .trim();
-  return truncateVaultPathSegment(normalized).trim().replace(/^\.+$/, "");
 }
 
-function truncateVaultPathSegment(value: string): string {
-  let result = "";
-  for (const character of value) {
-    if (result.length + character.length > 120) break;
-    result += character;
-  }
-  return result;
+export function sanitizeVaultPathSegment(value: string): string {
+  return truncateUtf8(normalizeVaultSegment(value), 255, 120).trim().replace(/^\.+$/, "");
+}
+
+export function sanitizeVaultFilename(value: string): string {
+  const normalized = normalizeVaultSegment(value.replace(/[\\/]+/g, "-")).replace(/^\.+$/, "");
+  const { stem, extension } = splitVaultFilename(normalized);
+  return fitVaultFilename(stem, extension, "", 120).trim();
+}
+
+export function fitVaultFilename(stem: string, extension: string, marker: string, maxLength: number): string {
+  const firstCharacter = stem[Symbol.iterator]().next().value ?? "";
+  const reserved = firstCharacter + marker;
+  const ending = marker + truncateUtf8(extension, 255 - utf8ByteLength(reserved), maxLength - reserved.length);
+  return truncateUtf8(stem, 255 - utf8ByteLength(ending), maxLength - ending.length) + ending;
 }
 
 function vaultFolderFallback(options: VaultRelativeFolderPathOptions): string {

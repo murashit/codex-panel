@@ -35,6 +35,9 @@ describe("vault write paths", () => {
   });
 
   it("does not split Unicode characters or leave a dot-only segment at the length boundary", () => {
+    expect(sanitizeVaultPathSegment(`${"a".repeat(119)} b`)).toBe("a".repeat(119));
+    expect(sanitizeVaultPathSegment(".private")).toBe(".private");
+    expect(sanitizeVaultPathSegment("界".repeat(120))).toBe("界".repeat(85));
     expect(sanitizeVaultPathSegment(`${"a".repeat(119)}😀`)).toBe("a".repeat(119));
     expect(sanitizeVaultPathSegment(`${".".repeat(120)}a`)).toBe("");
     expect(sanitizeVaultPathSegment(`a\ud800b\udc00`)).toBe("a-b-");
