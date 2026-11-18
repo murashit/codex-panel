@@ -92,7 +92,7 @@ For each relevant mutation, name the observable behavior a caller relies on. If 
 
 If the original and mutated code are equivalent for supported inputs, look for a redundant branch or operation to simplify. Leave the result alone when changing the tests or implementation would add no value. Add a case when a specific regression warrants its own protection. The mutation score is a diagnostic, with no target.
 
-For a broader review, `npm run test:mutation` uses the directory globs in `stryker.config.mjs` and writes `reports/mutation/mutation.html`. For line coverage, `npm run test:coverage` reports unexercised authored source in `coverage/index.html`. Both are optional diagnostics.
+For a broader review, `npm run test:mutation` uses the directory globs in `stryker.config.mjs` and writes `reports/mutation/mutation.html`. For line coverage, `npm run test:coverage` prints file coverage and uncovered line numbers in the terminal. Both are optional diagnostics.
 
 See [Automation](automation.md) for CI failure reproduction, scheduled mutation runs, and checkpoint handling.
 

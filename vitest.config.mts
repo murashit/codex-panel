@@ -16,7 +16,7 @@ export default defineConfig({
     coverage: {
       exclude: ["src/generated/**"],
       include: ["src/**/*.{ts,tsx}"],
-      reporter: ["text", "html"],
+      reporter: ["text"],
     },
     environment: "node",
     globals: false,
