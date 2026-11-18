@@ -44,7 +44,7 @@ Read both sites and their callers. Extract shared rules or setup when one owner 
 
 ### Evaluate what the tests protect
 
-For behavior changes, consider `npm run review:mutation`. It mutates changed lines in authored TypeScript and TSX under `src/`, excluding generated bindings and declarations. Read the location and replacement in the terminal alongside the affected tests. Vitest reports when it finds no related tests.
+For behavior changes, consider `npm run review:mutation`. It mutates changed lines in authored TypeScript and TSX under `src/`, excluding generated bindings and declarations. Read the location and replacement in the terminal alongside the affected tests. Vitest reports when it finds no related tests. Clear `reports/review-mutation/stryker-incremental.json` if setup, dependency, or configuration changes could affect cached results.
 
 For each relevant mutation, identify the observable behavior a caller relies on. A test can verify that a helper ran and still pass when the user sees the wrong result. Replace that assertion with one on the result. A helper-call expectation can also kill a mutant while blocking a valid refactor. Remove expectations that impose this cost. Merge or delete tests when the remaining cases still detect each distinct regression independently.
 

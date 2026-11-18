@@ -63,7 +63,7 @@ if (!changes.size) {
   }
   await new Stryker({
     mutate,
-    incremental: false,
+    incrementalFile: "reports/review-mutation/stryker-incremental.json",
     concurrency: 2,
     reporters: ["clear-text"],
     // A change with no related tests is a review finding. Vitest reports it in the dry run.
