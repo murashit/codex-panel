@@ -3,8 +3,6 @@ import type { ThreadCatalogArchivedReader } from "../../features/threads/catalog
 import type { ThreadMutationCommands } from "../../features/threads/workflows/thread-mutation-commands";
 import type { ObservedResultListener } from "../../shared/async/observed-result";
 
-export type SettingsHookCatalog = HookCatalog;
-
 export interface SettingsResources {
   readonly queries: SettingsResourceQueries;
   readonly threadCatalog: ThreadCatalogArchivedReader;
@@ -13,7 +11,7 @@ export interface SettingsResources {
 
 interface SettingsResourceQueries {
   observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>): () => void;
-  observeHooksResult(listener: ObservedResultListener<SettingsHookCatalog>): () => void;
+  observeHooksResult(listener: ObservedResultListener<HookCatalog>): () => void;
   fetchModels(): Promise<readonly ModelMetadata[]>;
   refreshModels(): Promise<readonly ModelMetadata[]>;
   refreshHooks(): Promise<void>;

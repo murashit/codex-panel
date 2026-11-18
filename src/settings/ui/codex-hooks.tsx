@@ -1,10 +1,10 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import type { HookItem } from "../../domain/runtime/catalog";
+import type { HookCatalog, HookItem } from "../../domain/runtime/catalog";
 import { ObsidianButton } from "./controls.obsidian";
 import { SettingRow, SettingsItems, SettingsStatusRow } from "./layout";
 export interface CodexHooksViewModel {
-  catalog: { hooks: readonly HookItem[]; warnings: readonly string[]; errors: readonly string[] } | null;
+  catalog: HookCatalog | null;
   loading: boolean;
   error: string | null;
   onTrust: (hook: HookItem) => void;
@@ -16,9 +16,7 @@ export function CodexHooksContent({ state }: { state: CodexHooksViewModel }): Ui
   return (
     <>
       {catalog ? <Hooks catalog={catalog} state={state} /> : null}
-      {!state.loading && state.error ? (
-        <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.error}</p>
-      ) : null}
+      {state.error ? <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.error}</p> : null}
     </>
   );
 }

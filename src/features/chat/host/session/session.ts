@@ -22,7 +22,7 @@ import { confirmForkDiscard } from "../composer/confirm-fork-discard.obsidian";
 import type { ChatPanelEnvironment, ChatPanelHandle, ChatWorkspacePanelSnapshot } from "../contracts";
 import { renderChatPanelShell, unmountChatPanelShell } from "../shell/render.dom";
 import { type ChatThreadStreamScrollBinding, createChatThreadStreamScrollBinding } from "../thread-stream/scroll-binding";
-import { parseChatPanelViewState } from "../view-state";
+import { chatPanelViewState, parseChatPanelViewState } from "../view-state";
 import { createChatPanelSessionRuntime } from "./runtime";
 
 export class ChatPanelSession implements ChatPanelHandle {
@@ -58,17 +58,12 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   persistedState(): Record<string, unknown> {
-    if (activeThreadState(this.state)?.lifetime?.kind === "ephemeral") return { version: 1 };
-    if (panelThreadProvenance(this.state)?.kind === "subagent") return { version: 1 };
+    if (activeThreadState(this.state)?.lifetime?.kind === "ephemeral") return chatPanelViewState();
+    if (panelThreadProvenance(this.state)?.kind === "subagent") return chatPanelViewState();
     const threadId = panelThreadId(this.state);
-    if (!threadId) return { version: 1 };
+    if (!threadId) return chatPanelViewState();
 
-    const threadTitle = this.restoredThreadTitle() ?? this.activeThreadTitle();
-    return {
-      version: 1,
-      threadId,
-      ...(threadTitle ? { threadTitle } : {}),
-    };
+    return chatPanelViewState(threadId, this.restoredThreadTitle() ?? this.activeThreadTitle());
   }
 
   applyViewState(state: unknown): void {
@@ -109,7 +104,6 @@ export class ChatPanelSession implements ChatPanelHandle {
       threadId: this.closing ? null : activity.threadId,
       loadingThread: this.runtime.thread.activation.isLoading(),
       hasComposerDraft: this.state.composer.draft.trim().length > 0,
-      hasForkDraft: this.state.panelThread.kind === "fork-draft",
       connected: this.runtime.connection.manager.isConnected(),
     };
   }

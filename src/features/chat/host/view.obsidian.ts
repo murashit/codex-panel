@@ -5,6 +5,7 @@ import { registerViewPointerDown } from "../../../shared/ui/view-pointer.obsidia
 import { createLocalIdSource } from "../application/local-id-source";
 import type { ChatPanelHandle, ChatViewRuntimeOwner, CodexChatHost } from "./contracts";
 import { ChatPanelSession } from "./session/session";
+import { chatPanelViewState } from "./view-state";
 
 export class CodexChatView extends ItemView {
   private attachment: { session: ChatPanelSession; owner: Component } | null = null;
@@ -120,7 +121,7 @@ export class CodexChatView extends ItemView {
       this.attachment.session.applyViewState(state);
       return;
     }
-    this.detachedState = isObjectValue(state) ? { ...state } : { version: 1 };
+    this.detachedState = isObjectValue(state) ? { ...state } : chatPanelViewState();
   }
 
   override async onOpen(): Promise<void> {
@@ -146,6 +147,6 @@ export class CodexChatView extends ItemView {
   }
 
   private detachedViewState(): Record<string, unknown> {
-    return this.detachedState ?? { version: 1 };
+    return this.detachedState ?? chatPanelViewState();
   }
 }

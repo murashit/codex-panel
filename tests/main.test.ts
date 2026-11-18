@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ChatRuntimeView } from "../src/features/chat/host/contracts";
 import { CodexChatView } from "../src/features/chat/host/view.obsidian";
-import { waitForAsyncWork } from "./support/async";
+import { deferred, waitForAsyncWork } from "./support/async";
 import { installObsidianDomShims } from "./support/dom";
 import { chatView, leaf, pluginWithLeaves, type TestLeaf } from "./support/plugin-fixtures";
 
@@ -42,6 +42,21 @@ describe("CodexPanelPlugin lifecycle", () => {
     } finally {
       plugin.onunload();
     }
+  });
+
+  it("ignores a settings read that completes after plugin unload", async () => {
+    const plugin = await pluginWithLeaves([]);
+    const read = deferred<unknown>();
+    vi.spyOn(plugin, "loadData").mockReturnValue(read.promise);
+    const save = vi.spyOn(plugin, "saveSettings");
+    const views = vi.spyOn(plugin, "registerView");
+    const loading = plugin.onload();
+    plugin.onunload();
+    read.resolve({ showToolbar: false });
+    await loading;
+    expect(plugin.settings.showToolbar).toBe(true);
+    expect(save).not.toHaveBeenCalled();
+    expect(views).not.toHaveBeenCalled();
   });
 
   it("loads restored Codex panel leaves after startup without blocking onload", async () => {

@@ -19,9 +19,7 @@ export function ArchivedThreadsContent({ state }: { state: ArchivedThreadsViewMo
   return (
     <>
       {threads ? <ArchivedThreadList threads={threads} state={state} /> : null}
-      {!state.loading && state.error ? (
-        <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.error}</p>
-      ) : null}
+      {state.error ? <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.error}</p> : null}
     </>
   );
 }

@@ -608,6 +608,23 @@ describe("CodexPanelPlugin runtime integration", () => {
     },
   );
 
+  it("retires both pending and queued preference writes when the workspace is reset", async () => {
+    const plugin = await pluginWithLeaves([]);
+    const host = plugin.runtime.settingTabHost();
+    const write = deferred<void>();
+    const save = vi.spyOn(plugin, "saveSettings").mockReturnValue(write.promise);
+    const prefs = { ...plugin.settings, showToolbar: false };
+    const pending = host.publishSettings(prefs);
+    plugin.runtime.reset();
+    plugin.runtime.initialize();
+    await expect(host.publishSettings(prefs)).rejects.toThrow("runtime reset");
+    write.resolve();
+    await expect(pending).rejects.toThrow("runtime reset");
+    expect(save).toHaveBeenCalledOnce();
+    expect(plugin.runtime.settingTabHost().settings.showToolbar).toBe(true);
+    plugin.runtime.reset();
+  });
+
   it("does not resurrect a replacement after the runtime is reset", async () => {
     const save = deferred<void>();
     const plugin = await pluginWithLeaves([]);
