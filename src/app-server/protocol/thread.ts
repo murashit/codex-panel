@@ -58,8 +58,9 @@ function stringOrNull(value: unknown): string | null {
 
 export function threadsFromThreadRecords(threads: readonly ThreadRecord[], options: { archived?: boolean } = {}): Thread[] {
   return threads.flatMap((thread) => {
-    if (thread.ephemeral === true || threadProvenance(thread).kind === "subagent") return [];
-    return [threadFromThreadRecord(thread, options)];
+    if (thread.ephemeral) return [];
+    const item = threadFromThreadRecord(thread, options);
+    return item.provenance.kind === "interactive" ? [item] : [];
   });
 }
 

@@ -44,7 +44,7 @@ export function resolveThreadSearchQuery(threads: readonly Thread[], queryText: 
   return bestMatches.length === 1 ? { kind: "match", match: first } : { kind: "multiple", matches: bestMatches };
 }
 
-export function compareThreadSearchMatches(left: ThreadSearchMatch, right: ThreadSearchMatch): number {
+function compareThreadSearchMatches(left: ThreadSearchMatch, right: ThreadSearchMatch): number {
   return left.score - right.score || right.recencyAt - left.recencyAt || left.index - right.index;
 }
 

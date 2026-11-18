@@ -1,3 +1,4 @@
+import { setImmediate as nextEventLoopTurn } from "node:timers/promises";
 import { onlineManager } from "@tanstack/query-core";
 import { describe, expect, it, vi } from "vitest";
 import type { AppServerClientAccess } from "../../../src/app-server/connection/client-access";
@@ -98,7 +99,7 @@ describe("app-server query resources", () => {
       );
       if (staleRead === "rejects") pending.reject(new Error("stale goal unavailable"));
       else pending.resolve({ goal: threadGoalFixture({ objective: "Stale read" }) });
-      await flushMicrotasks();
+      await nextEventLoopTurn();
 
       expect(cache.threadGoalQueries.snapshot("thread")).toEqual(notification === "updated" ? current : null);
       expect(listener).toHaveBeenLastCalledWith(notification === "updated" ? current : null, null);
@@ -432,7 +433,7 @@ describe("app-server query resources", () => {
 
     const first = cache.threadCatalog.refreshActiveThreads();
     const second = cache.threadCatalog.refreshActiveThreads();
-    await flushMicrotasks();
+    await nextEventLoopTurn();
 
     expect(fetchThreads).toHaveBeenCalledOnce();
     pending.resolve([thread("shared")]);
@@ -466,7 +467,7 @@ describe("app-server query resources", () => {
       .mockResolvedValueOnce([thread("replacement")]);
     const cache = cacheWithThreads(fetchThreads);
     const initialRefresh = cache.threadCatalog.refreshActiveThreads();
-    await flushMicrotasks();
+    await nextEventLoopTurn();
 
     const replacement = cache.threadCatalog.beginReplacement("source");
 
@@ -476,7 +477,7 @@ describe("app-server query resources", () => {
     await vi.waitFor(() => expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("replacement")]));
 
     staleRequest.resolve([thread("source"), thread("replacement")]);
-    await flushMicrotasks();
+    await nextEventLoopTurn();
     expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("replacement")]);
   });
 
@@ -618,7 +619,7 @@ describe("app-server query resources", () => {
 
     const first = cache.threadCatalog.loadMoreActiveThreads();
     const second = cache.threadCatalog.loadMoreActiveThreads();
-    await flushMicrotasks();
+    await nextEventLoopTurn();
 
     expect(listThreads).toHaveBeenCalledTimes(2);
     nextPage.resolve({ data: [thread("second")], nextCursor: null });
@@ -637,7 +638,7 @@ describe("app-server query resources", () => {
     await cache.threadCatalog.refreshActiveThreads();
 
     const loadMore = cache.threadCatalog.loadMoreActiveThreads();
-    await flushMicrotasks();
+    await nextEventLoopTurn();
     await cache.threadCatalog.refreshActiveThreads();
     oldPage.resolve({ data: [thread("old-second")], nextCursor: null });
 
@@ -657,7 +658,7 @@ describe("app-server query resources", () => {
     await cache.threadCatalog.refreshActiveThreads();
 
     const loadMore = cache.threadCatalog.loadMoreActiveThreads();
-    await flushMicrotasks();
+    await nextEventLoopTurn();
     cache.threadCatalog.applyThreadCatalogChanges([{ kind: "remove", list: "active", threadId: "deleted-on-page-2" }]);
     oldPage.resolve({ data: [thread("deleted-on-page-2")], nextCursor: null });
 
@@ -732,7 +733,7 @@ describe("app-server query resources", () => {
     await cache.threadCatalog.refreshActiveThreads();
 
     const refresh = cache.threadCatalog.refreshActiveThreads();
-    await flushMicrotasks();
+    await nextEventLoopTurn();
     cache.threadCatalog.applyThreadCatalogChanges([
       { kind: "update", list: "active", threadId: "target", changes: { name: "from-event" } },
     ]);
@@ -753,7 +754,7 @@ describe("app-server query resources", () => {
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
 
     const initial = cache.threadCatalog.refreshActiveThreads();
-    await flushMicrotasks();
+    await nextEventLoopTurn();
     cache.threadCatalog.applyThreadCatalogChanges([
       { kind: "update", list: "active", threadId: "target", changes: { name: "from-event" } },
     ]);
@@ -787,7 +788,7 @@ describe("app-server query resources", () => {
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
 
     const inventory = cache.threadCatalog.fetchActiveThreadSearchInventory();
-    await flushMicrotasks();
+    await nextEventLoopTurn();
     await cache.threadCatalog.refreshActiveThreads();
     oldInventory.resolve({ data: [thread("old")], nextCursor: null });
 
@@ -836,7 +837,7 @@ describe("app-server query resources", () => {
     const cache = cacheWithRequestHandlers({ "model/list": listModels });
     const cached = await cache.metadataQueries.fetchModels();
     const refresh = fetching ? cache.metadataQueries.refreshModels() : null;
-    if (fetching) await flushMicrotasks();
+    if (fetching) await nextEventLoopTurn();
     const metadataListener = vi.fn();
     const modelsListener = vi.fn();
     const unsubscribeMetadata = cache.metadataQueries.observeMetadataResource("models", metadataListener);
@@ -967,9 +968,10 @@ describe("app-server query resources", () => {
     skillsListener.mockClear();
 
     const refresh = cache.metadataQueries.refreshAppServerMetadata();
-    await flushMicrotasks();
-    expect(runtimeConfigListener).toHaveBeenCalledWith(expect.objectContaining({ id: "runtimeConfig", value: expect.any(Object) }));
-    expect(modelsListener).toHaveBeenCalledWith(expect.objectContaining({ id: "models", value: [] }));
+    await vi.waitFor(() => {
+      expect(runtimeConfigListener).toHaveBeenCalledWith(expect.objectContaining({ id: "runtimeConfig", value: expect.any(Object) }));
+      expect(modelsListener).toHaveBeenCalledWith(expect.objectContaining({ id: "models", value: [] }));
+    });
     expect(skillsListener).not.toHaveBeenCalled();
 
     skills.resolve({ data: [{ skills: [catalogSkill("writer")] }] });
@@ -1032,7 +1034,7 @@ describe("app-server query resources", () => {
     listener.mockClear();
 
     cache.metadataQueries.handleSkillsChanged();
-    await flushMicrotasks();
+    await nextEventLoopTurn();
 
     expect(listener).not.toHaveBeenCalled();
     retry.resolve({ data: [{ skills: [catalogSkill("writer")] }] });
@@ -1045,7 +1047,7 @@ describe("app-server query resources", () => {
     });
 
     cache.metadataQueries.handleSkillsChanged();
-    await flushMicrotasks();
+    await nextEventLoopTurn();
     expect(listener).toHaveBeenCalledOnce();
     nextRetry.resolve({ data: [{ skills: [catalogSkill("editor")] }] });
     await vi.waitFor(() => expect(listener).toHaveBeenCalledTimes(2));
@@ -1076,9 +1078,9 @@ describe("app-server query resources", () => {
 
     const first = cache.metadataQueries.refreshAppServerMetadata();
     const second = cache.metadataQueries.refreshAppServerMetadata();
-    await flushMicrotasks();
+    await nextEventLoopTurn();
     const modelsRead = cache.metadataQueries.fetchModels();
-    await flushMicrotasks();
+    await nextEventLoopTurn();
 
     for (const handler of Object.values(handlers)) expect(handler).toHaveBeenCalledOnce();
     config.resolve({});
@@ -1102,7 +1104,7 @@ describe("app-server query resources", () => {
     const cache = cacheWithRequestHandlers(metadataRequestHandlers({ "skills/list": listSkills }));
 
     const fullRefresh = cache.metadataQueries.ensureAppServerMetadata();
-    await flushMicrotasks();
+    await nextEventLoopTurn();
     cache.metadataQueries.handleSkillsChanged();
     await vi.waitFor(() => expect(listSkills).toHaveBeenCalledTimes(2));
     expect(listSkills).toHaveBeenNthCalledWith(2, { cwds: ["/vault"], forceReload: false });
@@ -1138,7 +1140,7 @@ describe("app-server query resources", () => {
     const refresh = cache.metadataQueries.refreshAppServerMetadata().finally(() => {
       settled = true;
     });
-    await flushMicrotasks();
+    await nextEventLoopTurn();
     expect(settled).toBe(false);
 
     skills.resolve({ data: [{ skills: [] }] });
@@ -1350,12 +1352,6 @@ function appServerRateLimit(usedPercent: number): RateLimitSnapshot {
 
 function thread(id: string, archived = false): Thread {
   return panelThreadFixture({ id, archived });
-}
-
-async function flushMicrotasks(): Promise<void> {
-  for (let index = 0; index < 10; index += 1) {
-    await Promise.resolve();
-  }
 }
 
 function paginatedCatalogFixture() {

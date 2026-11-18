@@ -1,6 +1,7 @@
 import { type App, Notice, Platform, SuggestModal } from "obsidian";
-import type { Thread } from "../../domain/threads/model";
-import { compareThreadSearchMatches, threadSearchMatches } from "../../domain/threads/search";
+import { compareThreadsPinnedFirst, type Thread } from "../../domain/threads/model";
+import { threadSearchMatches } from "../../domain/threads/search";
+import { threadDisplayTitle } from "../../domain/threads/title";
 import type { ThreadCatalogPaginatedActiveReader, ThreadCatalogSearchReader } from "../threads/catalog/thread-catalog";
 
 export interface ThreadPickerHost {
@@ -59,20 +60,6 @@ export function openThreadPicker(host: ThreadPickerHost, onClosed: () => void): 
   };
 }
 
-function threadPickerSuggestions(threads: readonly Thread[], queryText: string): ThreadSuggestion[] {
-  const matches = threadSearchMatches(threads, queryText);
-  if (queryText.trim().length === 0) {
-    matches.sort(
-      (left, right) =>
-        Number(right.thread.isPinned === true) - Number(left.thread.isPinned === true) || compareThreadSearchMatches(left, right),
-    );
-  }
-  return matches.map(({ thread, title }) => ({
-    thread,
-    title,
-  }));
-}
-
 function threadOpenModeFromEvent(evt: MouseEvent | KeyboardEvent): ThreadOpenMode {
   if ("key" in evt && (evt.metaKey || evt.ctrlKey)) return "available";
   return "current";
@@ -80,7 +67,7 @@ function threadOpenModeFromEvent(evt: MouseEvent | KeyboardEvent): ThreadOpenMod
 
 class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
   private closed = false;
-  private readonly recentThreads: readonly Thread[];
+  private readonly recentSuggestions: readonly ThreadSuggestion[];
   private completeThreadsPromise: Promise<readonly Thread[]> | null = null;
 
   constructor(
@@ -89,7 +76,9 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
     private readonly onClosed: () => void,
   ) {
     super(host.app);
-    this.recentThreads = Object.freeze([...recentThreads]);
+    this.recentSuggestions = [...recentThreads]
+      .sort(compareThreadsPinnedFirst)
+      .map((thread) => ({ thread, title: threadDisplayTitle(thread) }));
     this.emptyStateText = "No matching Codex threads";
     this.setPlaceholder("Open Codex thread...");
     this.setInstructions([
@@ -113,14 +102,14 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
   override async getSuggestions(query: string): Promise<ThreadSuggestion[]> {
     if (query.trim().length === 0) {
       this.emptyStateText = "No matching Codex threads";
-      return threadPickerSuggestions(this.recentThreads, query);
+      return [...this.recentSuggestions];
     }
 
     this.emptyStateText = "Searching older Codex threads…";
     this.onNoSuggestion();
     try {
       const threads = await this.loadCompleteThreadList();
-      return this.closed ? [] : threadPickerSuggestions(threads, query);
+      return this.closed ? [] : threadSearchMatches(threads, query);
     } catch (error) {
       if (!this.closed) new Notice(error instanceof Error ? error.message : String(error));
       return [];
