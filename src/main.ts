@@ -15,6 +15,7 @@ import { disposeTextareaHeightMirrors } from "./shared/ui/textarea-autogrow.meas
 export default class CodexPanelPlugin extends Plugin {
   override settings: CodexPanelSettings = DEFAULT_SETTINGS;
   vaultPath = "";
+  private loadGeneration = 0;
   readonly runtime = new CodexPanelRuntime({
     app: this.app,
     settingsRef: this,
@@ -26,7 +27,14 @@ export default class CodexPanelPlugin extends Plugin {
     this.registerEditorExtension(editorSelectionEmphasisExtension);
     this.runtime.reset();
     this.vaultPath = getVaultPath(this.app);
-    await this.loadSettings();
+    const generation = ++this.loadGeneration;
+    const storedSettings: unknown = await this.loadData();
+    if (generation !== this.loadGeneration) return;
+    this.settings = normalizeSettings(storedSettings);
+    if (!settingsMatchStoredSettings(storedSettings, this.settings)) {
+      await this.saveSettings();
+      if (generation !== this.loadGeneration) return;
+    }
     this.runtime.initialize();
     this.runtime.reconnectWorkspaceViews();
 
@@ -92,17 +100,10 @@ export default class CodexPanelPlugin extends Plugin {
   }
 
   override onunload(): void {
+    this.loadGeneration++;
     this.runtime.cancelWorkspacePanelReconcile();
     this.runtime.reset();
     disposeTextareaHeightMirrors();
-  }
-
-  async loadSettings(): Promise<void> {
-    const storedSettings: unknown = await this.loadData();
-    this.settings = normalizeSettings(storedSettings);
-    if (!settingsMatchStoredSettings(storedSettings, this.settings)) {
-      await this.saveSettings();
-    }
   }
 
   async saveSettings(settings: CodexPanelSettings = this.settings): Promise<void> {

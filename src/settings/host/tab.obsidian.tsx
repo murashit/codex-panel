@@ -284,7 +284,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     if (this.displayed) return;
     this.displayed = true;
     this.containerEl.addClass("codex-panel-settings");
-    this.disposeOutsidePointer?.();
     this.disposeOutsidePointer = listenDomEvent(this.containerEl, "pointerdown", this.cancelArchivedDeleteConfirmOnOutsidePointer);
     this.resources.activate();
     queueMicrotask(() => {

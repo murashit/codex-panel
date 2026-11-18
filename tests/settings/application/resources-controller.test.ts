@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { HookItem, ModelMetadata } from "../../../src/domain/runtime/catalog";
+import type { HookCatalog, HookItem, ModelMetadata } from "../../../src/domain/runtime/catalog";
 import type { Thread } from "../../../src/domain/threads/model";
-import type { SettingsHookCatalog, SettingsResources } from "../../../src/settings/application/resources";
+import type { SettingsResources } from "../../../src/settings/application/resources";
 import { SettingsResourcesController } from "../../../src/settings/application/resources-controller";
 import type { ObservedResult, ObservedResultListener } from "../../../src/shared/async/observed-result";
 import { deferred } from "../../support/async";
@@ -302,7 +302,7 @@ function controllerFixture() {
 
 function resourceFixture() {
   const models = observedResults<readonly ModelMetadata[]>();
-  const hooks = observedResults<SettingsHookCatalog>();
+  const hooks = observedResults<HookCatalog>();
   const archived = observedResults<readonly Thread[]>();
   const resources = {
     queries: {
@@ -351,7 +351,7 @@ function observedResults<T>() {
   };
 }
 
-function hookCatalog(...hooks: HookItem[]): SettingsHookCatalog {
+function hookCatalog(...hooks: HookItem[]): HookCatalog {
   return { hooks, warnings: [], errors: [] };
 }
 

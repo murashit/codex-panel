@@ -2,6 +2,11 @@ import { isObjectValue } from "../../../domain/objects/object-value";
 
 export type ParsedChatPanelViewState = { kind: "empty" } | { kind: "thread"; threadId: string; fallbackTitle: string | null };
 
+export function chatPanelViewState(threadId?: string | null, threadTitle?: string | null): Record<string, unknown> {
+  if (!threadId) return { version: 1 };
+  return { version: 1, threadId, ...(threadTitle ? { threadTitle } : {}) };
+}
+
 export function parseChatPanelViewState(state: unknown): ParsedChatPanelViewState {
   if (!isObjectValue(state)) return { kind: "empty" };
   const record = state;

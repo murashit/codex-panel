@@ -8,7 +8,7 @@ import type {
   WorkspacePanels,
 } from "../features/chat/host/contracts";
 import { CodexChatView } from "../features/chat/host/view.obsidian";
-import { parseChatPanelViewState } from "../features/chat/host/view-state";
+import { chatPanelViewState, parseChatPanelViewState } from "../features/chat/host/view-state";
 
 type ForkDraftPreparation = Parameters<WorkspacePanels["openForkDraft"]>[0];
 type ForkDisplaySnapshot = Parameters<WorkspacePanels["openThreadInNewView"]>[1];
@@ -57,22 +57,17 @@ export class WorkspacePanelCoordinator {
     const workspace = this.options.workspaceSignal();
     const isCurrent = () => !signal.aborted && !workspace.aborted;
     return {
-      openThreadInNewView: (id, snapshot) =>
-        this.openThread(isCurrent, id, () => this.findOpenThreadPanelLeaf(id) ?? this.findRestoredThreadPanelLeaf(id), snapshot),
-      openThreadInAvailableView: (id) => this.openThread(isCurrent, id, () => this.findThreadPanelLeaf(id)),
+      openThreadInNewView: (id, snapshot) => this.openThread(isCurrent, id, () => this.findExistingThreadPanelLeaf(id), snapshot),
+      openThreadInAvailableView: (id) =>
+        this.openThread(isCurrent, id, () => this.findExistingThreadPanelLeaf(id) ?? this.findIdleEmptyThreadPanelLeaf()),
       openThreadInCurrentView: (id) =>
-        this.openThread(
-          isCurrent,
-          id,
-          () => this.findOpenThreadPanelLeaf(id) ?? this.findRestoredThreadPanelLeaf(id) ?? this.findCurrentThreadPanelLeaf(),
-        ),
+        this.openThread(isCurrent, id, () => this.findExistingThreadPanelLeaf(id) ?? this.findCurrentThreadPanelLeaf()),
       openThreadFromPanel: (id, origin, switchable) =>
         this.openThread(
           isCurrent,
           id,
           () =>
-            this.findOpenThreadPanelLeaf(id) ??
-            this.findRestoredThreadPanelLeaf(id) ??
+            this.findExistingThreadPanelLeaf(id) ??
             (switchable ? this.findPanelLeafByViewId(origin) : null) ??
             this.findIdleEmptyThreadPanelLeaf(),
         ),
@@ -163,7 +158,7 @@ export class WorkspacePanelCoordinator {
     return this.materializePanel(
       isCurrent,
       leaf,
-      () => leaf.setViewState({ type: VIEW_TYPE_CODEX_PANEL, active: false, state: { version: 1 } }),
+      () => leaf.setViewState({ type: VIEW_TYPE_CODEX_PANEL, active: false, state: chatPanelViewState() }),
       operation,
     );
   }
@@ -220,7 +215,7 @@ export class WorkspacePanelCoordinator {
     return this.runThreadPanelOperation(isCurrent, threadId, async () => {
       const origin = this.findPanelLeafByViewId(originViewId);
       if (!origin || !isCurrent()) return false;
-      const target = this.findOpenThreadPanelLeaf(threadId) ?? this.findRestoredThreadPanelLeaf(threadId) ?? origin;
+      const target = this.findExistingThreadPanelLeaf(threadId) ?? origin;
       if (!(await this.openThreadAtLeaf(isCurrent, target, threadId))) return false;
       if (!isCurrent() || !isAttachedChatView(target.view) || target.view.surface.openPanelSnapshot().threadId !== threadId) return false;
       if (target !== origin) {
@@ -260,7 +255,7 @@ export class WorkspacePanelCoordinator {
       }
       if (restoredThreadId(leaf) !== threadId) continue;
       const viewState = leaf.getViewState();
-      void leaf.setViewState({ ...viewState, state: { version: 1 } }).catch(ignoreWorkspacePanelLoadError);
+      void leaf.setViewState({ ...viewState, state: chatPanelViewState() }).catch(ignoreWorkspacePanelLoadError);
     }
   }
 
@@ -319,12 +314,8 @@ export class WorkspacePanelCoordinator {
     return workspace.createLeafInParent(existing.parent, Number.MAX_SAFE_INTEGER);
   }
 
-  private findThreadPanelLeaf(threadId: string): WorkspaceLeaf | null {
-    return this.findOpenThreadPanelLeaf(threadId) ?? this.findRestoredThreadPanelLeaf(threadId) ?? this.findIdleEmptyThreadPanelLeaf();
-  }
-
-  private findOpenThreadPanelLeaf(threadId: string): WorkspaceLeaf | null {
-    return this.findAttachedPanelLeaf((snapshot) => snapshot.threadId === threadId);
+  private findExistingThreadPanelLeaf(threadId: string): WorkspaceLeaf | null {
+    return this.findAttachedPanelLeaf((snapshot) => snapshot.threadId === threadId) ?? this.findRestoredThreadPanelLeaf(threadId);
   }
 
   private findRestoredThreadPanelLeaf(threadId: string): WorkspaceLeaf | null {
@@ -456,7 +447,7 @@ export class WorkspacePanelCoordinator {
     const pending = this.pendingRestoredRepairs;
     if (pending.has(leaf)) return;
     const viewState = leaf.getViewState();
-    const writing = leaf.setViewState({ ...viewState, state: { version: 1 } });
+    const writing = leaf.setViewState({ ...viewState, state: chatPanelViewState() });
     // Suppress concurrent writes only; a failed write may be retried by a later event.
     pending.add(leaf);
     void writing.then(

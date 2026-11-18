@@ -131,17 +131,23 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
   }
 
   settingTabHost(): SettingsTabHost {
+    const workspace = this.workspaceLifetime.signal();
     return {
       settings: this.options.settingsRef.settings,
       resources: this.currentExecutionRuntime().settingsResources,
-      publishSettings: (settings) => this.publishSettings(settings),
+      publishSettings: (settings) => this.publishSettings(settings, workspace),
     };
   }
 
-  private async publishSettings(settings: CodexPanelSettings): Promise<{ replacementResources: SettingsResources | null }> {
+  private async publishSettings(
+    settings: CodexPanelSettings,
+    workspace: AbortSignal,
+  ): Promise<{ replacementResources: SettingsResources | null }> {
+    if (!this.workspaceLifetime.isCurrent(workspace)) throw new Error("Workspace runtime reset before saving settings.");
     const previousSettings = { ...this.options.settingsRef.settings };
     const previousRuntime = this.execution;
     await this.options.saveSettings(settings);
+    if (!this.workspaceLifetime.isCurrent(workspace)) throw new Error("Workspace runtime reset while saving settings.");
     const codexPathChanged = previousSettings.codexPath !== settings.codexPath;
     let replacementResources: SettingsResources | null = null;
     if (codexPathChanged) {

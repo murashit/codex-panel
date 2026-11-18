@@ -1,9 +1,9 @@
-import type { HookItem, ModelMetadata, ReasoningEffort } from "../../domain/runtime/catalog";
+import type { HookCatalog, HookItem, ModelMetadata, ReasoningEffort } from "../../domain/runtime/catalog";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../../domain/runtime/catalog";
 import type { Thread } from "../../domain/threads/model";
 import type { ObservedResult } from "../../shared/async/observed-result";
 import { OwnerLifetime } from "../../shared/async/owner-lifetime";
-import type { SettingsHookCatalog, SettingsResources } from "./resources";
+import type { SettingsResources } from "./resources";
 
 interface SettingsResourcesControllerCallbacks {
   display(): void;
@@ -15,7 +15,7 @@ type SettingsResourceLifecycleState = { kind: "idle" } | { kind: "loading" } | {
 interface SettingsResourcesSnapshot {
   archivedThreads: readonly Thread[] | null;
   archivedThreadsLifecycle: SettingsResourceLifecycleState;
-  hookCatalog: SettingsHookCatalog | null;
+  hookCatalog: HookCatalog | null;
   hooksLifecycle: SettingsResourceLifecycleState;
   modelsLifecycle: SettingsResourceLifecycleState;
 }
@@ -26,7 +26,7 @@ export class SettingsResourcesController {
 
   private archivedThreadsResult = emptyObservedResult<readonly Thread[]>();
   private archivedThreadsOperation = false;
-  private hooksResult = emptyObservedResult<SettingsHookCatalog>();
+  private hooksResult = emptyObservedResult<HookCatalog>();
   private hooksOperation = false;
   private modelsResult = emptyObservedResult<readonly ModelMetadata[]>();
   private unsubscribeModels: (() => void) | null = null;
@@ -81,7 +81,6 @@ export class SettingsResourcesController {
 
   maybeAutoLoad(): void {
     if (this.autoLoadStarted) return;
-    this.autoLoadStarted = true;
     void this.refresh({ forceModels: false });
   }
 
@@ -97,7 +96,7 @@ export class SettingsResourcesController {
     this.autoLoadStarted = true;
     let failureNotified = false;
     const notifyFailure = (): void => {
-      if (failureNotified || !this.lifetime.isCurrent(lifetime)) return;
+      if (failureNotified) return;
       failureNotified = true;
       this.callbacks.notify("Could not refresh all Codex details.");
     };
@@ -127,10 +126,10 @@ export class SettingsResourcesController {
   snapshot(): SettingsResourcesSnapshot {
     return {
       archivedThreads: this.archivedThreadsResult.value,
-      archivedThreadsLifecycle: { ...this.archivedThreadsLifecycle() },
+      archivedThreadsLifecycle: this.archivedThreadsLifecycle(),
       hookCatalog: this.hooksResult.value,
-      hooksLifecycle: { ...this.hooksLifecycle() },
-      modelsLifecycle: { ...this.modelsLifecycle() },
+      hooksLifecycle: this.hooksLifecycle(),
+      modelsLifecycle: this.modelsLifecycle(),
     };
   }
 
