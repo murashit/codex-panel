@@ -11,7 +11,7 @@ Use [Design](../../../docs/design.md), the [review and test criteria](../../../d
 
 Inventory authored product and test surfaces separately from generated code and artifacts. Trace principal flows through lifecycle, app-server adaptation, UI, persistence, build/generation, and policy tests. Keep a concise ledger of reviewed flows, consequential failure/refresh paths, and gaps. Assess tests and fixtures as design subjects as well as evidence.
 
-Run and interpret the [duplication report](../../../docs/development.md#investigate-duplication). Establish each candidate's concrete benefit and strongest keep-current case before developing a replacement.
+Run `npm run review:duplication:all` and interpret the [duplication report](../../../docs/development.md#investigate-duplication). Establish each candidate's concrete benefit and strongest keep-current case before developing a replacement.
 
 ## Evaluate and report
 

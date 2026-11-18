@@ -36,7 +36,9 @@
     "test:coverage": "vitest run --coverage",
     "test:mutation": "stryker run",
     "typecheck": "tsc -p tsconfig.json --noEmit --incremental --tsBuildInfoFile node_modules/.cache/typescript/tsconfig.tsbuildinfo",
-    "review:duplication": "jscpd src tests --ignore \"**/src/generated/**,src/generated/**\" --reporters console,json --output reports/duplication"
+    "review:duplication": "node scripts/review/change.mjs duplication",
+    "review:duplication:all": "jscpd src tests --ignore \"**/src/generated/**,src/generated/**\" --reporters console,json --output reports/duplication",
+    "review:mutation": "node scripts/review/change.mjs mutation"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.5",
