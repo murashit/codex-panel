@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { parseVersion } from "../version.mjs";
 
 function run(command, args, input) {
   const result = spawnSync(command, args, { encoding: "utf8", shell: false, input });
@@ -14,7 +15,7 @@ const tag = process.env.TAG?.trim();
 const sha = process.env.CHECKED_SHA;
 const assetDir = process.env.ASSET_DIR;
 const repository = process.env.GITHUB_REPOSITORY;
-if (!/^\d+\.\d+\.\d+$/.test(tag)) throw new Error("Expected an explicit X.Y.Z tag");
+if (!parseVersion(tag)) throw new Error("Expected an explicit X.Y.Z tag");
 if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error("Missing checked commit SHA");
 const api = (endpoint) => JSON.parse(run("gh", ["api", `repos/${repository}/${endpoint}`]));
 const verifyTag = () => {

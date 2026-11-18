@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseVersion } from "../version.mjs";
 
 const compatibilityRelativePath = "src/app-server/compatibility.json";
-const exactSemverPattern = /^\d+\.\d+\.\d+$/;
 
 if (isMain()) {
   const args = process.argv.slice(2);
@@ -27,7 +27,7 @@ export async function readAppServerGenerationPolicy(cwd) {
   const testedCliVersion = compatibility.codexAppServer?.testedCliVersion;
   const generationArguments = compatibility.codexAppServer?.typeGeneration?.arguments;
 
-  if (typeof testedCliVersion !== "string" || !exactSemverPattern.test(testedCliVersion)) {
+  if (!parseVersion(testedCliVersion)) {
     throw new Error(`${compatibilityRelativePath} must declare codexAppServer.testedCliVersion as X.Y.Z.`);
   }
   if (!isStringArray(generationArguments) || generationArguments.length === 0) {

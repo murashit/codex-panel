@@ -80,6 +80,7 @@ jobs:
             package.json \
             package-lock.json \
             scripts/app-server \
+            scripts/version.mjs \
             src/app-server/compatibility.json \
             src/generated/app-server; then
             echo "bindings=true" >> "$GITHUB_OUTPUT"

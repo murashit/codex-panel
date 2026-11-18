@@ -1,33 +1,21 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { compareVersions, parseVersion } from "../version.mjs";
 import { readAppServerGenerationPolicy } from "./compatibility.mjs";
-
-const versionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
-const parse = (version) => {
-  const match = versionPattern.exec(version);
-  return match?.slice(1).map(BigInt);
-};
-const compare = (a, b) => {
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) return a[i] > b[i] ? 1 : -1;
-  }
-  return 0;
-};
 
 const [command, argument] = process.argv.slice(2);
 const { testedCliVersion } = await readAppServerGenerationPolicy(process.cwd());
 if (command === "select" && argument) {
   const pages = JSON.parse(await readFile(argument, "utf8"));
-  const current = parse(testedCliVersion);
-  const versions = pages
-    .flat()
-    .filter((release) => !release.isDraft && !release.isPrerelease)
-    .map((release) => /^rust-v(.+)$/.exec(release.tagName)?.[1])
-    .filter((version) => version && parse(version));
-  versions.sort((a, b) => compare(parse(b), parse(a)));
-  const latest = versions[0];
+  const current = parseVersion(testedCliVersion);
+  let latest = null;
+  for (const release of pages.flat()) {
+    if (release.isDraft || release.isPrerelease) continue;
+    const version = parseVersion(/^rust-v(.+)$/.exec(release.tagName)?.[1]);
+    if (version && (!latest || compareVersions(version, latest) > 0)) latest = version;
+  }
   if (!latest) throw new Error("No stable Codex CLI release found");
-  if (compare(parse(latest).slice(0, 2), current.slice(0, 2)) > 0) console.log(latest);
-} else if (command === "update" && argument && parse(argument)) {
+  if (compareVersions(latest.slice(0, 2), current.slice(0, 2)) > 0) console.log(latest.join("."));
+} else if (command === "update" && argument && parseVersion(argument)) {
   const file = "src/app-server/compatibility.json";
   const compatibility = await readFile(file, "utf8");
   const readme = await readFile("README.md", "utf8");

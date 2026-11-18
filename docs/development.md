@@ -66,7 +66,7 @@ Select additional checks by the affected contract, including changes to declarat
 | Biome configuration or version, Grit matchers, policy scenarios or their runner, Node.js version used by those tools | `npm run test:policies` checks the policy configuration against fixed examples. |
 | API baselines or generated bindings | Follow the [compatibility procedures](#update-api-compatibility) for the affected integration. |
 
-The [Check workflow](../.github/workflows/check.yml) runs the ordinary checks, both metadata checks, and policy scenarios on every change. Biome within `check` applies the policies to project source. CI verifies generated bindings on main, on recovery runs, and on PRs that change generation inputs (the workflow, Node version, manifests, app-server scripts, compatibility metadata, or bindings). Use the [CI reproduction instructions](automation.md#diagnose-a-ci-failure) when investigating a CI-specific failure.
+The [Check workflow](../.github/workflows/check.yml) runs the ordinary checks, both metadata checks, and policy scenarios on every change. Biome within `check` applies the policies to project source. CI verifies generated bindings on main, on recovery runs, and on PRs that change generation inputs (the workflow, Node version, manifests, app-server scripts, the shared version parser, compatibility metadata, or bindings). Use the [CI reproduction instructions](automation.md#diagnose-a-ci-failure) when investigating a CI-specific failure.
 
 ### Validate in Obsidian
 
