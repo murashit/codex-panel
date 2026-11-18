@@ -1,6 +1,7 @@
+import { backtickDelimiter } from "../../../../domain/text/markdown";
+
 export function markdownCodeSpan(text: string): string {
-  if (!text.includes("`")) return `\`${text}\``;
-  const longestRun = Math.max(...Array.from(text.matchAll(/`+/g), (match) => match[0].length));
-  const delimiter = "`".repeat(longestRun + 1);
+  const delimiter = backtickDelimiter(text, 1);
+  if (delimiter.length === 1) return `\`${text}\``;
   return `${delimiter} ${text} ${delimiter}`;
 }
