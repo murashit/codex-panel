@@ -77,11 +77,11 @@ function PendingRequestBlock({
     <div ref={requestRef} className={createStatusStreamItemClassName("codex-panel__pending-request-block", "warning")}>
       <div className="codex-panel__stream-item-role">Codex request</div>
       {approvals.map((approval) => (
-        <ApprovalCard key={String(approval.requestId)} approval={approval} approvalDetails={approvalDetails} actions={actions} />
+        <ApprovalCard key={JSON.stringify(approval.requestId)} approval={approval} approvalDetails={approvalDetails} actions={actions} />
       ))}
       {pendingUserInputs.map((input) => (
         <UserInputCard
-          key={String(input.requestId)}
+          key={JSON.stringify(input.requestId)}
           input={input}
           userInputDrafts={userInputDrafts}
           actions={actions}
@@ -90,7 +90,7 @@ function PendingRequestBlock({
       ))}
       {pendingMcpElicitations.map((elicitation) => (
         <McpElicitationCard
-          key={String(elicitation.requestId)}
+          key={JSON.stringify(elicitation.requestId)}
           elicitation={elicitation}
           actions={actions}
           controlNamespace={controlNamespace}

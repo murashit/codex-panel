@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createChatState } from "../../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../../src/features/chat/application/state/store";
 import { localUserDialogueItemFromInput } from "../../../../../../src/features/chat/application/submission/local-user-dialogue";
-import { userInputDraftKey } from "../../../../../../src/features/chat/domain/pending-requests/drafts";
+import { userInputDraftKey, userInputOtherDraftKey } from "../../../../../../src/features/chat/domain/pending-requests/drafts";
 import type {
   PendingApproval,
   PendingMcpElicitation,
@@ -311,7 +311,7 @@ describe("panel pending request rendering", () => {
       expectPresent(radios.at(1)).click();
     });
 
-    expect(drafts().get("99:scope")).toBe("");
+    expect(drafts().get(userInputDraftKey(99, "scope"))).toBe("");
 
     render();
     const rerenderedRadios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
@@ -322,8 +322,8 @@ describe("panel pending request rendering", () => {
       changeInputValue(expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")), "Custom scope");
     });
 
-    expect(drafts().get("99:scope:other")).toBe("Custom scope");
-    expect(drafts().get("99:scope")).toBe("Custom scope");
+    expect(drafts().get(userInputOtherDraftKey(99, "scope"))).toBe("Custom scope");
+    expect(drafts().get(userInputDraftKey(99, "scope"))).toBe("Custom scope");
     render();
     expect([...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")].map((radio) => radio.checked)).toEqual([
       false,
@@ -350,8 +350,8 @@ describe("panel pending request rendering", () => {
       });
       render();
       expect(otherInput.value).toBe("にほん");
-      expect(drafts().get("99:scope:other")).toBeUndefined();
-      expect(drafts().get("99:scope")).toBe("");
+      expect(drafts().get(userInputOtherDraftKey(99, "scope"))).toBeUndefined();
+      expect(drafts().get(userInputDraftKey(99, "scope"))).toBe("");
       expect(parent.querySelector<HTMLInputElement>('.codex-panel__user-input-radio[value="__other__"]')?.checked).toBe(true);
 
       actEvent(() => {
@@ -360,8 +360,8 @@ describe("panel pending request rendering", () => {
       });
       render();
       expect(otherInput.value).toBe("日本");
-      expect(drafts().get("99:scope:other")).toBe("日本");
-      expect(drafts().get("99:scope")).toBe("日本");
+      expect(drafts().get(userInputOtherDraftKey(99, "scope"))).toBe("日本");
+      expect(drafts().get(userInputDraftKey(99, "scope"))).toBe("日本");
 
       actEvent(() => {
         otherInput.value = "日本!";
@@ -369,8 +369,8 @@ describe("panel pending request rendering", () => {
       });
       render();
       expect(otherInput.value).toBe("日本!");
-      expect(drafts().get("99:scope:other")).toBe("日本!");
-      expect(drafts().get("99:scope")).toBe("日本!");
+      expect(drafts().get(userInputOtherDraftKey(99, "scope"))).toBe("日本!");
+      expect(drafts().get(userInputDraftKey(99, "scope"))).toBe("日本!");
     } finally {
       unmountUiRootInAct(parent);
       parent.remove();
@@ -428,7 +428,7 @@ describe("panel pending request rendering", () => {
       expect(document.activeElement).toBe(inputElement);
       expect(inputElement?.type).toBe(type);
       changeInputValue(expectPresent(inputElement), "Answer");
-      expect(setUserInputDraft).toHaveBeenCalledWith(input.requestId, "99:scope", "Answer");
+      expect(setUserInputDraft).toHaveBeenCalledWith(input.requestId, userInputDraftKey(99, "scope"), "Answer");
     } finally {
       unmountUiRootInAct(parent);
       parent.remove();

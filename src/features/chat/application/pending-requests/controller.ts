@@ -109,7 +109,7 @@ export class PendingRequests {
     this.host.stateStore.dispatch({
       type: "request/resolved",
       requestId,
-      resultItem: createUserInputResultItem(input, answers, "submitted"),
+      resultItem: createUserInputResultItem(input, answers, "submitted", this.host.localItemIds.next("user-input")),
     });
     return true;
   }
@@ -122,7 +122,11 @@ export class PendingRequests {
       return true;
     }
     this.clearUserInputTimer(requestId);
-    this.host.stateStore.dispatch({ type: "request/resolved", requestId, resultItem: createUserInputResultItem(input, {}, "cancelled") });
+    this.host.stateStore.dispatch({
+      type: "request/resolved",
+      requestId,
+      resultItem: createUserInputResultItem(input, {}, "cancelled", this.host.localItemIds.next("user-input")),
+    });
     return true;
   }
 
@@ -163,7 +167,7 @@ export class PendingRequests {
     this.host.stateStore.dispatch({
       type: "request/resolved",
       requestId,
-      resultItem: createMcpElicitationResultItem(elicitation, action, content),
+      resultItem: createMcpElicitationResultItem(elicitation, action, content, this.host.localItemIds.next("mcp-elicitation")),
     });
     return true;
   }

@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
+import { approvalDetailsDisclosureId } from "../../../../../src/features/chat/domain/pending-requests/disclosure-ids";
+import { userInputDraftKey, userInputOtherDraftKey } from "../../../../../src/features/chat/domain/pending-requests/drafts";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { commandApprovalRequestFixture, mcpFormRequestFixture, userInputRequestFixture } from "../../../../support/server-requests";
 import { threadActivationFixture } from "../../../../support/thread-activation";
@@ -12,17 +14,32 @@ describe("pending request actions", () => {
     const question = (id: string) => ({ id, header: "Answer", question: "What now?", isOther: false, isSecret: false, options: null });
     const secondQuestionId = sharedQuestionId ? "first" : "second";
     const first = receive(userInputRequestFixture(1, { isBlocking: true, questions: [question("first")] }));
-    const second = receive(userInputRequestFixture(2, { isBlocking: true, questions: [question(secondQuestionId)] }));
-    pendingRequests.actions.setUserInputDraft(1, "1:first", "first answer");
-    pendingRequests.actions.setUserInputDraft(2, `2:${secondQuestionId}`, "second answer");
+    const second = receive(userInputRequestFixture("1", { isBlocking: true, questions: [question(secondQuestionId)] }));
+    pendingRequests.actions.setUserInputDraft(1, userInputDraftKey(1, "first"), "first answer");
+    pendingRequests.actions.setUserInputDraft("1", userInputDraftKey("1", secondQuestionId), "second answer");
 
-    pendingRequests.actions.resolveUserInput(2);
+    pendingRequests.actions.resolveUserInput("1");
 
     expect(second.respond).toHaveBeenCalledExactlyOnceWith({ answers: { [secondQuestionId]: { answers: ["second answer"] } } });
     expect(first.respond).not.toHaveBeenCalled();
     expect(stateStore.getState().requests.pendingUserInputs.map((input) => input.requestId)).toEqual([1]);
-    expect(stateStore.getState().requests.userInputDrafts.get("1:first")).toBe("first answer");
+    expect(stateStore.getState().requests.userInputDrafts.get(userInputDraftKey(1, "first"))).toBe("first answer");
     handler.clearServerRequests("close");
+  });
+
+  it("keeps a colon in a question ID separate from another question's free-text field", () => {
+    const { receive, pendingRequests } = pendingRequestFixture();
+    const request = inputRequest();
+    const base = request.params.questions[0];
+    if (!base) throw new Error("Missing question");
+    request.params.questions.push({ ...base, id: "direction:other" });
+    const response = receive(request);
+    pendingRequests.actions.setUserInputDraft(7, userInputDraftKey(7, "direction:other"), "Independent");
+    pendingRequests.actions.setUserInputDraft(7, userInputOtherDraftKey(7, "direction"), "Custom");
+    pendingRequests.actions.resolveUserInput(7);
+    expect(response.respond).toHaveBeenCalledWith({
+      answers: expect.objectContaining({ "direction:other": { answers: ["Independent"] } }),
+    });
   });
 
   it.each(["disconnect", "close"] as const)(
@@ -67,9 +84,9 @@ describe("pending request actions", () => {
       options: null,
     });
     const response = receive(request);
-    pendingRequests.actions.setUserInputDraft(7, "7:direction", "Left");
-    pendingRequests.actions.setUserInputDraft(7, "7:direction", "Right");
-    pendingRequests.actions.setUserInputDraft(7, "7:secret", "sensitive-answer");
+    pendingRequests.actions.setUserInputDraft(7, userInputDraftKey(7, "direction"), "Left");
+    pendingRequests.actions.setUserInputDraft(7, userInputDraftKey(7, "direction"), "Right");
+    pendingRequests.actions.setUserInputDraft(7, userInputDraftKey(7, "secret"), "sensitive-answer");
 
     pendingRequests.actions.resolveUserInput(7);
 
@@ -95,15 +112,15 @@ describe("pending request actions", () => {
     response.respond.mockImplementationOnce(() => {
       throw new Error("transport unavailable");
     });
-    pendingRequests.actions.setUserInputDraft(7, "7:direction", "Left");
+    pendingRequests.actions.setUserInputDraft(7, userInputDraftKey(7, "direction"), "Left");
     pendingRequests.actions.resolveUserInput(7);
 
     expect(stateStore.getState().requests.pendingUserInputs).toHaveLength(1);
-    expect(stateStore.getState().requests.userInputDrafts.get("7:direction")).toBe("Left");
+    expect(stateStore.getState().requests.userInputDrafts.get(userInputDraftKey(7, "direction"))).toBe("Left");
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
       expect.objectContaining({ kind: "system", text: "Could not send user input because Codex app-server is not connected." }),
     ]);
-    pendingRequests.actions.setUserInputDraft(7, "7:direction", "Right");
+    pendingRequests.actions.setUserInputDraft(7, userInputDraftKey(7, "direction"), "Right");
     pendingRequests.actions.resolveUserInput(7);
 
     expect(response.respond).toHaveBeenLastCalledWith({ answers: { direction: { answers: ["Right"] } } });
@@ -157,8 +174,8 @@ describe("pending request actions", () => {
     expect(results).toHaveLength(2);
     expect(new Set(results.map((item) => item.id)).size).toBe(2);
     expect(results.map((item) => item.provenance)).toEqual([
-      expect.objectContaining({ source: "localUser", sourceId: "51" }),
-      expect.objectContaining({ source: "localUser", sourceId: "51" }),
+      expect.objectContaining({ source: "localUser", sourceId: 51 }),
+      expect.objectContaining({ source: "localUser", sourceId: 51 }),
     ]);
   });
 
@@ -228,7 +245,7 @@ describe("pending request actions", () => {
   it("cancels user input without publishing an answer", () => {
     const { stateStore, receive, pendingRequests, focusComposer } = pendingRequestFixture();
     const response = receive(inputRequest());
-    pendingRequests.actions.setUserInputDraft(7, "7:direction", "Left");
+    pendingRequests.actions.setUserInputDraft(7, userInputDraftKey(7, "direction"), "Left");
     pendingRequests.actions.cancelUserInput(7);
 
     expect(response.reject).toHaveBeenCalledExactlyOnceWith(-32000, "User cancelled input request.");
@@ -350,9 +367,9 @@ describe("pending request actions", () => {
   it("keeps approval disclosure state in the host", () => {
     const { stateStore, pendingRequests } = pendingRequestFixture();
     pendingRequests.actions.setApprovalDetailsExpanded?.(1, true);
-    expect(stateStore.getState().ui.disclosures.approvalDetails.has("1:details")).toBe(true);
+    expect(stateStore.getState().ui.disclosures.approvalDetails.has(approvalDetailsDisclosureId(1))).toBe(true);
     pendingRequests.actions.setApprovalDetailsExpanded?.(1, false);
-    expect(stateStore.getState().ui.disclosures.approvalDetails.has("1:details")).toBe(false);
+    expect(stateStore.getState().ui.disclosures.approvalDetails.has(approvalDetailsDisclosureId(1))).toBe(false);
   });
 
   it("consumes each focus signature once and resets after the queue clears", () => {
@@ -397,12 +414,12 @@ describe("pending request actions", () => {
       const { stateStore, receive, pendingRequests } = pendingRequestFixture();
       const response = receive(inputRequest(false));
       vi.advanceTimersByTime(100_000);
-      pendingRequests.actions.setUserInputDraft(7, "7:direction", "Left");
+      pendingRequests.actions.setUserInputDraft(7, userInputDraftKey(7, "direction"), "Left");
       expect(stateStore.getState().requests.pendingUserInputs[0]?.autoResolutionAtMs).toBe(221_000);
       vi.advanceTimersByTime(119_999);
       expect(response.respond).not.toHaveBeenCalled();
       if (action === "submit") {
-        pendingRequests.actions.setUserInputDraft(7, "7:direction", "Right");
+        pendingRequests.actions.setUserInputDraft(7, userInputDraftKey(7, "direction"), "Right");
         pendingRequests.actions.resolveUserInput(7);
       } else {
         vi.advanceTimersByTime(1);

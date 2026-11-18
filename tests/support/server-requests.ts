@@ -2,7 +2,7 @@ import type { ServerRequest } from "../../src/app-server/connection/rpc-messages
 
 type UserInputRequest = Extract<ServerRequest, { method: "item/tool/requestUserInput" }>;
 export function userInputRequestFixture(
-  id: number,
+  id: UserInputRequest["id"],
   params: Pick<UserInputRequest["params"], "isBlocking"> & Partial<UserInputRequest["params"]>,
 ): UserInputRequest {
   return {

@@ -19,6 +19,7 @@ import { chatThreadStreamViewState } from "../../../../../src/features/chat/appl
 import { localUserDialogueItemFromInput } from "../../../../../src/features/chat/application/submission/local-user-dialogue";
 import { captureForkDisplaySnapshot } from "../../../../../src/features/chat/application/threads/fork-display-snapshot";
 import { panelThreadSubscriptions } from "../../../../../src/features/chat/application/threads/thread-subscriptions";
+import { userInputDraftKey } from "../../../../../src/features/chat/domain/pending-requests/drafts";
 import { projectThreadStream, selectChatPanelThreadStream } from "../../../../../src/features/chat/host/thread-stream/view-projection";
 import {
   appServerAgentMessageFixture,
@@ -704,7 +705,7 @@ describe("ChatInboundHandler", () => {
       expect(handler.currentState().requests.approvals).toEqual([]);
       expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
         kind: "approvalResult",
-        provenance: { source: "localUser", channel: "response", sourceId: "12" },
+        provenance: { source: "localUser", channel: "response", sourceId: 12 },
         role: "tool",
         text: "Allowed for this session: Need access",
         turnId: "turn",
@@ -1190,7 +1191,7 @@ describe("ChatInboundHandler", () => {
       });
       state = chatStateWith(state, {
         requests: {
-          userInputDrafts: new Map([["51:note", "draft"]]),
+          userInputDrafts: new Map([[userInputDraftKey(51, "note"), "draft"]]),
         },
       });
       const handler = handlerForState(state);

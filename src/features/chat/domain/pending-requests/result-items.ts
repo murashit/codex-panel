@@ -30,7 +30,7 @@ export function createApprovalResultItem(approval: PendingApproval, action: Appr
     role: "tool",
     text: `${prefix}: ${approval.resultSummary}`,
     ...definedProp("turnId", approval.turnId),
-    provenance: { source: "localUser", channel: "response", interaction: "approvalResponse", sourceId: String(approval.requestId) },
+    provenance: { source: "localUser", channel: "response", interaction: "approvalResponse", sourceId: approval.requestId },
     executionState: kind === "accept" || kind === "accept-session" || kind === "accept-rule" ? "completed" : "failed",
     approval: {
       status,
@@ -45,6 +45,7 @@ export function createUserInputResultItem(
   input: PendingUserInput,
   answers: Record<string, string>,
   status: "submitted" | "cancelled",
+  id: string,
 ): ThreadStreamItem {
   const questionCount = input.params.questions.length;
   const label = questionCount === 1 ? "1 question" : `${String(questionCount)} questions`;
@@ -55,12 +56,12 @@ export function createUserInputResultItem(
     ...(status === "submitted" && !question.isSecret ? { answer: answers[question.id] ?? "" } : {}),
   }));
   return {
-    id: `user-input-${status}-${String(input.requestId)}`,
+    id,
     kind: "userInputResult",
     role: "tool",
     text: status === "submitted" ? `Input submitted for ${label}.` : `Input request cancelled for ${label}.`,
     ...definedProp("turnId", input.params.turnId),
-    provenance: { source: "localUser", channel: "response", interaction: "userInputResponse", sourceId: String(input.requestId) },
+    provenance: { source: "localUser", channel: "response", interaction: "userInputResponse", sourceId: input.requestId },
     executionState: status === "submitted" ? "completed" : "failed",
     questions,
   };
@@ -70,15 +71,21 @@ export function createMcpElicitationResultItem(
   elicitation: PendingMcpElicitation,
   action: McpElicitationAction,
   content: Record<string, McpElicitationContentValue> | null,
+  id: string,
 ): ThreadStreamItem {
   const accepted = action === "accept";
   return {
-    id: `mcp-elicitation-${action}-${String(elicitation.requestId)}`,
+    id,
     kind: "userInputResult",
     role: "tool",
     text: mcpElicitationResultText(elicitation, action),
     ...definedProp("turnId", elicitation.params.turnId ?? undefined),
-    provenance: { source: "localUser", channel: "response", interaction: "userInputResponse", sourceId: String(elicitation.requestId) },
+    provenance: {
+      source: "localUser",
+      channel: "response",
+      interaction: "userInputResponse",
+      sourceId: elicitation.requestId,
+    },
     executionState: accepted ? "completed" : "failed",
     questions: mcpElicitationResultQuestions(elicitation, accepted, accepted ? content : null),
   };

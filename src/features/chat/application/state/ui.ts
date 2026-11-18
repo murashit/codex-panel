@@ -1,5 +1,5 @@
 import type { ThreadRenameActiveState } from "../../../../domain/threads/title";
-import { pendingRequestDerivedKeyPrefix } from "../../domain/pending-requests/drafts";
+import { approvalDetailsDisclosureId } from "../../domain/pending-requests/disclosure-ids";
 import type { PendingRequestId } from "../../domain/pending-requests/model";
 import { patchObject } from "./patch";
 
@@ -100,15 +100,7 @@ export function clearAllRequestDisclosures(state: ChatUiState): ChatUiState {
 }
 
 export function clearResolvedRequestDisclosures(state: ChatUiState, requestId: PendingRequestId): ChatUiState {
-  const keyPrefix = pendingRequestDerivedKeyPrefix(requestId);
-  const approvalDetails = filterStringSet(state.disclosures.approvalDetails, (key) => !key.startsWith(keyPrefix));
-  if (approvalDetails === state.disclosures.approvalDetails) return state;
-  return patchObject(state, {
-    disclosures: {
-      ...state.disclosures,
-      approvalDetails,
-    },
-  });
+  return setDisclosureSlice(state, "approvalDetails", approvalDetailsDisclosureId(requestId), false);
 }
 
 function setPanelSlice(state: ChatUiState, panel: "history" | "chat-actions" | "status-panel" | null, toggle: boolean): ChatUiState {
@@ -164,14 +156,4 @@ function goalEditorDraftUpdated(state: ChatGoalEditorUiState, objective: string)
 function chatRenameUiState(threadId: string | null, state: ThreadRenameActiveState | undefined): ChatRenameUiState {
   if (threadId === null || state === undefined) return initialRenameUiState();
   return { ...state, threadId };
-}
-
-function filterStringSet(values: ReadonlySet<string>, keep: (value: string) => boolean): ReadonlySet<string> {
-  let next: Set<string> | null = null;
-  for (const value of values) {
-    if (keep(value)) continue;
-    next ??= new Set(values);
-    next.delete(value);
-  }
-  return next ?? values;
 }

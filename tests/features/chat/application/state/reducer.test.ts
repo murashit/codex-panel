@@ -7,6 +7,8 @@ import { createChatStateStore } from "../../../../../src/features/chat/applicati
 import { localUserDialogueItemFromInput } from "../../../../../src/features/chat/application/submission/local-user-dialogue";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { activeTurnId, chatTurnBusy } from "../../../../../src/features/chat/application/turns/turn-state";
+import { approvalDetailsDisclosureId } from "../../../../../src/features/chat/domain/pending-requests/disclosure-ids";
+import { userInputDraftKey, userInputOtherDraftKey } from "../../../../../src/features/chat/domain/pending-requests/drafts";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { panelThreadFixture } from "../../../../support/panel-thread";
@@ -558,9 +560,9 @@ describe("chatReducer", () => {
     state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn" } } });
     state = chatStateWith(state, { requests: { approvals: [approval(1)] } });
     state = chatStateWith(state, { requests: { pendingUserInputs: [userInput(2)] } });
-    state = chatStateWith(state, { requests: { userInputDrafts: new Map([["2:note", "draft"]]) } });
+    state = chatStateWith(state, { requests: { userInputDrafts: new Map([[userInputDraftKey(2, "note"), "draft"]]) } });
     state = withChatStateStableThreadStreamItems(state, [dialogueItem("kept")]);
-    state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
+    state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set([approvalDetailsDisclosureId(1)]) } } });
     state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["kept:details"]) } } });
     state = chatReducer(state, {
       type: "subagent-activity/tracked",
@@ -588,13 +590,13 @@ describe("chatReducer", () => {
     state = chatStateWith(state, {
       requests: {
         userInputDrafts: new Map([
-          ["2:note", "draft"],
-          ["2:note:other", "other draft"],
+          [userInputDraftKey(2, "note"), "draft"],
+          [userInputOtherDraftKey(2, "note"), "other draft"],
         ]),
       },
     });
     state = withChatStateStableThreadStreamItems(state, [dialogueItem("existing")]);
-    state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
+    state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set([approvalDetailsDisclosureId(1)]) } } });
     state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["existing:details"]) } } });
 
     const withoutResult = chatReducer(state, { type: "request/resolved", requestId: 1 });
@@ -661,7 +663,7 @@ describe("chatReducer", () => {
     });
     panelA.dispatch({ type: "composer/draft-set", draft: "panel A draft" });
     panelA.dispatch({ type: "request/user-input-queued", input: userInput(1) });
-    panelA.dispatch({ type: "request/user-input-draft-set", key: "1:note", value: "panel A answer" });
+    panelA.dispatch({ type: "request/user-input-draft-set", key: userInputDraftKey(1, "note"), value: "panel A answer" });
 
     panelB.dispatch({
       ...threadActivationFixture(thread("thread-b")),
@@ -669,7 +671,7 @@ describe("chatReducer", () => {
     });
     panelB.dispatch({ type: "composer/draft-set", draft: "panel B draft" });
     panelB.dispatch({ type: "request/user-input-queued", input: userInput(2) });
-    panelB.dispatch({ type: "request/user-input-draft-set", key: "2:note", value: "panel B answer" });
+    panelB.dispatch({ type: "request/user-input-draft-set", key: userInputDraftKey(2, "note"), value: "panel B answer" });
 
     panelA.dispatch({ type: "request/resolved", requestId: 1 });
     panelA.dispatch({ type: "active-thread/cleared" });
@@ -686,7 +688,7 @@ describe("chatReducer", () => {
       composer: { draft: "panel B draft" },
       requests: { pendingUserInputs: [expect.objectContaining({ requestId: 2 })] },
     });
-    expect(panelB.getState().requests.userInputDrafts.get("2:note")).toBe("panel B answer");
+    expect(panelB.getState().requests.userInputDrafts.get(userInputDraftKey(2, "note"))).toBe("panel B answer");
   });
 });
 
@@ -726,7 +728,7 @@ function threadScopedResidue(options: { threadId?: string; turnId?: string; draf
     requests: {
       approvals: [approval(1)],
       pendingUserInputs: [userInput(2)],
-      userInputDrafts: new Map([["2:note", "draft"]]),
+      userInputDrafts: new Map([[userInputDraftKey(2, "note"), "draft"]]),
     },
     composer: {
       draft: options.draft ?? "previous draft",
@@ -736,7 +738,7 @@ function threadScopedResidue(options: { threadId?: string; turnId?: string; draf
     },
     ui: {
       disclosures: {
-        approvalDetails: new Set(["1:details"]),
+        approvalDetails: new Set([approvalDetailsDisclosureId(1)]),
         textDetails: new Set(["previous:details"]),
       },
       threadStreamActionMenu: { forkMenuItemId: "previous" },
