@@ -163,6 +163,34 @@ describe("VaultNoteCandidateProvider", () => {
     expect(fileToLinktext).toHaveBeenCalledOnce();
   });
 
+  it("updates recent-file order after navigation without rereading the vault metadata", () => {
+    const recent = ["Alpha.md"];
+    const app = appFixture({
+      files: [
+        { basename: "Alpha", path: "Alpha.md", stat: { mtime: 1 } },
+        { basename: "Beta", path: "Beta.md", stat: { mtime: 2 } },
+      ],
+      lastOpenFiles: recent,
+    });
+    const resolveLink = vi.spyOn(app.metadataCache, "fileToLinktext");
+    const readMetadata = vi.spyOn(app.metadataCache, "getFileCache");
+    const provider = new VaultNoteCandidateProvider(app);
+    onTestFinished(() => provider.dispose());
+    expect(provider.candidates().map((note) => note.recentIndex)).toEqual([0, null]);
+    recent[0] = "Beta.md";
+    resolveLink.mockImplementation((file) => file.path);
+    app.triggerEvent("workspace", "file-open");
+    app.triggerEvent("workspace", "active-leaf-change");
+    expect(provider.candidates().map((note) => note.recentIndex)).toEqual([null, 0]);
+    expect(readMetadata).toHaveBeenCalledTimes(2);
+    expect(provider.candidates()[0]?.linktext).toBe("Alpha.md");
+    expect(resolveLink).toHaveBeenCalledTimes(4);
+    app.triggerEvent("metadata", "changed");
+    provider.candidates();
+    expect(readMetadata).toHaveBeenCalledTimes(4);
+    expect(resolveLink).toHaveBeenCalledTimes(6);
+  });
+
   it("returns normalized Obsidian tag candidates from file metadata", () => {
     const app = appFixture({
       files: [
@@ -207,7 +235,7 @@ describe("VaultNoteCandidateProvider", () => {
       { basename: "Alpha", path: "Alpha.md", stat: { mtime: 1 } },
       { basename: "Beta", path: "Beta.md", stat: { mtime: 2 } },
     ]);
-    app.triggerVaultEvent("create");
+    app.triggerEvent("vault", "create");
     expect(reopened.candidates().map((candidate) => candidate.path)).toEqual(["Alpha.md", "Beta.md"]);
   });
 
@@ -258,7 +286,7 @@ type AppFixtureEventSource = "vault" | "metadata" | "workspace";
 
 interface AppFixture extends App {
   registeredEventNames(source: AppFixtureEventSource): string[];
-  triggerVaultEvent(name: string): void;
+  triggerEvent(source: AppFixtureEventSource, name: string): void;
 }
 
 function appFixture(
@@ -294,8 +322,8 @@ function appFixture(
     };
   return {
     registeredEventNames: (source: AppFixtureEventSource) => refs.filter((event) => event.source === source).map((event) => event.name),
-    triggerVaultEvent: (name: string) => {
-      for (const event of refs.filter((ref) => ref.source === "vault" && ref.name === name)) {
+    triggerEvent: (source: AppFixtureEventSource, name: string) => {
+      for (const event of refs.filter((ref) => ref.source === source && ref.name === name)) {
         event.callback();
       }
     },
