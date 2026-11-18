@@ -1,5 +1,5 @@
-import { splitVaultFilename } from "../../domain/files/vault-write-paths";
-import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../async/keyed-operation-coordinator";
+import { fitVaultFilename, splitVaultFilename } from "../../domain/files/vault-write-paths";
+import { createKeyedOperationCoordinator } from "../async/keyed-operation-coordinator";
 
 export interface VaultPathDestination {
   readonly writeLockKey?: object;
@@ -12,16 +12,10 @@ export interface VaultMarkdownDestination extends VaultPathDestination {
   createMarkdownFile(path: string, content: string): Promise<void>;
 }
 
-const writeQueues = new WeakMap<object, KeyedOperationCoordinator<object>>();
+const writeQueues = createKeyedOperationCoordinator<object>({ whenBusy: "queue" });
 
 export function withVaultWriteLock<T>(destination: VaultPathDestination, operation: () => Promise<T>): Promise<T> {
-  const key = destination.writeLockKey ?? destination;
-  let queue = writeQueues.get(key);
-  if (!queue) {
-    queue = createKeyedOperationCoordinator({ whenBusy: "queue" });
-    writeQueues.set(key, queue);
-  }
-  return queue.run(key, operation);
+  return writeQueues.run(destination.writeLockKey ?? destination, operation);
 }
 
 const DEFAULT_FIRST_COLLISION_SUFFIX = 2;
@@ -43,7 +37,9 @@ export async function uniqueVaultPath(
   let candidate = destination.normalizePath(`${folder}/${filename}`);
   let suffix = DEFAULT_FIRST_COLLISION_SUFFIX;
   while (await destination.exists(candidate)) {
-    candidate = destination.normalizePath(`${folder}/${stem} ${String(suffix)}${extension}`);
+    const marker = ` ${String(suffix)}`;
+    const numbered = fitVaultFilename(stem, extension, marker, filename.length + marker.length);
+    candidate = destination.normalizePath(`${folder}/${numbered}`);
     suffix += 1;
   }
   return candidate;

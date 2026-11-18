@@ -76,6 +76,22 @@ describe("vault composer attachments", () => {
     ]);
   });
 
+  it.each([
+    { stem: "a".repeat(140), savedStem: "a".repeat(116) },
+    { stem: "潮".repeat(110), savedStem: "潮".repeat(83) },
+  ])("preserves the extension and image embed for a long filename without a MIME type", async ({ stem, savedStem }) => {
+    const handler = createVaultComposerAttachmentHandler({ app: { vault: vaultFixture() } as never, attachmentFolder: () => "Files" });
+    const result = await handler.saveFiles([new File(["image"], `${stem}.png`)]);
+    const path = `Files/${savedStem}.png`;
+    expect(result.attachments).toMatchObject([{ kind: "image", path, marker: `![[${path}]]` }]);
+  });
+
+  it("keeps a Unicode extension when the stem exceeds the filesystem byte limit", async () => {
+    const handler = createVaultComposerAttachmentHandler({ app: { vault: vaultFixture() } as never, attachmentFolder: () => "Files" });
+    const result = await handler.saveFiles([new File(["data"], `${"潮".repeat(110)}.元-資料`)]);
+    expect(result.attachments[0]?.path).toBe(`Files/${"潮".repeat(81)}.元-資料`);
+  });
+
   it("rejects relative attachment folder segments before sanitizing", async () => {
     const handler = createVaultComposerAttachmentHandler({
       app: { vault: vaultFixture() } as never,

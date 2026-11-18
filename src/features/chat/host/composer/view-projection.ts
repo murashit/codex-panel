@@ -90,7 +90,7 @@ export function selectChatPanelComposer(state: ChatState, shared: ChatPanelCompo
     sideChatActive: sideChat !== null,
     forkDraft: state.panelThread.kind === "fork-draft",
     draft: state.composer.draft,
-    attachmentSavePending: state.composer.pendingAttachmentSaveIds.length > 0,
+    attachmentSavePending: state.composer.attachmentSavePending,
     suggestions: state.composer.suggestions,
     selectedSuggestionIndex: state.composer.suggestSelected,
     activeThreadSubagent: panelThreadProvenance(state)?.kind === "subagent",

@@ -365,7 +365,7 @@ describe("submitComposer", () => {
       input: { attachmentHandler: { saveFiles: async () => attachmentSaveResult([attachment]) } },
     });
     input.transferAttachments([new File(["image"], "diagram.png")]);
-    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+    await vi.waitFor(() => expect(stateStore.getState().composer.attachmentSavePending).toBe(false));
     const original = `${prefix}\n![[Codex Attachments/diagram.png]]`;
     expect(input.draft).toBe(original);
     const fetch = deferred<{ sendText: string }>();
@@ -499,7 +499,7 @@ describe("submitComposer", () => {
         input: { attachmentHandler: { saveFiles: async () => attachmentSaveResult(attachments) } },
       });
       input.transferAttachments([new File(["data"], "attachment.md")]);
-      await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+      await vi.waitFor(() => expect(stateStore.getState().composer.attachmentSavePending).toBe(false));
       const original = `${prefix}\n[[attachment.md]]`;
       expect(input.draft).toBe(original);
       const response = deferred<{ data: []; nextCursor: null }>();

@@ -56,6 +56,14 @@ describe("vault write paths", () => {
   });
 
   it.each([
+    [`a.${"界".repeat(84)}`, `a 2.${"界".repeat(83)}`],
+    [`${"界".repeat(84)}.md`, `${"界".repeat(83)} 2.md`],
+  ])("fits both the collision number and extension within the byte budget", async (filename, numbered) => {
+    const result = await uniqueVaultPath(memoryDestination([`Files/${filename}`]), "Files", filename);
+    expect(result).toBe(`Files/${numbered}`);
+  });
+
+  it.each([
     ["Paper", ".pdf"],
     ["README", ""],
     [".env", ""],

@@ -3,7 +3,7 @@ import { patchObject } from "./patch";
 
 export interface ChatComposerState {
   readonly draft: string;
-  readonly pendingAttachmentSaveIds: readonly number[];
+  readonly attachmentSavePending: boolean;
   readonly suggestSelected: number;
   readonly suggestions: readonly ComposerSuggestion[];
   readonly suggestionsDismissedSignature: string | null;
@@ -14,7 +14,7 @@ export type ComposerAction =
       type: "composer/draft-set";
       draft: string;
       clearSuggestions?: boolean;
-      pendingAttachmentSaveIds?: readonly number[];
+      attachmentSavePending?: boolean;
     }
   | {
       type: "composer/input-set";
@@ -33,7 +33,7 @@ export type ComposerAction =
 export function initialComposerState(): ChatComposerState {
   return {
     draft: "",
-    pendingAttachmentSaveIds: [],
+    attachmentSavePending: false,
     suggestSelected: 0,
     suggestions: [],
     suggestionsDismissedSignature: null,
@@ -45,7 +45,7 @@ export function reduceComposerSlice(state: ChatComposerState, action: ComposerAc
     case "composer/draft-set":
       return patchObject(state, {
         draft: action.draft,
-        ...(action.pendingAttachmentSaveIds === undefined ? {} : { pendingAttachmentSaveIds: action.pendingAttachmentSaveIds }),
+        ...(action.attachmentSavePending === undefined ? {} : { attachmentSavePending: action.attachmentSavePending }),
         ...(action.clearSuggestions ? { suggestions: [], suggestSelected: 0 } : {}),
       });
     case "composer/input-set":

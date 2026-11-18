@@ -22,11 +22,13 @@ export function splitUtf8Context(value: string, maxBytes: number, maxParts: numb
   return { parts, includedBytes: parts.reduce((total, part) => total + utf8ByteLength(part), 0) };
 }
 
-export function truncateUtf8(value: string, maxBytes: number): string {
+export function truncateUtf8(value: string, maxBytes: number, maxLength = value.length): string {
   if (maxBytes <= 0 || !value) return "";
-  if (utf8ByteLength(value) <= maxBytes) return value;
+  const limit = safeCodeUnitBoundary(value, Math.min(value.length, maxLength));
+  const prefix = value.slice(0, limit);
+  if (utf8ByteLength(prefix) <= maxBytes) return prefix;
   let low = 0;
-  let high = value.length;
+  let high = limit;
   while (low < high) {
     const middle = Math.ceil((low + high) / 2);
     const candidate = safeCodeUnitBoundary(value, middle);
