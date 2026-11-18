@@ -7,13 +7,9 @@ import type { NoteCandidate, NoteCandidateProvider } from "../../application/com
 import { configuredDailyNoteReferences } from "./vault-daily-note-references.obsidian";
 import { displayNameForFile, linktextForFile } from "./vault-note-links.obsidian";
 
-interface FileCandidate {
-  basename: string;
-  displayName: string;
-  path: string;
-  mtime: number;
-  file: TFile;
-  headings: NoteCandidate["headings"];
+interface VaultNoteMetadata {
+  files: { file: TFile; headings: NoteCandidate["headings"] }[];
+  tags: string[];
 }
 
 interface SharedCandidateCatalog {
@@ -65,8 +61,7 @@ export class VaultNoteCandidateProvider implements NoteCandidateProvider {
 }
 
 class VaultNoteCandidateCatalog extends Component {
-  private fileCandidatesCache: FileCandidate[] | null = null;
-  private tagCandidatesCache: string[] | null = null;
+  private metadataCache: VaultNoteMetadata | null = null;
   private projectedCandidates: NoteCandidate[] | null = null;
 
   constructor(private readonly app: App) {
@@ -84,30 +79,31 @@ class VaultNoteCandidateCatalog extends Component {
     this.registerEvent(this.app.vault.on("modify", invalidate));
     this.registerEvent(this.app.metadataCache.on("changed", invalidate));
     this.registerEvent(this.app.metadataCache.on("deleted", invalidate));
-    this.registerEvent(this.app.workspace.on("file-open", invalidate));
-    this.registerEvent(this.app.workspace.on("active-leaf-change", invalidate));
+    const refreshRecentFiles = (): void => {
+      this.projectedCandidates = null;
+    };
+    this.registerEvent(this.app.workspace.on("file-open", refreshRecentFiles));
+    this.registerEvent(this.app.workspace.on("active-leaf-change", refreshRecentFiles));
   }
 
   candidates(): readonly NoteCandidate[] {
     if (this.projectedCandidates) return this.projectedCandidates;
 
     const recentPaths = new Map(this.app.workspace.getLastOpenFiles().map((path, index) => [path, index]));
-    const candidates = this.fileCandidates().map((candidate) => ({
-      basename: candidate.basename,
-      displayName: candidate.displayName,
-      path: candidate.path,
-      mtime: candidate.mtime,
-      linktext: linktextForFile(this.app, candidate.file),
-      headings: candidate.headings,
-      recentIndex: recentPaths.get(candidate.path) ?? null,
+    this.projectedCandidates = this.metadata().files.map(({ file, headings }) => ({
+      basename: file.basename,
+      displayName: displayNameForFile(file),
+      path: file.path,
+      mtime: file.stat.mtime,
+      linktext: linktextForFile(this.app, file),
+      headings,
+      recentIndex: recentPaths.get(file.path) ?? null,
     }));
-    this.projectedCandidates = candidates;
-    return candidates;
+    return this.projectedCandidates;
   }
 
   tags(): readonly string[] {
-    this.fileCandidates();
-    return this.tagCandidatesCache ?? [];
+    return this.metadata().tags;
   }
 
   resolveFileReference(target: string): VaultFileReference | null {
@@ -124,29 +120,21 @@ class VaultNoteCandidateCatalog extends Component {
   }
 
   private invalidate(): void {
-    this.fileCandidatesCache = null;
-    this.tagCandidatesCache = null;
+    this.metadataCache = null;
     this.projectedCandidates = null;
   }
 
-  private fileCandidates(): FileCandidate[] {
-    if (this.fileCandidatesCache) return this.fileCandidatesCache;
+  private metadata(): VaultNoteMetadata {
+    if (this.metadataCache) return this.metadataCache;
 
     const tags: string[] = [];
-    this.fileCandidatesCache = this.app.vault.getFiles().map((file) => {
+    const files = this.app.vault.getFiles().map((file) => {
       const cache = this.app.metadataCache.getFileCache(file);
       if (cache) tags.push(...(getAllTags(cache) ?? []));
-      return {
-        basename: file.basename,
-        displayName: displayNameForFile(file),
-        path: file.path,
-        mtime: file.stat.mtime,
-        file,
-        headings: noteHeadings(cache),
-      };
+      return { file, headings: noteHeadings(cache) };
     });
-    this.tagCandidatesCache = normalizedUniqueTags(tags);
-    return this.fileCandidatesCache;
+    this.metadataCache = { files, tags: normalizedUniqueTags(tags) };
+    return this.metadataCache;
   }
 }
 
