@@ -1,4 +1,5 @@
 import {
+  appServerQueriesFixture,
   disconnectedChatLeaseFixture,
   threadCatalogPublicationFixture,
   threadGoalQueriesFixture,
@@ -20,7 +21,6 @@ import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/pr
 import { createKeyedOperationCoordinator } from "../../src/shared/async/keyed-operation-coordinator";
 import { chatPanelSettingsAccess } from "../features/chat/support/settings";
 import { panelThreadFixture } from "./panel-thread";
-import { createServerDiagnostics } from "./runtime-diagnostics";
 import { threadMutationCommandsMock } from "./thread-mutations";
 
 const { default: CodexPanelPluginClass } = await import("../../src/main");
@@ -130,16 +130,7 @@ function chatHostFixture(): CodexChatHost {
     runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
     settings: chatPanelSettingsAccess(settings),
     workspace: workspacePanelsFixture(),
-    appServerQueries: {
-      modelsResourceSnapshot: vi.fn(() => ({ id: "models" as const, value: undefined, probe: createServerDiagnostics().probes.models })),
-      observeModelsResource: vi.fn(() => () => undefined),
-      fetchModels: vi.fn().mockResolvedValue([]),
-      metadataSnapshot: vi.fn(() => null),
-      metadataDiagnosticsSnapshot: vi.fn(() => createServerDiagnostics()),
-      ensureAppServerMetadata: vi.fn(() => Promise.resolve()),
-      refreshAppServerMetadata: vi.fn(() => Promise.resolve()),
-      observeMetadataResource: vi.fn(() => () => undefined),
-    },
+    appServerQueries: appServerQueriesFixture(),
     toolInventoryQueries: {
       snapshot: vi.fn(() => null),
       observe: vi.fn((_threadId, listener) => {

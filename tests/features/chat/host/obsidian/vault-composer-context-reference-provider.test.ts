@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { VaultComposerContextReferenceProvider } from "../../../../../src/features/chat/host/obsidian/vault-composer-context-reference-provider.obsidian";
 import { editorSelectionEmphasisExtension } from "../../../../../src/shared/ui/editor-selection-emphasis.obsidian";
 import { TExternalFile } from "../../../../mocks/obsidian";
+import { popoutWindow } from "../../../../support/dom";
 import { markdownFileFixture } from "../../../../support/vault-file";
 
 const cleanups: (() => void)[] = [];
@@ -398,11 +399,7 @@ describe("Composer selection context", () => {
   });
 
   it("uses the owner window's highlight support and existing Panel foreground control", () => {
-    const frame = document.createElement("iframe");
-    document.body.append(frame);
-    cleanups.push(() => frame.remove());
-    const ownerDocument = frame.contentDocument;
-    if (!ownerDocument) throw new Error("Missing document");
+    const ownerDocument = popoutWindow().document;
     const highlights = installHighlights(ownerDocument);
     const fixture = readingFixture(ownerDocument);
     fixture.select("popout quote");
@@ -553,11 +550,7 @@ describe("Composer selection context", () => {
   });
 
   it("uses the originating document and removes its listeners when the last consumer closes", () => {
-    const frame = document.createElement("iframe");
-    document.body.append(frame);
-    cleanups.push(() => frame.remove());
-    const ownerDocument = frame.contentDocument;
-    if (!ownerDocument) throw new Error("Missing iframe document");
+    const ownerDocument = popoutWindow().document;
     const fixture = readingFixture(ownerDocument);
     fixture.select("popout document text");
     expect(fixture.provider.contextReferences().selection?.text).toBe("popout document text");

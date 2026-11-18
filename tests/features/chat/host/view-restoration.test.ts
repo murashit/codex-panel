@@ -275,13 +275,7 @@ describe("CodexChatView workspace restoration", () => {
 
     await view.surface.activateThread("thread-1");
 
-    expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }), {
-      onResponse: expect.any(Function),
-    });
-    expect(client.request).toHaveBeenCalledWith(
-      "thread/turns/list",
-      expect.objectContaining({ threadId: "thread-1", cursor: null, limit: 20 }),
-    );
+    expectRestoredThreadHydration(client);
   });
 
   it("replaces active thread-scoped state when late workspace state restores another thread", async () => {
@@ -364,13 +358,7 @@ describe("CodexChatView workspace restoration", () => {
     expect(requestMethods(client)).not.toContain("thread/resume");
     await view.surface.activateThread("thread-1");
 
-    expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }), {
-      onResponse: expect.any(Function),
-    });
-    expect(client.request).toHaveBeenCalledWith(
-      "thread/turns/list",
-      expect.objectContaining({ threadId: "thread-1", cursor: null, limit: 20 }),
-    );
+    expectRestoredThreadHydration(client);
   });
 
   it("resumes a restored thread before sending the first message", async () => {
@@ -471,3 +459,13 @@ describe("CodexChatView workspace restoration", () => {
     expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1", turnBusy: false, pending: true });
   });
 });
+
+function expectRestoredThreadHydration(client: ReturnType<typeof connectedClient>): void {
+  expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }), {
+    onResponse: expect.any(Function),
+  });
+  expect(client.request).toHaveBeenCalledWith(
+    "thread/turns/list",
+    expect.objectContaining({ threadId: "thread-1", cursor: null, limit: 20 }),
+  );
+}

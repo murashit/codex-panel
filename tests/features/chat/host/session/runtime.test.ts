@@ -1,6 +1,7 @@
 import { chatMetadataCacheFixture, chatVaultFixture, chatWorkspaceFixture } from "../../../../support/chat-obsidian";
 import { threadGoalFixture } from "../../../../support/thread-goal";
 import {
+  appServerQueriesFixture,
   disconnectedChatLeaseFixture,
   threadCatalogPublicationFixture,
   threadGoalQueriesFixture,
@@ -821,22 +822,6 @@ describe("chat panel session runtime", () => {
       activeThreadsSnapshot: vi.fn(() => null),
       recentActiveThreadsSnapshot: vi.fn(() => null),
       observeActiveThreadsResult: vi.fn(() => () => undefined),
-      ...overrides,
-    };
-  }
-
-  function appServerQueriesFixture(
-    overrides: Partial<ChatPanelEnvironment["plugin"]["appServerQueries"]> = {},
-  ): ChatPanelEnvironment["plugin"]["appServerQueries"] {
-    return {
-      modelsResourceSnapshot: vi.fn(() => ({ id: "models" as const, value: undefined, probe: createServerDiagnostics().probes.models })),
-      observeModelsResource: vi.fn(() => () => undefined),
-      fetchModels: vi.fn().mockResolvedValue([]),
-      metadataSnapshot: vi.fn(() => null),
-      metadataDiagnosticsSnapshot: vi.fn(() => createServerDiagnostics()),
-      ensureAppServerMetadata: vi.fn().mockResolvedValue(undefined),
-      refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
-      observeMetadataResource: vi.fn(() => () => undefined),
       ...overrides,
     };
   }

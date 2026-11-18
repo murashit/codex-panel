@@ -134,7 +134,12 @@ describe("ComposerShell decisions", () => {
     expect(callbacks.onToggleAutoReview).toHaveBeenCalledOnce();
     expect(callbacks.onToggleFast).toHaveBeenCalledOnce();
 
-    parent.querySelector<HTMLElement>(".codex-panel__composer-meta-model")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    const openModelMenu = async () => {
+      parent.querySelector<HTMLElement>(".codex-panel__composer-meta-model")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      await waitForAsyncWork(() => expect(parent.querySelector('[data-codex-panel-composer-meta-kind="model"]')).not.toBeNull());
+    };
+    const expectMenuClosed = () => waitForAsyncWork(() => expect(parent.querySelector(".codex-panel__composer-meta-popover")).toBeNull());
+    await openModelMenu();
     await waitForAsyncWork(() => {
       expect(parent.querySelector('[data-codex-panel-composer-meta-kind="model"]')?.textContent).toBe("gpt-5.5gpt-5.4");
     });
@@ -149,30 +154,18 @@ describe("ComposerShell decisions", () => {
 
     parent.querySelector<HTMLElement>(".codex-panel__composer-meta-option")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     expect(selectEffort).toHaveBeenCalledOnce();
-    await waitForAsyncWork(() => {
-      expect(parent.querySelector(".codex-panel__composer-meta-popover")).toBeNull();
-    });
+    await expectMenuClosed();
 
-    parent.querySelector<HTMLElement>(".codex-panel__composer-meta-model")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-    await waitForAsyncWork(() => {
-      expect(parent.querySelector('[data-codex-panel-composer-meta-kind="model"]')).not.toBeNull();
-    });
+    await openModelMenu();
     parent
       .querySelectorAll<HTMLElement>(".codex-panel__composer-meta-option")[1]
       ?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     expect(selectModel).toHaveBeenCalledOnce();
-    await waitForAsyncWork(() => {
-      expect(parent.querySelector(".codex-panel__composer-meta-popover")).toBeNull();
-    });
+    await expectMenuClosed();
 
-    parent.querySelector<HTMLElement>(".codex-panel__composer-meta-model")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-    await waitForAsyncWork(() => {
-      expect(parent.querySelector('[data-codex-panel-composer-meta-kind="model"]')).not.toBeNull();
-    });
+    await openModelMenu();
     document.dispatchEvent(new Event("mousedown", { bubbles: true }));
-    await waitForAsyncWork(() => {
-      expect(parent.querySelector(".codex-panel__composer-meta-popover")).toBeNull();
-    });
+    await expectMenuClosed();
   });
 
   it("keeps Fast visible but ignores interaction when the selected model does not support it", () => {

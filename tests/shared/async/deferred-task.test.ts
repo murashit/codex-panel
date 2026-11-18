@@ -1,19 +1,15 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { DeferredTask } from "../../../src/shared/async/deferred-task";
+import { popoutWindow } from "../../support/dom";
 
 describe("DeferredTask", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   it("coalesces pending warmups and allows another after completion", async () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     const tasks = new DeferredTask(() => window, 0);
     const warmup = vi.fn();
 
@@ -28,22 +24,13 @@ describe("DeferredTask", () => {
   });
 
   it("cancels work in the scheduling window after a panel moves", async () => {
-    vi.useRealTimers();
-    const frame = document.createElement("iframe");
-    document.body.append(frame);
-    try {
-      const original = frame.contentWindow;
-      if (!original) throw new Error("Missing frame window");
-      let owner: Window = original;
-      const tasks = new DeferredTask(() => owner, 0);
-      const stale = vi.fn();
-      tasks.schedule(stale);
-      owner = window;
-      tasks.clear();
-      await new Promise<void>((resolve) => tasks.schedule(resolve));
-      expect(stale).not.toHaveBeenCalled();
-    } finally {
-      frame.remove();
-    }
+    let owner = popoutWindow();
+    const tasks = new DeferredTask(() => owner, 0);
+    const stale = vi.fn();
+    tasks.schedule(stale);
+    owner = window;
+    tasks.clear();
+    await new Promise<void>((resolve) => tasks.schedule(resolve));
+    expect(stale).not.toHaveBeenCalled();
   });
 });

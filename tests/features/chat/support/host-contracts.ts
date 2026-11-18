@@ -1,5 +1,6 @@
 import { vi } from "vitest";
 import type { CodexChatHost, WorkspacePanels } from "../../../../src/features/chat/host/contracts";
+import { createServerDiagnostics } from "../../../support/runtime-diagnostics";
 
 export function disconnectedChatLeaseFixture(): ReturnType<CodexChatHost["appServerConnection"]["createLease"]> {
   return {
@@ -44,6 +45,20 @@ export function workspacePanelsFixture(overrides: Partial<WorkspacePanels> = {})
     openThreadFromPanel: vi.fn(),
     openTurnDiff: vi.fn(),
     notifyPanelActivityChanged: vi.fn(),
+    ...overrides,
+  };
+}
+
+export function appServerQueriesFixture(overrides: Partial<CodexChatHost["appServerQueries"]> = {}): CodexChatHost["appServerQueries"] {
+  return {
+    modelsResourceSnapshot: vi.fn(() => ({ id: "models" as const, value: undefined, probe: createServerDiagnostics().probes.models })),
+    observeModelsResource: vi.fn(() => () => undefined),
+    fetchModels: vi.fn().mockResolvedValue([]),
+    metadataSnapshot: vi.fn(() => null),
+    metadataDiagnosticsSnapshot: vi.fn(() => createServerDiagnostics()),
+    ensureAppServerMetadata: vi.fn().mockResolvedValue(undefined),
+    refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
+    observeMetadataResource: vi.fn(() => () => undefined),
     ...overrides,
   };
 }

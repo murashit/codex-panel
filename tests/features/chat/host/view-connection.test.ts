@@ -9,6 +9,7 @@ import type { ThreadGoal } from "../../../../src/generated/app-server/v2/ThreadG
 import { notices } from "../../../mocks/obsidian";
 import { appServerAgentMessageFixture, appServerTurnFixture } from "../../../support/app-server-records";
 import { deferred, waitForAsyncWork } from "../../../support/async";
+import { popoutWindow } from "../../../support/dom";
 import { threadGoalFixture } from "../../../support/thread-goal";
 import {
   chatHost,
@@ -118,10 +119,7 @@ describe("CodexChatView connection lifecycle", () => {
     );
     await waitForAsyncWork(() => expect(view.surface.openPanelSnapshot().unread).toBe(false));
 
-    const frame = document.createElement("iframe");
-    document.body.appendChild(frame);
-    const popout = frame.contentWindow;
-    if (!popout) throw new Error("Expected popout window");
+    const popout = popoutWindow();
     popout.document.body.appendChild(view.containerEl);
     const popoutFocus = vi.spyOn(popout.document, "hasFocus").mockReturnValue(false);
     vi.spyOn(popout.document, "visibilityState", "get").mockReturnValue("visible");

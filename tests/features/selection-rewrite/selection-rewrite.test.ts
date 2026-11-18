@@ -17,7 +17,7 @@ import { positionSelectionRewritePopover } from "../../../src/features/selection
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
 import { appServerAgentMessageFixture as agentMessage, appServerCompletedTurnFixture as turn } from "../../support/app-server-records";
 import { deferred } from "../../support/async";
-import { changeInputValue, installObsidianDomShims } from "../../support/dom";
+import { changeInputValue, installObsidianDomShims, popoutWindow } from "../../support/dom";
 
 type SelectionRewriteTestRunOptions = SelectionRewritePortRequest & { runner: EphemeralStructuredTurnRunner };
 
@@ -244,10 +244,8 @@ describe("selection rewrite positioning", () => {
   });
 
   it("uses the target view window HTMLElement constructor for editor DOM checks", () => {
-    const frame = document.createElement("iframe");
-    document.body.appendChild(frame);
-    const viewWindow = expectPresent(frame.contentWindow);
-    const viewDocument = expectPresent(frame.contentDocument);
+    const viewWindow = popoutWindow();
+    const viewDocument = viewWindow.document;
     const root = viewDocument.createElement("div");
     viewDocument.body.appendChild(root);
     const editorDom = viewDocument.createElement("div");

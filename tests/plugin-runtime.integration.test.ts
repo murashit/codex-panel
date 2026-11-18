@@ -105,12 +105,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     contextConnectionClientMock.mockImplementation((path: string) => (path === "codex" ? oldClient : nextClient));
     const target = leaf();
     const plugin = await pluginWithLeaves([target]);
-    const view = chatView(CodexChatView, target, plugin.runtime);
-    target.view = view;
-    onTestFinished(async () => {
-      await view.onClose();
-      plugin.runtime.reset();
-    });
+    const view = attachTestPanel(plugin, target);
     const old = currentChatHost(plugin).workspace;
     const opening = old.openThreadInAvailableView("thread-1");
     await vi.waitFor(() => {
@@ -173,12 +168,7 @@ describe("CodexPanelPlugin runtime integration", () => {
   it("keeps scoped navigation usable after a failed save and revokes it across A-to-B-to-A replacement", async () => {
     const target = leaf();
     const plugin = await pluginWithLeaves([target]);
-    const view = chatView(CodexChatView, target, plugin.runtime);
-    target.view = view;
-    onTestFinished(async () => {
-      await view.onClose();
-      plugin.runtime.reset();
-    });
+    const view = attachTestPanel(plugin, target);
     const original = currentChatHost(plugin).workspace;
     const firstActivation = vi.spyOn(view.surface, "activateThread").mockResolvedValue(true);
     vi.spyOn(plugin, "saveData").mockRejectedValueOnce(new Error("disk full")).mockResolvedValue(undefined);
@@ -485,15 +475,11 @@ describe("CodexPanelPlugin runtime integration", () => {
   it("automatically connects an empty panel after correcting an executable that failed on startup", async () => {
     notices.length = 0;
     const client = connectedClient();
-    contextConnectionClientMock.mockImplementation((codexPath: string) => {
-      if (codexPath === "codex") throw new Error("initial executable failed");
-      return client as unknown as AppServerClient;
-    });
+    failInitialExecutable(client);
     const leaves: TestLeaf[] = [];
     const plugin = await pluginWithLeaves(leaves);
     const panelLeaf = leaf();
-    const view = chatView(CodexChatView, panelLeaf, plugin.runtime);
-    panelLeaf.view = view;
+    const view = attachTestPanel(plugin, panelLeaf);
     leaves.push(panelLeaf);
     try {
       await view.onOpen();
@@ -509,8 +495,6 @@ describe("CodexPanelPlugin runtime integration", () => {
       expect(view.getState()).toEqual({ version: 1 });
       expect(client.request).toHaveBeenCalledWith("config/read", expect.anything());
     } finally {
-      await view.onClose();
-      plugin.runtime.reset();
       notices.length = 0;
     }
   });
@@ -521,10 +505,7 @@ describe("CodexPanelPlugin runtime integration", () => {
       "thread/resume": vi.fn((params: unknown) => Promise.resolve(resumedThread((params as { threadId: string }).threadId))),
       "thread/turns/list": vi.fn().mockResolvedValue({ data: [completedTurn("saved-turn")], nextCursor: null }),
     });
-    contextConnectionClientMock.mockImplementation((codexPath: string) => {
-      if (codexPath === "codex") throw new Error("initial executable failed");
-      return client as unknown as AppServerClient;
-    });
+    failInitialExecutable(client);
     const leaves: TestLeaf[] = [];
     const plugin = await pluginWithLeaves(leaves);
     const foregroundLeaf = leaf();
@@ -601,8 +582,7 @@ describe("CodexPanelPlugin runtime integration", () => {
       const leaves: TestLeaf[] = [];
       const plugin = await pluginWithLeaves(leaves);
       const panelLeaf = leaf();
-      const view = chatView(CodexChatView, panelLeaf, plugin.runtime);
-      panelLeaf.view = view;
+      const view = attachTestPanel(plugin, panelLeaf);
       leaves.push(panelLeaf);
       try {
         await view.onOpen();
@@ -623,8 +603,6 @@ describe("CodexPanelPlugin runtime integration", () => {
         expect(oldClient.request).not.toHaveBeenCalled();
         expect(nextClient.request).toHaveBeenCalledWith("config/read", expect.anything());
       } finally {
-        await view.onClose();
-        plugin.runtime.reset();
         notices.length = 0;
       }
     },
@@ -700,8 +678,7 @@ describe("CodexPanelPlugin runtime integration", () => {
       const leaves: TestLeaf[] = [];
       const plugin = await pluginWithLeaves(leaves);
       const panelLeaf = leaf();
-      const view = chatView(CodexChatView, panelLeaf, plugin.runtime);
-      panelLeaf.view = view;
+      const view = attachTestPanel(plugin, panelLeaf);
       leaves.push(panelLeaf);
       await view.onOpen();
       const opening = view.surface.applyForkDraft(sideChatDraft("source", "Source"), "A side question");
@@ -727,8 +704,6 @@ describe("CodexPanelPlugin runtime integration", () => {
       expect(plugin.settings.codexPath).toBe(action === "replace" ? "codex-next" : "codex");
       expect(view.isRuntimeAttached()).toBe(action === "replace" && !removed);
       for (const replacement of contexts.slice(1)) expect(replacement.disconnect).not.toHaveBeenCalled();
-      await view.onClose();
-      plugin.runtime.reset();
     },
   );
 
@@ -800,4 +775,21 @@ async function settingsSurfaces() {
     plugin.runtime.reset();
   });
   return { plugin, refreshChat, refreshThreads };
+}
+
+function attachTestPanel(plugin: CodexPanelPlugin, target: TestLeaf) {
+  const view = chatView(CodexChatView, target, plugin.runtime);
+  target.view = view;
+  onTestFinished(async () => {
+    await view.onClose();
+    plugin.runtime.reset();
+  });
+  return view;
+}
+
+function failInitialExecutable(client: ReturnType<typeof connectedClient>): void {
+  contextConnectionClientMock.mockImplementation((codexPath: string) => {
+    if (codexPath === "codex") throw new Error("initial executable failed");
+    return client as unknown as AppServerClient;
+  });
 }
