@@ -1,3 +1,4 @@
+import { errorMessage } from "../../../../domain/text/error-message";
 import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../../domain/threads/goal";
 import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items";
 import type { EffectOutcome } from "../effect-outcome";
@@ -190,10 +191,6 @@ function goalMutationAdmissionIsCurrent(host: GoalCommandsHost, threadId: string
 function currentGoal(host: GoalCommandsHost): ThreadGoal | null {
   const threadId = activeThreadId(host.stateStore.getState());
   return threadId ? (host.goalQueries.snapshot(threadId) ?? null) : null;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 export function applyGoalChange(

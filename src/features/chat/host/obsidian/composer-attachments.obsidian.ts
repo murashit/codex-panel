@@ -1,6 +1,6 @@
 import type { App } from "obsidian";
-
 import { sanitizeVaultFilename, splitVaultFilename, vaultRelativeFolderPath } from "../../../../domain/files/vault-write-paths";
+import { errorMessage } from "../../../../domain/text/error-message";
 import { DEFAULT_ATTACHMENT_FOLDER } from "../../../../settings/preferences";
 import { createObsidianVaultPathDestination } from "../../../../shared/vault/write-destination.obsidian";
 import { ensureVaultFolder, uniqueVaultPath, withVaultWriteLock } from "../../../../shared/vault/write-operations";
@@ -63,7 +63,7 @@ async function saveComposerAttachmentFiles(
           marker: kind === "image" ? `![[${path}]]` : `[[${path}]]`,
         });
       } catch (error) {
-        failures.push({ name: file.name.trim() || "Unnamed attachment", message: error instanceof Error ? error.message : String(error) });
+        failures.push({ name: file.name.trim() || "Unnamed attachment", message: errorMessage(error) });
       }
     }
     return { attachments, failures };

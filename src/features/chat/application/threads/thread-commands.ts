@@ -1,3 +1,4 @@
+import { errorMessage } from "../../../../domain/text/error-message";
 import type { EffectOutcome } from "../effect-outcome";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
 import { activeThreadId, type ChatState } from "../state/model";
@@ -84,7 +85,7 @@ async function compactThread(host: ThreadCommandsHost, threadId: string): Promis
     host.setStatus(STATUS_COMPACTION_REQUESTED);
   } catch (error) {
     if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
-    host.addSystemMessage(error instanceof Error ? error.message : String(error));
+    host.addSystemMessage(errorMessage(error));
   }
 }
 

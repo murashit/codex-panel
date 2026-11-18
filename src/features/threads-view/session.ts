@@ -1,4 +1,5 @@
 import { Notice } from "obsidian";
+import { errorMessage } from "../../domain/text/error-message";
 import type { Thread } from "../../domain/threads/model";
 import { threadRenameDraftTitle } from "../../domain/threads/title";
 import { DeferredTask } from "../../shared/async/deferred-task";
@@ -296,7 +297,7 @@ export class ThreadsViewSession {
   }
 
   private noticeError(error: unknown): void {
-    new Notice(error instanceof Error ? error.message : String(error));
+    new Notice(errorMessage(error));
   }
 
   private viewWindow(): Window {

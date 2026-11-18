@@ -190,7 +190,7 @@ describe("ChatPanelShell", () => {
     const archiveThread = vi.fn().mockResolvedValue(undefined);
     const threadCommands = { archiveThread } as never;
     parts.toolbar.actions = createToolbarUiActions({
-      captureFailureRecipient: () => vi.fn(),
+      runPanelAction: (action) => void action(),
       rename: {} as never,
       connectionCoordinator: {} as never,
       reconnectCommand: vi.fn(),
@@ -288,7 +288,7 @@ describe("ChatPanelShell", () => {
     });
     const parts = shellParts();
     parts.toolbar.actions = createToolbarUiActions({
-      captureFailureRecipient: () => vi.fn(),
+      runPanelAction: (action) => void action(),
       rename,
       connectionCoordinator: {} as never,
       reconnectCommand: vi.fn(),

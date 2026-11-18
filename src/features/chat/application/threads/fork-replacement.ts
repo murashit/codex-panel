@@ -1,3 +1,4 @@
+import { errorMessage } from "../../../../domain/text/error-message";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ForkReplacement } from "./fork-draft";
 
@@ -23,7 +24,7 @@ export async function archiveForkSource(effects: ForkReplacementEffects, replace
     if (!archived) effects.notify("The fork was started, but the source could not be archived.");
     return archived;
   } catch (error) {
-    effects.notify(`The fork was started, but the source could not be archived: ${error instanceof Error ? error.message : String(error)}`);
+    effects.notify(`The fork was started, but the source could not be archived: ${errorMessage(error)}`);
     return false;
   }
 }

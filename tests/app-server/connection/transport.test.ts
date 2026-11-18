@@ -198,9 +198,11 @@ describe("StdioAppServerTransport", () => {
     const { handlers, instance } = transportInstance();
     instance.start();
 
-    child.stderr.write("first line\npartial");
+    const bytes = Buffer.from("日本語\npartial");
+    child.stderr.write(bytes.subarray(0, 2));
+    child.stderr.write(bytes.subarray(2));
 
-    expect(handlers.onLog).toHaveBeenCalledWith("first line");
+    expect(handlers.onLog).toHaveBeenCalledWith("日本語");
     expect(handlers.onLog).not.toHaveBeenCalledWith("partial");
 
     instance.stop();

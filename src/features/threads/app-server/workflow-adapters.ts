@@ -9,6 +9,7 @@ import {
   setThreadPinned,
 } from "../../../app-server/services/threads";
 import type { ReasoningEffort } from "../../../domain/runtime/catalog";
+import { errorMessage } from "../../../domain/text/error-message";
 import type { ThreadMutationPort, ThreadTitlePort } from "../workflows/ports";
 import { readPersistedTitleContext } from "./persisted-title-context";
 import { generateThreadTitleWithCodex } from "./thread-title-generation";
@@ -25,7 +26,7 @@ export function createThreadMutationAdapter(clientAccess: AppServerClientAccess)
         try {
           await archiveThread(client, threadId);
         } catch (error) {
-          return { kind: "failed", message: error instanceof Error ? error.message : String(error), exportedPath: prepared };
+          return { kind: "failed", message: errorMessage(error), exportedPath: prepared };
         }
         return { kind: "archived", exportedPath: prepared };
       }),

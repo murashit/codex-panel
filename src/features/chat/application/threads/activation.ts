@@ -1,4 +1,5 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/usage";
+import { errorMessage } from "../../../../domain/text/error-message";
 import type { Thread, ThreadActivationSnapshot } from "../../../../domain/threads/model";
 import { activeThreadState, awaitingResumeThreadState } from "../state/model";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
@@ -146,7 +147,7 @@ export class ThreadActivation {
       });
     } catch (error) {
       if (this.isStaleResume(resume, initialPanelTarget)) return null;
-      this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
+      this.host.addSystemMessage(errorMessage(error));
       return null;
     }
   }
@@ -175,7 +176,7 @@ export class ThreadActivation {
       return true;
     } catch (error) {
       if (this.isStaleResume(resume, panelTarget)) return false;
-      this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
+      this.host.addSystemMessage(errorMessage(error));
       return false;
     }
   }

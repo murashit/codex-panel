@@ -1,3 +1,4 @@
+import { errorMessage } from "../../../../domain/text/error-message";
 import { activeThreadId, activeThreadState, type ChatConnectionPhase, panelThreadId } from "../state/model";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import type { ChatStateStore } from "../state/store";
@@ -53,7 +54,7 @@ async function reconnectPanel(host: ChatReconnectCommandHost, options: Reconnect
     if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return false;
     return activeThreadId(host.stateStore.getState()) === threadId;
   } catch (error) {
-    host.addSystemMessage(error instanceof Error ? error.message : String(error));
+    host.addSystemMessage(errorMessage(error));
     return false;
   }
 }

@@ -1,4 +1,5 @@
 import { Notice } from "obsidian";
+import { errorMessage } from "../../../../domain/text/error-message";
 import type { Thread } from "../../../../domain/threads/model";
 import type { DeferredTask } from "../../../../shared/async/deferred-task";
 import { createChatAppServerGateway } from "../../app-server/session-gateway";
@@ -39,7 +40,7 @@ interface ChatPanelSessionStatus {
   set: (statusText: string, phase?: ChatConnectionPhase) => void;
   addSystemMessage: (text: string) => void;
   addStructuredSystemMessage: (text: string, details: ThreadStreamNoticeSection[]) => void;
-  captureFailureRecipient: () => (error: unknown) => void;
+  runPanelAction: (action: () => Promise<unknown>) => void;
 }
 
 interface ChatPanelSessionRuntimeHost {
@@ -243,7 +244,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     sharedResources,
   });
   const toolbarActions = createToolbarUiActions({
-    captureFailureRecipient: status.captureFailureRecipient,
+    runPanelAction: status.runPanelAction,
     connectionCoordinator,
     reconnectCommand: reconnect,
     threadCommands: threadCommands.commands,
@@ -258,7 +259,9 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       const threadId = activeThreadId(state);
       if (!threadId) return;
       const thread = environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((item) => item.id === threadId);
-      void environment.plugin.workspace.openForkDraft(sideChatDraft(threadId, thread?.name ?? thread?.preview ?? null, state.runtime));
+      status.runPanelAction(() =>
+        environment.plugin.workspace.openForkDraft(sideChatDraft(threadId, thread?.name ?? thread?.preview ?? null, state.runtime)),
+      );
     },
     debugDetails: {
       stateStore,
@@ -297,17 +300,21 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     loadOlderTurns: () => void threadFoundation.history.loadOlder(),
     actions: {
       rollbackThread: (threadId) => {
-        const reportFailure = status.captureFailureRecipient();
-        void threadCommands.commands.rollbackThread(threadId).catch(reportFailure);
+        status.runPanelAction(() => threadCommands.commands.rollbackThread(threadId));
       },
       forkThreadFromTurn: (threadId, turnId, archiveSource) => {
-        const reportFailure = status.captureFailureRecipient();
-        void threadCommands.commands.forkThreadFromTurn(threadId, turnId, archiveSource).catch(reportFailure);
+        status.runPanelAction(() => threadCommands.commands.forkThreadFromTurn(threadId, turnId, archiveSource));
       },
       implementPlan: (itemId) => void turn.submissionCommands.planImplementation.implement(itemId),
-      openThreadInAvailableView: (threadId) => void environment.plugin.workspace.openThreadInAvailableView(threadId),
-      openThreadInNewView: (threadId) => void environment.plugin.workspace.openThreadInNewView(threadId),
-      openTurnDiff: (state) => void environment.plugin.workspace.openTurnDiff(state),
+      openThreadInAvailableView: (threadId) => {
+        status.runPanelAction(() => environment.plugin.workspace.openThreadInAvailableView(threadId));
+      },
+      openThreadInNewView: (threadId) => {
+        status.runPanelAction(() => environment.plugin.workspace.openThreadInNewView(threadId));
+      },
+      openTurnDiff: (state) => {
+        status.runPanelAction(() => environment.plugin.workspace.openTurnDiff(state));
+      },
     },
     requests: turn.pendingRequests,
   });
@@ -414,13 +421,13 @@ function createSessionStatus(stateStore: ChatStateStore, localItemIds: LocalIdSo
       stateStore.dispatch({ type: "connection/status-set", statusText, ...(phase ? { phase } : {}) });
     },
     addSystemMessage,
-    captureFailureRecipient: () => {
+    runPanelAction: (action) => {
       const target = capturePanelTargetLease(stateStore.getState());
-      return (error) => {
+      void action().catch((error: unknown) => {
         if (panelTargetLeaseIsCurrent(stateStore.getState(), target)) {
-          addSystemMessage(error instanceof Error ? error.message : String(error));
+          addSystemMessage(errorMessage(error));
         }
-      };
+      });
     },
     addStructuredSystemMessage: (text, details) => {
       stateStore.dispatch({

@@ -1,3 +1,4 @@
+import { errorMessage } from "../../../../domain/text/error-message";
 import type { PreparedInput } from "../composer/prepared-input";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
@@ -166,7 +167,7 @@ async function sendTurnText(
         : submissionIsCurrent(host, request);
     if (failureApplies) {
       failPendingSubmission(host.stateStore, request.pendingSubmissionId);
-      host.addSystemMessage(error instanceof Error ? error.message : String(error));
+      host.addSystemMessage(errorMessage(error));
     }
     return false;
   } finally {
@@ -225,7 +226,7 @@ async function steerCurrentTurn(
     host.stateStore.dispatch({ type: "thread-stream/pending-steer-removed", clientId: localSteerId });
     if (targetIsCurrent) {
       failPendingSubmission(host.stateStore, request.pendingSubmissionId);
-      host.addSystemMessage(outcome.error instanceof Error ? outcome.error.message : String(outcome.error));
+      host.addSystemMessage(errorMessage(outcome.error));
     }
     return false;
   }
