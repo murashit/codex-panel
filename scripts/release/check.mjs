@@ -1,19 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
-
-function parseVersion(version) {
-  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
-  if (!match) return null;
-  return {
-    major: Number(match[1]),
-    minor: Number(match[2]),
-    patch: Number(match[3]),
-  };
-}
-
-function compareVersions(a, b) {
-  return a.major - b.major || a.minor - b.minor || a.patch - b.patch;
-}
+import { compareVersions, parseVersion } from "../version.mjs";
 
 function fail(message) {
   console.error(`release check failed: ${message}`);
@@ -48,6 +35,7 @@ if (packageLockJson.packages?.[""]?.version !== releaseVersion) {
 if (manifestJson.version !== releaseVersion) fail(`manifest.json version ${manifestJson.version} does not match ${releaseVersion}`);
 const versionKeys = Object.keys(versionsJson);
 for (const versionKey of versionKeys) {
+  if (!parseVersion(versionsJson[versionKey])) fail(`versions.json must map ${versionKey} to an X.Y.Z runtime floor`);
   const version = parseVersion(versionKey);
   if (!version) {
     fail(`versions.json contains invalid version ${versionKey}`);

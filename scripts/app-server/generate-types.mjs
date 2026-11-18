@@ -150,5 +150,5 @@ function readInstalledCodexVersion(cwd) {
     shell: false,
   });
   if (result.error || result.status !== 0) return null;
-  return `${result.stdout}\n${result.stderr}`.match(/\b\d+\.\d+\.\d+\b/)?.[0] ?? null;
+  return result.stdout.trim().match(/^codex-cli ([^\s]+)$/)?.[1] ?? null;
 }

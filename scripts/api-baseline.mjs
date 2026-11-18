@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { parseVersion } from "./version.mjs";
 
 const validArgs = new Set(["--json"]);
 const obsidianCodeMirrorPeers = ["@codemirror/state", "@codemirror/view"];
@@ -22,19 +23,8 @@ if (asJson) {
 
 if (report.failures.length > 0) process.exit(1);
 
-function parseSemver(value) {
-  const match = String(value ?? "").match(/\b(\d+)\.(\d+)\.(\d+)\b/);
-  if (!match) return null;
-  return {
-    version: match[0],
-    major: Number(match[1]),
-    minor: Number(match[2]),
-    patch: Number(match[3]),
-  };
-}
-
 function minorKey(version) {
-  return version ? `${version.major}.${version.minor}` : null;
+  return version ? version.slice(0, 2).join(".") : null;
 }
 
 async function createApiBaselineReport() {
@@ -47,8 +37,8 @@ async function createApiBaselineReport() {
 
   const codexReadmeVersion = readmeBaselines.codexTestedCliVersion;
   const codexRecordedVersion = inputs.appServerCompatibilityJson.codexAppServer?.testedCliVersion ?? null;
-  const codexReadmeSemver = parseSemver(codexReadmeVersion);
-  const codexRecordedSemver = parseSemver(codexRecordedVersion);
+  const codexReadmeSemver = parseVersion(codexReadmeVersion);
+  const codexRecordedSemver = parseVersion(codexRecordedVersion);
 
   const obsidianMinVersion = inputs.manifestJson.minAppVersion;
   const obsidianReadmeMinVersion = readmeBaselines.obsidianMinAppVersion;
@@ -56,9 +46,9 @@ async function createApiBaselineReport() {
   const obsidianLockPackage = inputs.packageLockJson.packages?.["node_modules/obsidian"];
   const obsidianLockVersion = obsidianLockPackage?.version ?? null;
   const obsidianPeerDependencies = obsidianLockPackage?.peerDependencies ?? {};
-  const obsidianSpecSemver = parseSemver(obsidianSpec);
-  const obsidianLockSemver = parseSemver(obsidianLockVersion);
-  const obsidianMinSemver = parseSemver(obsidianMinVersion);
+  const obsidianSpecSemver = parseVersion(typeof obsidianSpec === "string" ? obsidianSpec.replace(/^\^/, "") : null);
+  const obsidianLockSemver = parseVersion(obsidianLockVersion);
+  const obsidianMinSemver = parseVersion(obsidianMinVersion);
 
   const generationArguments = inputs.appServerCompatibilityJson.codexAppServer?.typeGeneration?.arguments ?? null;
   const expectedGenerationArguments = ["app-server", "generate-ts", "--experimental"];
@@ -73,7 +63,7 @@ async function createApiBaselineReport() {
   if (!codexReadmeSemver) {
     fail("README.md Compatibility table must define `codexAppServer.testedCliVersion` as X.Y.Z.");
   }
-  if (!codexRecordedSemver || codexRecordedSemver.version !== codexRecordedVersion) {
+  if (!codexRecordedSemver) {
     fail("src/app-server/compatibility.json must declare codexAppServer.testedCliVersion as X.Y.Z.");
   }
   if (codexReadmeVersion && codexRecordedVersion && codexReadmeVersion !== codexRecordedVersion) {
@@ -92,7 +82,7 @@ async function createApiBaselineReport() {
   }
 
   if (!obsidianMinSemver) fail("manifest.json minAppVersion must be X.Y.Z.");
-  if (!parseSemver(obsidianReadmeMinVersion)) {
+  if (!parseVersion(obsidianReadmeMinVersion)) {
     fail("README.md Compatibility table must define `manifest.minAppVersion` as X.Y.Z.");
   } else if (obsidianReadmeMinVersion !== obsidianMinVersion) {
     fail(`README Obsidian baseline ${displayValue(obsidianReadmeMinVersion)} does not match manifest ${obsidianMinVersion}.`);
@@ -205,10 +195,10 @@ function inlineCodeValue(value) {
 }
 
 function packageRangeKind(spec) {
-  const value = String(spec ?? "");
-  if (value.startsWith("~")) return "patch";
-  if (/^\d+\.\d+\.\d+$/.test(value)) return "exact";
-  if (value.startsWith("^")) return "compatible";
+  if (typeof spec !== "string") return "other";
+  if (spec.startsWith("~")) return "patch";
+  if (parseVersion(spec)) return "exact";
+  if (spec.startsWith("^")) return "compatible";
   return "other";
 }
 
