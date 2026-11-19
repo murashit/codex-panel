@@ -41,7 +41,7 @@
     "review:mutation": "node scripts/review/change.mjs mutation"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.5",
+    "@biomejs/biome": "^2.6.7",
     "@codemirror/state": "6.7.6",
     "@codemirror/view": "6.43.13",
     "@commitlint/cli": "^21.2.4",
@@ -52,18 +52,18 @@
     "@types/node": "^26.6.6",
     "@vitest/coverage-v8": "^5.1.0",
     "@vitest/eslint-plugin": "^1.6.28",
-    "concurrently": "^10.0.6",
+    "concurrently": "^10.0.7",
     "esbuild": "^0.28.2",
     "eslint": "^10.13.0",
-    "eslint-plugin-obsidianmd": "^0.5.0",
+    "eslint-plugin-obsidianmd": "^0.5.1",
     "fast-check": "^4.10.2",
-    "jscpd": "^5.4.2",
+    "jscpd": "^5.4.3",
     "jsdom": "^31.0.0",
-    "knip": "^6.44.1",
+    "knip": "^6.45.1",
     "moment": "^2.31.0",
     "obsidian": "^1.14.4",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.72.1",
+    "typescript-eslint": "^8.72.2",
     "vitest": "^5.0.0"
   },
   "dependencies": {
