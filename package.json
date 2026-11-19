@@ -71,7 +71,7 @@
     "defuddle": "^0.19.6",
     "diff": "^9.0.0",
     "mdast-util-from-markdown": "^2.1.0",
-    "mdast-util-to-markdown": "^2.2.2",
+    "mdast-util-to-markdown": "^2.2.3",
     "micromark": "^4.0.3",
     "obsidian-daily-notes-interface": "^0.9.5",
     "preact": "^11.2.0",
