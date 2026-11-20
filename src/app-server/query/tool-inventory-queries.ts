@@ -1,11 +1,11 @@
 import { QueryObserver } from "@tanstack/query-core";
-import { shortDiagnosticErrorMessage, upsertMcpServerDiagnostic } from "../../domain/runtime/diagnostics";
+import { shortDiagnosticErrorMessage } from "../../domain/runtime/diagnostics";
 import {
   type McpServerAuthenticationIssue,
   type McpServerDiagnostic,
   type McpServerRegistration,
   type McpServerStartupStatus,
-  mcpConnectionStatusFromStartupStatus,
+  mcpServerRegistrationKey,
   type ToolInventorySnapshot,
 } from "../../domain/runtime/tool-inventory";
 import {
@@ -21,10 +21,7 @@ const INSTALLED_PLUGINS_QUERY_KEY = [...TOOL_INVENTORY_QUERY_KEY, "plugins"] as 
 const MCP_SERVERS_QUERY_KEY = [...TOOL_INVENTORY_QUERY_KEY, "mcp-servers"] as const;
 const MCP_STARTUP_DIAGNOSTICS_QUERY_KEY = [...TOOL_INVENTORY_QUERY_KEY, "mcp-startup-diagnostics"] as const;
 
-interface McpStartupDiagnostics {
-  readonly revision: number;
-  readonly servers: readonly McpServerDiagnostic[];
-}
+type McpStartupDiagnostics = ReadonlyMap<string, McpServerDiagnostic>;
 
 export class AppServerToolInventoryQueries {
   private readonly pluginsQueryOptions: AppServerQueryOptions<InstalledPluginInventory>;
@@ -43,14 +40,14 @@ export class AppServerToolInventoryQueries {
     const plugins = this.scope.client.getQueryState<InstalledPluginInventory>(INSTALLED_PLUGINS_QUERY_KEY);
     const mcp = this.scope.client.getQueryState<McpServerInventory>(mcpServersQueryKey(threadId));
     const globalDiagnostics = this.mcpStartupDiagnostics(null);
-    const scopedDiagnostics = threadId === null ? globalDiagnostics : this.mcpStartupDiagnostics(threadId);
-    if (!plugins && !mcp && globalDiagnostics.servers.length === 0 && scopedDiagnostics.servers.length === 0) return null;
-    const mcpDiagnostics = scopedDiagnostics.servers.reduce(upsertMcpServerDiagnostic, globalDiagnostics.servers);
+    const scopedDiagnostics = threadId === null ? undefined : this.mcpStartupDiagnostics(threadId);
+    const diagnostics = new Map([...(globalDiagnostics ?? []), ...(scopedDiagnostics ?? [])]);
+    if (!plugins && !mcp && diagnostics.size === 0) return null;
     return {
       plugins: plugins?.data?.plugins ?? null,
       pluginsError: queryErrorMessage(plugins?.error),
       mcpServers: mcp?.data?.servers ?? null,
-      mcpDiagnostics,
+      mcpDiagnostics: [...diagnostics.values()].sort((a, b) => a.name.localeCompare(b.name)),
       mcpError: queryErrorMessage(mcp?.error),
     };
   }
@@ -125,19 +122,16 @@ export class AppServerToolInventoryQueries {
     failureReason: McpServerAuthenticationIssue | null;
   }): void {
     if (this.scope.isDisposed() || input.name.length === 0) return;
-    const queryKey = mcpStartupDiagnosticsQueryKey(input.threadId);
-    this.scope.client.setQueryData<McpStartupDiagnostics>(queryKey, (current) => ({
-      revision: (current?.revision ?? 0) + 1,
-      servers: upsertMcpServerDiagnostic(current?.servers ?? [], {
-        name: input.name,
-        environmentId: input.environmentId,
-        connectionStatus: mcpConnectionStatusFromStartupStatus(input.status),
-        authStatus: null,
-        toolCount: null,
-        message: input.error,
-        authenticationIssue: input.failureReason,
-      }),
-    }));
+    const diagnostic: McpServerDiagnostic = {
+      name: input.name,
+      environmentId: input.environmentId,
+      connectionStatus: input.status === "ready" ? "connected" : input.status,
+      message: input.error,
+      authenticationIssue: input.failureReason,
+    };
+    this.scope.client.setQueryData<McpStartupDiagnostics>(mcpStartupDiagnosticsQueryKey(input.threadId), (current) =>
+      new Map(current).set(mcpServerRegistrationKey(diagnostic), diagnostic),
+    );
   }
 
   private revalidateMcpServers(): void {
@@ -163,10 +157,13 @@ export class AppServerToolInventoryQueries {
       queryFn: async ({ signal }) => {
         for (;;) {
           const revalidationRevision = this.mcpRevalidationRevision(threadId);
-          const startupRevision = this.mcpStartupDiagnostics(threadId).revision;
+          const startup = this.mcpStartupDiagnostics(threadId);
           const inventory = await this.scope.runWithClient((client) => readMcpServerInventory(client, threadId, { signal }));
           if (revalidationRevision !== this.mcpRevalidationRevision(threadId)) continue;
-          this.clearMcpStartupDiagnostics(threadId, startupRevision);
+          // Every startup notification installs a new map, including an identical notification during a refresh.
+          if (startup?.size && startup === this.mcpStartupDiagnostics(threadId)) {
+            this.scope.client.setQueryData<McpStartupDiagnostics>(mcpStartupDiagnosticsQueryKey(threadId), new Map());
+          }
           return inventory;
         }
       },
@@ -177,15 +174,8 @@ export class AppServerToolInventoryQueries {
     return this.mcpRevalidationRevisions.get(threadId) ?? 0;
   }
 
-  private mcpStartupDiagnostics(threadId: string | null): McpStartupDiagnostics {
-    return this.scope.client.getQueryData<McpStartupDiagnostics>(mcpStartupDiagnosticsQueryKey(threadId)) ?? { revision: 0, servers: [] };
-  }
-
-  private clearMcpStartupDiagnostics(threadId: string | null, expectedRevision: number): void {
-    const queryKey = mcpStartupDiagnosticsQueryKey(threadId);
-    const current = this.scope.client.getQueryData<McpStartupDiagnostics>(queryKey);
-    if (!current || current.revision !== expectedRevision || current.servers.length === 0) return;
-    this.scope.client.setQueryData<McpStartupDiagnostics>(queryKey, { revision: current.revision, servers: [] });
+  private mcpStartupDiagnostics(threadId: string | null): McpStartupDiagnostics | undefined {
+    return this.scope.client.getQueryData<McpStartupDiagnostics>(mcpStartupDiagnosticsQueryKey(threadId));
   }
 }
 

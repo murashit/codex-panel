@@ -1,6 +1,7 @@
 import type { SkillMetadata } from "../../../../domain/runtime/catalog";
 import type { DiagnosticProbeResult } from "../../../../domain/runtime/diagnostics";
 import {
+  type McpServerConnectionStatus,
   type McpServerDiagnostic,
   type McpServerStatusSummary,
   mcpServerRegistrationKey,
@@ -85,8 +86,8 @@ function mcpToolProviderRow(
 ): DiagnosticRow {
   const label = mcpServerRegistrationLabel(registration);
   const connectionStatus = diagnostic?.connectionStatus ?? server?.connectionStatus ?? "unknown";
-  const authStatus = server?.authStatus ?? diagnostic?.authStatus ?? "unknown";
-  const toolCount = server?.toolCount ?? diagnostic?.toolCount;
+  const authStatus = server?.authStatus ?? "unknown";
+  const toolCount = server?.toolCount;
   const level = mcpToolProviderLevel(connectionStatus, authStatus);
   const apps = server?.name === "codex_apps" && !server.toolDiscoveryFailed ? listSummary(server.codexAppIds ?? []) : null;
   if (apps !== null && level === "normal" && !diagnostic?.message && !diagnostic?.authenticationIssue) {
@@ -106,8 +107,8 @@ function mcpToolProviderRow(
 }
 
 function mcpToolProviderLevel(
-  connectionStatus: McpServerDiagnostic["connectionStatus"],
-  authStatus: McpServerDiagnostic["authStatus"] | McpServerStatusSummary["authStatus"],
+  connectionStatus: McpServerConnectionStatus,
+  authStatus: McpServerStatusSummary["authStatus"],
 ): NonNullable<DiagnosticRow["level"]> {
   if (connectionStatus === "failed") return "error";
   if (authStatus === "notLoggedIn" || connectionStatus === "authenticationRequired" || connectionStatus === "cancelled") {
@@ -116,7 +117,7 @@ function mcpToolProviderLevel(
   return "normal";
 }
 
-function mcpConnectionStatusLabel(status: McpServerDiagnostic["connectionStatus"], configuredWhenUnknown: boolean): string {
+function mcpConnectionStatusLabel(status: McpServerConnectionStatus, configuredWhenUnknown: boolean): string {
   switch (status) {
     case "unknown":
       return configuredWhenUnknown ? "configured" : "connection unknown";
@@ -129,7 +130,7 @@ function mcpConnectionStatusLabel(status: McpServerDiagnostic["connectionStatus"
   }
 }
 
-function mcpAuthStatusLabel(status: NonNullable<McpServerDiagnostic["authStatus"]>): string {
+function mcpAuthStatusLabel(status: McpServerStatusSummary["authStatus"]): string {
   switch (status) {
     case "notLoggedIn":
       return "not logged in";

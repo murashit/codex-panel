@@ -171,8 +171,6 @@ describe("createChatPanelRuntimeNotices", () => {
           name: "github",
           environmentId: null,
           connectionStatus: "connected",
-          authStatus: "oAuth",
-          toolCount: 1,
           message: null,
           authenticationIssue: null,
         },

@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
+import { createMetadataResourceDiagnostics } from "../../../../../src/domain/runtime/diagnostics";
 import { createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ThreadCommands } from "../../../../../src/features/chat/application/threads/thread-commands";
 import { createToolbarPanelActions, createToolbarUiActions } from "../../../../../src/features/chat/host/toolbar/actions";
-import { createServerDiagnostics } from "../../../../support/runtime-diagnostics";
 
 describe("createToolbarPanelActions", () => {
   it.each([
@@ -119,8 +119,16 @@ describe("createToolbarPanelActions", () => {
         runtimeConfig: () => null,
         rateLimit: () => null,
         availableModels: () => [],
-        metadataDiagnostics: () => createServerDiagnostics(),
-        toolInventory: () => null,
+        metadataDiagnostics: () => createMetadataResourceDiagnostics(),
+        toolInventory: () => ({
+          plugins: null,
+          pluginsError: null,
+          mcpServers: null,
+          mcpError: null,
+          mcpDiagnostics: [
+            { name: "notes", environmentId: "work", connectionStatus: "failed", message: "offline", authenticationIssue: null },
+          ],
+        }),
       },
     });
     stateStore.dispatch({
@@ -143,7 +151,14 @@ describe("createToolbarPanelActions", () => {
     expect(JSON.parse(debugContent)).toMatchObject({
       vaultPath: "/vault",
       configuredCommand: "codex",
-      connection: { connected: true },
+      connection: {
+        connected: true,
+        serverDiagnostics: {
+          mcpServers: [
+            { name: "notes", environmentId: "work", connectionStatus: "failed", authStatus: null, toolCount: null, message: "offline" },
+          ],
+        },
+      },
       runtime: { pending: { model: { kind: "set", value: "gpt-live" } } },
     });
   });

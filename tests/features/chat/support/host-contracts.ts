@@ -1,6 +1,6 @@
 import { vi } from "vitest";
+import { createMetadataResourceDiagnostics } from "../../../../src/domain/runtime/diagnostics";
 import type { CodexChatHost, WorkspacePanels } from "../../../../src/features/chat/host/contracts";
-import { createServerDiagnostics } from "../../../support/runtime-diagnostics";
 
 export function disconnectedChatLeaseFixture(): ReturnType<CodexChatHost["appServerConnection"]["createLease"]> {
   return {
@@ -11,6 +11,23 @@ export function disconnectedChatLeaseFixture(): ReturnType<CodexChatHost["appSer
     withThreadActivation: async (_threadId, operation) => operation(),
     isConnected: () => false,
     disconnect: vi.fn(),
+  };
+}
+
+export function toolInventoryQueriesFixture(): CodexChatHost["toolInventoryQueries"] {
+  const inventory = { plugins: [], pluginsError: null, mcpServers: [], mcpDiagnostics: [], mcpError: null };
+  return {
+    snapshot: vi.fn(() => null),
+    observe: (_threadId, listener) => {
+      listener(null);
+      return () => undefined;
+    },
+    observeMcpRegistrations: (_threadId, listener) => {
+      listener(null);
+      return () => undefined;
+    },
+    ensure: vi.fn().mockResolvedValue(inventory),
+    refresh: vi.fn().mockResolvedValue(inventory),
   };
 }
 
@@ -51,11 +68,15 @@ export function workspacePanelsFixture(overrides: Partial<WorkspacePanels> = {})
 
 export function appServerQueriesFixture(overrides: Partial<CodexChatHost["appServerQueries"]> = {}): CodexChatHost["appServerQueries"] {
   return {
-    modelsResourceSnapshot: vi.fn(() => ({ id: "models" as const, value: undefined, probe: createServerDiagnostics().probes.models })),
+    modelsResourceSnapshot: vi.fn(() => ({
+      id: "models" as const,
+      value: undefined,
+      probe: createMetadataResourceDiagnostics().probes.models,
+    })),
     observeModelsResource: vi.fn(() => () => undefined),
     fetchModels: vi.fn().mockResolvedValue([]),
     metadataSnapshot: vi.fn(() => null),
-    metadataDiagnosticsSnapshot: vi.fn(() => createServerDiagnostics()),
+    metadataDiagnosticsSnapshot: vi.fn(() => createMetadataResourceDiagnostics()),
     ensureAppServerMetadata: vi.fn().mockResolvedValue(undefined),
     refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
     observeMetadataResource: vi.fn(() => () => undefined),

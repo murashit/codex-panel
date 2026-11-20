@@ -1,5 +1,5 @@
 import { CLIENT_VERSION } from "../../../../constants";
-import { type MetadataResourceDiagnostics, serverDiagnostics } from "../../../../domain/runtime/diagnostics";
+import type { MetadataResourceDiagnostics } from "../../../../domain/runtime/diagnostics";
 import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
 import { copyTextWithNotice } from "../../../../shared/ui/clipboard.obsidian";
 import type { ChatConnectionCoordinator } from "../../application/connection/connection-coordinator";
@@ -193,7 +193,6 @@ function runtimeDebugDetails(input: ToolbarUiActionDependencies["debugDetails"])
   const state = input.stateStore.getState();
   const activeThread = activeThreadState(state);
   const connection = state.connection;
-  const diagnostics = serverDiagnostics(input.metadataDiagnostics(), input.toolInventory()?.mcpDiagnostics ?? []);
   return JSON.stringify(
     {
       clientVersion: CLIENT_VERSION,
@@ -207,8 +206,9 @@ function runtimeDebugDetails(input: ToolbarUiActionDependencies["debugDetails"])
         initializeResponse: connection.initializeResponse,
         rateLimit: input.rateLimit(),
         serverDiagnostics: {
-          probes: diagnostics.probes,
-          mcpServers: diagnostics.mcpServers,
+          probes: input.metadataDiagnostics().probes,
+          // Preserve the copied debug format. Startup notifications contain no auth status or tool count.
+          mcpServers: (input.toolInventory()?.mcpDiagnostics ?? []).map((server) => ({ ...server, authStatus: null, toolCount: null })),
         },
       },
       runtimeConfig: input.runtimeConfig(),

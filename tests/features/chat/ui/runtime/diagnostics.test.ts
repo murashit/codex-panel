@@ -3,26 +3,25 @@ import { mcpServerStatusSummariesFromStatuses } from "../../../../../src/app-ser
 import { readInstalledPluginInventory } from "../../../../../src/app-server/services/tool-inventory";
 import type { SkillMetadata } from "../../../../../src/domain/runtime/catalog";
 import {
+  createMetadataResourceDiagnostics,
   type DiagnosticProbeId,
   type DiagnosticProbeResult,
-  type Diagnostics,
   diagnosticProbeError,
   diagnosticProbeOk,
-  upsertMcpServerDiagnostic,
+  type MetadataResourceDiagnostics,
 } from "../../../../../src/domain/runtime/diagnostics";
-import type { McpServerDiagnostic, ToolInventorySnapshot } from "../../../../../src/domain/runtime/tool-inventory";
+import type { ToolInventorySnapshot } from "../../../../../src/domain/runtime/tool-inventory";
 import { appServerDiagnosticSections } from "../../../../../src/features/chat/ui/runtime/diagnostics";
 import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/ui/runtime/tool-inventory";
-import { createServerDiagnostics } from "../../../../support/runtime-diagnostics";
 
 type InventoryFixture = ToolInventorySnapshot;
 
-function withProbe(diagnostics: Diagnostics, id: DiagnosticProbeId, probe: DiagnosticProbeResult): Diagnostics {
+function withProbe(
+  diagnostics: MetadataResourceDiagnostics,
+  id: DiagnosticProbeId,
+  probe: DiagnosticProbeResult,
+): MetadataResourceDiagnostics {
   return { ...diagnostics, probes: { ...diagnostics.probes, [id]: probe } };
-}
-
-function withMcpDiagnostic(diagnostics: Diagnostics, server: McpServerDiagnostic): Diagnostics {
-  return { ...diagnostics, mcpServers: upsertMcpServerDiagnostic(diagnostics.mcpServers, server) };
 }
 
 function skillFixture(name: string, scope: SkillMetadata["scope"], pluginId: string | null = null, enabled = true): SkillMetadata {
@@ -35,7 +34,7 @@ describe("connection diagnostics", () => {
       connected: false,
       configuredCommand: "codex",
       initializeResponse: null,
-      diagnostics: createServerDiagnostics(),
+      diagnostics: createMetadataResourceDiagnostics(),
     });
 
     expect(sections.find((section) => section.title === "Runtime Checks")?.rows).toEqual(
@@ -47,28 +46,10 @@ describe("connection diagnostics", () => {
   });
 
   it("formats connection rows and runtime checks for /doctor", () => {
-    let diagnostics = createServerDiagnostics();
+    let diagnostics = createMetadataResourceDiagnostics();
     diagnostics = withProbe(diagnostics, "models", diagnosticProbeOk("12 models", 1));
     diagnostics = withProbe(diagnostics, "rateLimits", diagnosticProbeError(new Error("rate limit request failed"), 2));
     diagnostics = withProbe(diagnostics, "skills", diagnosticProbeError(new Error("unknown method skills/list"), 3));
-    diagnostics = withMcpDiagnostic(diagnostics, {
-      name: "github",
-      environmentId: null,
-      connectionStatus: "failed",
-      authStatus: null,
-      toolCount: null,
-      message: "missing token",
-      authenticationIssue: null,
-    });
-    diagnostics = withMcpDiagnostic(diagnostics, {
-      name: "docs",
-      environmentId: null,
-      connectionStatus: "connected",
-      authStatus: "notLoggedIn",
-      toolCount: 2,
-      message: null,
-      authenticationIssue: null,
-    });
 
     const sections = appServerDiagnosticSections({
       connected: true,
@@ -255,8 +236,6 @@ describe("connection diagnostics", () => {
           name: "codex_apps",
           environmentId: null,
           connectionStatus: "connected",
-          authStatus: "oAuth",
-          toolCount: 219,
           message: null,
           authenticationIssue: null,
         },
@@ -264,8 +243,6 @@ describe("connection diagnostics", () => {
           name: "github",
           environmentId: null,
           connectionStatus: "connected",
-          authStatus: "oAuth",
-          toolCount: 2,
           message: null,
           authenticationIssue: null,
         },
@@ -324,7 +301,7 @@ describe("connection diagnostics", () => {
         mcpDiagnostics: [],
         mcpError: "MCP offline",
       },
-      { value: [], probe: createServerDiagnostics().probes.skills },
+      { value: [], probe: createMetadataResourceDiagnostics().probes.skills },
     );
 
     expect(sections).toEqual(
@@ -354,8 +331,6 @@ describe("connection diagnostics", () => {
           name: "github",
           environmentId: null,
           connectionStatus: "connected",
-          authStatus: null,
-          toolCount: null,
           message: null,
           authenticationIssue: null,
         },
@@ -404,8 +379,6 @@ describe("connection diagnostics", () => {
             name: "github",
             environmentId: "a",
             connectionStatus: "failed",
-            authStatus: "notLoggedIn",
-            toolCount: 10,
             message: "connection lost",
             authenticationIssue: null,
           },
@@ -431,8 +404,6 @@ describe("connection diagnostics", () => {
           name: "figma",
           environmentId: null,
           connectionStatus: "failed",
-          authStatus: null,
-          toolCount: null,
           message: "command not found",
           authenticationIssue: "reauthenticationRequired",
         },
@@ -467,9 +438,7 @@ describe("connection diagnostics", () => {
         {
           name: "codex_apps",
           environmentId: null,
-          connectionStatus: "authenticationRequired",
-          authStatus: "notLoggedIn",
-          toolCount: 2,
+          connectionStatus: "failed",
           message: "OAuth token expired",
           authenticationIssue: "reauthenticationRequired",
         },
@@ -477,13 +446,16 @@ describe("connection diagnostics", () => {
       mcpError: null,
     };
 
+    expect(toolProviderRows({ ...inventory, mcpDiagnostics: [] })).toEqual([
+      { label: "codex_apps", value: "github, google_drive, authentication required, auth not logged in", level: "warning" },
+    ]);
     const rows = toolProviderRows(inventory);
 
     expect(rows).toEqual([
       {
         label: "codex_apps",
-        value: "github, google_drive, authentication required, auth not logged in, re-authentication required, OAuth token expired",
-        level: "warning",
+        value: "github, google_drive, failed, auth not logged in, re-authentication required, OAuth token expired",
+        level: "error",
       },
     ]);
   });

@@ -7,6 +7,8 @@ import {
 import type { JsonValue } from "../../../../../../src/generated/app-server/serde_json/JsonValue";
 import { mcpFormRequestFixture } from "../../../../../support/server-requests";
 
+type McpRequest = Extract<ServerRequest, { method: "mcpServer/elicitation/request" }>;
+
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
   return value;
@@ -152,13 +154,13 @@ describe("MCP elicitation request model", () => {
 
   it("rejects a form whose required property cannot be presented", () => {
     const request = formRequest();
-    if (request.method !== "mcpServer/elicitation/request" || request.params.mode !== "form") throw new Error("Expected form request");
+    if (request.params.mode !== "form") throw new Error("Expected form request");
     request.params.requestedSchema.required = ["missing"];
     expect(toPendingMcpElicitation(request)).toBeNull();
   });
 });
 
-function formRequest(): ServerRequest {
+function formRequest(): McpRequest {
   return mcpFormRequestFixture(
     42,
     {
@@ -197,7 +199,7 @@ function formRequest(): ServerRequest {
   );
 }
 
-function urlRequest(): ServerRequest {
+function urlRequest(): McpRequest {
   return {
     id: 43,
     method: "mcpServer/elicitation/request",
@@ -215,7 +217,7 @@ function urlRequest(): ServerRequest {
   };
 }
 
-function openAiFormRequest(mode: "openai/form" | "openaiForm"): ServerRequest {
+function openAiFormRequest(mode: "openai/form" | "openaiForm"): McpRequest {
   return {
     id: 45,
     method: "mcpServer/elicitation/request",
@@ -237,7 +239,7 @@ function openAiFormRequest(mode: "openai/form" | "openaiForm"): ServerRequest {
   };
 }
 
-function fieldRequest(schema: JsonValue, required = false): ServerRequest {
+function fieldRequest(schema: JsonValue, required = false): McpRequest {
   return {
     id: 45,
     method: "mcpServer/elicitation/request",

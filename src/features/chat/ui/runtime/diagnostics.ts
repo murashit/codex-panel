@@ -1,5 +1,5 @@
 import { CLIENT_VERSION } from "../../../../constants";
-import type { DiagnosticProbeId, DiagnosticProbeResult, Diagnostics } from "../../../../domain/runtime/diagnostics";
+import type { DiagnosticProbeId, DiagnosticProbeResult, MetadataResourceDiagnostics } from "../../../../domain/runtime/diagnostics";
 import { diagnosticProbeLabel, serverIdentity, serverPlatform } from "../../../../domain/runtime/diagnostics";
 import type { ServerInitialization } from "../../../../domain/runtime/metadata";
 import type { ToolbarStatusRow as DiagnosticRow, ToolbarStatusSection as DiagnosticSection } from "../toolbar/model";
@@ -10,7 +10,7 @@ interface AppServerDiagnosticSectionsInput {
   connected: boolean;
   configuredCommand: string;
   initializeResponse: ServerInitialization | null;
-  diagnostics: Diagnostics;
+  diagnostics: MetadataResourceDiagnostics;
 }
 
 export function appServerDiagnosticSections(input: AppServerDiagnosticSectionsInput): DiagnosticSection[] {

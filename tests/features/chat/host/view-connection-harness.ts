@@ -2,7 +2,7 @@ import type { AppServerClient } from "../../../../src/app-server/connection/clie
 import { AppServerContextConnection } from "../../../../src/app-server/connection/context-connection";
 import { chatMetadataCacheFixture, chatVaultFixture, chatWorkspaceFixture } from "../../../support/chat-obsidian";
 import { threadGoalFixture } from "../../../support/thread-goal";
-import { threadTitlePortFixture, workspacePanelsFixture } from "../support/host-contracts";
+import { threadTitlePortFixture, toolInventoryQueriesFixture, workspacePanelsFixture } from "../support/host-contracts";
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, expect, vi } from "vitest";
@@ -443,28 +443,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       notifyPanelActivityChanged: overrides.notifyPanelActivityChanged ?? vi.fn(),
     }),
     appServerQueries,
-    toolInventoryQueries: overrides.toolInventoryQueries ?? {
-      snapshot: vi.fn(() => null),
-      observeMcpRegistrations: () => () => undefined,
-      observe: vi.fn((_threadId, listener) => {
-        listener(null);
-        return () => undefined;
-      }),
-      ensure: vi.fn().mockResolvedValue({
-        plugins: null,
-        pluginsError: null,
-        mcpServers: null,
-        mcpDiagnostics: [],
-        mcpError: null,
-      }),
-      refresh: vi.fn().mockResolvedValue({
-        plugins: null,
-        pluginsError: null,
-        mcpServers: null,
-        mcpDiagnostics: [],
-        mcpError: null,
-      }),
-    },
+    toolInventoryQueries: overrides.toolInventoryQueries ?? toolInventoryQueriesFixture(),
     threadCatalog,
     threadFacts: threadCatalog.facts,
   };

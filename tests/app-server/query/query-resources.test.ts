@@ -309,17 +309,19 @@ describe("app-server query resources", () => {
       "plugin/installed": vi.fn().mockResolvedValue({ marketplaces: [], marketplaceLoadErrors: [] }),
       "mcpServerStatus/list": mcpServers,
     });
-    const ensuring = cache.toolInventoryQueries.ensure("thread-a");
-    await vi.waitFor(() => expect(mcpServers).toHaveBeenCalledOnce());
-
-    cache.toolInventoryQueries.handleMcpStartupStatusUpdated({
+    const failure = {
       environmentId: null,
       threadId: "thread-a",
       name: "github",
       status: "failed",
       error: "missing token",
       failureReason: "reauthenticationRequired",
-    });
+    } as const;
+    cache.toolInventoryQueries.handleMcpStartupStatusUpdated(failure);
+    const ensuring = cache.toolInventoryQueries.ensure("thread-a");
+    await vi.waitFor(() => expect(mcpServers).toHaveBeenCalledOnce());
+
+    cache.toolInventoryQueries.handleMcpStartupStatusUpdated(failure);
     initial.resolve({ data: [mcpStatus("github", "connected")], nextCursor: null });
     await expect(ensuring).resolves.toMatchObject({
       mcpServers: [{ name: "github", connectionStatus: "connected" }],
@@ -327,6 +329,10 @@ describe("app-server query resources", () => {
     });
     expect(cache.toolInventoryQueries.snapshot("thread-b")).toMatchObject({ mcpServers: null, mcpDiagnostics: [] });
 
+    cache.toolInventoryQueries.handleMcpStartupStatusUpdated({ ...failure, status: "ready", error: null, failureReason: null });
+    expect(cache.toolInventoryQueries.snapshot("thread-a")?.mcpDiagnostics).toEqual([
+      { name: "github", environmentId: null, connectionStatus: "connected", message: null, authenticationIssue: null },
+    ]);
     await cache.toolInventoryQueries.refresh("thread-a");
     expect(cache.toolInventoryQueries.snapshot("thread-a")).toMatchObject({
       mcpServers: [{ name: "github", connectionStatus: "connected" }],

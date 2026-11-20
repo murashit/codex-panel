@@ -1,6 +1,5 @@
 import type { ModelMetadata, SkillMetadata } from "../../../../domain/runtime/catalog";
 import type { MetadataResourceDiagnostics } from "../../../../domain/runtime/diagnostics";
-import { serverDiagnostics } from "../../../../domain/runtime/diagnostics";
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/settings";
 import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
 import type { RateLimitSnapshot } from "../../../../domain/runtime/usage";
@@ -40,7 +39,6 @@ export function projectChatPanelToolbar(
   const archiveExportEnabled = dependencies.settings.archiveExportEnabled();
   const selectedRowId = dependencies.visibleThreadId(model.threads, model.activeThreadId);
   const limit = rateLimitSummary(model, nowMs);
-  const diagnostics = serverDiagnostics(model.metadataDiagnostics, model.toolInventory?.mcpDiagnostics ?? []);
   const permissions = runtimePermissionSections({
     snapshot: model,
     vaultPath,
@@ -73,11 +71,11 @@ export function projectChatPanelToolbar(
       connected,
       configuredCommand,
       initializeResponse: model.initializeResponse,
-      diagnostics,
+      diagnostics: model.metadataDiagnostics,
     }),
     toolInventory: toolInventoryDiagnosticSections(model.toolInventory, {
       value: model.availableSkills,
-      probe: diagnostics.probes.skills,
+      probe: model.metadataDiagnostics.probes.skills,
     }),
   };
 }
