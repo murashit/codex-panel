@@ -1,5 +1,5 @@
 import type { SkillMetadata } from "../../../../domain/runtime/catalog";
-import { type MetadataResourceDiagnostics, serverDiagnostics } from "../../../../domain/runtime/diagnostics";
+import type { MetadataResourceDiagnostics } from "../../../../domain/runtime/diagnostics";
 import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
 import { type ChatRuntimeSharedResources, runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
 import { activeThreadId, type ChatState } from "../../application/state/model";
@@ -39,12 +39,11 @@ export function createChatPanelRuntimeNotices(input: ChatPanelRuntimeNoticesInpu
   return {
     connectionDiagnosticDetails: () => {
       const state = input.state();
-      const inventory = input.sharedResources.toolInventorySnapshot(activeThreadId(state));
       const sections = appServerDiagnosticSections({
         connected: input.connected(),
         configuredCommand: input.configuredCommand(),
         initializeResponse: state.connection.initializeResponse,
-        diagnostics: serverDiagnostics(input.sharedResources.metadataDiagnosticsSnapshot(), inventory?.mcpDiagnostics ?? []),
+        diagnostics: input.sharedResources.metadataDiagnosticsSnapshot(),
       });
       return noticeSectionsFromDiagnostics(sections);
     },

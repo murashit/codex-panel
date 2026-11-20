@@ -1,6 +1,5 @@
 import { errorMessage } from "../text/error-message";
 import type { ServerInitialization } from "./metadata";
-import { type McpServerDiagnostic, mcpServerRegistrationKey } from "./tool-inventory";
 
 const DIAGNOSTIC_PROBE_DEFINITIONS = {
   models: { label: "Models" },
@@ -19,10 +18,6 @@ export interface MetadataResourceDiagnostics {
   readonly probes: Readonly<Record<DiagnosticProbeId, DiagnosticProbeResult>>;
 }
 
-export interface Diagnostics extends MetadataResourceDiagnostics {
-  readonly mcpServers: readonly McpServerDiagnostic[];
-}
-
 export function createMetadataResourceDiagnostics(): MetadataResourceDiagnostics {
   return {
     probes: {
@@ -31,13 +26,6 @@ export function createMetadataResourceDiagnostics(): MetadataResourceDiagnostics
       permissionProfiles: createDiagnosticProbeResult(),
       rateLimits: createDiagnosticProbeResult(),
     },
-  };
-}
-
-export function serverDiagnostics(metadata: MetadataResourceDiagnostics, mcpServers: readonly McpServerDiagnostic[]): Diagnostics {
-  return {
-    probes: metadata.probes,
-    mcpServers,
   };
 }
 
@@ -83,32 +71,8 @@ export function serverPlatform(initializeResponse: ServerInitialization | null):
   return `${os}/${family}`;
 }
 
-export function upsertMcpServerDiagnostic(
-  diagnostics: readonly McpServerDiagnostic[],
-  server: McpServerDiagnostic,
-): readonly McpServerDiagnostic[] {
-  const key = mcpServerRegistrationKey(server);
-  const current = diagnostics.find((item) => mcpServerRegistrationKey(item) === key);
-  const merged = mergeMcpServerDiagnostic(current, server);
-  const existing = diagnostics.filter((item) => item !== current);
-  return [...existing, merged].sort((a, b) => a.name.localeCompare(b.name));
-}
-
 export function shortDiagnosticErrorMessage(error: unknown, maxLength = 160): string {
   const message = errorMessage(error);
   const compact = message.replace(/\s+/g, " ").trim() || "Codex app-server request failed.";
   return compact.length > maxLength ? `${compact.slice(0, maxLength - 3)}...` : compact;
-}
-
-function mergeMcpServerDiagnostic(current: McpServerDiagnostic | undefined, update: McpServerDiagnostic): McpServerDiagnostic {
-  const connectionUpdated = update.connectionStatus !== "unknown";
-  return {
-    name: update.name,
-    environmentId: update.environmentId,
-    connectionStatus: connectionUpdated ? update.connectionStatus : (current?.connectionStatus ?? "unknown"),
-    authStatus: update.authStatus ?? current?.authStatus ?? null,
-    toolCount: update.toolCount ?? current?.toolCount ?? null,
-    message: update.message ?? (connectionUpdated ? null : (current?.message ?? null)),
-    authenticationIssue: update.authenticationIssue ?? (connectionUpdated ? null : (current?.authenticationIssue ?? null)),
-  };
 }

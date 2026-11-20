@@ -26,9 +26,7 @@ export function mcpServerRegistrationKey(server: McpServerRegistration): string 
 }
 
 export interface McpServerDiagnostic extends McpServerRegistration {
-  readonly connectionStatus: McpServerConnectionStatus;
-  readonly authStatus: McpAuthStatus | null;
-  readonly toolCount: number | null;
+  readonly connectionStatus: Exclude<McpServerStartupStatus, "ready"> | "connected";
   readonly message: string | null;
   readonly authenticationIssue: McpServerAuthenticationIssue | null;
 }
@@ -39,10 +37,6 @@ export interface McpServerStatusSummary extends McpServerRegistration {
   readonly toolDiscoveryFailed: boolean;
   readonly connectionStatus: Exclude<McpServerConnectionStatus, "unknown"> | null;
   readonly codexAppIds?: readonly string[];
-}
-
-export function mcpConnectionStatusFromStartupStatus(status: McpServerStartupStatus): McpServerConnectionStatus {
-  return status === "ready" ? "connected" : status;
 }
 
 export interface ToolInventoryPlugin {

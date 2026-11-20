@@ -6,6 +6,7 @@ import {
   threadCatalogPublicationFixture,
   threadGoalQueriesFixture,
   threadTitlePortFixture,
+  toolInventoryQueriesFixture,
 } from "../../support/host-contracts";
 // @vitest-environment jsdom
 
@@ -15,6 +16,7 @@ import type { AppServerClient, AppServerServerRequestResponder } from "../../../
 import type { ConnectionManagerHandlers } from "../../../../../src/app-server/connection/connection-manager";
 import { AppServerContextConnection } from "../../../../../src/app-server/connection/context-connection";
 import type { ServerNotification } from "../../../../../src/app-server/connection/rpc-messages";
+import { createMetadataResourceDiagnostics } from "../../../../../src/domain/runtime/diagnostics";
 import type { ServerInitialization } from "../../../../../src/domain/runtime/metadata";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
@@ -40,7 +42,6 @@ import { installObsidianDomShims } from "../../../../support/dom";
 import { modelMetadataFixture } from "../../../../support/model-metadata";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
-import { createServerDiagnostics } from "../../../../support/runtime-diagnostics";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { threadMutationCommandsMock } from "../../../../support/thread-mutations";
 import { chatPanelSettingsAccess } from "../../support/settings";
@@ -467,7 +468,7 @@ describe("chat panel session runtime", () => {
           appServerConnection: context.connection,
           appServerQueries: {
             metadataSnapshot: (id) => (id === "runtimeConfig" ? config : null) as never,
-            modelsResourceSnapshot: () => ({ id: "models", value: models, probe: createServerDiagnostics().probes.models }),
+            modelsResourceSnapshot: () => ({ id: "models", value: models, probe: createMetadataResourceDiagnostics().probes.models }),
           },
         },
       },
@@ -825,19 +826,6 @@ describe("chat panel session runtime", () => {
       recentActiveThreadsSnapshot: vi.fn(() => null),
       observeActiveThreadsResult: vi.fn(() => () => undefined),
       ...overrides,
-    };
-  }
-
-  function toolInventoryQueriesFixture(): ChatPanelEnvironment["plugin"]["toolInventoryQueries"] {
-    return {
-      snapshot: vi.fn(() => null),
-      observeMcpRegistrations: () => () => undefined,
-      observe: vi.fn((_threadId, listener) => {
-        listener(null);
-        return () => undefined;
-      }),
-      ensure: vi.fn().mockResolvedValue(null),
-      refresh: vi.fn().mockResolvedValue(null),
     };
   }
 

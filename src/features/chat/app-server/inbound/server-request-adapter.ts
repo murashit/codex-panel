@@ -122,29 +122,16 @@ export function appServerUserInputResponse(
   };
 }
 
-export function appServerMcpElicitationRequest(request: AppServerRequest): PendingMcpElicitation | null {
-  if (request.method !== "mcpServer/elicitation/request") return null;
+export function appServerMcpElicitationRequest(
+  request: Extract<AppServerRequest, { method: "mcpServer/elicitation/request" }>,
+): PendingMcpElicitation | null {
   const params = request.params;
-  const source = {
-    turnId: nullableString(params.turnId),
-    serverName: stringValue(params.serverName),
-    environmentId: params.environmentId,
-  };
-  switch (params.mode) {
-    case "url":
-      return {
-        requestId: request.id,
-        params: { ...source, mode: "url", message: stringValue(params.message), url: stringValue(params.url) },
-      };
-    case "form":
-    case "openai/form":
-    case "openaiForm": {
-      const fields = mcpElicitationFieldsFromRequestedSchema(params.requestedSchema);
-      return fields ? { requestId: request.id, params: { ...source, mode: "form", message: stringValue(params.message), fields } } : null;
-    }
-    default:
-      return null;
-  }
+  if (params.mode === "openai/userVerification") return null;
+  const { turnId, serverName, environmentId, message } = params;
+  const source = { turnId, serverName, environmentId, message };
+  if (params.mode === "url") return { requestId: request.id, params: { ...source, mode: "url", url: params.url } };
+  const fields = mcpElicitationFieldsFromRequestedSchema(params.requestedSchema);
+  return fields ? { requestId: request.id, params: { ...source, mode: "form", fields } } : null;
 }
 
 export function appServerMcpElicitationResponse(

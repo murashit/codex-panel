@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  diagnosticProbeError,
-  serverIdentity,
-  serverPlatform,
-  shortDiagnosticErrorMessage,
-  upsertMcpServerDiagnostic,
-} from "../../../src/domain/runtime/diagnostics";
+import { diagnosticProbeError, serverIdentity, serverPlatform, shortDiagnosticErrorMessage } from "../../../src/domain/runtime/diagnostics";
 import type { ServerInitialization } from "../../../src/domain/runtime/metadata";
 
 describe("server diagnostics", () => {
@@ -24,71 +18,10 @@ describe("server diagnostics", () => {
     expect(serverPlatform(null)).toBe("(not connected)");
   });
 
-  it("shortens error messages and tracks MCP server diagnostics", () => {
+  it("shortens diagnostic error messages", () => {
     expect(diagnosticProbeError("a\n b\t c", 1).message).toBe("a b c");
     expect(diagnosticProbeError("x".repeat(200), 1).message).toHaveLength(160);
 
-    let diagnostics = upsertMcpServerDiagnostic([], {
-      name: "github",
-      environmentId: null,
-      connectionStatus: "failed",
-      authStatus: null,
-      toolCount: null,
-      message: "missing token",
-      authenticationIssue: null,
-    });
-    diagnostics = upsertMcpServerDiagnostic(diagnostics, {
-      name: "github",
-      environmentId: null,
-      connectionStatus: "unknown",
-      authStatus: "notLoggedIn",
-      toolCount: 2,
-      message: null,
-      authenticationIssue: null,
-    });
-
-    expect(diagnostics).toEqual([
-      {
-        name: "github",
-        environmentId: null,
-        connectionStatus: "failed",
-        authStatus: "notLoggedIn",
-        toolCount: 2,
-        message: "missing token",
-        authenticationIssue: null,
-      },
-    ]);
-
-    diagnostics = upsertMcpServerDiagnostic(diagnostics, {
-      name: "github",
-      environmentId: null,
-      connectionStatus: "connected",
-      authStatus: null,
-      toolCount: null,
-      message: null,
-      authenticationIssue: null,
-    });
-
-    expect(diagnostics[0]).toEqual({
-      name: "github",
-      environmentId: null,
-      connectionStatus: "connected",
-      authStatus: "notLoggedIn",
-      toolCount: 2,
-      message: null,
-      authenticationIssue: null,
-    });
-
-    diagnostics = upsertMcpServerDiagnostic(diagnostics, {
-      name: "docs",
-      environmentId: null,
-      connectionStatus: "connected",
-      authStatus: "oAuth",
-      toolCount: 1,
-      message: null,
-      authenticationIssue: null,
-    });
-    expect(diagnostics.map((server) => server.name)).toEqual(["docs", "github"]);
     expect(shortDiagnosticErrorMessage("1234567890", 10)).toBe("1234567890");
   });
 });

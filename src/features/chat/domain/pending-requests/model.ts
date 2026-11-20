@@ -125,27 +125,14 @@ export type McpElicitationFieldEdit =
   | { type: "single-select"; value: string | null }
   | { type: "multi-select"; value: readonly string[] };
 
-interface PendingMcpElicitationFormParams {
-  turnId: string | null;
-  serverName: string;
-  environmentId: string | null;
-  mode: "form";
-  message: string;
-  fields: readonly PendingMcpElicitationField[];
-}
-
-interface PendingMcpElicitationUrlParams {
-  turnId: string | null;
-  serverName: string;
-  environmentId: string | null;
-  mode: "url";
-  message: string;
-  url: string;
-}
-
 export interface PendingMcpElicitation {
   requestId: PendingRequestId;
-  params: PendingMcpElicitationFormParams | PendingMcpElicitationUrlParams;
+  params: {
+    turnId: string | null;
+    serverName: string;
+    environmentId: string | null;
+    message: string;
+  } & ({ mode: "form"; fields: readonly PendingMcpElicitationField[] } | { mode: "url"; url: string });
 }
 
 export function approvalActionKind(action: ApprovalAction): ApprovalActionIntent {

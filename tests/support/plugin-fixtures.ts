@@ -4,6 +4,7 @@ import {
   threadCatalogPublicationFixture,
   threadGoalQueriesFixture,
   threadTitlePortFixture,
+  toolInventoryQueriesFixture,
   workspacePanelsFixture,
 } from "../features/chat/support/host-contracts";
 import { chatMetadataCacheFixture, chatVaultFixture, chatWorkspaceFixture } from "./chat-obsidian";
@@ -131,28 +132,7 @@ function chatHostFixture(): CodexChatHost {
     settings: chatPanelSettingsAccess(settings),
     workspace: workspacePanelsFixture(),
     appServerQueries: appServerQueriesFixture(),
-    toolInventoryQueries: {
-      snapshot: vi.fn(() => null),
-      observeMcpRegistrations: () => () => undefined,
-      observe: vi.fn((_threadId, listener) => {
-        listener(null);
-        return () => undefined;
-      }),
-      ensure: vi.fn<CodexChatHost["toolInventoryQueries"]["ensure"]>().mockResolvedValue({
-        plugins: [],
-        pluginsError: null,
-        mcpServers: [],
-        mcpDiagnostics: [],
-        mcpError: null,
-      }),
-      refresh: vi.fn<CodexChatHost["toolInventoryQueries"]["refresh"]>().mockResolvedValue({
-        plugins: [],
-        pluginsError: null,
-        mcpServers: [],
-        mcpDiagnostics: [],
-        mcpError: null,
-      }),
-    },
+    toolInventoryQueries: toolInventoryQueriesFixture(),
     threadGoalQueries: threadGoalQueriesFixture(),
     threadCatalog: {
       ...threadCatalogPublicationFixture(),
