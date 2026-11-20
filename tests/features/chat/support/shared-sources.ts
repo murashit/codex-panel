@@ -14,6 +14,7 @@ export function chatSharedSourcesFixture(threads: readonly Thread[] = []): {
       observeMetadataResource: () => () => undefined,
     },
     toolInventoryQueries: {
+      observeMcpRegistrations: () => () => undefined,
       observe: (_threadId, listener) => {
         listener(null);
         return () => undefined;

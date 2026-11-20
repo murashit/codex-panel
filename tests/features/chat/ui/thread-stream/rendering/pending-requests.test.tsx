@@ -894,6 +894,7 @@ function pendingMcpElicitation({
     params: {
       turnId: null,
       serverName: "github",
+      environmentId: null,
       mode: "form",
       message: "Provide issue details",
       fields: [

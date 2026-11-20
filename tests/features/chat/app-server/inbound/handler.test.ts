@@ -1152,6 +1152,7 @@ describe("ChatInboundHandler", () => {
               params: {
                 turnId: null,
                 serverName: "github",
+                environmentId: null,
                 mode: "form",
                 message: "Need input",
                 fields: [

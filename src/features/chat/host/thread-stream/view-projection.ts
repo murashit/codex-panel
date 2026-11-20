@@ -1,3 +1,4 @@
+import type { McpServerRegistration } from "../../../../domain/runtime/tool-inventory";
 import type { TurnDiffViewState } from "../../../turn-diff/model";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { activeThreadState, type ChatState } from "../../application/state/model";
@@ -47,9 +48,13 @@ interface ThreadStreamProjection {
   context: ThreadStreamContext;
 }
 
-export function projectThreadStream(model: ChatPanelThreadStreamModel, dependencies: ChatThreadStreamDependencies): ThreadStreamProjection {
+export function projectThreadStream(
+  model: ChatPanelThreadStreamModel,
+  dependencies: ChatThreadStreamDependencies,
+  registrations: readonly McpServerRegistration[] | null = null,
+): ThreadStreamProjection {
   return {
-    blocks: projectThreadStreamBlocks(model, dependencies),
+    blocks: projectThreadStreamBlocks(model, dependencies, registrations),
     context: threadStreamContext(model, dependencies),
   };
 }
@@ -95,6 +100,7 @@ function threadStreamContext(model: ChatPanelThreadStreamModel, dependencies: Ch
 function projectThreadStreamBlocks(
   model: ChatPanelThreadStreamModel,
   dependencies: ChatThreadStreamDependencies,
+  registrations: readonly McpServerRegistration[] | null,
 ): readonly ThreadStreamViewBlock[] {
   const stream = chatThreadStreamViewState(model.threadStream, model.activeTurn);
   const canonicalItems = threadStreamItems(stream);
@@ -122,7 +128,9 @@ function projectThreadStreamBlocks(
   });
   const textActionTargetsByItemId = textActionTargetsForThreadStreamItems(rollbackCandidate, forkCandidates, planTarget);
   const pendingRequests =
-    items.length === 0 ? null : projectPendingRequestBlock({ ...model.requests, approvalDetails: model.disclosureApprovalDetails });
+    items.length === 0
+      ? null
+      : projectPendingRequestBlock({ ...model.requests, registrations, approvalDetails: model.disclosureApprovalDetails });
 
   return threadStreamViewBlocks({
     activeThreadId: model.activeThreadId,
@@ -176,6 +184,7 @@ function patchTextActionTargets(
 
 export interface ChatPanelThreadStreamModel {
   readonly activeThreadId: string | null;
+  readonly mcpRegistrationThreadId: string | null;
   readonly forkSourceThreadId: string | null;
   readonly forkAllowed: boolean;
   readonly rollbackAllowed: boolean;
@@ -197,6 +206,11 @@ export function selectChatPanelThreadStream(state: ChatState): ChatPanelThreadSt
   const activeThread = activeThreadState(state);
   return {
     activeThreadId: activeThread?.id ?? null,
+    mcpRegistrationThreadId:
+      state.connection.phase.kind === "connected" &&
+      state.requests.pendingMcpElicitations.some((item) => item.params.environmentId !== null)
+        ? (activeThread?.id ?? null)
+        : null,
     forkSourceThreadId: state.panelThread.kind === "fork-draft" ? state.panelThread.draft.sourceThreadId : null,
     forkAllowed: activePanelOperationDecision(state, "fork").kind === "allowed",
     rollbackAllowed: activePanelOperationDecision(state, "rollback").kind === "allowed",

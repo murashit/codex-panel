@@ -4,6 +4,7 @@ import {
   type McpServerDiagnostic,
   type McpServerStatusSummary,
   mcpServerRegistrationKey,
+  mcpServerRegistrationLabel,
   type ToolInventoryPlugin,
   type ToolInventorySnapshot,
 } from "../../../../domain/runtime/tool-inventory";
@@ -82,7 +83,7 @@ function mcpToolProviderRow(
   server: McpServerStatusSummary | undefined,
   diagnostic: McpServerDiagnostic | undefined,
 ): DiagnosticRow {
-  const label = registration.environmentId === null ? registration.name : `${registration.name} (${registration.environmentId})`;
+  const label = mcpServerRegistrationLabel(registration);
   const connectionStatus = diagnostic?.connectionStatus ?? server?.connectionStatus ?? "unknown";
   const authStatus = server?.authStatus ?? diagnostic?.authStatus ?? "unknown";
   const toolCount = server?.toolCount ?? diagnostic?.toolCount;

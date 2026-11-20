@@ -128,6 +128,7 @@ export type McpElicitationFieldEdit =
 interface PendingMcpElicitationFormParams {
   turnId: string | null;
   serverName: string;
+  environmentId: string | null;
   mode: "form";
   message: string;
   fields: readonly PendingMcpElicitationField[];
@@ -136,6 +137,7 @@ interface PendingMcpElicitationFormParams {
 interface PendingMcpElicitationUrlParams {
   turnId: string | null;
   serverName: string;
+  environmentId: string | null;
   mode: "url";
   message: string;
   url: string;

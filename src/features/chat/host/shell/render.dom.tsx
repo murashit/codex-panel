@@ -26,6 +26,7 @@ import {
   type ChatToolInventoryDisplayQueries,
   metadataDiagnosticsFromResources,
   useActiveThreadsResource,
+  useMcpRegistrations,
   useModelsResource,
   usePermissionProfilesProbe,
   useRateLimitsResource,
@@ -122,7 +123,11 @@ function ChatPanelShell({
             <ChatPanelGoalRegion stateStore={stateStore} threadGoalQueries={threadGoalQueries} dependencies={parts.goal} />
           </div>
         </div>
-        <ChatPanelThreadStreamRegion stateStore={stateStore} dependencies={parts.threadStream} />
+        <ChatPanelThreadStreamRegion
+          toolInventoryQueries={toolInventoryQueries}
+          stateStore={stateStore}
+          dependencies={parts.threadStream}
+        />
         <div className="codex-panel__region codex-panel__region--composer">
           <ChatPanelComposerRegion
             stateStore={stateStore}
@@ -291,15 +296,18 @@ function selectThreadGoalKey(state: ChatState): { threadId: string | null; enabl
 }
 
 function ChatPanelThreadStreamRegion({
+  toolInventoryQueries,
   stateStore,
   dependencies,
 }: {
   stateStore: ChatStateSource;
   dependencies: ChatPanelShellParts["threadStream"];
+  toolInventoryQueries: ChatToolInventoryDisplayQueries;
 }): UiNode {
   const model = useChatSelector(stateStore, selectChatPanelThreadStream);
+  const registrations = useMcpRegistrations(toolInventoryQueries, model.mcpRegistrationThreadId);
   return useMemo(() => {
-    const projection = projectThreadStream(model, dependencies.context);
+    const projection = projectThreadStream(model, dependencies.context, registrations);
     return (
       <ThreadStreamViewport
         state={{
@@ -309,7 +317,7 @@ function ChatPanelThreadStreamRegion({
         }}
       />
     );
-  }, [model, dependencies]);
+  }, [model, dependencies, registrations]);
 }
 
 function ChatPanelComposerRegion({

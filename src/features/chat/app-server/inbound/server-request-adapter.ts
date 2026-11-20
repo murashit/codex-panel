@@ -34,25 +34,12 @@ type FileChangeApprovalRequest = Extract<AppServerRequest, { method: "item/fileC
 type PermissionsApprovalRequest = Extract<AppServerRequest, { method: "item/permissions/requestApproval" }>;
 export type ApprovalRequest = CommandApprovalRequest | FileChangeApprovalRequest | PermissionsApprovalRequest;
 type UserInputRequest = Extract<AppServerRequest, { method: "item/tool/requestUserInput" }>;
-type McpElicitationRequest = Extract<AppServerRequest, { method: "mcpServer/elicitation/request" }>;
 
 type CommandApprovalParams = CommandApprovalRequest["params"];
 type FileChangeApprovalParams = FileChangeApprovalRequest["params"];
 type PermissionsApprovalParams = PermissionsApprovalRequest["params"];
 type UserInputParams = UserInputRequest["params"];
 type UserInputQuestion = UserInputParams["questions"][number];
-type McpElicitationParams = McpElicitationRequest["params"];
-
-interface NormalizedMcpElicitationParamsBase {
-  turnId: string | null;
-  serverName: string;
-  message: string;
-}
-
-type NormalizedMcpElicitationParams =
-  | (NormalizedMcpElicitationParamsBase & { mode: "form"; requestedSchema: unknown })
-  | (NormalizedMcpElicitationParamsBase & { mode: "url"; url: string });
-
 export type AppServerApprovalResponse =
   | CommandExecutionRequestApprovalResponse
   | FileChangeRequestApprovalResponse
@@ -137,32 +124,27 @@ export function appServerUserInputResponse(
 
 export function appServerMcpElicitationRequest(request: AppServerRequest): PendingMcpElicitation | null {
   if (request.method !== "mcpServer/elicitation/request") return null;
-  const params = normalizeMcpElicitationParams(request.params);
-  if (!params) return null;
-  if (params.mode === "url") {
-    return {
-      requestId: request.id,
-      params: {
-        turnId: params.turnId,
-        serverName: params.serverName,
-        mode: "url",
-        message: params.message,
-        url: params.url,
-      },
-    };
-  }
-  const fields = mcpElicitationFieldsFromRequestedSchema(params.requestedSchema);
-  if (!fields) return null;
-  return {
-    requestId: request.id,
-    params: {
-      turnId: params.turnId,
-      serverName: params.serverName,
-      mode: "form",
-      message: params.message,
-      fields,
-    },
+  const params = request.params;
+  const source = {
+    turnId: nullableString(params.turnId),
+    serverName: stringValue(params.serverName),
+    environmentId: params.environmentId,
   };
+  switch (params.mode) {
+    case "url":
+      return {
+        requestId: request.id,
+        params: { ...source, mode: "url", message: stringValue(params.message), url: stringValue(params.url) },
+      };
+    case "form":
+    case "openai/form":
+    case "openaiForm": {
+      const fields = mcpElicitationFieldsFromRequestedSchema(params.requestedSchema);
+      return fields ? { requestId: request.id, params: { ...source, mode: "form", message: stringValue(params.message), fields } } : null;
+    }
+    default:
+      return null;
+  }
 }
 
 export function appServerMcpElicitationResponse(
@@ -463,31 +445,6 @@ function pendingUserInputQuestion(question: UserInputQuestion): PendingUserInput
         })
       : null,
   };
-}
-
-function normalizeMcpElicitationParams(params: McpElicitationParams): NormalizedMcpElicitationParams | null {
-  switch (params.mode) {
-    case "openai/userVerification":
-      return null;
-    case "form":
-    case "openai/form":
-    case "openaiForm":
-      return {
-        turnId: nullableString(params.turnId),
-        serverName: stringValue(params.serverName),
-        mode: "form",
-        message: stringValue(params.message),
-        requestedSchema: params.requestedSchema,
-      };
-    case "url":
-      return {
-        turnId: nullableString(params.turnId),
-        serverName: stringValue(params.serverName),
-        mode: "url",
-        message: stringValue(params.message),
-        url: stringValue(params.url),
-      };
-  }
 }
 
 function mcpElicitationFieldsFromRequestedSchema(schema: unknown): PendingMcpElicitationField[] | null {

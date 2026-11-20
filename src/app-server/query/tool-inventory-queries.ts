@@ -3,6 +3,7 @@ import { shortDiagnosticErrorMessage, upsertMcpServerDiagnostic } from "../../do
 import {
   type McpServerAuthenticationIssue,
   type McpServerDiagnostic,
+  type McpServerRegistration,
   type McpServerStartupStatus,
   mcpConnectionStatusFromStartupStatus,
   type ToolInventorySnapshot,
@@ -71,6 +72,20 @@ export class AppServerToolInventoryQueries {
     emit();
     return this.scope.trackObserver(() => {
       for (const observer of observers) observer.destroy();
+    });
+  }
+
+  observeMcpRegistrations(threadId: string, listener: (registrations: readonly McpServerRegistration[] | null) => void): () => void {
+    this.scope.assertUsable();
+    const observer = new QueryObserver(this.scope.client, { ...this.mcpServersQueryOptions(threadId), refetchOnMount: "always" });
+    const emit = (): void => {
+      const result = observer.getCurrentResult();
+      listener(result.isSuccess && !result.isFetching && !result.isStale ? result.data.servers : null);
+    };
+    observer.subscribe(emit);
+    emit();
+    return this.scope.trackObserver(() => {
+      observer.destroy();
     });
   }
 

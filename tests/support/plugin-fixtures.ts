@@ -133,6 +133,7 @@ function chatHostFixture(): CodexChatHost {
     appServerQueries: appServerQueriesFixture(),
     toolInventoryQueries: {
       snapshot: vi.fn(() => null),
+      observeMcpRegistrations: () => () => undefined,
       observe: vi.fn((_threadId, listener) => {
         listener(null);
         return () => undefined;

@@ -1,3 +1,4 @@
+import { type McpServerRegistration, mcpServerRegistrationLabel } from "../../../../domain/runtime/tool-inventory";
 import {
   defaultPendingApprovalOptions,
   questionDefaultAnswer,
@@ -23,6 +24,7 @@ import type {
 type ApprovalActionOption = PendingApprovalViewModel["actions"][number];
 
 interface PendingRequestBlockSnapshotSource {
+  registrations?: readonly McpServerRegistration[] | null;
   approvals: readonly PendingApproval[];
   pendingUserInputs: readonly PendingUserInput[];
   pendingMcpElicitations: readonly PendingMcpElicitation[];
@@ -44,7 +46,7 @@ export function pendingRequestBlockSnapshotFromState(source: PendingRequestBlock
   return {
     approvals: source.approvals.map(pendingApprovalViewModel),
     pendingUserInputs: source.pendingUserInputs.map(pendingUserInputViewModel),
-    pendingMcpElicitations: source.pendingMcpElicitations.map(pendingMcpElicitationViewModel),
+    pendingMcpElicitations: source.pendingMcpElicitations.map((item) => pendingMcpElicitationViewModel(item, source.registrations)),
     userInputDrafts: source.userInputDrafts,
     approvalDetails: source.approvalDetails,
   };
@@ -102,8 +104,14 @@ function approvalActionClassName(action: ApprovalAction): string {
   return "";
 }
 
-function pendingMcpElicitationViewModel(elicitation: PendingMcpElicitation): PendingMcpElicitationViewModel {
-  const title = `MCP request from ${elicitation.params.serverName}`;
+function pendingMcpElicitationViewModel(
+  elicitation: PendingMcpElicitation,
+  registrations: PendingRequestBlockSnapshotSource["registrations"],
+): PendingMcpElicitationViewModel {
+  const { serverName, environmentId } = elicitation.params;
+  const scopes = new Set(registrations?.filter((server) => server.name === serverName).map((server) => server.environmentId));
+  const label = scopes.size > 1 && scopes.has(environmentId) ? mcpServerRegistrationLabel({ name: serverName, environmentId }) : serverName;
+  const title = `MCP request from ${label}`;
   if (elicitation.params.mode === "url") {
     return {
       requestId: elicitation.requestId,

@@ -9,7 +9,7 @@ import type {
   SharedServerMetadataResourceId,
   SharedServerMetadataSnapshotValues,
 } from "../../../domain/runtime/metadata";
-import type { ToolInventorySnapshot } from "../../../domain/runtime/tool-inventory";
+import type { McpServerRegistration, ToolInventorySnapshot } from "../../../domain/runtime/tool-inventory";
 import type { ThreadFactSink } from "../../../domain/threads/facts";
 import type { ThreadGoal } from "../../../domain/threads/goal";
 import type { KeyedOperationCoordinator } from "../../../shared/async/keyed-operation-coordinator";
@@ -87,6 +87,7 @@ interface ChatAppServerQueries extends ChatMetadataSource {
 }
 
 interface ChatToolInventoryQueries {
+  observeMcpRegistrations(threadId: string, listener: (registrations: readonly McpServerRegistration[] | null) => void): () => void;
   snapshot(threadId: string | null): ToolInventorySnapshot | null;
   observe(threadId: string | null, listener: (snapshot: ToolInventorySnapshot | null) => void): () => void;
   ensure(threadId: string | null): Promise<ToolInventorySnapshot>;
