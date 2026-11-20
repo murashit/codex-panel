@@ -53,17 +53,20 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.textContent).not.toContain("Late thread");
   });
 
-  it("renders shared thread refresh failures", async () => {
-    const catalog = catalogFixture();
-    catalog.catalog.refreshActiveThreads.mockRejectedValue(new Error("Codex app-server stopped."));
-    const host = threadsHost({ threadCatalog: catalog.catalog });
-    const view = await threadsView(host);
+  it("shows an initial list failure and recovers when Refresh is clicked", async () => {
+    const read = vi
+      .fn<() => Promise<readonly Thread[]>>()
+      .mockRejectedValueOnce(new Error("Codex app-server stopped."))
+      .mockResolvedValue([threadFixture({ preview: "Recovered thread" })]);
+    const { catalog } = realCatalogFixture(read);
+    const view = await threadsView(threadsHost({ threadCatalog: catalog }));
 
-    await view.refresh();
-
-    const status = view.containerEl.querySelector<HTMLElement>(".codex-panel-threads__status");
-    expect(status?.textContent).toContain("Codex app-server stopped.");
+    await vi.waitFor(() => expect(view.containerEl.querySelector('[role="status"]')?.textContent).toBe("Codex app-server stopped."));
     expect(view.containerEl.querySelector(".codex-panel-threads__empty")).toBeNull();
+
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Refresh threads"]')?.click();
+    await vi.waitFor(() => expect(view.containerEl.querySelector(".codex-panel-threads__row-title")?.textContent).toBe("Recovered thread"));
+    expect(view.containerEl.querySelector('[role="status"]')).toBeNull();
   });
 
   it("keeps existing threads and notifies when an explicit refresh fails", async () => {
@@ -77,17 +80,6 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.textContent).toContain("Cached thread");
     expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
     expect(notices).toContain("Refresh failed.");
-  });
-
-  it("uses the shared query observer as the authoritative list projection", async () => {
-    const catalog = catalogFixture();
-    const view = await threadsView(threadsHost({ threadCatalog: catalog.catalog }));
-
-    await view.refresh();
-    expect(view.containerEl.querySelector(".codex-panel-threads__row")).toBeNull();
-
-    catalog.publish(queryResult([threadFixture({ id: "observed", preview: "Observed thread" })]));
-    expect(view.containerEl.textContent).toContain("Observed thread");
   });
 
   it("shows threads in activity order even when the catalog returns them in another order", async () => {
@@ -195,18 +187,6 @@ describe("CodexThreadsView", () => {
       expect(navigate).toHaveBeenCalledTimes(2);
     });
     expect(notices).toEqual(["Could not open panel"]);
-  });
-
-  it("refreshes threads from the threads view toolbar", async () => {
-    const host = threadsHost();
-    const view = await threadsView(host);
-
-    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Thread preview"));
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Refresh threads"]')?.click();
-
-    await waitForAsyncWork(() => {
-      expect(host.threadCatalog.refreshActiveThreads).toHaveBeenCalledTimes(2);
-    });
   });
 
   it("loads another thread page only after the user requests it", async () => {
@@ -318,13 +298,19 @@ describe("CodexThreadsView", () => {
     let activities: readonly ThreadsViewPanelActivity[] = [
       { threadId: "source", selected: true, pending: false, running: false, unread: false },
     ];
+    let held: (() => void)[] | null = [];
     const pending = catalog.beginReplacement("source");
     pending.attach(replacement);
     const view = await threadsView(
       threadsHost({
         threadCatalog: {
-          ...catalogFixture(queryResult([source])).catalog,
-          activeThreadsSnapshot: () => catalog.activeThreadsSnapshot(),
+          refreshActiveThreads: () => catalog.refreshActiveThreads(),
+          loadMoreActiveThreads: () => catalog.loadMoreActiveThreads(),
+          watchActiveThreads: (changed) =>
+            catalog.watchActiveThreads(() => {
+              if (held) held.push(changed);
+              else changed();
+            }),
         },
         visiblePanelActivities: (threads: readonly Thread[]) =>
           activities.map((activity) => ({
@@ -334,19 +320,30 @@ describe("CodexThreadsView", () => {
       }),
     );
 
+    const expectActiveRow = (title: string) => {
+      const rows = view.containerEl.querySelectorAll(".codex-panel-threads__row");
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.querySelector(".codex-panel-threads__row--selected.codex-panel-threads__row--running")?.textContent).toBe(title);
+    };
+
     activities = [{ threadId: "replacement", selected: true, pending: false, running: true, unread: false }];
     view.refreshLiveState();
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
-    expect(view.containerEl.querySelector(".codex-panel-threads__row--selected")?.textContent).toContain("Source");
+    expectActiveRow("Source");
 
-    expect(view.containerEl.querySelector(".codex-panel-threads__row--selected.codex-panel-threads__row--running")).not.toBeNull();
     serverThreads = [replacement];
     view.refreshLiveState();
     pending.finish(true);
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
-    expect(view.containerEl.querySelector(".codex-panel-threads__row--selected")?.textContent).toContain("Replacement");
-    expect(view.containerEl.querySelectorAll(".codex-panel-threads__row")).toHaveLength(1);
-    expect(view.containerEl.querySelector(".codex-panel-threads__row--selected.codex-panel-threads__row--running")).not.toBeNull();
+    expectActiveRow("Replacement");
+
+    expect(held.length).toBeGreaterThan(0);
+    for (const notify of held) notify();
+    held = null;
+    expectActiveRow("Replacement");
+
+    catalog.facts.apply({ type: "thread-renamed", threadId: replacement.id, name: "Renamed" });
+    expectActiveRow("Renamed");
   });
 
   it("locks a rename save, restores its draft on failure, and closes after a successful retry", async () => {
@@ -599,7 +596,7 @@ describe("CodexThreadsView", () => {
     });
     const view = await threadsView(
       threadsHost({
-        threadCatalog: { ...catalogFixture().catalog, observeActiveThreadsResult: () => unsubscribe },
+        threadCatalog: { ...catalogFixture().catalog, watchActiveThreads: () => ({ read: () => queryResult(null), close: unsubscribe }) },
       }),
     );
 
@@ -645,21 +642,22 @@ function threadsHost(overrides: Partial<ThreadsViewHost> = {}) {
 
 function catalogFixture(initial = queryResult(null)) {
   let result = initial;
-  let observer: ((result: ObservedPaginatedResult<readonly Thread[]>) => void) | null = null;
+  let observer: (() => void) | null = null;
   return {
     publish(next: ObservedPaginatedResult<readonly Thread[]>) {
       result = next;
-      observer?.(result);
+      observer?.();
     },
     catalog: {
-      activeThreadsSnapshot: () => result.value,
       refreshActiveThreads: vi.fn<ThreadsViewHost["threadCatalog"]["refreshActiveThreads"]>().mockResolvedValue(undefined),
       loadMoreActiveThreads: vi.fn<ThreadsViewHost["threadCatalog"]["loadMoreActiveThreads"]>().mockResolvedValue(undefined),
-      observeActiveThreadsResult: (listener: (result: ObservedPaginatedResult<readonly Thread[]>) => void) => {
+      watchActiveThreads: (listener: () => void) => {
         observer = listener;
-        listener(result);
-        return () => {
-          observer = null;
+        return {
+          read: () => result,
+          close: () => {
+            observer = null;
+          },
         };
       },
     } satisfies ThreadsViewHost["threadCatalog"],

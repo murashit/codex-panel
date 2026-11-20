@@ -21,10 +21,9 @@ export interface ThreadsViewHost {
   visiblePanelActivities(threads: readonly Thread[]): readonly ThreadsViewPanelActivity[];
 }
 
-type ThreadsViewThreadCatalog = Pick<
-  ThreadCatalogPaginatedActiveReader,
-  "activeThreadsSnapshot" | "observeActiveThreadsResult" | "refreshActiveThreads" | "loadMoreActiveThreads"
->;
+type ThreadsViewThreadCatalog = Pick<ThreadCatalogPaginatedActiveReader, "refreshActiveThreads" | "loadMoreActiveThreads"> & {
+  watchActiveThreads(changed: () => void): { read(): ObservedPaginatedResult<readonly Thread[]>; close(): void };
+};
 
 export interface ThreadsViewSettingsAccess {
   archiveExportEnabled(): boolean;
@@ -37,23 +36,14 @@ export interface ThreadsViewSessionEnvironment {
   viewWindow(): Window | null;
 }
 
-const EMPTY_THREADS_RESULT: ObservedPaginatedResult<readonly Thread[]> = {
-  value: null,
-  error: null,
-  isFetching: false,
-  hasMore: false,
-  isFetchingNextPage: false,
-};
-
 export class ThreadsViewSession {
   private readonly lifetime = new OwnerLifetime();
   private readonly mutations: ThreadMutationCommands;
   private readonly renameEditor: ThreadRenameEditor;
   private readonly renderTask: DeferredTask;
-  private threadsResult = EMPTY_THREADS_RESULT;
   private readonly renameStates = new Map<string, ThreadsRenameState>();
   private readonly lifecycleBusyThreadIds = new Set<string>();
-  private unsubscribeThreads: (() => void) | null = null;
+  private observation: ReturnType<ThreadsViewThreadCatalog["watchActiveThreads"]> | null = null;
   private archiveConfirmThreadId: string | null = null;
   private rendering = false;
   private renderPending = false;
@@ -74,7 +64,7 @@ export class ThreadsViewSession {
         },
       },
       initialDraft: (threadId) => {
-        const thread = this.threadsResult.value?.find((item) => item.id === threadId);
+        const thread = this.observation?.read().value?.find((item) => item.id === threadId);
         return thread ? threadRenameDraftTitle(thread) : null;
       },
       renameThread: (threadId, value, shouldStart) => this.mutations.renameThread(threadId, value, { shouldStart }),
@@ -91,8 +81,7 @@ export class ThreadsViewSession {
     this.environment.registerPointerDown((event) => {
       this.cancelArchiveConfirmOnOutsidePointer(event);
     });
-    this.unsubscribeThreads = this.host.threadCatalog.observeActiveThreadsResult((result) => {
-      this.threadsResult = result;
+    this.observation = this.host.threadCatalog.watchActiveThreads(() => {
       this.render();
     });
     this.render();
@@ -103,8 +92,8 @@ export class ThreadsViewSession {
     this.lifetime.dispose();
     this.renameEditor.invalidate();
     this.renderTask.clear();
-    this.unsubscribeThreads?.();
-    this.unsubscribeThreads = null;
+    this.observation?.close();
+    this.observation = null;
     unmountThreadsViewShell(this.environment.root);
   }
 
@@ -114,23 +103,14 @@ export class ThreadsViewSession {
     try {
       await this.host.threadCatalog.refreshActiveThreads();
     } catch (error) {
-      if (!this.lifetime.isCurrent(lifetime)) return;
-      if (this.threadsResult.value) {
-        this.noticeError(error);
-      } else {
-        this.threadsResult = {
-          ...this.threadsResult,
-          error: error instanceof Error ? error : new Error(String(error)),
-          isFetching: false,
-        };
-        this.render();
-      }
+      if (this.lifetime.isCurrent(lifetime) && this.observation?.read().value) this.noticeError(error);
     }
   }
 
   async loadMore(): Promise<void> {
     const lifetime = this.lifetime.signal();
-    if (!this.lifetime.isCurrent(lifetime) || !this.threadsResult.hasMore || this.threadsResult.isFetching) return;
+    const result = this.observation?.read();
+    if (!this.lifetime.isCurrent(lifetime) || !result?.hasMore || result.isFetching) return;
     try {
       await this.host.threadCatalog.loadMoreActiveThreads();
     } catch (error) {
@@ -141,8 +121,6 @@ export class ThreadsViewSession {
 
   refreshLiveState(): void {
     this.renderTask.schedule(() => {
-      const activeThreadsSnapshot = this.host.threadCatalog.activeThreadsSnapshot();
-      if (activeThreadsSnapshot) this.threadsResult = { ...this.threadsResult, value: activeThreadsSnapshot };
       this.render();
     });
   }
@@ -178,19 +156,21 @@ export class ThreadsViewSession {
   }
 
   private renderCurrentState(): void {
-    const threads = this.threadsResult.value ?? [];
-    const initialError = this.threadsResult.value === null ? this.threadsResult.error : null;
+    const result = this.observation?.read();
+    if (!result) return;
+    const threads = result.value ?? [];
+    const initialError = result.value === null ? result.error : null;
     renderThreadsViewShell(
       this.environment.root,
       {
         status: initialError
           ? { kind: "error", message: initialError.message }
-          : this.threadsResult.value === null && this.threadsResult.isFetching
+          : result.value === null && result.isFetching
             ? { kind: "loading", message: "Loading threads..." }
             : null,
-        loading: this.threadsResult.isFetchingNextPage,
-        fetching: this.threadsResult.isFetching,
-        hasMore: this.threadsResult.hasMore,
+        loading: result.isFetchingNextPage,
+        fetching: result.isFetching,
+        hasMore: result.hasMore,
         rows: threadRows(
           threads,
           this.host.visiblePanelActivities(threads),
