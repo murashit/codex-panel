@@ -12,9 +12,13 @@ export type McpServerConnectionStatus =
   | "disabled";
 export type McpServerAuthenticationIssue = "reauthenticationRequired";
 
-interface McpServerRegistration {
+export interface McpServerRegistration {
   readonly name: string;
   readonly environmentId: string | null;
+}
+
+export function mcpServerRegistrationLabel({ name, environmentId }: McpServerRegistration): string {
+  return environmentId === null ? name : `${name} (${environmentId})`;
 }
 
 export function mcpServerRegistrationKey(server: McpServerRegistration): string {

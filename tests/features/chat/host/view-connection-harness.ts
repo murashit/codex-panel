@@ -445,6 +445,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     appServerQueries,
     toolInventoryQueries: overrides.toolInventoryQueries ?? {
       snapshot: vi.fn(() => null),
+      observeMcpRegistrations: () => () => undefined,
       observe: vi.fn((_threadId, listener) => {
         listener(null);
         return () => undefined;

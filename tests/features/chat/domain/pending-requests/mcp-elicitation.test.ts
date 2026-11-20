@@ -145,7 +145,7 @@ describe("MCP elicitation content", () => {
     expect(
       contentForPendingMcpElicitation({
         requestId: 7,
-        params: { turnId: null, serverName: "server", mode: "url", message: "Open", url: "https://example.com" },
+        params: { turnId: null, serverName: "server", environmentId: null, mode: "url", message: "Open", url: "https://example.com" },
       }),
     ).toEqual({ valid: true, content: null });
   });
@@ -161,6 +161,7 @@ function content(field: FieldInput) {
     params: {
       turnId: "turn",
       serverName: "server",
+      environmentId: null,
       mode: "form",
       message: "Configure",
       fields: [{ id: "answer", title: "Answer", description: null, required: false, ...field }],

@@ -6,17 +6,15 @@ import {
   type MetadataResourceDiagnostics,
 } from "../../../../domain/runtime/diagnostics";
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/settings";
-import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
+import type { McpServerRegistration, ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
 import type { RateLimitSnapshot } from "../../../../domain/runtime/usage";
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ObservedPaginatedResult } from "../../../../shared/async/observed-result";
 import type { ThreadCatalogPaginatedActiveReader } from "../../../threads/catalog/thread-catalog";
-import type { ChatMetadataSource, ChatThreadGoalQueries } from "../contracts";
+import type { ChatMetadataSource, ChatThreadGoalQueries, CodexChatHost } from "../contracts";
 
-export interface ChatToolInventoryDisplayQueries {
-  observe(threadId: string | null, listener: (snapshot: ToolInventorySnapshot | null) => void): () => void;
-}
+export type ChatToolInventoryDisplayQueries = Pick<CodexChatHost["toolInventoryQueries"], "observe" | "observeMcpRegistrations">;
 
 export interface ActiveThreadsDisplayResource {
   readonly threads: readonly Thread[];
@@ -118,6 +116,20 @@ export function useToolInventoryResource(
       update(() => snapshot);
     });
   });
+}
+
+export function useMcpRegistrations(
+  queries: ChatToolInventoryDisplayQueries,
+  threadId: string | null,
+): readonly McpServerRegistration[] | null {
+  const source = useMemo(() => ({ queries, threadId }), [queries, threadId]);
+  return useObservedResource<readonly McpServerRegistration[] | null>(source, null, (update) =>
+    threadId === null
+      ? () => undefined
+      : queries.observeMcpRegistrations(threadId, (servers) => {
+          update(() => servers);
+        }),
+  );
 }
 
 export interface ThreadGoalDisplayResource {

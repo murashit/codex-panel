@@ -280,6 +280,25 @@ describe("app-server query resources", () => {
     expect(cache.toolInventoryQueries.snapshot("thread")?.mcpServers?.map((server) => server.name)).toEqual(["final"]);
   });
 
+  it("withholds cached registrations during revalidation and after a failed refresh", async () => {
+    const oldPage = { data: [mcpStatus("old")], nextCursor: null };
+    const nextPage = deferred<typeof oldPage>();
+    const list = vi.fn().mockResolvedValueOnce(oldPage).mockReturnValueOnce(nextPage.promise).mockRejectedValueOnce(new Error("offline"));
+    const { toolInventoryQueries } = cacheWithRequestHandlers({ "mcpServerStatus/list": list });
+    const listener = vi.fn();
+    const unsubscribe = toolInventoryQueries.observeMcpRegistrations("thread", listener);
+    await vi.waitFor(() => expect(listener).toHaveBeenLastCalledWith([expect.objectContaining({ name: "old" })]));
+    unsubscribe();
+    listener.mockClear();
+    const stop = toolInventoryQueries.observeMcpRegistrations("thread", listener);
+    expect(listener.mock.calls.every(([value]) => value === null)).toBe(true);
+    nextPage.resolve({ data: [mcpStatus("current")], nextCursor: null });
+    await vi.waitFor(() => expect(listener).toHaveBeenLastCalledWith([expect.objectContaining({ name: "current" })]));
+    await toolInventoryQueries.refresh("thread");
+    expect(listener).toHaveBeenLastCalledWith(null);
+    stop();
+  });
+
   it("keeps MCP startup diagnostics in the thread-scoped query until a successful refresh", async () => {
     const initial = deferred<{ data: ReturnType<typeof mcpStatus>[]; nextCursor: null }>();
     const mcpServers = vi

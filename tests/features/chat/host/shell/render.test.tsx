@@ -4,6 +4,7 @@ import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { diagnosticProbeOk } from "../../../../../src/domain/runtime/diagnostics";
 import type { SharedServerMetadataResourceFor } from "../../../../../src/domain/runtime/metadata";
+import type { McpServerRegistration } from "../../../../../src/domain/runtime/tool-inventory";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { resumedThreadAction } from "../../../../../src/features/chat/application/state/transition-actions";
 import { projectChatPanelComposer } from "../../../../../src/features/chat/host/composer/view-projection";
@@ -19,8 +20,10 @@ import { type Deferred, deferred } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { modelMetadataFixture } from "../../../../support/model-metadata";
 import { panelThreadFixture } from "../../../../support/panel-thread";
+import { mcpFormRequestFixture } from "../../../../support/server-requests";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { composerPropsFixture } from "../../support/composer-shell";
+import { pendingRequestFixture } from "../../support/pending-requests";
 import { chatSharedSourcesFixture } from "../../support/shared-sources";
 import { threadStreamDependenciesFixture } from "../../support/thread-stream-dependencies";
 import { toolbarActionsFixture } from "../../support/toolbar-actions";
@@ -28,6 +31,90 @@ import { toolbarActionsFixture } from "../../support/toolbar-actions";
 installObsidianDomShims();
 
 describe("ChatPanelShell", () => {
+  it("labels form and URL requests only from matching registrations in the active thread", async () => {
+    const fixture = pendingRequestFixture();
+    const store = fixture.stateStore;
+    const props = shellProps(store);
+    props.showToolbar = false;
+    const listeners = new Map<string, (registrations: readonly McpServerRegistration[] | null) => void>();
+    props.toolInventoryQueries.observeMcpRegistrations = (threadId, listener) => {
+      listeners.set(threadId, listener);
+      return () => undefined;
+    };
+    const container = document.body.appendChild(document.createElement("div"));
+    const titles = () => [...container.querySelectorAll(".codex-panel__pending-request-title")].map((el) => el.textContent);
+    const plain = "MCP request from notes";
+    const scoped = "MCP request from notes (work)";
+    const receive = (threadId: string) => {
+      store.dispatch(
+        resumedThreadAction({
+          response: threadActivationFixture(panelThreadFixture({ id: threadId })),
+          items: [{ id: "prompt", kind: "dialogue", role: "user", dialogueKind: "user", text: "Check registrations" }],
+        }),
+      );
+      store.dispatch({ type: "connection/status-set", statusText: "Connected", phase: { kind: "connected" } });
+      fixture.receive(
+        mcpFormRequestFixture(
+          1,
+          { type: "object", properties: {} },
+          { serverName: "notes", threadId, turnId: null, environmentId: "work" },
+        ),
+      );
+      for (const [id, environmentId] of [
+        [2, "work"],
+        [3, null],
+      ] as const) {
+        fixture.receive({
+          id,
+          method: "mcpServer/elicitation/request",
+          params: {
+            threadId,
+            turnId: null,
+            serverName: "notes",
+            environmentId,
+            mode: "url",
+            _meta: null,
+            message: "Open",
+            url: "https://example.com",
+            elicitationId: String(id),
+          },
+        });
+      }
+    };
+    const work = { name: "notes", environmentId: "work" };
+    try {
+      await act(async () => {
+        receive("first");
+        renderChatPanelShell(container, props);
+        await settleShellEffects();
+      });
+      expect(titles()).toEqual([plain, plain, plain]);
+      for (const [registrations, expected] of [
+        [[work], plain],
+        [[work, work, { name: "notes-2", environmentId: "personal" }], plain],
+        [
+          [
+            { ...work, environmentId: "work-2" },
+            { ...work, environmentId: null },
+          ],
+          plain,
+        ],
+        [[work, { ...work, environmentId: "personal" }], scoped],
+        [[work, { ...work, environmentId: null }], scoped],
+      ] as const) {
+        await act(() => listeners.get("first")?.(registrations));
+        expect(titles()).toEqual([expected, expected, plain]);
+      }
+      await act(() => receive("second"));
+      expect(listeners.has("second")).toBe(true);
+      await act(() => listeners.get("first")?.([work, { ...work, environmentId: null }]));
+      expect(titles()).toEqual([plain, plain, plain]);
+    } finally {
+      await act(() => unmountChatPanelShell(container));
+      container.remove();
+    }
+  });
+
   it("updates rendered model choices and usage limits from shared resource publications", async () => {
     const store = createChatStateStore();
     store.dispatch({ type: "ui/panel-set", panel: "status-panel" });

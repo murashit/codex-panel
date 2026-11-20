@@ -831,6 +831,7 @@ describe("chat panel session runtime", () => {
   function toolInventoryQueriesFixture(): ChatPanelEnvironment["plugin"]["toolInventoryQueries"] {
     return {
       snapshot: vi.fn(() => null),
+      observeMcpRegistrations: () => () => undefined,
       observe: vi.fn((_threadId, listener) => {
         listener(null);
         return () => undefined;
