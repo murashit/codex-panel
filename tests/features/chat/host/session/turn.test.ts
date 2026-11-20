@@ -73,6 +73,7 @@ describe("createSessionTurn", () => {
       mcpServers: [
         {
           name: "codex_apps",
+          environmentId: null,
           authStatus: "oAuth",
           toolCount: 2,
           toolDiscoveryFailed: false,

@@ -6,6 +6,7 @@ import type { AppServerTransport, AppServerTransportHandlers } from "../../../sr
 import type { InitializeParams } from "../../../src/generated/app-server/InitializeParams";
 import type { InitializeResponse } from "../../../src/generated/app-server/InitializeResponse";
 import type { ServerRequest } from "../../../src/generated/app-server/ServerRequest";
+import { commandApprovalRequestFixture } from "../../support/server-requests";
 
 const TEST_INITIALIZE_PARAMS: InitializeParams = {
   clientInfo: {
@@ -261,6 +262,7 @@ describe("AppServerClient", () => {
           threadId: "thread",
           turnId: null,
           serverName: "github",
+          environmentId: "tools",
           mode: "form",
           _meta: null,
           message: "Provide issue details",
@@ -274,6 +276,7 @@ describe("AppServerClient", () => {
           threadId: "thread",
           turnId: null,
           serverName: "github",
+          environmentId: null,
           mode: "openai/form",
           _meta: null,
           message: "Provide extended issue details",
@@ -291,6 +294,7 @@ describe("AppServerClient", () => {
           threadId: "thread",
           turnId: null,
           serverName: "github",
+          environmentId: null,
           mode: "openaiForm",
           _meta: null,
           message: "Provide extended issue details",
@@ -304,6 +308,7 @@ describe("AppServerClient", () => {
           threadId: "thread",
           turnId: "turn",
           serverName: "github",
+          environmentId: null,
           mode: "url",
           _meta: null,
           message: "Confirm in browser",
@@ -370,7 +375,7 @@ describe("AppServerClient", () => {
       onLog: (message) => logs.push(message),
     });
 
-    expect(() => transport.emitLine({ id: 12, method: "currentTime/read", params: { threadId: "thread" } })).not.toThrow();
+    expect(() => transport.emitLine(commandApprovalRequestFixture(12))).not.toThrow();
     expect(logs).toEqual(["App-server request handler failed: request failed"]);
     expect(latestSent(transport)).toEqual({
       id: 12,
@@ -379,7 +384,6 @@ describe("AppServerClient", () => {
   });
 
   it.each([
-    ["current time", "currentTime/read", { threadId: 42 }],
     ["approval thread", "item/commandExecution/requestApproval", { threadId: 42, turnId: "turn", itemId: "item" }],
     ["approval turn", "item/commandExecution/requestApproval", { threadId: "thread", turnId: 42, itemId: "item" }],
     ["approval item", "item/commandExecution/requestApproval", { threadId: "thread", turnId: "turn", itemId: 42 }],
@@ -397,6 +401,8 @@ describe("AppServerClient", () => {
     ["thread ID", { threadId: 42 }],
     ["turn ID", { turnId: 42 }],
     ["server name", { serverName: 42 }],
+    ["registration scope", { environmentId: 42 }],
+    ["missing registration scope", { environmentId: undefined }],
     ["message", { message: 42 }],
     ["form schema", { requestedSchema: null }],
     ["form schema type", { requestedSchema: { type: "string", properties: {} } }],
@@ -414,6 +420,7 @@ describe("AppServerClient", () => {
         threadId: "thread",
         turnId: null,
         serverName: "github",
+        environmentId: null,
         mode: "form",
         _meta: null,
         message: "Provide issue details",
@@ -663,7 +670,7 @@ describe("AppServerClient", () => {
     await secondConnect;
 
     firstTransport.emitLine({ method: "warning", params: { message: "stale" } });
-    firstTransport.emitLine({ id: 9, method: "currentTime/read", params: { threadId: "stale" } });
+    firstTransport.emitLine(commandApprovalRequestFixture(9));
     firstTransport.emitLog("stale log");
     firstTransport.emitError(new Error("stale failure"));
     firstTransport.emitExit(1);

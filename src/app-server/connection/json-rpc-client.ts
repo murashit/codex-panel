@@ -247,6 +247,7 @@ function hasRequiredMcpElicitationParams(params: Record<string, unknown>): boole
   if (
     typeof params["threadId"] !== "string" ||
     (params["turnId"] !== null && typeof params["turnId"] !== "string") ||
+    (params["environmentId"] !== null && typeof params["environmentId"] !== "string") ||
     typeof params["serverName"] !== "string" ||
     !Object.hasOwn(params, "_meta") ||
     typeof params["message"] !== "string"
@@ -275,8 +276,6 @@ function requiredStringFields(method: string): readonly string[] | null {
     case "item/fileChange/requestApproval":
     case "item/tool/requestUserInput":
       return ["threadId", "turnId", "itemId"];
-    case "currentTime/read":
-      return ["threadId"];
     case "applyPatchApproval":
     case "execCommandApproval":
       return ["conversationId", "callId"];

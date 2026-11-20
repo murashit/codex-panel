@@ -34,6 +34,7 @@ describe("tool inventory", () => {
     expect(result.servers).toEqual([
       {
         name: "github",
+        environmentId: null,
         authStatus: "notLoggedIn",
         toolCount: 0,
         toolDiscoveryFailed: false,

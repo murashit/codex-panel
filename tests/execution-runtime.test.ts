@@ -229,6 +229,7 @@ describe("CodexExecutionRuntime", () => {
         name: "github",
         status: "failed",
         error: "missing token",
+        environmentId: "tools",
         failureReason: "reauthenticationRequired",
       },
     });

@@ -6,10 +6,11 @@ import {
   AppServerContextConnection,
   type AppServerContextConnectionLeaseHandlers,
 } from "../../../src/app-server/connection/context-connection";
-import type { ServerNotification, ServerRequest } from "../../../src/app-server/connection/rpc-messages";
+import type { ServerNotification } from "../../../src/app-server/connection/rpc-messages";
 import type { ServerInitialization } from "../../../src/domain/runtime/metadata";
 import type { InitializeParams } from "../../../src/generated/app-server/InitializeParams";
 import { waitForAsyncWork } from "../../support/async";
+import { userInputRequestFixture } from "../../support/server-requests";
 
 const INITIALIZE_PARAMS = {
   clientInfo: { name: "test", title: "Test", version: "0" },
@@ -71,7 +72,7 @@ describe("AppServerContextConnection", () => {
       method: "thread/archived",
       params: { threadId: "descendant" },
     } satisfies Extract<ServerNotification, { method: "thread/archived" }>;
-    const request = serverRequest();
+    const request = userInputRequestFixture(1, { isBlocking: true });
     const responder = responderFixture();
     manager.handlers?.onNotification(notification);
     manager.handlers?.onServerRequest(request, responder);
@@ -91,7 +92,7 @@ describe("AppServerContextConnection", () => {
     await connection.createLease().connect(inactive);
     await connection.createLease().connect(owner);
     await connection.createLease().connect(other);
-    const request = serverRequest();
+    const request = userInputRequestFixture(1, { isBlocking: true });
     const responder = responderFixture();
 
     manager.handlers?.onServerRequest(request, responder);
@@ -140,7 +141,7 @@ describe("AppServerContextConnection", () => {
     await connection.withClient(async (client) => client);
     const responder = responderFixture();
     manager.handlers?.onNotification(threadNameNotification());
-    manager.handlers?.onServerRequest(serverRequest(), responder);
+    manager.handlers?.onServerRequest(userInputRequestFixture(1, { isBlocking: true }), responder);
 
     expect(first.currentClient()).toBeNull();
     expect(second.currentClient()).toBeNull();
@@ -161,7 +162,7 @@ describe("AppServerContextConnection", () => {
     await first.connect(reconnectedHandlers);
     const responder = responderFixture();
     manager.handlers?.onNotification(threadNameNotification());
-    manager.handlers?.onServerRequest(serverRequest(), responder);
+    manager.handlers?.onServerRequest(userInputRequestFixture(1, { isBlocking: true }), responder);
 
     expect(first.currentClient()).toBe(manager.client);
     expect(second.currentClient()).toBeNull();
@@ -179,7 +180,7 @@ describe("AppServerContextConnection", () => {
     await connection.createLease().connect(leaseHandlers({ onServerRequest: vi.fn(() => false) }));
     const responder = responderFixture();
 
-    manager.handlers?.onServerRequest(serverRequest(), responder);
+    manager.handlers?.onServerRequest(userInputRequestFixture(1, { isBlocking: true }), responder);
 
     expect(responder.reject).toHaveBeenCalledExactlyOnceWith(-32601, expect.stringContaining("No Codex Panel view"));
   });
@@ -303,14 +304,6 @@ function responderFixture(): AppServerServerRequestResponder & {
   reject: ReturnType<typeof vi.fn<(code: number, message: string) => void>>;
 } {
   return { respond: vi.fn<(result: unknown) => void>(), reject: vi.fn<(code: number, message: string) => void>() };
-}
-
-function serverRequest(): ServerRequest {
-  return {
-    method: "currentTime/read",
-    id: 1,
-    params: { threadId: "thread" },
-  } satisfies Extract<ServerRequest, { method: "currentTime/read" }>;
 }
 
 function threadNameNotification(): Extract<ServerNotification, { method: "thread/name/updated" }> {

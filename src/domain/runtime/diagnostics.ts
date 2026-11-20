@@ -1,6 +1,6 @@
 import { errorMessage } from "../text/error-message";
 import type { ServerInitialization } from "./metadata";
-import type { McpServerDiagnostic } from "./tool-inventory";
+import { type McpServerDiagnostic, mcpServerRegistrationKey } from "./tool-inventory";
 
 const DIAGNOSTIC_PROBE_DEFINITIONS = {
   models: { label: "Models" },
@@ -87,9 +87,10 @@ export function upsertMcpServerDiagnostic(
   diagnostics: readonly McpServerDiagnostic[],
   server: McpServerDiagnostic,
 ): readonly McpServerDiagnostic[] {
-  const current = diagnostics.find((item) => item.name === server.name);
+  const key = mcpServerRegistrationKey(server);
+  const current = diagnostics.find((item) => mcpServerRegistrationKey(item) === key);
   const merged = mergeMcpServerDiagnostic(current, server);
-  const existing = diagnostics.filter((item) => item.name !== server.name);
+  const existing = diagnostics.filter((item) => item !== current);
   return [...existing, merged].sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -103,6 +104,7 @@ function mergeMcpServerDiagnostic(current: McpServerDiagnostic | undefined, upda
   const connectionUpdated = update.connectionStatus !== "unknown";
   return {
     name: update.name,
+    environmentId: update.environmentId,
     connectionStatus: connectionUpdated ? update.connectionStatus : (current?.connectionStatus ?? "unknown"),
     authStatus: update.authStatus ?? current?.authStatus ?? null,
     toolCount: update.toolCount ?? current?.toolCount ?? null,

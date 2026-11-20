@@ -1,10 +1,11 @@
 import type { SkillMetadata } from "../../../../domain/runtime/catalog";
 import type { DiagnosticProbeResult } from "../../../../domain/runtime/diagnostics";
-import type {
-  McpServerDiagnostic,
-  McpServerStatusSummary,
-  ToolInventoryPlugin,
-  ToolInventorySnapshot,
+import {
+  type McpServerDiagnostic,
+  type McpServerStatusSummary,
+  mcpServerRegistrationKey,
+  type ToolInventoryPlugin,
+  type ToolInventorySnapshot,
 } from "../../../../domain/runtime/tool-inventory";
 import type { ToolbarStatusRow as DiagnosticRow, ToolbarStatusSection as DiagnosticSection } from "../toolbar/model";
 
@@ -65,29 +66,30 @@ function mcpToolProviderRows(inventory: ToolInventorySnapshot): DiagnosticRow[] 
     return [...failure, { label: TOOL_PROVIDERS_LABEL, value: "not loaded", level: "warning" }];
   }
 
-  const statusByName = new Map((inventory.mcpServers ?? []).map((server) => [server.name, server]));
-  const diagnosticByName = new Map(mcpDiagnostics.map((diagnostic) => [diagnostic.name, diagnostic]));
-  const names = new Set([...statusByName.keys(), ...diagnosticByName.keys()]);
-  const rows = [...names].map((name) => {
-    const server = statusByName.get(name);
-    const diagnostic = diagnosticByName.get(name);
-    return mcpToolProviderRow(name, server, diagnostic);
+  const diagnostics = new Map(mcpDiagnostics.map((diagnostic) => [mcpServerRegistrationKey(diagnostic), diagnostic]));
+  const rows = (inventory.mcpServers ?? []).map((server) => {
+    const key = mcpServerRegistrationKey(server);
+    const diagnostic = diagnostics.get(key);
+    diagnostics.delete(key);
+    return mcpToolProviderRow(server, server, diagnostic);
   });
+  for (const diagnostic of diagnostics.values()) rows.push(mcpToolProviderRow(diagnostic, undefined, diagnostic));
   return [...failure, ...rows.sort((left, right) => left.label.localeCompare(right.label))];
 }
 
 function mcpToolProviderRow(
-  name: string,
+  registration: McpServerDiagnostic | McpServerStatusSummary,
   server: McpServerStatusSummary | undefined,
   diagnostic: McpServerDiagnostic | undefined,
 ): DiagnosticRow {
+  const label = registration.environmentId === null ? registration.name : `${registration.name} (${registration.environmentId})`;
   const connectionStatus = diagnostic?.connectionStatus ?? server?.connectionStatus ?? "unknown";
   const authStatus = server?.authStatus ?? diagnostic?.authStatus ?? "unknown";
   const toolCount = server?.toolCount ?? diagnostic?.toolCount;
   const level = mcpToolProviderLevel(connectionStatus, authStatus);
   const apps = server?.name === "codex_apps" && !server.toolDiscoveryFailed ? listSummary(server.codexAppIds ?? []) : null;
   if (apps !== null && level === "normal" && !diagnostic?.message && !diagnostic?.authenticationIssue) {
-    return { label: name, value: apps, level };
+    return { label, value: apps, level };
   }
 
   const parts = [
@@ -99,7 +101,7 @@ function mcpToolProviderRow(
   else if (apps === null) parts.push(toolCount == null ? "tools unknown" : countLabel(toolCount, "tool"));
   if (diagnostic?.authenticationIssue === "reauthenticationRequired") parts.push("re-authentication required");
   if (diagnostic?.message) parts.push(diagnostic.message);
-  return { label: name, value: parts.join(", "), level };
+  return { label, value: parts.join(", "), level };
 }
 
 function mcpToolProviderLevel(

@@ -53,6 +53,7 @@ describe("connection diagnostics", () => {
     diagnostics = withProbe(diagnostics, "skills", diagnosticProbeError(new Error("unknown method skills/list"), 3));
     diagnostics = withMcpDiagnostic(diagnostics, {
       name: "github",
+      environmentId: null,
       connectionStatus: "failed",
       authStatus: null,
       toolCount: null,
@@ -61,6 +62,7 @@ describe("connection diagnostics", () => {
     });
     diagnostics = withMcpDiagnostic(diagnostics, {
       name: "docs",
+      environmentId: null,
       connectionStatus: "connected",
       authStatus: "notLoggedIn",
       toolCount: 2,
@@ -232,6 +234,7 @@ describe("connection diagnostics", () => {
       mcpServers: [
         {
           name: "codex_apps",
+          environmentId: null,
           authStatus: "oAuth",
           toolCount: 219,
           toolDiscoveryFailed: false,
@@ -240,6 +243,7 @@ describe("connection diagnostics", () => {
         },
         {
           name: "github",
+          environmentId: null,
           authStatus: "oAuth",
           toolCount: 2,
           toolDiscoveryFailed: false,
@@ -249,6 +253,7 @@ describe("connection diagnostics", () => {
       mcpDiagnostics: [
         {
           name: "codex_apps",
+          environmentId: null,
           connectionStatus: "connected",
           authStatus: "oAuth",
           toolCount: 219,
@@ -257,6 +262,7 @@ describe("connection diagnostics", () => {
         },
         {
           name: "github",
+          environmentId: null,
           connectionStatus: "connected",
           authStatus: "oAuth",
           toolCount: 2,
@@ -336,6 +342,7 @@ describe("connection diagnostics", () => {
       mcpServers: [
         {
           name: "github",
+          environmentId: null,
           authStatus: "oAuth",
           toolCount: 1,
           toolDiscoveryFailed: false,
@@ -345,6 +352,7 @@ describe("connection diagnostics", () => {
       mcpDiagnostics: [
         {
           name: "github",
+          environmentId: null,
           connectionStatus: "connected",
           authStatus: null,
           toolCount: null,
@@ -382,15 +390,19 @@ describe("connection diagnostics", () => {
     ]);
   });
 
-  it("keeps inventory auth and zero tool counts when connection diagnostics disagree", () => {
+  it("matches startup diagnostics to their MCP registration and keeps inventory auth and tool counts", () => {
     const sections = toolInventoryDiagnosticSections(
       {
         plugins: [],
         pluginsError: null,
-        mcpServers: [{ name: "github", authStatus: "oAuth", toolCount: 0, toolDiscoveryFailed: false, connectionStatus: "connected" }],
+        mcpServers: mcpServerStatusSummariesFromStatuses([
+          { name: "github", environmentId: "a", runtimeStatus: "connected", authStatus: "oAuth", tools: {}, toolsError: null },
+          { name: "github", environmentId: "b", runtimeStatus: "connected", authStatus: "oAuth", tools: { lookup: {} }, toolsError: null },
+        ]),
         mcpDiagnostics: [
           {
             name: "github",
+            environmentId: "a",
             connectionStatus: "failed",
             authStatus: "notLoggedIn",
             toolCount: 10,
@@ -404,7 +416,8 @@ describe("connection diagnostics", () => {
     );
 
     expect(sections.find((section) => section.title === "Tool providers")?.rows).toEqual([
-      { label: "github", value: "MCP server, failed, auth OAuth, 0 tools, connection lost", level: "error" },
+      { label: "github (a)", value: "MCP server, failed, auth OAuth, 0 tools, connection lost", level: "error" },
+      { label: "github (b)", value: "MCP server, connected, auth OAuth, 1 tool", level: "normal" },
     ]);
   });
 
@@ -416,6 +429,7 @@ describe("connection diagnostics", () => {
       mcpDiagnostics: [
         {
           name: "figma",
+          environmentId: null,
           connectionStatus: "failed",
           authStatus: null,
           toolCount: null,
@@ -441,6 +455,7 @@ describe("connection diagnostics", () => {
       mcpServers: [
         {
           name: "codex_apps",
+          environmentId: null,
           authStatus: "notLoggedIn",
           toolCount: 2,
           toolDiscoveryFailed: false,
@@ -451,6 +466,7 @@ describe("connection diagnostics", () => {
       mcpDiagnostics: [
         {
           name: "codex_apps",
+          environmentId: null,
           connectionStatus: "authenticationRequired",
           authStatus: "notLoggedIn",
           toolCount: 2,

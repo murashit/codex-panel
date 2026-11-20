@@ -12,8 +12,16 @@ export type McpServerConnectionStatus =
   | "disabled";
 export type McpServerAuthenticationIssue = "reauthenticationRequired";
 
-export interface McpServerDiagnostic {
+interface McpServerRegistration {
   readonly name: string;
+  readonly environmentId: string | null;
+}
+
+export function mcpServerRegistrationKey(server: McpServerRegistration): string {
+  return JSON.stringify([server.name, server.environmentId]);
+}
+
+export interface McpServerDiagnostic extends McpServerRegistration {
   readonly connectionStatus: McpServerConnectionStatus;
   readonly authStatus: McpAuthStatus | null;
   readonly toolCount: number | null;
@@ -21,8 +29,7 @@ export interface McpServerDiagnostic {
   readonly authenticationIssue: McpServerAuthenticationIssue | null;
 }
 
-export interface McpServerStatusSummary {
-  readonly name: string;
+export interface McpServerStatusSummary extends McpServerRegistration {
   readonly authStatus: McpAuthStatus;
   readonly toolCount: number;
   readonly toolDiscoveryFailed: boolean;
