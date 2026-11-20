@@ -41,6 +41,7 @@ sourceKinds?: Array<ThreadSourceKind> | null,
  */
 archived?: boolean | null,
 /**
- * Required substring/full-text query for thread search.
+ * Required substring/full-text query. `thread/search/stream` limits this to 65,536
+ * UTF-8 bytes after trimming surrounding whitespace.
  */
 searchTerm: string, };
