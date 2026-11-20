@@ -30,6 +30,7 @@ describe("server diagnostics", () => {
 
     let diagnostics = upsertMcpServerDiagnostic([], {
       name: "github",
+      environmentId: null,
       connectionStatus: "failed",
       authStatus: null,
       toolCount: null,
@@ -38,6 +39,7 @@ describe("server diagnostics", () => {
     });
     diagnostics = upsertMcpServerDiagnostic(diagnostics, {
       name: "github",
+      environmentId: null,
       connectionStatus: "unknown",
       authStatus: "notLoggedIn",
       toolCount: 2,
@@ -48,6 +50,7 @@ describe("server diagnostics", () => {
     expect(diagnostics).toEqual([
       {
         name: "github",
+        environmentId: null,
         connectionStatus: "failed",
         authStatus: "notLoggedIn",
         toolCount: 2,
@@ -58,6 +61,7 @@ describe("server diagnostics", () => {
 
     diagnostics = upsertMcpServerDiagnostic(diagnostics, {
       name: "github",
+      environmentId: null,
       connectionStatus: "connected",
       authStatus: null,
       toolCount: null,
@@ -67,6 +71,7 @@ describe("server diagnostics", () => {
 
     expect(diagnostics[0]).toEqual({
       name: "github",
+      environmentId: null,
       connectionStatus: "connected",
       authStatus: "notLoggedIn",
       toolCount: 2,
@@ -76,6 +81,7 @@ describe("server diagnostics", () => {
 
     diagnostics = upsertMcpServerDiagnostic(diagnostics, {
       name: "docs",
+      environmentId: null,
       connectionStatus: "connected",
       authStatus: "oAuth",
       toolCount: 1,

@@ -40,7 +40,7 @@ function pluginUnavailableReason(plugin: PluginSummary): ToolInventoryPlugin["un
 }
 
 // Tool names may be absent in status payloads; retain the map-key fallback at this boundary.
-type McpStatusRecord = Pick<McpServerStatus, "name" | "runtimeStatus" | "authStatus" | "toolsError"> & {
+type McpStatusRecord = Pick<McpServerStatus, "name" | "environmentId" | "runtimeStatus" | "authStatus" | "toolsError"> & {
   readonly tools: Readonly<Record<string, unknown>>;
 };
 
@@ -51,6 +51,7 @@ export function mcpServerStatusSummariesFromStatuses(servers: readonly McpStatus
 function mcpServerStatusSummaryFromStatus(server: McpStatusRecord): McpServerStatusSummary {
   return {
     name: server.name,
+    environmentId: server.environmentId ?? null,
     authStatus: server.authStatus,
     toolCount: Object.keys(server.tools).length,
     toolDiscoveryFailed: server.toolsError != null,

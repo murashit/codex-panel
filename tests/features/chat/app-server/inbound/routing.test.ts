@@ -60,7 +60,6 @@ describe("chat inbound routing", () => {
     { name: "permissions approval", request: permissionsApprovalRequest(), kind: "approval" },
     { name: "user input", request: userInputRequest({ threadId: "thread-active" }), kind: "userInput" },
     { name: "MCP elicitation", request: mcpElicitationRequest(), kind: "mcpElicitation" },
-    { name: "current time", request: currentTimeRequest("thread-active"), kind: "currentTime" },
     { name: "dynamic tool call", request: dynamicToolCallRequest(), kind: "dynamicTool" },
   ] as const)("classifies $name server requests and extracts scope", ({ request, kind }) => {
     expectRequestRouteKind(request, kind);
@@ -79,6 +78,7 @@ describe("chat inbound routing", () => {
         threadId: "thread-active",
         turnId: "turn-active",
         serverName: "verification-server",
+        environmentId: null,
         mode: "openai/userVerification",
         _meta: null,
         title: "Verify your identity",
@@ -191,7 +191,7 @@ describe("chat inbound routing", () => {
   });
 
   it.each([
-    { method: "account/updated", params: { authMode: null, planType: null } } satisfies ServerNotification,
+    { method: "account/updated", params: { authMode: null, planType: null, reason: "workspaceRoutingReady" } } satisfies ServerNotification,
     {
       method: "thread/status/changed",
       params: { threadId: "thread-child", status: { type: "idle" } },
@@ -302,6 +302,7 @@ function mcpElicitationRequest(): ServerRequest {
       threadId: "thread-active",
       turnId: "turn-active",
       serverName: "github",
+      environmentId: null,
       mode: "form",
       _meta: null,
       message: "Need input",
@@ -322,14 +323,6 @@ function dynamicToolCallRequest(): ServerRequest {
       tool: "example",
       arguments: {},
     },
-  };
-}
-
-function currentTimeRequest(threadId: string): ServerRequest {
-  return {
-    id: 11,
-    method: "currentTime/read",
-    params: { threadId },
   };
 }
 

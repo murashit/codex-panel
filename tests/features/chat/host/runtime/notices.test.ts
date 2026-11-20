@@ -159,6 +159,7 @@ describe("createChatPanelRuntimeNotices", () => {
       mcpServers: [
         {
           name: "github",
+          environmentId: null,
           authStatus: "oAuth",
           toolCount: 1,
           toolDiscoveryFailed: false,
@@ -168,6 +169,7 @@ describe("createChatPanelRuntimeNotices", () => {
       mcpDiagnostics: [
         {
           name: "github",
+          environmentId: null,
           connectionStatus: "connected",
           authStatus: "oAuth",
           toolCount: 1,

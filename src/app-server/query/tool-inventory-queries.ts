@@ -104,6 +104,7 @@ export class AppServerToolInventoryQueries {
   handleMcpStartupStatusUpdated(input: {
     threadId: string | null;
     name: string;
+    environmentId: string | null;
     status: McpServerStartupStatus;
     error: string | null;
     failureReason: McpServerAuthenticationIssue | null;
@@ -114,6 +115,7 @@ export class AppServerToolInventoryQueries {
       revision: (current?.revision ?? 0) + 1,
       servers: upsertMcpServerDiagnostic(current?.servers ?? [], {
         name: input.name,
+        environmentId: input.environmentId,
         connectionStatus: mcpConnectionStatusFromStartupStatus(input.status),
         authStatus: null,
         toolCount: null,

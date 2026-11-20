@@ -15,7 +15,7 @@ import {
   isApprovalServerRequest,
   isHumanCommandApproval,
 } from "./server-request-adapter";
-import { routeServerRequest, serverRequestCurrentTimeResponse } from "./server-request-routing";
+import { routeServerRequest } from "./server-request-routing";
 
 interface ServerRequestsHost {
   stateStore: ChatStateStore;
@@ -90,11 +90,6 @@ export class ChatServerRequests {
         break;
       case "mcpElicitation":
         this.pending.queueMcpElicitation(route.elicitation);
-        break;
-      case "currentTime":
-        if (!this.respond(request.id, serverRequestCurrentTimeResponse(Date.now()))) {
-          this.host.addSystemMessage("Could not send current time because Codex app-server is not connected.");
-        }
         break;
       case "dynamicTool":
         this.respondToDynamicToolCall(request.id, route.request.params);

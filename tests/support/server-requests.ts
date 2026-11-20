@@ -81,6 +81,7 @@ export function mcpFormRequestFixture(
       threadId: "thread-active",
       turnId: "turn-active",
       serverName: "github",
+      environmentId: null,
       mode: "form",
       _meta: null,
       message: "Provide issue details",

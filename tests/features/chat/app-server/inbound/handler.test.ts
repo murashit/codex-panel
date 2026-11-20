@@ -230,6 +230,7 @@ describe("ChatInboundHandler", () => {
           startedAtMs: 1,
           item: {
             type: "mcpToolCall",
+            environmentId: "tools",
             id: "lookup",
             server: "notes",
             tool: "search",
@@ -719,7 +720,7 @@ describe("ChatInboundHandler", () => {
       });
     });
 
-    it("responds to current-time and dynamic-tool requests", () => {
+    it("responds to dynamic-tool requests", () => {
       const state = activeRequestState();
       const respondToServerRequest = vi.fn();
       const executeDynamicTool = vi.fn(() => ({
@@ -728,18 +729,13 @@ describe("ChatInboundHandler", () => {
       }));
       const handler = handlerForState(state, { executeDynamicTool, respondToServerRequest });
 
-      const dateNow = vi.spyOn(Date, "now").mockReturnValue(1_700_000_123_456);
-      handler.handleServerRequest(currentTimeRequest(28, "thread"));
-      dateNow.mockRestore();
       const toolCall = {
         id: 22,
         method: "item/tool/call",
         params: { threadId: "thread", turnId: "turn", callId: "call", namespace: null, tool: "tool", arguments: {} },
       } satisfies Extract<ServerRequest, { method: "item/tool/call" }>;
       handler.handleServerRequest(toolCall);
-      expect(respondToServerRequest).toHaveBeenCalledTimes(2);
-
-      expect(respondToServerRequest).toHaveBeenCalledWith(28, { currentTimeAt: 1_700_000_123 });
+      expect(respondToServerRequest).toHaveBeenCalledTimes(1);
       expect(executeDynamicTool).toHaveBeenCalledWith(toolCall.params);
       expect(respondToServerRequest).toHaveBeenCalledWith(22, {
         success: true,
@@ -1111,22 +1107,6 @@ describe("ChatInboundHandler", () => {
 
       expect(pending(handler)).toBe(1);
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => ("text" in item ? item.text : ""))).toEqual(expectedMessages);
-    });
-
-    it("reports failed current-time delivery without adding a pending request", () => {
-      const initialState = activeRequestState();
-      const handler = handlerForState(initialState, {
-        respondToServerRequest: vi.fn(() => {
-          throw new Error("transport unavailable");
-        }),
-      });
-
-      handler.handleServerRequest(currentTimeRequest(58, "thread"));
-
-      expect(handler.currentState().requests).toEqual(initialState.requests);
-      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => ("text" in item ? item.text : ""))).toEqual([
-        "Could not send current time because Codex app-server is not connected.",
-      ]);
     });
 
     it("clears only the resolved request and its draft across request families", () => {
@@ -1765,6 +1745,7 @@ function mcpElicitationRequest(id: number): ServerRequest {
       threadId: "thread",
       turnId: null,
       serverName: "server",
+      environmentId: null,
       mode: "form",
       _meta: null,
       message: "Need input",
@@ -1860,14 +1841,6 @@ function promptSubmitHookRun(id: string, startedAt: bigint): Extract<ServerNotif
   };
 }
 
-function currentTimeRequest(id: number, threadId: string): ServerRequest {
-  return {
-    id,
-    method: "currentTime/read",
-    params: { threadId },
-  };
-}
-
 function unknownRequest(): ServerRequest {
   return {
     id: 27,
@@ -1884,6 +1857,7 @@ function mcpUrlRequestFixture(): Extract<ServerRequest, { method: "mcpServer/eli
       threadId: "thread-active",
       turnId: "turn-active",
       serverName: "github",
+      environmentId: null,
       mode: "url",
       _meta: null,
       message: "Confirm in browser",

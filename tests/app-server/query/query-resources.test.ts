@@ -294,6 +294,7 @@ describe("app-server query resources", () => {
     await vi.waitFor(() => expect(mcpServers).toHaveBeenCalledOnce());
 
     cache.toolInventoryQueries.handleMcpStartupStatusUpdated({
+      environmentId: null,
       threadId: "thread-a",
       name: "github",
       status: "failed",
@@ -336,29 +337,31 @@ describe("app-server query resources", () => {
     await cache.toolInventoryQueries.ensure("thread-a");
     await cache.toolInventoryQueries.ensure("thread-b");
     cache.toolInventoryQueries.handleMcpStartupStatusUpdated({
+      environmentId: null,
       threadId: null,
-      name: "global",
+      name: "github",
       status: "starting",
       error: null,
       failureReason: null,
     });
     cache.toolInventoryQueries.handleMcpStartupStatusUpdated({
+      environmentId: "work",
       threadId: "thread-a",
-      name: "scoped",
+      name: "github",
       status: "failed",
       error: "thread failure",
       failureReason: null,
     });
 
     await vi.waitFor(() => {
-      expect(cache.toolInventoryQueries.snapshot("thread-a")?.mcpDiagnostics.map((item) => item.name)).toEqual(["global", "scoped"]);
-      expect(cache.toolInventoryQueries.snapshot("thread-b")?.mcpDiagnostics.map((item) => item.name)).toEqual(["global"]);
-      expect(cache.toolInventoryQueries.snapshot("thread-future")?.mcpDiagnostics.map((item) => item.name)).toEqual(["global"]);
+      expect(cache.toolInventoryQueries.snapshot("thread-a")?.mcpDiagnostics.map((item) => item.environmentId)).toEqual([null, "work"]);
+      expect(cache.toolInventoryQueries.snapshot("thread-b")?.mcpDiagnostics.map((item) => item.environmentId)).toEqual([null]);
+      expect(cache.toolInventoryQueries.snapshot("thread-future")?.mcpDiagnostics.map((item) => item.environmentId)).toEqual([null]);
     });
 
     await cache.toolInventoryQueries.refresh("thread-a");
-    expect(cache.toolInventoryQueries.snapshot("thread-a")?.mcpDiagnostics.map((item) => item.name)).toEqual(["global"]);
-    expect(cache.toolInventoryQueries.snapshot("thread-b")?.mcpDiagnostics.map((item) => item.name)).toEqual(["global"]);
+    expect(cache.toolInventoryQueries.snapshot("thread-a")?.mcpDiagnostics.map((item) => item.environmentId)).toEqual([null]);
+    expect(cache.toolInventoryQueries.snapshot("thread-b")?.mcpDiagnostics.map((item) => item.environmentId)).toEqual([null]);
 
     await cache.toolInventoryQueries.refresh(null);
     expect(cache.toolInventoryQueries.snapshot("thread-a")?.mcpDiagnostics).toEqual([]);

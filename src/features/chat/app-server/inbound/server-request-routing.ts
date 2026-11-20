@@ -1,5 +1,4 @@
 import type { ServerRequest } from "../../../../app-server/connection/rpc-messages";
-import type { CurrentTimeReadResponse } from "../../../../generated/app-server/v2/CurrentTimeReadResponse";
 import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../domain/pending-requests/model";
 import {
   type ActiveRouteScope,
@@ -23,7 +22,6 @@ export type ServerRequestRoute =
       request: Extract<ServerRequest, { method: "mcpServer/elicitation/request" }>;
       elicitation: PendingMcpElicitation;
     }
-  | { kind: "currentTime"; request: Extract<ServerRequest, { method: "currentTime/read" }> }
   | { kind: "dynamicTool"; request: Extract<ServerRequest, { method: "item/tool/call" }> }
   | { kind: "unsupported"; request: ServerRequest }
   | { kind: "unknown"; request: ServerRequest }
@@ -52,8 +50,6 @@ export function routeServerRequest(request: ServerRequest, scope: ActiveRouteSco
       if (elicitation) return { kind: "mcpElicitation", request, elicitation };
       return { kind: "unsupported", request };
     }
-    case "currentTime/read":
-      return { kind: "currentTime", request };
     case "item/tool/call":
       return { kind: "dynamicTool", request };
     case "account/chatgptAuthTokens/refresh":
@@ -68,10 +64,6 @@ export function routeServerRequest(request: ServerRequest, scope: ActiveRouteSco
   }
 }
 
-export function serverRequestCurrentTimeResponse(currentTimeMs: number): CurrentTimeReadResponse {
-  return { currentTimeAt: Math.floor(currentTimeMs / 1000) };
-}
-
 function serverRequestScope(request: ServerRequest): AppServerRouteScope {
   switch (request.method) {
     case "item/commandExecution/requestApproval":
@@ -82,8 +74,6 @@ function serverRequestScope(request: ServerRequest): AppServerRouteScope {
     case "mcpServer/elicitation/request":
     case "item/tool/call":
       return threadTurnRequestScope(request);
-    case "currentTime/read":
-      return threadOnlyRequestScope(request);
     case "account/chatgptAuthTokens/refresh":
     case "attestation/generate":
     case "applyPatchApproval":
