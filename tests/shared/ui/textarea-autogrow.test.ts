@@ -24,7 +24,6 @@ it("reuses each document's textarea mirror and recreates it after full cleanup",
   }
 
   expect(document.querySelectorAll(MIRROR_SELECTOR), "primary mirror survives measurement in secondary").toHaveLength(1);
-  // Cleanup must also remove duplicates outside the registry.
   document.body.appendChild(document.createElement("textarea")).className = "codex-panel-textarea-height-mirror";
 
   disposeTextareaHeightMirrors();

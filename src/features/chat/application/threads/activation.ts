@@ -99,7 +99,6 @@ export class ThreadActivation {
     try {
       return await loading;
     } finally {
-      // Keep the identity after hydration: rollout usage recovery may still be running.
       resume.loading = null;
     }
   }

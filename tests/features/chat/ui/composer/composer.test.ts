@@ -307,14 +307,13 @@ describe("ComposerShell decisions", () => {
     const parent = document.createElement("div");
     onTestFinished(() => unmountUiRoot(parent));
     const callbacks = composerCallbacks();
-    // Keep this callback stable so clearing the draft must trigger its own height update.
-    const onComposer = vi.fn();
+    const stableComposerRef = vi.fn();
     const measuredHeight = vi.spyOn(HTMLTextAreaElement.prototype, "scrollHeight", "get").mockReturnValue(120);
 
     const props = composerPropsFixture({
       draft: "line one\nline two",
       callbacks,
-      onComposer,
+      onComposer: stableComposerRef,
     });
     renderUiRoot(parent, h(ComposerShell, props));
     const composer = parent.querySelector<HTMLTextAreaElement>(".codex-panel__composer-input");

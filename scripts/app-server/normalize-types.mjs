@@ -16,7 +16,6 @@ export function normalizeSource(source) {
           hasNull = true;
           return !duplicate;
         }
-        // A direct bare string already accepts direct string literals; do not resolve or flatten other types.
         return !(hasString && ts.isLiteralTypeNode(member) && ts.isStringLiteral(member.literal));
       });
       let hasRetained = false;
@@ -36,7 +35,6 @@ export function normalizeSource(source) {
   }
 
   visit(parsed);
-  // Remove tokens only, leaving trivia and unrelated source bytes untouched, including nested unions.
   for (const { start, end } of edits.sort((left, right) => right.start - left.start)) {
     source = source.slice(0, start) + source.slice(end);
   }

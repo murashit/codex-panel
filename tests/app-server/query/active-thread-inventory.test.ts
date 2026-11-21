@@ -42,12 +42,15 @@ describe("active thread inventory", () => {
     expect(activeThreadDataHasMore(inventory([page([], null, 0)]))).toBe(false);
   });
 
-  it("applies active upserts across pages", () => {
+  it("preserves inventory identity when an upsert has identical thread data", () => {
     const original = inventory([page([thread("existing", 1)], "next", 1), page([thread("other", 2)], null, 1)]);
     const unchanged = applyActiveThreadMutation(original, { kind: "upsert", thread: thread("existing", 1) });
     // Identity is consumed by the catalogue to avoid publishing unchanged data.
     expect(unchanged).toBe(original);
+  });
 
+  it("applies active upserts across pages", () => {
+    const original = inventory([page([thread("existing", 1)], "next", 1), page([thread("other", 2)], null, 1)]);
     const updated = applyActiveThreadMutation(original, {
       kind: "upsert",
       thread: { ...thread("existing", 3), name: "Renamed" },

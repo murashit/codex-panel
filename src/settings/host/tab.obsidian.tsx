@@ -427,8 +427,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       if (this.settingsMutationQueue !== settledOperation) return;
       if (this.settingsRefreshNeeded) {
         this.settingsRefreshNeeded = false;
-        // Native controls keep their edited value after a failed save. Rebuild
-        // from committed preferences only after later queued edits have settled.
         if (this.displayed) this.update();
       } else {
         this.requestRender();

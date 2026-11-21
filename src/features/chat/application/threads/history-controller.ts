@@ -125,7 +125,6 @@ export class HistoryController {
       (item) => baselineById.get(item.id) !== item,
     );
     const liveById = new Map(liveItems.map((item) => [item.id, item]));
-    // Hydration may settle after live notifications. Keep that content while admitting history-only items.
     const reconciled = reconcileForkDisplayItems(liveItems, items, { missingTurns: "prepend" });
     const orderedItems = new Map(items.map((item) => [item.id, item]));
     for (const item of reconciled) orderedItems.set(item.id, liveById.get(item.id) ?? item);

@@ -2,7 +2,6 @@ import type { ThreadSubscriptionInterest } from "../../../../domain/threads/mode
 import { activeThreadState, type ChatState } from "../state/model";
 import { activeTurnId } from "../turns/turn-state";
 
-/** A panel owns its thread and the children it still presents through activity or unanswered human approvals. */
 export function panelThreadSubscriptions(state: ChatState): readonly ThreadSubscriptionInterest[] {
   const thread = activeThreadState(state);
   if (!thread) return [];

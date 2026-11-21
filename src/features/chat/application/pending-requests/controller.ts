@@ -79,8 +79,6 @@ export class PendingRequests {
     for (const requestId of this.userInputTimers.keys()) this.clearUserInputTimer(requestId);
   }
 
-  // Response actions report whether a pending request was acted on, including a failed delivery.
-  // The host restores composer focus after an attempt; failures keep the request and its draft.
   resolveApproval(requestId: PendingRequestId, action: ApprovalAction): boolean {
     this.reconcile();
     const approval = this.state.approvals.find((item) => item.requestId === requestId);

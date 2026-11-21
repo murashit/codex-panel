@@ -1,7 +1,6 @@
 language js
 
 or {
-  // Reject references too: passing Date.now or Math.random still introduces an ambient effect.
   `Date.now` as $stmt,
   `Date()` as $stmt,
   `new Date()` as $stmt,

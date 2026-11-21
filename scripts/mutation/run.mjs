@@ -182,7 +182,6 @@ async function runMutation({ force = false } = {}) {
   return metadata.completed ? 0 : 1;
 }
 
-// Also runs after dependency installation failure or interrupted execution.
 function finalizeMutation() {
   const cwd = process.cwd();
   const file = resolve(cwd, reportDirectory, "run.json");

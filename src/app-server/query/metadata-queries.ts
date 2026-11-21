@@ -322,9 +322,7 @@ export class AppServerMetadataQueries {
       await this.scope.client.invalidateQueries({ queryKey: queryOptions.queryKey, exact: true, refetchType: "none" });
       if (this.scope.isDisposed()) return;
       await this.scope.client.query(queryOptions);
-    })().catch(() => {
-      // The resource keeps its last-known-good value and exposes the failed probe to observers.
-    });
+    })().catch(() => undefined);
   }
 
   private metadataProbe(
@@ -369,9 +367,7 @@ export class AppServerMetadataQueries {
           ...this.hooksQueryOptions,
           queryFn: () => listHookCatalog(client, this.scope.context.vaultPath),
         })
-        .catch(() => {
-          // The write succeeded. The observed catalog owns any subsequent read failure.
-        });
+        .catch(() => undefined);
     });
   }
 }

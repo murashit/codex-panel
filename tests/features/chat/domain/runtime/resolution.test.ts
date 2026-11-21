@@ -78,6 +78,35 @@ describe("runtime control resolution", () => {
     });
   });
 
+  it("keeps explicitly null thread permissions even when startup supplies all three values", () => {
+    const config = runtimeConfigFromAppServerFixture({});
+    const snapshot = runtimeSnapshot({
+      activeThreadId: "thread",
+      runtimeConfig: {
+        ...config,
+        startupPermissions: {
+          activePermissionProfile: { id: ":workspace", extends: null },
+          approvalPolicy: "on-request",
+          sandboxPolicy: { type: "readOnly", networkAccess: false },
+        },
+      },
+      active: {
+        permissionProfileKnown: true,
+        approvalPolicyKnown: true,
+        sandboxPolicyKnown: true,
+        activePermissionProfile: null,
+        approvalPolicy: null,
+        sandboxPolicy: null,
+      },
+    });
+    const activeNull = { effective: null, source: "active-thread" };
+    expect(resolveRuntimeControls(snapshot, snapshotConfig(snapshot))).toMatchObject({
+      permissionProfile: activeNull,
+      approvalPolicy: activeNull,
+      sandboxPolicy: activeNull,
+    });
+  });
+
   it("marks the sandbox policy pending and unknown when selecting a different permission profile", () => {
     const runtimeConfig = runtimeConfigFromAppServerFixture({});
     const snapshot = runtimeSnapshot({
@@ -185,7 +214,6 @@ describe("runtime control resolution", () => {
       ...modelFixture("gpt-5.5"),
       serviceTiers: [{ id: "priority", name: "Fast" }],
     };
-    // The Fast display name can identify an app-server tier id such as "priority".
     const snapshot = runtimeSnapshot({
       activeThreadId: "thread",
       active: { model: "gpt-5.5", serviceTier: reportedTier },

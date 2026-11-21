@@ -112,7 +112,6 @@ describe("session thread read state", () => {
     f.request.mockResolvedValue({ readState: receipt("r2") });
     f.setClient(f.client);
     await flush();
-    // The new scope refreshed and acknowledged r2, even though an old ACK was outstanding.
     expect(f.request).toHaveBeenLastCalledWith("thread/readState/update", expect.objectContaining({ expectedRevision: "r2" }));
     old.resolve({ readState: receipt("old", false) });
     await flush();

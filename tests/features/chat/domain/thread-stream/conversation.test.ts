@@ -21,8 +21,8 @@ describe("shared conversation rules", () => {
       assistantDialogue("response", "assistantResponse", "completed", "turn"),
     ];
     expect(threadStreamUserRoles(items)).toEqual(["steer", "initiator", "initiator", "steer", null]);
-    // A partial history is classified from the supplied items, without inferring a missing prompt.
-    expect(threadStreamUserRoles(items.slice(3))).toEqual(["initiator", null]);
+    const partialHistory = items.slice(3);
+    expect(threadStreamUserRoles(partialHistory)).toEqual(["initiator", null]);
   });
 
   it("counts client-id steers but only honors their prefix within a turn", () => {

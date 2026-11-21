@@ -109,9 +109,7 @@ function subscriptionInterleavings() {
     required,
     (message) => failures.push(message),
   );
-  // Yield to the event loop, draining Promise continuations without relying on a
-  // fixed number of microtasks or elapsed wall-clock delays.
-  const drain = () => new Promise<void>((resolve) => setImmediate(resolve));
+  const waitForNextEventLoopTurn = () => new Promise<void>((resolve) => setImmediate(resolve));
   const check = () => expect(violations).toEqual([]);
 
   async function complete(update: PendingUpdate, success: boolean): Promise<void> {
@@ -122,7 +120,7 @@ function subscriptionInterleavings() {
       else update.attached.delete(update.threadId);
       update.reply.resolve({});
     } else update.reply.reject(new Error("generated transport failure"));
-    await drain();
+    await waitForNextEventLoopTurn();
     expect(failures).toHaveLength(failuresBefore + (!success && update.epoch === epoch ? 1 : 0));
     check();
   }
@@ -207,12 +205,12 @@ function subscriptionInterleavings() {
           subscriptions.reconcile();
           break;
       }
-      await drain();
+      await waitForNextEventLoopTurn();
       check();
     },
     async converge(): Promise<void> {
       for (const activation of activations) finish(activation);
-      await drain();
+      await waitForNextEventLoopTurn();
       // Stabilize demand, explicitly retry failures, and supply successful replies.
       // This tests conditional convergence, not liveness under arbitrary failures.
       const budget = updates.length + activations.length + 10;
@@ -231,7 +229,7 @@ function subscriptionInterleavings() {
       }
       const count = updates.length;
       subscriptions.reconcile();
-      await drain();
+      await waitForNextEventLoopTurn();
       expect(updates).toHaveLength(count);
       check();
     },
@@ -241,7 +239,7 @@ function subscriptionInterleavings() {
       for (const activation of activations) finish(activation);
       for (const update of updates) if (!update.settled) update.reply.resolve({});
       await Promise.all(activations.map((activation) => activation.done));
-      await drain();
+      await waitForNextEventLoopTurn();
     },
   };
 }

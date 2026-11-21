@@ -462,36 +462,38 @@ describe("createChatRuntimeSettingsCommands", () => {
     expect(messages).toEqual([]);
   });
 
-  it.each(["rejected", "unknown", "not-started"] as const)("preserves toolbar recovery after a %s settings result", async (kind) => {
-    const store = createChatStateStore(
-      chatStateWith(chatStateFixture(), { activeThread: { id: "thread" }, ui: { toolbarPanel: "status-panel" } }),
-    );
-    const updateThreadSettings = vi
-      .fn()
-      .mockResolvedValueOnce(kind === "rejected" ? { kind, message: "Not allowed." } : { kind })
-      .mockResolvedValue({ kind: "accepted" });
-    const port = settingsPortFixture({ updateThreadSettings });
-    const messages: string[] = [];
-    const commands = runtimeCommandsFixture(store, port, messages);
+  it.each(["rejected", "unknown", "not-started"] as const)(
+    "preserves toolbar state and retries only unconfirmed settings before send (%s)",
+    async (kind) => {
+      const store = createChatStateStore(
+        chatStateWith(chatStateFixture(), { activeThread: { id: "thread" }, ui: { toolbarPanel: "status-panel" } }),
+      );
+      const updateThreadSettings = vi
+        .fn()
+        .mockResolvedValueOnce(kind === "rejected" ? { kind, message: "Not allowed." } : { kind })
+        .mockResolvedValue({ kind: "accepted" });
+      const port = settingsPortFixture({ updateThreadSettings });
+      const messages: string[] = [];
+      const commands = runtimeCommandsFixture(store, port, messages);
 
-    await commands.toggleFastMode();
+      await commands.toggleFastMode();
 
-    expect(updateThreadSettings).toHaveBeenCalledExactlyOnceWith("thread", { serviceTier: "fast" });
-    expect(store.getState().runtime.pending.fastMode).toEqual(
-      kind === "rejected" ? { kind: "unchanged" } : { kind: "set", value: "enabled" },
-    );
-    expect(store.getState().runtime.active.serviceTierKnown).toBe(false);
-    expect(store.getState().ui.toolbarPanel).toBe("status-panel");
+      expect(updateThreadSettings).toHaveBeenCalledExactlyOnceWith("thread", { serviceTier: "fast" });
+      expect(store.getState().runtime.pending.fastMode).toEqual(
+        kind === "rejected" ? { kind: "unchanged" } : { kind: "set", value: "enabled" },
+      );
+      expect(store.getState().runtime.active.serviceTierKnown).toBe(false);
+      expect(store.getState().ui.toolbarPanel).toBe("status-panel");
 
-    // The same pre-send path retries uncertain intent but never repeats a definite rejection.
-    const sending = commands.applyPendingThreadSettings();
-    await vi.waitFor(() => expect(updateThreadSettings).toHaveBeenCalledTimes(kind === "rejected" ? 1 : 2));
-    if (kind !== "rejected") applySettingsNotification(store, { serviceTier: "fast", serviceTierKnown: true });
-    await expect(sending).resolves.toBe(true);
-    expect(updateThreadSettings).toHaveBeenCalledTimes(kind === "rejected" ? 1 : 2);
-    expect(updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: "fast" });
-    expect(store.getState().runtime.pending.fastMode.kind).toBe("unchanged");
-  });
+      const sending = commands.applyPendingThreadSettings();
+      await vi.waitFor(() => expect(updateThreadSettings).toHaveBeenCalledTimes(kind === "rejected" ? 1 : 2));
+      if (kind !== "rejected") applySettingsNotification(store, { serviceTier: "fast", serviceTierKnown: true });
+      await expect(sending).resolves.toBe(true);
+      expect(updateThreadSettings).toHaveBeenCalledTimes(kind === "rejected" ? 1 : 2);
+      expect(updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: "fast" });
+      expect(store.getState().runtime.pending.fastMode.kind).toBe("unchanged");
+    },
+  );
 
   it("does not commit stale runtime updates after returning to the same thread", async () => {
     const store = createChatStateStore(chatStateFixture({ activeThread: { id: "thread" } }));

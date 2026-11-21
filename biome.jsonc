@@ -6,7 +6,6 @@
     "useIgnoreFile": true
   },
   "plugins": [
-    // Project-wide source shape and placement.
     {
       "path": "./scripts/grit/source-shape/no-handwritten-reexports.grit",
       "includes": ["**/*.{ts,tsx,mjs}"]
@@ -16,7 +15,6 @@
       "includes": ["**/src/**/*.tsx"]
     },
 
-    // Cross-cutting source-layer import boundaries.
     {
       "path": "./scripts/grit/import-boundaries/no-domain-outer-layer-imports.grit",
       "includes": ["**/src/domain/**/*.{ts,tsx}", "**/src/features/*/domain/**/*.{ts,tsx}"]
@@ -26,7 +24,6 @@
       "includes": ["**/src/app-server/**/*.{ts,tsx}", "**/src/shared/**/*.{ts,tsx}"]
     },
 
-    // App-server and generated protocol boundaries.
     {
       "path": "./scripts/grit/import-boundaries/no-app-server-connection-boundary-imports.grit",
       "includes": [
@@ -65,7 +62,6 @@
       "path": "./scripts/grit/import-boundaries/no-query-cache-imports.grit",
       "includes": ["**/src/**/*.{ts,tsx}", "!**/src/app-server/query/**"]
     },
-    // Workspace and feature coordination boundaries.
     {
       "path": "./scripts/grit/import-boundaries/no-feature-workspace-boundary-imports.grit",
       "includes": ["**/src/features/**/*.{ts,tsx}"]
@@ -83,7 +79,6 @@
       "includes": ["**/src/features/threads/workflows/**/*.{ts,tsx}"]
     },
 
-    // Chat feature layer boundaries.
     {
       "path": "./scripts/grit/import-boundaries/no-chat-application-outer-layer-imports.grit",
       "includes": ["**/src/features/chat/application/**/*.{ts,tsx}"]
@@ -130,7 +125,6 @@
       "includes": ["**/src/**/*.{ts,tsx}", "!**/src/shared/ui/preact-root.dom.tsx"]
     },
 
-    // CSS source policy.
     {
       "path": "./scripts/grit/no-restricted-css-policy.grit",
       "includes": ["**/src/styles/**/*.css"]

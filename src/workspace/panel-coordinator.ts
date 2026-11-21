@@ -448,7 +448,6 @@ export class WorkspacePanelCoordinator {
     if (pending.has(leaf)) return;
     const viewState = leaf.getViewState();
     const writing = leaf.setViewState({ ...viewState, state: chatPanelViewState() });
-    // Suppress concurrent writes only; a failed write may be retried by a later event.
     pending.add(leaf);
     void writing.then(
       () => {

@@ -113,7 +113,6 @@ describe("GoalPanel", () => {
     measurements.clientHeight = 80;
     await act(async () => notifyResize());
     expect(details.hidden).toBe(true);
-    // Closing the expanded view after widening must not offer a needless expansion.
     await outsidePointerDown();
     await act(async () => renderGoal(parent, currentGoal, callbacks));
     expect(details.hidden).toBe(true);

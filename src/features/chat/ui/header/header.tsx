@@ -60,7 +60,7 @@ export function ConversationHeader({ title, persistence, thread, actions }: Conv
             <ThreadActionControls
               renameDisabled={thread.renameDisabled}
               archiveDisabled={thread.archiveDisabled}
-              manageArchiveFocus
+              restoreFocusOnSynchronousArchiveTransition
               archiveConfirm={thread.archiveConfirm}
               classNames={{
                 action: "codex-panel__conversation-action",
