@@ -146,9 +146,7 @@ export class AppServerToolInventoryQueries {
   private revalidateMcpServersForThread(threadId: string | null): void {
     if (this.scope.isDisposed()) return;
     this.mcpRevalidationRevisions.set(threadId, this.mcpRevalidationRevision(threadId) + 1);
-    void this.scope.client.invalidateQueries({ queryKey: mcpServersQueryKey(threadId), exact: true }).catch(() => {
-      // The resource keeps its last-known-good value and exposes the refresh error.
-    });
+    void this.scope.client.invalidateQueries({ queryKey: mcpServersQueryKey(threadId), exact: true }).catch(() => undefined);
   }
 
   private mcpServersQueryOptions(threadId: string | null): AppServerQueryOptions<McpServerInventory> {

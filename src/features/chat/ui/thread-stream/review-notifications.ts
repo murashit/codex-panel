@@ -8,7 +8,6 @@ export function reviewNotificationPresentation(items: readonly ThreadStreamItem[
   const candidates = new Map<string, { results: ReviewResultThreadStreamItem[]; notifications: ReviewResultThreadStreamItem[] }>();
   for (const item of items) {
     if (item.kind !== "reviewResult" || !item.turnId) continue;
-    // Only the bare tooManyDenials terminal error is represented as a review result.
     const terminal = isTerminalTurnErrorItem(item);
     const result = item.reviewKind === "automaticResult" || terminal;
     const notification =
@@ -27,7 +26,6 @@ export function reviewNotificationPresentation(items: readonly ThreadStreamItem[
   const notificationByResultId = new Map<string, string>();
   const foldedNotificationIds = new Set<string>();
   for (const { results, notifications } of candidates.values()) {
-    // Matching content is not event identity. Keep competing/repeated observations separate.
     if (results.length !== 1 || notifications.length !== 1) continue;
     const result = results[0];
     const notification = notifications[0];

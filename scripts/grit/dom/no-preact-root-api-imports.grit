@@ -10,7 +10,6 @@ or {
     $stmt <: contains or {
       JsNamedImportSpecifier(name=root_import_name()),
       JsShorthandNamedImportSpecifier(local_name=root_import_name()),
-      // Namespace and default imports expose root APIs too; use named component imports.
       JsNamespaceImportSpecifier(),
       JsDefaultImportSpecifier()
     }

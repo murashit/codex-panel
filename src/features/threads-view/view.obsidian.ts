@@ -45,7 +45,7 @@ export class CodexThreadsView extends ItemView {
       try {
         session?.close();
       } catch {
-        // Preserve the attach error; the view remains detached for a later reload.
+        // Continue releasing the owner even if the partially attached session fails to close.
       }
       try {
         this.removeChild(owner);

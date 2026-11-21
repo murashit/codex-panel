@@ -111,7 +111,6 @@ export class ChatServerRequests {
 
   resolved(requestId: RequestId): boolean {
     this.entries.delete(requestId);
-    // Unresolved cards also own child approvals displayed in the parent panel.
     if (!this.host.stateStore.getState().requests.approvals.some((approval) => approval.requestId === requestId)) return false;
     this.pending.resolve(requestId);
     return true;

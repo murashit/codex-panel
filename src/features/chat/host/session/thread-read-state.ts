@@ -23,13 +23,13 @@ export function createSessionThreadReadState(host: ThreadReadStateHost) {
   let scope: ReadScope | null = null;
   const current = (request: ReadScope): boolean => scope === request && host.currentClient() === request.client;
 
-  const refresh = async (request: ReadScope, acknowledge = true): Promise<void> => {
+  const refresh = async (request: ReadScope, onRefresh: "acknowledge" | "display-only"): Promise<void> => {
     const before = stateStore.getState().threadReadReceipt;
     try {
       const receipt = await readThreadReceipt(request.client, request.threadId);
       if (!current(request) || stateStore.getState().threadReadReceipt !== before) return;
       stateStore.dispatch({ type: "active-thread/read-receipt-set", receipt });
-      if (acknowledge) activate();
+      if (onRefresh === "acknowledge") activate();
     } catch {
       // Keep the last receipt when a metadata refresh fails; reconnect refreshes it again.
     }
@@ -49,8 +49,7 @@ export function createSessionThreadReadState(host: ThreadReadStateHost) {
         },
         () => {
           if (!current(request) || stateStore.getState().threadReadReceipt?.revision !== receipt.revision) return;
-          // A conflict may reveal new activity. Refresh display only, never retry its new revision.
-          void refresh(request, false);
+          void refresh(request, "display-only");
         },
       )
       .finally(() => {
@@ -66,9 +65,8 @@ export function createSessionThreadReadState(host: ThreadReadStateHost) {
     if (!client || !threadId) {
       scope = null;
     } else if (scope?.client !== client || scope.threadId !== threadId || scope.targetRevision !== state.panelTargetRevision) {
-      // Object identity retires all requests, including a reconnect to the same thread and client.
       scope = { client, threadId, targetRevision: state.panelTargetRevision, acknowledging: new Set() };
-      void refresh(scope);
+      void refresh(scope, "acknowledge");
     }
   };
   const unsubscribe = stateStore.subscribe(sync);

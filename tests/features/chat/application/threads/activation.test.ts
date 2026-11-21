@@ -141,8 +141,7 @@ describe("ThreadActivation", () => {
               gate.resolve();
               await expect(opening).resolves.toBe(false);
               expect(stateStore.getState()).toBe(before);
-              // A successful stale resume still records a shared fact; a stale
-              // connection result must not start a resume in the first place.
+              expect(resumeThread).toHaveBeenCalledTimes(stage === "resume" ? 1 : 0);
               expect(host.recordResumedThread).toHaveBeenCalledTimes(stage === "resume" ? 1 : 0);
               expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
               expect(host.addSystemMessage).not.toHaveBeenCalled();

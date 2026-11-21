@@ -227,7 +227,6 @@ export function slashCommandRequiresConnection(command: SlashCommandName): boole
   return !CONNECTION_INDEPENDENT_SLASH_COMMANDS.has(command);
 }
 
-/** Maps a parsed command to the active-panel operation it performs, if any. */
 export function activePanelOperationForSlashCommand(command: SlashCommandName, args: string): ActivePanelOperation | null {
   switch (command) {
     case "goal":
@@ -267,7 +266,6 @@ export function activePanelOperationForSlashCommand(command: SlashCommandName, a
   }
 }
 
-/** Maps a slash-completion to its mode-derived operation without assuming arguments. */
 export function activePanelOperationForSlashCommandSuggestion(command: SlashCommandName): ActivePanelOperation | null {
   switch (command) {
     case "goal":

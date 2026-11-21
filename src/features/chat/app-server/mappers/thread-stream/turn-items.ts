@@ -154,7 +154,6 @@ function threadStreamItemFromTurnItemCore(item: TurnItem, turnId?: string): Thre
     case "functionCallOutput":
       return null;
     default:
-      // Enforce exhaustive handling of known types while ignoring unknown runtime items.
       item satisfies never;
       return null;
   }

@@ -136,8 +136,8 @@ describe("shared presentation subscriptions", () => {
     fixture.subscriptions.reconcile();
     fixture.subscriptions.reconcile();
     expect(request).not.toHaveBeenCalled();
-    // An unrelated/retired client's reply cannot acknowledge this connection's interest.
-    fixture.subscriptions.record("child", {} as AppServerClient);
+    const unrelatedClient = {} as AppServerClient;
+    fixture.subscriptions.record("child", unrelatedClient);
     fixture.required.set("child", true);
     fixture.subscriptions.reconcile();
     await waitForAsyncWork(() =>
@@ -146,7 +146,6 @@ describe("shared presentation subscriptions", () => {
     fixture.required.clear();
     fixture.subscriptions.reconcile();
     await waitForAsyncWork(() => expect(request).toHaveBeenCalledTimes(2));
-    // A later upstream presentation is tracked afresh without attempting unsupported resume.
     fixture.required.set("child", false);
     fixture.subscriptions.reconcile();
     fixture.subscriptions.reconcile();

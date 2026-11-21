@@ -390,7 +390,6 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     },
     dispose: async (unmount: () => void): Promise<void> => {
       threadReadState.dispose();
-      // Retire presentation without interrupting Codex-owned work.
       stateStore.dispatch({ type: "panel/disposed" });
       try {
         sessionConnection.deactivate();

@@ -57,9 +57,8 @@ if (!changes.size) {
 } else if (review === "mutation") {
   const mutate = [];
   for (const [file, ranges] of changes) {
-    // Stryker interprets its input paths as minimatch globs.
-    const pattern = file.replace(/[?*()[\]{}]/g, "[$&]");
-    for (const [start, end] of ranges) mutate.push(end === Infinity ? pattern : `${pattern}:${start}-${end}`);
+    const literalMinimatchPath = file.replace(/[?*()[\]{}]/g, "[$&]");
+    for (const [start, end] of ranges) mutate.push(end === Infinity ? literalMinimatchPath : `${literalMinimatchPath}:${start}-${end}`);
   }
   await new Stryker({
     mutate,

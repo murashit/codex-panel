@@ -305,7 +305,6 @@ describe("ComposerInput", () => {
     expect(input.draft).toBe(`${plain}\n\n${located}`);
     expect(input.captureInputSnapshot().selectionSnapshots).toHaveLength(2);
 
-    // Removing one citation keeps only the other exact source location.
     edit(located);
     expect(input.captureInputSnapshot().selectionSnapshots).toEqual([{ reference: selection, marker: located }]);
     const context = prepareInput(located).input.find((item) => item.type === "additionalContext");

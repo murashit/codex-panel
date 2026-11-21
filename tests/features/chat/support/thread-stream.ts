@@ -8,7 +8,6 @@ export function chatStateThreadStreamItems(state: Pick<ChatState, "threadStream"
   return threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn));
 }
 
-/** Replaces stable history while intentionally preserving active-turn transient state. */
 export function withChatStateStableThreadStreamItems(state: ChatState, items: readonly ThreadStreamItem[]): ChatState {
   return chatStateWith(state, {
     threadStream: threadStreamWithItems(state.threadStream, items),

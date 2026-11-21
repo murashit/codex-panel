@@ -189,7 +189,7 @@ describe("ConnectionManager", () => {
     expect(manager.currentClient()).toBeNull();
   });
 
-  it("shares connection attempts and isolates retired transports across sampled lifecycle events", async () => {
+  it("shares connection attempts, isolates retired transports and recovers after sampled lifecycle events", async () => {
     const events = fc.array(
       fc.record({
         kind: fc.constantFrom("connect", "ready", "fail", "exit", "disconnect", "notify", "request", "log"),
@@ -295,7 +295,6 @@ describe("ConnectionManager", () => {
               expect([null, clients.at(-1)]).toContain(manager.currentClient());
               expect(failures).toEqual([]);
             }
-            // Arbitrary failures and shutdowns must still permit a fresh attempt.
             manager.disconnect();
             await Promise.all(outcomes);
             const reconnecting = manager.connect(handlers);

@@ -137,7 +137,7 @@ describe("panel pending request rendering", () => {
     ]);
   });
 
-  it("preserves draft selection and consumed autofocus across deadline updates and remounts", () => {
+  it("preserves draft selection and consumed autofocus across updates and remounts, and focuses a replacement request", () => {
     const parent = document.createElement("div");
     const composer = document.createElement("textarea");
     document.body.append(composer, parent);
@@ -190,7 +190,6 @@ describe("panel pending request rendering", () => {
       unmountUiRootInAct(parent);
       render();
       expect(document.activeElement).toBe(composer);
-      // The next render can replace a request without ever displaying an empty queue.
       stateStore.dispatch({ type: "request/resolved", requestId: input.requestId });
       stateStore.dispatch({ type: "request/user-input-queued", input: { ...input, requestId: 1001 } });
       render();

@@ -3,7 +3,6 @@ export default {
   vitest: { configFile: "vitest.mutation.config.mts" },
   disableBail: true,
   coverageAnalysis: "perTest",
-  // Local history and generated reports are not test inputs.
   ignorePatterns: ["/.jj", "/coverage"],
   mutate: [
     "src/domain/**/*.ts",

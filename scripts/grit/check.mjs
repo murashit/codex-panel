@@ -6,7 +6,6 @@ import path from "node:path";
 const repoRoot = process.cwd();
 const biomeBin = path.join(repoRoot, "node_modules", ".bin", "biome");
 
-// Regression probes for nontrivial source-policy scopes and syntax, exercised with the actual Biome plugin configuration.
 const cases = [
   policyCase(
     "chat UI cannot instantiate shared Obsidian adapters",

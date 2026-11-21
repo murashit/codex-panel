@@ -1,7 +1,6 @@
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "./items";
 import { isLocalSteerDialogueClientId } from "./local-dialogue-ids";
 
-// Roles follow the supplied history only; explicit steers do not consume a prompt slot.
 export function threadStreamUserRoles(items: readonly ThreadStreamItem[]): ("initiator" | "steer" | null)[] {
   const seenTurns = new Set<string>();
   return items.map((item) => {
@@ -14,7 +13,6 @@ export function threadStreamUserRoles(items: readonly ThreadStreamItem[]): ("ini
   });
 }
 
-// Includes proposed plans; item completion does not imply that its turn has ended or succeeded.
 function isCompletedAssistantDialogue(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { turnId: string } {
   return item.kind === "dialogue" && item.dialogueKind !== "user" && !!item.turnId && item.dialogueState === "completed";
 }

@@ -17,8 +17,7 @@ export interface ThreadActionControlsProps {
   isPinned?: boolean | undefined;
   renameDisabled?: boolean | undefined;
   archiveDisabled?: boolean | undefined;
-  /** Only for surfaces that close confirmation synchronously on activation. */
-  manageArchiveFocus?: boolean | undefined;
+  restoreFocusOnSynchronousArchiveTransition?: boolean | undefined;
   archiveConfirm: { active: boolean; defaultSaveMarkdown: boolean };
   classNames: {
     action: string;
@@ -37,7 +36,7 @@ export function ThreadActionControls({
   isPinned,
   renameDisabled,
   archiveDisabled,
-  manageArchiveFocus,
+  restoreFocusOnSynchronousArchiveTransition,
   archiveConfirm,
   classNames,
   onRename,
@@ -54,7 +53,8 @@ export function ThreadActionControls({
     }
   }, [archiveConfirm.active]);
   const rememberFocus = (event: TargetedMouseEvent<HTMLButtonElement>): void => {
-    focusOnTransition.current = manageArchiveFocus === true && event.currentTarget === event.currentTarget.ownerDocument.activeElement;
+    focusOnTransition.current =
+      restoreFocusOnSynchronousArchiveTransition === true && event.currentTarget === event.currentTarget.ownerDocument.activeElement;
   };
   const confirmArchive = (saveMarkdown: boolean, event: TargetedMouseEvent<HTMLButtonElement>): void => {
     rememberFocus(event);

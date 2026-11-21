@@ -26,8 +26,6 @@ export function contentForPendingMcpElicitation(elicitation: PendingMcpElicitati
 }
 
 function mcpElicitationFieldValue(field: PendingMcpElicitationField): McpElicitationFieldResult {
-  // Empty optional controls mean unanswered. Required strings and arrays still
-  // supply values: required is presence, not minLength or minItems.
   switch (field.type) {
     case "boolean":
       return { valid: true, value: field.value };

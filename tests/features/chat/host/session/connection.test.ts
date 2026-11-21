@@ -81,7 +81,6 @@ describe("session connection", () => {
     const approval = { respond: vi.fn(), reject: vi.fn() };
     fixture.deliver(userInputRequest(1), input);
     fixture.deliver(commandApprovalRequest(2, "thread-active", "turn-active"), approval);
-    // The approval may outlive presentation of its thread.
     fixture.stateStore.dispatch({ type: "panel/view-state-cleared" });
     const close = boundary === "exit" ? fixture.exit : boundary === "close" ? fixture.deactivate : fixture.invalidate;
     close();

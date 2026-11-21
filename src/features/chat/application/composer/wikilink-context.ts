@@ -145,8 +145,6 @@ function literalTextAroundQuotes(text: string, start: number, end: number, codeR
     if (text.charAt(index) === "`" && !markdownCodeRangeContainsOffset(codeRanges, index)) {
       let before = index;
       while (text.charAt(before - 1) === "\\") before -= 1;
-      // Preserve literal unmatched ticks instead of pairing them with the newly
-      // introduced quote delimiters. Already escaped ticks and valid code stay intact.
       if ((index - before) % 2 === 0) result += "\\";
     }
     result += text.charAt(index);

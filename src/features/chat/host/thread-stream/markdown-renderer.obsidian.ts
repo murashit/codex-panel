@@ -68,7 +68,6 @@ export class ThreadStreamMarkdownRenderer {
 }
 
 export function renderStreamMarkdown(parent: HTMLElement, text: string): void {
-  // Keep links and images inert before even parsing HTML into a temporary document.
   const html = micromark(text, { extensions: [{ disable: { null: ["labelStartLink", "labelStartImage", "autolink"] } }] });
   const DOMParserConstructor = parent.ownerDocument.defaultView?.DOMParser ?? DOMParser;
   const parser = new DOMParserConstructor();

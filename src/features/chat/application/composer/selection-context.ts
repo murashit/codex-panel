@@ -36,17 +36,14 @@ export function captureSelectionContext(
 
   const coordinates = reference.range !== null && sameText.length > 0 ? `(${formatComposerContextRange(reference.range)}) ` : "";
   const occupied = reserved.map((snapshot) => snapshot.marker);
-  // Do not allocate a label that extends another reserved label, or vice versa.
   const available = (marker: string): boolean => !occupied.some((other) => marker.startsWith(other) || other.startsWith(marker));
   const length = Array.from(previewText(reference.text)).length;
   const first = Math.min(PREVIEW_LENGTH, length);
-  // Use the actual note path if the shorter name leaves no usable label.
   for (const linktext of selectionLinktexts(reference)) {
     for (let size = first; size <= length; size += 1) {
       const marker = previewForNote({ ...reference, linktext }, reference.text, size, coordinates);
       if (available(marker)) return { reference, marker };
     }
-    // If extending cannot distinguish the new label, keep a shorter honest excerpt.
     for (let size = first - 1; size > 0; size -= 1) {
       const marker = previewForNote({ ...reference, linktext }, reference.text, size, coordinates);
       if (available(marker)) return { reference, marker };
@@ -76,7 +73,6 @@ export function selectionContextMatches(text: string, snapshots: readonly Select
     cursor = match.end;
   }
   masked += text.slice(cursor);
-  // Treat excerpt syntax as text, not new wikilinks, skills, or code delimiters.
   return { matches, masked };
 }
 

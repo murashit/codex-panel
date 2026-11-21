@@ -30,13 +30,9 @@ export class ThreadSubscriptions {
     }
     for (const threadId of new Set([...this.tracked.keys(), ...required.keys()])) {
       const subscribe = required.has(threadId);
-      // New IDs arrive by notification before creation replies. Hold releases until adoption,
-      // but keep unrelated subscriptions and known-thread activations moving.
       if (this.activations.has(threadId) || (!subscribe && this.activations.has(null))) continue;
       if (this.updates.has(threadId)) continue;
       if (subscribe && !required.get(threadId)) {
-        // Parent agent items identify upstream-managed children, not an attachment ACK.
-        // Keep their release responsibility without claiming acquisition or issuing resume.
         if (!this.tracked.has(threadId)) this.tracked.set(threadId, "upstream");
         continue;
       }
@@ -57,7 +53,6 @@ export class ThreadSubscriptions {
     const generation = this.generation;
     this.activations.set(threadId, (this.activations.get(threadId) ?? 0) + 1);
     try {
-      // A preceding unsubscribe must finish before a new resume can subscribe again.
       const pending = threadId === null ? undefined : this.updates.get(threadId);
       if (pending) await pending;
       if (generation !== this.generation) throw new StaleConnectionError();

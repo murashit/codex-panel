@@ -1,4 +1,3 @@
-// A finished turn may stop without a known success or failure result.
 export type TurnOutcome = "completed" | "failed" | "interrupted" | "unknown";
 
 export function turnOutcomeLabel(outcome: TurnOutcome): string {
