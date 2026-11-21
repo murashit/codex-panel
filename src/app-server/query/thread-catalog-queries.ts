@@ -7,7 +7,7 @@ import {
 import { applyThreadCatalogChange, type ThreadCatalogChange, threadCatalogChangeList } from "../../domain/threads/catalog";
 import type { ThreadFact, ThreadFactSink } from "../../domain/threads/facts";
 import type { Thread } from "../../domain/threads/model";
-import type { ObservedPaginatedResult, ObservedPaginatedResultListener, ObservedResultListener } from "../../shared/async/observed-result";
+import type { ObservedPaginatedResult, ObservedPaginatedResultListener, ResultObservation } from "../../shared/async/observed-result";
 import { listPinnedThreads, listThreads, readThreadPage, type ThreadPage } from "../services/threads";
 import {
   type ActiveThreadCursor,
@@ -165,9 +165,8 @@ export class ThreadCatalog {
     };
   }
 
-  observeArchivedThreadsResult(listener: ObservedResultListener<readonly Thread[]>): () => void {
-    this.scope.assertUsable();
-    return this.scope.observeResult(this.archivedThreadsQueryOptions(), (threads) => threads, listener);
+  watchArchivedThreads(changed: () => void): ResultObservation<readonly Thread[]> {
+    return this.scope.watchResult(this.archivedThreadsQueryOptions(), (threads) => threads, changed);
   }
 
   async fetchActiveThreads(): Promise<readonly Thread[]> {

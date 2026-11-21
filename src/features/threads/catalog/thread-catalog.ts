@@ -1,8 +1,7 @@
 import type { Thread } from "../../../domain/threads/model";
-import type { ObservedPaginatedResultListener, ObservedResultListener } from "../../../shared/async/observed-result";
+import type { ObservedPaginatedResultListener, ResultObservation } from "../../../shared/async/observed-result";
 
 type ActiveThreadListObserver = ObservedPaginatedResultListener<readonly Thread[]>;
-type ArchivedThreadListObserver = ObservedResultListener<readonly Thread[]>;
 
 export interface ThreadCatalogPaginatedActiveReader {
   activeThreadsSnapshot(): readonly Thread[] | null;
@@ -21,7 +20,7 @@ export interface ThreadCatalogSearchReader {
 export interface ThreadCatalogArchivedReader {
   archivedThreadsSnapshot(): readonly Thread[] | null;
   refreshArchivedThreads(): Promise<readonly Thread[]>;
-  observeArchivedThreadsResult(observer: ArchivedThreadListObserver): () => void;
+  watchArchivedThreads(changed: () => void): ResultObservation<readonly Thread[]>;
 }
 
 interface ThreadReplacementPublication {

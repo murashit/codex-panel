@@ -1,5 +1,5 @@
-import { QueryClient, QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
-import type { ObservedResult, ObservedResultListener } from "../../shared/async/observed-result";
+import { QueryClient, QueryObserver } from "@tanstack/query-core";
+import type { ResultObservation } from "../../shared/async/observed-result";
 import type { AppServerClient } from "../connection/client";
 import type { AppServerClientAccess } from "../connection/client-access";
 import type { AppServerExecutionContext } from "../connection/execution-context";
@@ -64,30 +64,31 @@ export class AppServerQueryScope {
     return trackedUnsubscribe;
   }
 
-  observeResult<TQuery, TValue>(
+  watchResult<TQuery, TValue>(
     queryOptions: AppServerQueryOptions<TQuery>,
     project: (value: TQuery) => TValue,
-    listener: ObservedResultListener<TValue>,
-  ): () => void {
+    changed: () => void,
+  ): ResultObservation<TValue> {
     this.assertUsable();
     const observer = new QueryObserver<TQuery, Error, TValue>(this.client, {
       ...queryOptions,
       enabled: false,
       select: project,
     });
-    const emit = (result: QueryObserverResult<TValue>): void => {
-      if (this.disposed) return;
-      listener({
-        value: result.data ?? null,
-        error: result.error instanceof Error ? result.error : null,
-        isFetching: result.isFetching,
-      } satisfies ObservedResult<TValue>);
-    };
-    observer.subscribe(emit);
-    emit(observer.getCurrentResult());
-    return this.trackObserver(() => {
-      observer.destroy();
+    let closedResult: ReturnType<typeof observer.getCurrentResult> | undefined;
+    observer.subscribe(() => {
+      if (!this.disposed) changed();
     });
+    return {
+      read: () => {
+        const result = closedResult ?? observer.getCurrentResult();
+        return { value: result.data ?? null, error: result.error instanceof Error ? result.error : null, isFetching: result.isFetching };
+      },
+      close: this.trackObserver(() => {
+        closedResult = observer.getCurrentResult();
+        observer.destroy();
+      }),
+    };
   }
 }
 

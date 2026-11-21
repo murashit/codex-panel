@@ -11,7 +11,6 @@ import { createThreadMutationCommands } from "../../src/features/threads/workflo
 import type { SettingsResources } from "../../src/settings/application/resources";
 import type { SettingsTabHost } from "../../src/settings/host/contracts";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/preferences";
-import type { ObservedResult } from "../../src/shared/async/observed-result";
 import { panelThreadFixture } from "../support/panel-thread";
 
 type ContextClientOperation = (
@@ -168,12 +167,9 @@ export interface SettingsTabHostOptions {
   modelsSnapshot?: ModelMetadata[];
   fetchModels?: () => Promise<readonly ModelMetadata[]>;
   refreshModels?: () => Promise<readonly ModelMetadata[]>;
-  observeModels?: SettingsResources["queries"]["observeModelsResult"];
   archivedThreads?: Thread[];
   archivedSnapshot?: Thread[] | null;
   refreshArchived?: () => Promise<readonly Thread[]>;
-  observeArchived?: SettingsResources["threadCatalog"]["observeArchivedThreadsResult"];
-  resources?: SettingsResources;
   replacementResources?: SettingsResources;
   settings?: Partial<{
     threadNamingModel: string | null;
@@ -181,42 +177,6 @@ export interface SettingsTabHostOptions {
     rewriteSelectionModel: string | null;
     rewriteSelectionEffort: string | null;
   }>;
-}
-
-function observedResource<T>(initial: T | null) {
-  let result: ObservedResult<T> = { value: initial, error: null, isFetching: false };
-  const listeners = new Set<(result: ObservedResult<T>) => void>();
-  const emit = (): void => {
-    for (const listener of listeners) listener(result);
-  };
-  return {
-    observe(
-      listener: (result: ObservedResult<T>) => void,
-      observeExternal?: (listener: (result: ObservedResult<T>) => void) => () => void,
-    ) {
-      listeners.add(listener);
-      listener(result);
-      const unsubscribeExternal = observeExternal?.(listener);
-      return () => {
-        listeners.delete(listener);
-        unsubscribeExternal?.();
-      };
-    },
-    async load(load: () => Promise<T>): Promise<T> {
-      result = { ...result, isFetching: true };
-      emit();
-      try {
-        const value = await load();
-        result = { value, error: null, isFetching: false };
-        emit();
-        return value;
-      } catch (error) {
-        result = { ...result, error: error instanceof Error ? error : new Error(String(error)), isFetching: false };
-        emit();
-        throw error;
-      }
-    },
-  };
 }
 
 export function settingsTabHost(options: SettingsTabHostOptions = {}): SettingsTabHost {
@@ -229,71 +189,76 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): SettingsT
     rewriteSelectionEffort: options.settings?.rewriteSelectionEffort ?? null,
     sendShortcut: options.sendShortcut ?? "enter",
   };
-  const models = observedResource<readonly ModelMetadata[]>(options.modelsSnapshot ?? null);
-  const archived = observedResource<readonly Thread[]>(options.archivedSnapshot ?? null);
-  const threadCatalog = {
-    archivedThreadsSnapshot: () => options.archivedSnapshot ?? null,
-    refreshArchivedThreads: () => archived.load(options.refreshArchived ?? (async () => options.archivedThreads ?? defaultArchivedThreads)),
-    observeArchivedThreadsResult: (listener: (result: ObservedResult<readonly Thread[]>) => void) =>
-      archived.observe(listener, options.observeArchived),
+  const contextKey = settings.codexPath;
+  const clientAccess = {
+    withClient: async <T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> => {
+      return (await settingsContextClientMock(contextKey, "/vault", operation)) as T;
+    },
   };
-  const createResources = () => {
-    const contextKey = settings.codexPath;
-    const clientAccess = {
-      withClient: async <T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> => {
-        return (await settingsContextClientMock(contextKey, "/vault", operation)) as T;
-      },
-    };
-    const metadataQueries = new AppServerMetadataQueries(
-      new AppServerQueryScope({ codexPath: contextKey, vaultPath: "/vault" }, clientAccess),
-    );
-    const queries = {
-      fetchModels: () => models.load(options.fetchModels ?? (async () => options.modelsSnapshot ?? [])),
-      refreshModels: () => models.load(options.refreshModels ?? (async () => options.modelsSnapshot ?? [])),
-      observeModelsResult: (listener: (result: ObservedResult<readonly ModelMetadata[]>) => void) =>
-        models.observe(listener, options.observeModels),
-      observeHooksResult: metadataQueries.observeHooksResult.bind(metadataQueries),
-      refreshHooks: metadataQueries.refreshHooks.bind(metadataQueries),
-      trustHook: metadataQueries.trustHook.bind(metadataQueries),
-      setHookEnabled: metadataQueries.setHookEnabled.bind(metadataQueries),
-    };
-    const threadMutations = createThreadMutationCommands({
-      port: createThreadMutationAdapter(clientAccess),
-      archiveExport: {
-        settings: () => ({
-          archiveExportFolderTemplate: settings.archiveExportFolderTemplate,
-          archiveExportFilenameTemplate: settings.archiveExportFilenameTemplate,
-          archiveExportTags: settings.archiveExportTags,
-        }),
-        enabled: () => settings.archiveExportEnabled,
-        vaultPath: "/vault",
-        vaultConfigDir: ".obsidian",
-      },
-      archiveDestination: () => ({
-        normalizePath: (path) => path,
-        exists: vi.fn().mockResolvedValue(false),
-        createFolder: vi.fn().mockResolvedValue(undefined),
-        createMarkdownFile: vi.fn().mockResolvedValue(undefined),
-      }),
-      threadIsBusy: () => false,
-    });
+  const scope = new AppServerQueryScope({ codexPath: contextKey, vaultPath: "/vault" }, clientAccess);
+  const metadataQueries = new AppServerMetadataQueries(scope);
+  function resource<T>(key: string, initial: T | null, load: () => Promise<T>) {
+    const options = { queryKey: [key], queryFn: load, staleTime: 0 };
+    if (initial !== null) scope.client.setQueryData(options.queryKey, initial);
     return {
-      queries,
-      threadCatalog,
-      threadMutations,
+      snapshot: () => scope.client.getQueryData<T>(options.queryKey) ?? null,
+      watch: (changed: () => void) => scope.watchResult(options, (value) => value, changed),
+      fetch: (queryFn = load) => scope.client.fetchQuery({ ...options, queryFn }),
     };
+  }
+  const models = resource<readonly ModelMetadata[]>(
+    "settings-models",
+    options.modelsSnapshot ?? null,
+    options.fetchModels ?? (async () => options.modelsSnapshot ?? []),
+  );
+  const archived = resource<readonly Thread[]>(
+    "settings-archived",
+    options.archivedSnapshot ?? null,
+    options.refreshArchived ?? (async () => options.archivedThreads ?? defaultArchivedThreads),
+  );
+  const threadCatalog = {
+    archivedThreadsSnapshot: archived.snapshot,
+    refreshArchivedThreads: () => archived.fetch(),
+    watchArchivedThreads: archived.watch,
   };
-  const resources = options.resources ?? createResources();
-  const host: SettingsTabHost = {
+  const queries = {
+    fetchModels: () => models.fetch(),
+    refreshModels: () => models.fetch(options.refreshModels),
+    watchModels: models.watch,
+    watchHooks: metadataQueries.watchHooks.bind(metadataQueries),
+    refreshHooks: metadataQueries.refreshHooks.bind(metadataQueries),
+    trustHook: metadataQueries.trustHook.bind(metadataQueries),
+    setHookEnabled: metadataQueries.setHookEnabled.bind(metadataQueries),
+  };
+  const threadMutations = createThreadMutationCommands({
+    port: createThreadMutationAdapter(clientAccess),
+    archiveExport: {
+      settings: () => ({
+        archiveExportFolderTemplate: settings.archiveExportFolderTemplate,
+        archiveExportFilenameTemplate: settings.archiveExportFilenameTemplate,
+        archiveExportTags: settings.archiveExportTags,
+      }),
+      enabled: () => settings.archiveExportEnabled,
+      vaultPath: "/vault",
+      vaultConfigDir: ".obsidian",
+    },
+    archiveDestination: () => ({
+      normalizePath: (path) => path,
+      exists: vi.fn().mockResolvedValue(false),
+      createFolder: vi.fn().mockResolvedValue(undefined),
+      createMarkdownFile: vi.fn().mockResolvedValue(undefined),
+    }),
+    threadIsBusy: () => false,
+  });
+  return {
     settings,
-    resources,
+    resources: { queries, threadCatalog, threadMutations },
     publishSettings: async (nextSettings) => {
       await (options.saveSettings ?? (async () => undefined))(nextSettings);
       Object.assign(settings, nextSettings);
       return { replacementResources: options.replacementResources ?? null };
     },
   };
-  return host;
 }
 
 export async function flushPromises(): Promise<void> {

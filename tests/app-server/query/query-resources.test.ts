@@ -524,15 +524,27 @@ describe("app-server query resources", () => {
     expect(fetchThreads).toHaveBeenNthCalledWith(2, cacheContext(), true);
 
     const archivedResults = vi.fn();
-    const unsubscribe = cache.threadCatalog.observeArchivedThreadsResult(archivedResults);
+    const observation = cache.threadCatalog.watchArchivedThreads(() => archivedResults(observation.read().value));
     try {
-      expect(archivedResults).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("archived", true)] }));
+      expect(observation.read().value).toEqual([thread("archived", true)]);
       cache.threadCatalog.applyThreadCatalogChanges([{ kind: "remove", list: "archived", threadId: "archived" }]);
-      expect(archivedResults).toHaveBeenLastCalledWith(expect.objectContaining({ value: [] }));
+      expect(archivedResults).toHaveBeenLastCalledWith([]);
       expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("active")]);
     } finally {
-      unsubscribe();
+      observation.close();
     }
+  });
+
+  it("keeps the last observed value when another listener closes the observation during publication", async () => {
+    const cache = cacheWithThreads(async () => [thread("archived", true)]);
+    await cache.threadCatalog.refreshArchivedThreads();
+    const first = cache.threadCatalog.watchArchivedThreads(() => second.close());
+    const second = cache.threadCatalog.watchArchivedThreads(vi.fn());
+    cache.threadCatalog.applyThreadCatalogChanges([{ kind: "remove", list: "archived", threadId: "archived" }]);
+
+    expect(first.read().value).toEqual([]);
+    expect(second.read().value).toEqual([thread("archived", true)]);
+    first.close();
   });
 
   it("loads active thread history one page at a time", async () => {
@@ -869,14 +881,14 @@ describe("app-server query resources", () => {
     const metadataListener = vi.fn();
     const modelsListener = vi.fn();
     const unsubscribeMetadata = cache.metadataQueries.observeMetadataResource("models", metadataListener);
-    const unsubscribeModels = cache.metadataQueries.observeModelsResult(modelsListener);
+    const models = cache.metadataQueries.watchModels(modelsListener);
 
     try {
       expect(metadataListener).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: "models", value: cached }));
-      expect(modelsListener).toHaveBeenCalledExactlyOnceWith({ value: cached, error: null, isFetching: fetching });
+      expect(models.read()).toEqual({ value: cached, error: null, isFetching: fetching });
     } finally {
       unsubscribeMetadata();
-      unsubscribeModels();
+      models.close();
       pending.resolve({ data: [catalogModel("refreshed")] });
       await refresh;
       cache.scope.dispose();
@@ -936,8 +948,7 @@ describe("app-server query resources", () => {
     const write = vi.fn().mockResolvedValue({});
     const cache = cacheWithRequestHandlers({ "config/batchWrite": write, "hooks/list": hooksList });
     const listener = vi.fn();
-    const unsubscribe = cache.metadataQueries.observeHooksResult(listener);
-    listener.mockClear();
+    const observation = cache.metadataQueries.watchHooks(() => listener(observation.read()));
 
     const [untrustedHook] = hookItemsFromCatalogHooks([catalogHook({ trustStatus: "untrusted" })]);
     if (!untrustedHook) throw new Error("Expected hook fixture.");
@@ -950,7 +961,7 @@ describe("app-server query resources", () => {
       error: null,
       isFetching: false,
     });
-    unsubscribe();
+    observation.close();
   });
 
   it("keeps a successful hook write successful when catalog refresh fails", async () => {
@@ -965,7 +976,7 @@ describe("app-server query resources", () => {
     const cache = cacheWithRequestHandlers({ "config/batchWrite": write, "hooks/list": hooksList });
     await cache.metadataQueries.refreshHooks();
     const listener = vi.fn();
-    const unsubscribe = cache.metadataQueries.observeHooksResult(listener);
+    const observation = cache.metadataQueries.watchHooks(() => listener(observation.read()));
     const [untrustedHook] = hookItemsFromCatalogHooks([catalogHook({ trustStatus: "untrusted" })]);
     if (!untrustedHook) throw new Error("Expected hook fixture.");
 
@@ -977,7 +988,7 @@ describe("app-server query resources", () => {
       error: failure,
       isFetching: false,
     });
-    unsubscribe();
+    observation.close();
   });
 
   it("publishes each metadata resource without waiting for unrelated refreshes", async () => {
