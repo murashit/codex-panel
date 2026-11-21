@@ -199,12 +199,11 @@ describe("settings tab", () => {
 
   it("binds the replacement executable data source when a hidden tab is shown again", async () => {
     const save = deferred<void>();
-    const observeModels = vi.fn(() => vi.fn());
-    const fetchModels = vi.fn().mockResolvedValue([]);
+    const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("replacement")]));
     useContextClients(settingsClient(), settingsClient());
     const host = settingsTabHost({
       saveSettings: vi.fn(() => save.promise),
-      replacementResources: settingsTabHost({ observeModels, fetchModels }).resources,
+      replacementResources: settingsTabHost({ fetchModels }).resources,
     });
     const tab = new CodexPanelSettingTab({} as never, {} as never, host);
 
@@ -223,8 +222,7 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(host.settings.codexPath).toBe("/opt/codex-next");
-    expect(observeModels).toHaveBeenCalledOnce();
-    expect(fetchModels).toHaveBeenCalledOnce();
+    expect(selectOptions(tab, "Selection rewrite")).toContain("replacement");
   });
 
   it("keeps the latest native control value while an earlier save is pending", async () => {
@@ -447,20 +445,37 @@ describe("settings tab", () => {
     expect(tab.containerEl.textContent).toContain("New archived");
   });
 
-  it("subscribes model updates only while the settings tab is displayed", () => {
+  it("validates a queued helper save with the last visible model efforts, then reads the updated catalog on reopen", async () => {
     useContextClients(settingsClient());
-    const unsubscribe = vi.fn();
-    const observeModels = vi.fn(() => unsubscribe);
-    const tab = newSettingsTab({ observeModels });
-
-    expect(observeModels).not.toHaveBeenCalled();
-
+    const save = deferred<void>();
+    const host = settingsTabHost({
+      saveSettings: vi.fn().mockReturnValueOnce(save.promise),
+      settings: { threadNamingEffort: "extreme" },
+      modelsSnapshot: modelMetadataFromCatalogModels([model("custom")]),
+      refreshModels: vi
+        .fn()
+        .mockResolvedValueOnce(modelMetadataFromCatalogModels([model("custom", false, false, ["extreme"])]))
+        .mockResolvedValueOnce(modelMetadataFromCatalogModels([model("custom", false, false, ["low"])])),
+    });
+    const tab = new CodexPanelSettingTab({} as never, {} as never, host);
     tab.display();
+    await flushPromises();
+    const first = tab.setControlValue("showToolbar", false);
+    const select = selectForSetting(tab, "Automatic thread naming");
+    if (!select) throw new Error("Missing model control");
+    select.value = "custom";
+    select.dispatchEvent(new Event("change"));
+    await host.resources.queries.refreshModels();
     tab.hide();
-    tab.display();
+    await host.resources.queries.refreshModels();
+    save.resolve(undefined);
+    await first;
+    await flushPromises();
 
-    expect(observeModels).toHaveBeenCalledTimes(2);
-    expect(unsubscribe).toHaveBeenCalledOnce();
+    expect(host.settings).toMatchObject({ threadNamingModel: "custom", threadNamingEffort: "extreme" });
+    tab.display();
+    expect(selectOptions(tab, "Automatic thread naming", 1)).toContain("low");
+    tab.hide();
   });
 
   it("replaces stale cached model options with an empty successful refresh while preserving saved values", async () => {
@@ -734,16 +749,13 @@ describe("settings tab", () => {
     useContextClients(client);
     const deleteRequest = deferred<undefined>();
     client.requestHandlers["thread/delete"]?.mockReturnValue(deleteRequest.promise);
-    let publishArchivedThreads = (): void => undefined;
-    const tab = newSettingsTab({
-      archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })],
-      observeArchived: (listener) => {
-        publishArchivedThreads = () => {
-          listener({ value: [], error: null, isFetching: false });
-        };
-        return () => undefined;
-      },
+    const host = settingsTabHost({
+      refreshArchived: vi
+        .fn()
+        .mockResolvedValueOnce([panelThread({ id: "thread-archived", archived: true })])
+        .mockResolvedValue([]),
     });
+    const tab = new CodexPanelSettingTab({} as never, {} as never, host);
 
     tab.display();
     await flushPromises();
@@ -758,7 +770,7 @@ describe("settings tab", () => {
     expect(buttonByLabel(tab, "Delete thread").ariaDisabled).toBe("true");
 
     deleteRequest.resolve(undefined);
-    publishArchivedThreads();
+    await host.resources.threadCatalog.refreshArchivedThreads();
     await flushPromises();
 
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-list .codex-panel-settings__status-row")).not.toBeNull();

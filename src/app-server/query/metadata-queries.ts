@@ -16,7 +16,7 @@ import type {
 import type { RuntimePermissionProfileSummary } from "../../domain/runtime/permissions";
 import type { RuntimeConfigSnapshot } from "../../domain/runtime/settings";
 import type { RateLimitSnapshot } from "../../domain/runtime/usage";
-import type { ObservedResultListener } from "../../shared/async/observed-result";
+import type { ResultObservation } from "../../shared/async/observed-result";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
 import { accountRateLimitsSummaryFromResponse, rateLimitSnapshotFromAccountRateLimitsResponse } from "../protocol/runtime-metrics";
 import {
@@ -148,14 +148,12 @@ export class AppServerMetadataQueries {
     });
   }
 
-  observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>): () => void {
-    this.scope.assertUsable();
-    return this.scope.observeResult(this.metadataDescriptors["models"].queryOptions, (data) => data.value, listener);
+  watchModels(changed: () => void): ResultObservation<readonly ModelMetadata[]> {
+    return this.scope.watchResult(this.metadataDescriptors["models"].queryOptions, (data) => data.value, changed);
   }
 
-  observeHooksResult(listener: ObservedResultListener<HookCatalog>): () => void {
-    this.scope.assertUsable();
-    return this.scope.observeResult(this.hooksQueryOptions, (catalog) => catalog, listener);
+  watchHooks(changed: () => void): ResultObservation<HookCatalog> {
+    return this.scope.watchResult(this.hooksQueryOptions, (catalog) => catalog, changed);
   }
 
   ensureAppServerMetadata(): Promise<void> {

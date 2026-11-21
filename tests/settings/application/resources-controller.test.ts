@@ -4,7 +4,7 @@ import type { HookCatalog, HookItem, ModelMetadata } from "../../../src/domain/r
 import type { Thread } from "../../../src/domain/threads/model";
 import type { SettingsResources } from "../../../src/settings/application/resources";
 import { SettingsResourcesController } from "../../../src/settings/application/resources-controller";
-import type { ObservedResult, ObservedResultListener } from "../../../src/shared/async/observed-result";
+import type { ObservedResult } from "../../../src/shared/async/observed-result";
 import { deferred } from "../../support/async";
 import { modelMetadataFixture } from "../../support/model-metadata";
 import { panelThreadFixture } from "../../support/panel-thread";
@@ -66,7 +66,7 @@ describe("SettingsResourcesController", () => {
     loading.resolve([]);
     await refresh;
 
-    expect(models.unsubscribe).toHaveBeenCalledOnce();
+    expect(controller.modelMetadata().map((item) => item.model)).toEqual(["gpt-cached"]);
     expect(display).not.toHaveBeenCalled();
   });
 
@@ -148,6 +148,20 @@ describe("SettingsResourcesController", () => {
     expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-refreshed" })]);
   });
 
+  it("keeps the replacement subscriptions when the first display switches runtimes", () => {
+    const { controller, display } = controllerFixture();
+    const replacement = resourceFixture();
+    replacement.models.emit([modelMetadataFixture("replacement")]);
+    display.mockImplementationOnce(() => controller.replaceResources(replacement.resources));
+    controller.activate();
+    controller.dispose();
+    replacement.models.emit([]);
+
+    expect(controller.modelMetadata().map((model) => model.model)).toEqual(["replacement"]);
+    controller.activate();
+    expect(controller.modelMetadata()).toEqual([]);
+  });
+
   it("does not publish an old-context hook mutation over replacement resources", async () => {
     const { controller, resources, hooks, notify } = controllerFixture();
     const oldWrite = deferred<void>();
@@ -160,13 +174,19 @@ describe("SettingsResourcesController", () => {
     replacement.hooks.emit(hookCatalog(hookFixture({ key: "hook-new-context" })));
     expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-new-context" })]);
 
+    const newWrite = deferred<void>();
+    replacement.resources.queries.trustHook.mockReturnValue(newWrite.promise);
+    const currentMutation = controller.trustHook(hookFixture({ trustStatus: "untrusted" }));
     hooks.emit(hookCatalog(hookFixture({ key: "hook-old-context" })));
-    oldWrite.resolve(undefined);
+    oldWrite.reject(new Error("Old context failed"));
     await oldMutation;
 
     expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-new-context" })]);
-    expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "idle" });
+    expect(controller.snapshot().hooksLifecycle.kind).toBe("loading");
     expect(notify).not.toHaveBeenCalled();
+    newWrite.resolve(undefined);
+    await currentMutation;
+    expect(controller.snapshot().hooksLifecycle.kind).toBe("idle");
   });
 
   it("refreshes models and hooks while an archived thread operation is loading", async () => {
@@ -306,8 +326,8 @@ function resourceFixture() {
   const archived = observedResults<readonly Thread[]>();
   const resources = {
     queries: {
-      observeModelsResult: models.observe,
-      observeHooksResult: hooks.observe,
+      watchModels: models.observe,
+      watchHooks: hooks.observe,
       fetchModels: vi.fn<SettingsResources["queries"]["fetchModels"]>().mockResolvedValue([]),
       refreshModels: vi.fn<SettingsResources["queries"]["refreshModels"]>().mockResolvedValue([]),
       refreshHooks: vi.fn<SettingsResources["queries"]["refreshHooks"]>().mockResolvedValue(undefined),
@@ -316,7 +336,7 @@ function resourceFixture() {
     },
     threadCatalog: {
       archivedThreadsSnapshot: () => archived.snapshot().value,
-      observeArchivedThreadsResult: archived.observe,
+      watchArchivedThreads: archived.observe,
       refreshArchivedThreads: vi.fn<SettingsResources["threadCatalog"]["refreshArchivedThreads"]>().mockResolvedValue([]),
     },
     threadMutations: {
@@ -331,22 +351,21 @@ function resourceFixture() {
 
 function observedResults<T>() {
   let result: ObservedResult<T> = { value: null, error: null, isFetching: false };
-  const listeners = new Set<ObservedResultListener<T>>();
-  const unsubscribe = vi.fn();
+  const listeners = new Set<() => void>();
   return {
-    unsubscribe,
     snapshot: () => result,
-    observe(listener: ObservedResultListener<T>) {
-      listeners.add(listener);
-      listener(result);
-      return () => {
-        listeners.delete(listener);
-        unsubscribe();
+    observe(changed: () => void) {
+      let current = result;
+      const update = () => {
+        current = result;
+        changed();
       };
+      listeners.add(update);
+      return { read: () => current, close: () => listeners.delete(update) };
     },
     emit(value: T | null, state: Partial<Omit<ObservedResult<T>, "value">> = {}) {
       result = { value, error: null, isFetching: false, ...state };
-      for (const listener of listeners) listener(result);
+      for (const listener of listeners) listener();
     },
   };
 }

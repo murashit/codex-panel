@@ -25,14 +25,9 @@ export class SettingsResourcesController {
   private readonly lifetime = new OwnerLifetime();
   private autoLoadStarted = false;
 
-  private archivedThreadsResult = emptyObservedResult<readonly Thread[]>();
+  private observations: ReturnType<typeof watchSettingsResources> | null = null;
   private archivedThreadsOperation = false;
-  private hooksResult = emptyObservedResult<HookCatalog>();
   private hooksOperation = false;
-  private modelsResult = emptyObservedResult<readonly ModelMetadata[]>();
-  private unsubscribeModels: (() => void) | null = null;
-  private unsubscribeHooks: (() => void) | null = null;
-  private unsubscribeArchivedThreads: (() => void) | null = null;
   private resources: SettingsResources;
 
   constructor(
@@ -43,9 +38,14 @@ export class SettingsResourcesController {
   }
 
   activate(): void {
-    if (this.unsubscribeModels) return;
+    if (this.observations && this.lifetime.isActive()) return;
     this.lifetime.activate();
-    this.subscribe();
+    const resources = this.resources;
+    this.observations = null;
+    this.observations = watchSettingsResources(resources, () => {
+      if (this.observations && this.resourcesAreCurrent(resources) && this.lifetime.isActive()) this.callbacks.display();
+    });
+    this.callbacks.display();
   }
 
   replaceResources(next: SettingsResources): void {
@@ -53,31 +53,10 @@ export class SettingsResourcesController {
     this.unsubscribe();
     this.resources = next;
     this.autoLoadStarted = false;
-    this.modelsResult = emptyObservedResult();
-    this.hooksResult = emptyObservedResult();
+    this.observations = null;
     this.hooksOperation = false;
-    this.archivedThreadsResult = emptyObservedResult();
     this.archivedThreadsOperation = false;
-    if (this.lifetime.isActive()) this.subscribe();
-  }
-
-  private subscribe(): void {
-    const resources = this.resources;
-    this.unsubscribeModels = resources.queries.observeModelsResult((result) => {
-      if (!this.resourcesAreCurrent(resources)) return;
-      this.modelsResult = result;
-      this.callbacks.display();
-    });
-    this.unsubscribeHooks = resources.queries.observeHooksResult((result) => {
-      if (!this.resourcesAreCurrent(resources)) return;
-      this.hooksResult = result;
-      this.callbacks.display();
-    });
-    this.unsubscribeArchivedThreads = resources.threadCatalog.observeArchivedThreadsResult((result) => {
-      if (!this.resourcesAreCurrent(resources)) return;
-      this.archivedThreadsResult = result;
-      this.callbacks.display();
-    });
+    if (this.lifetime.isActive()) this.activate();
   }
 
   maybeAutoLoad(): void {
@@ -126,9 +105,9 @@ export class SettingsResourcesController {
 
   snapshot(): SettingsResourcesSnapshot {
     return {
-      archivedThreads: this.archivedThreadsResult.value,
+      archivedThreads: this.observations?.archivedThreads.read().value ?? null,
       archivedThreadsLifecycle: this.archivedThreadsLifecycle(),
-      hookCatalog: this.hooksResult.value,
+      hookCatalog: this.observations?.hooks.read().value ?? null,
       hooksLifecycle: this.hooksLifecycle(),
       modelsLifecycle: this.modelsLifecycle(),
     };
@@ -169,11 +148,11 @@ export class SettingsResourcesController {
   }
 
   modelMetadata(): ModelMetadata[] {
-    return sortedModelMetadata(this.modelsResult.value ?? []);
+    return sortedModelMetadata(this.observations?.models.read().value ?? []);
   }
 
   effortOptions(modelIdOrName: string | null): ReasoningEffort[] {
-    const model = findModelMetadataByIdOrName(this.modelsResult.value ?? [], modelIdOrName);
+    const model = findModelMetadataByIdOrName(this.observations?.models.read().value ?? [], modelIdOrName);
     return supportedEffortsForModelMetadata(model);
   }
 
@@ -222,15 +201,15 @@ export class SettingsResourcesController {
   private archivedThreadsLifecycle(): SettingsResourceLifecycleState {
     return this.archivedThreadsOperation
       ? { kind: "loading" }
-      : lifecycleFromObservedResult(this.archivedThreadsResult, "Could not load archived threads");
+      : lifecycleFromObservedResult(this.observations?.archivedThreads.read(), "Could not load archived threads");
   }
 
   private hooksLifecycle(): SettingsResourceLifecycleState {
-    return this.hooksOperation ? { kind: "loading" } : lifecycleFromObservedResult(this.hooksResult, "Could not load hooks");
+    return this.hooksOperation ? { kind: "loading" } : lifecycleFromObservedResult(this.observations?.hooks.read(), "Could not load hooks");
   }
 
   private modelsLifecycle(): SettingsResourceLifecycleState {
-    return lifecycleFromObservedResult(this.modelsResult, "Could not load models");
+    return lifecycleFromObservedResult(this.observations?.models.read(), "Could not load models");
   }
 
   private resourcesAreCurrent(resources: SettingsResources): boolean {
@@ -238,21 +217,22 @@ export class SettingsResourcesController {
   }
 
   private unsubscribe(): void {
-    this.unsubscribeModels?.();
-    this.unsubscribeModels = null;
-    this.unsubscribeHooks?.();
-    this.unsubscribeHooks = null;
-    this.unsubscribeArchivedThreads?.();
-    this.unsubscribeArchivedThreads = null;
+    if (this.observations) {
+      for (const observation of Object.values(this.observations)) observation.close();
+    }
   }
 }
 
-function emptyObservedResult<T>(): ObservedResult<T> {
-  return { value: null, error: null, isFetching: false };
+function watchSettingsResources(resources: SettingsResources, changed: () => void) {
+  return {
+    models: resources.queries.watchModels(changed),
+    hooks: resources.queries.watchHooks(changed),
+    archivedThreads: resources.threadCatalog.watchArchivedThreads(changed),
+  };
 }
 
-function lifecycleFromObservedResult<T>(result: ObservedResult<T>, label: string): SettingsResourceLifecycleState {
-  if (result.isFetching) return { kind: "loading" };
-  if (result.error) return { kind: "failed", error: `${label}: ${result.error.message}` };
+function lifecycleFromObservedResult<T>(result: ObservedResult<T> | undefined, label: string): SettingsResourceLifecycleState {
+  if (result?.isFetching) return { kind: "loading" };
+  if (result?.error) return { kind: "failed", error: `${label}: ${result.error.message}` };
   return { kind: "idle" };
 }
