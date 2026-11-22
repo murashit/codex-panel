@@ -12,18 +12,6 @@ export type StructuredTurnOutputSchema = AppServerStartStructuredTurnOptions["ou
 
 type StructuredTurnProgressEvent = { type: "agent-message-delta"; delta: string } | { type: "reasoning-activity" };
 
-interface EphemeralStructuredTurnTimers {
-  setTimeout(callback: () => void, delayMs: number): ReturnType<Window["setTimeout"]>;
-  clearTimeout(timer: ReturnType<Window["setTimeout"]>): void;
-}
-
-const DEFAULT_EPHEMERAL_STRUCTURED_TURN_TIMERS: EphemeralStructuredTurnTimers = {
-  setTimeout: (callback, delayMs) => window.setTimeout(callback, delayMs),
-  clearTimeout: (timer) => {
-    window.clearTimeout(timer);
-  },
-};
-
 export interface EphemeralStructuredTurnClient {
   request: AppServerRequestClient["request"];
   connect(): Promise<unknown>;
@@ -55,18 +43,13 @@ export interface RunEphemeralStructuredTurnOptions {
 
 export type EphemeralStructuredTurnRunner = (options: RunEphemeralStructuredTurnOptions) => Promise<TurnRecord>;
 
-export interface EphemeralStructuredTurnDependencies {
-  clientFactory?: EphemeralStructuredTurnClientFactory | undefined;
-  timers?: EphemeralStructuredTurnTimers | undefined;
-}
-
 export async function runEphemeralStructuredTurn(
   options: RunEphemeralStructuredTurnOptions,
-  dependencies: EphemeralStructuredTurnDependencies = {},
+  clientFactory: EphemeralStructuredTurnClientFactory = (codexPath, cwd, handlers) =>
+    new AppServerClient({ codexPath, cwd, handlers, initializeParams: codexPanelAppServerInitializeParams() }),
 ): Promise<TurnRecord> {
   if (options.signal?.aborted) throw ephemeralStructuredTurnAbortError(options.abortMessage);
   const state: EphemeralStructuredTurnState = { lifecycle: { kind: "starting" }, completedItems: [] };
-  const timers = dependencies.timers ?? DEFAULT_EPHEMERAL_STRUCTURED_TURN_TIMERS;
   let handleNotification!: (notification: ServerNotification) => void;
   let interrupt!: (reason: Error) => void;
   const interrupted = new Promise<never>((_, reject) => {
@@ -103,15 +86,6 @@ export async function runEphemeralStructuredTurn(
     };
   });
 
-  const clientFactory =
-    dependencies.clientFactory ??
-    ((codexPath, cwd, handlers) =>
-      new AppServerClient({
-        codexPath,
-        cwd,
-        handlers,
-        initializeParams: codexPanelAppServerInitializeParams(),
-      }));
   const client = clientFactory(options.codexPath, options.cwd, {
     onNotification: handleNotification,
     onServerRequest: (_request, responder) => {
@@ -125,7 +99,7 @@ export async function runEphemeralStructuredTurn(
     },
   });
 
-  const timeout = timers.setTimeout(() => {
+  const timeout = window.setTimeout(() => {
     state.lifecycle = { kind: "completed" };
     interrupt(new Error(options.timedOutMessage));
   }, options.timeoutMs);
@@ -161,7 +135,7 @@ export async function runEphemeralStructuredTurn(
   } finally {
     state.lifecycle = { kind: "completed" };
     options.signal?.removeEventListener("abort", cancel);
-    timers.clearTimeout(timeout);
+    window.clearTimeout(timeout);
     // Ephemeral threads are not persisted; thread/delete rejects them. Stop their private process instead.
     client.disconnect();
   }

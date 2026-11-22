@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AppServerClientHandlers, ClientResponseByMethod, TypedClientRequestMethod } from "../../../src/app-server/connection/client";
 import type { ClientRequestParams } from "../../../src/app-server/connection/rpc-messages";
 import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";
@@ -23,6 +23,10 @@ interface TurnStartResponse {
 }
 
 describe("runEphemeralStructuredTurn", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("collects items when completion arrives before turn/start resolves", async () => {
     const { clientFactory } = fakeStructuredTurnClientFactory((fake) => {
       fake.startStructuredTurnImpl = async () => {
@@ -32,23 +36,23 @@ describe("runEphemeralStructuredTurn", () => {
       };
     });
 
-    const result = await runEphemeralStructuredTurn(runOptions(), { clientFactory });
+    const result = await runEphemeralStructuredTurn(runOptions(), clientFactory);
 
     expect(result.items).toEqual([agentMessage("answer", '{"ok":true}')]);
     expect(result.itemsView).toBe("full");
   });
 
   it("enforces the deadline when completion precedes a stalled start reply", async () => {
-    const timers = timerHarness();
+    vi.useFakeTimers();
     const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
       fake.startStructuredTurnImpl = () => {
         fake.emit(turnCompletedNotification("thread", turn([], { id: "turn", status: "completed" })));
         return deferred<TurnStartResponse>().promise;
       };
     });
-    const running = runEphemeralStructuredTurn(runOptions(), { clientFactory, timers });
+    const running = runEphemeralStructuredTurn({ ...runOptions(), timeoutMs: 125 }, clientFactory);
     await expectPresent(client.current).structuredTurnStarted;
-    timers.fireTimeout();
+    vi.advanceTimersByTime(125);
     await expect(running).rejects.toThrow("Structured test timed out.");
     expect(expectPresent(client.current).disconnect).toHaveBeenCalledOnce();
   });
@@ -63,7 +67,7 @@ describe("runEphemeralStructuredTurn", () => {
           progress.push(event);
         },
       },
-      { clientFactory },
+      clientFactory,
     );
 
     await expectPresent(client.current).structuredTurnStarted;
@@ -87,18 +91,17 @@ describe("runEphemeralStructuredTurn", () => {
   });
 
   it("rejects a process exit while waiting for completion and releases the client and timer", async () => {
-    const timers = timerHarness();
+    vi.useFakeTimers();
     const { clientFactory, client } = fakeStructuredTurnClientFactory();
-    const running = runEphemeralStructuredTurn(runOptions(), { clientFactory, timers });
-    const completion = Promise.allSettled([running]);
+    const running = runEphemeralStructuredTurn(runOptions(), clientFactory);
     await expectPresent(client.current).structuredTurnStarted;
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await vi.advanceTimersByTimeAsync(0);
 
     expectPresent(client.current).emitExit();
 
-    await expect(completion).resolves.toEqual([{ status: "rejected", reason: new Error("Structured test app-server exited.") }]);
+    await expect(running).rejects.toThrow(new Error("Structured test app-server exited."));
     expect(expectPresent(client.current).disconnect).toHaveBeenCalledOnce();
-    expect(timers.clearTimeout).toHaveBeenCalledWith(123);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("cleans up abort listeners after an operation settles", async () => {
@@ -109,7 +112,7 @@ describe("runEphemeralStructuredTurn", () => {
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
-    await runEphemeralStructuredTurn({ ...runOptions(), signal: controller.signal }, { clientFactory });
+    await runEphemeralStructuredTurn({ ...runOptions(), signal: controller.signal }, clientFactory);
 
     expect(add).toHaveBeenCalled();
     for (const [event, listener] of add.mock.calls) {
@@ -123,7 +126,7 @@ describe("runEphemeralStructuredTurn", () => {
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
-    await expect(runEphemeralStructuredTurn(runOptions(), { clientFactory })).resolves.toMatchObject({
+    await expect(runEphemeralStructuredTurn(runOptions(), clientFactory)).resolves.toMatchObject({
       items: [agentMessage("answer", '{"ok":true}')],
     });
 
@@ -141,7 +144,7 @@ describe("runEphemeralStructuredTurn", () => {
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
-    await runEphemeralStructuredTurn(runOptions(), { clientFactory });
+    await runEphemeralStructuredTurn(runOptions(), clientFactory);
 
     expect(expectPresent(client.current).rejectServerRequest).toHaveBeenCalledWith(
       123,
@@ -169,7 +172,7 @@ describe("runEphemeralStructuredTurn", () => {
         ...runOptions(),
         runtimeSettings: { model: "gpt-5.1", effort: "low" },
       },
-      { clientFactory },
+      clientFactory,
     );
 
     expect(callOrder).toEqual(["model-list", "start-thread"]);
@@ -195,7 +198,7 @@ describe("runEphemeralStructuredTurn", () => {
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
-    await runEphemeralStructuredTurn(runOptions(), { clientFactory });
+    await runEphemeralStructuredTurn(runOptions(), clientFactory);
 
     const fake = expectPresent(client.current);
     expect(fake.configReadRequests).toEqual([{ cwd: "/vault", includeLayers: false }]);
@@ -236,7 +239,7 @@ describe("runEphemeralStructuredTurn", () => {
       };
     });
 
-    await expect(runEphemeralStructuredTurn(runOptions(), { clientFactory })).rejects.toThrow("config unavailable");
+    await expect(runEphemeralStructuredTurn(runOptions(), clientFactory)).rejects.toThrow("config unavailable");
 
     const fake = expectPresent(client.current);
     expect(fake.startEphemeralThreadParams).toBeNull();
@@ -249,7 +252,7 @@ describe("runEphemeralStructuredTurn", () => {
     });
 
     await expect(
-      runEphemeralStructuredTurn({ ...runOptions(), runtimeSettings: { model: "gpt-5.4-mini", effort: "ultra" } }, { clientFactory }),
+      runEphemeralStructuredTurn({ ...runOptions(), runtimeSettings: { model: "gpt-5.4-mini", effort: "ultra" } }, clientFactory),
     ).rejects.toThrow("Reasoning effort ultra is unavailable for gpt-5.4-mini. Supported: low, medium.");
 
     expect(expectPresent(client.current).startEphemeralThreadParams).toBeNull();
@@ -265,7 +268,7 @@ describe("runEphemeralStructuredTurn", () => {
 
     await runEphemeralStructuredTurn(
       { ...runOptions(), runtimeSettings: { model: "custom-model", effort: "custom-effort" } },
-      { clientFactory },
+      clientFactory,
     );
 
     expect(expectPresent(client.current).startStructuredTurnParams).toMatchObject({
@@ -322,25 +325,25 @@ describe("runEphemeralStructuredTurn", () => {
       },
     },
   ])("times out during $stage and disconnects the client", async ({ configure, runtimeSettings }) => {
-    const timers = timerHarness();
-    const reached = vi.fn();
-    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => configure(fake, reached));
+    vi.useFakeTimers();
+    const reached = deferred<void>();
+    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => configure(fake, reached.resolve));
 
     const running = runEphemeralStructuredTurn(
       {
         ...runOptions(),
         ...(runtimeSettings ? { runtimeSettings } : {}),
       },
-      { clientFactory, timers },
+      clientFactory,
     );
-    await vi.waitFor(() => expect(reached).toHaveBeenCalledOnce());
+    const completion = Promise.allSettled([running]);
+    await reached.promise;
 
-    expect(timers.setTimeout).toHaveBeenCalledExactlyOnceWith(expect.any(Function), 10_000);
-    timers.fireTimeout();
-
-    await expect(running).rejects.toThrow("Structured test timed out.");
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(expectPresent(client.current).disconnect).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
     expect(expectPresent(client.current).disconnect).toHaveBeenCalledOnce();
-    expect(timers.clearTimeout).toHaveBeenCalledWith(123);
+    expect(await completion).toEqual([{ status: "rejected", reason: new Error("Structured test timed out.") }]);
   });
 });
 
@@ -388,7 +391,7 @@ function appServerModel(model: string, efforts: readonly string[]): ClientRespon
   };
 }
 
-type EphemeralStructuredTurnClientFactory = NonNullable<Parameters<typeof runEphemeralStructuredTurn>[1]>["clientFactory"];
+type EphemeralStructuredTurnClientFactory = NonNullable<Parameters<typeof runEphemeralStructuredTurn>[1]>;
 
 function fakeStructuredTurnClientFactory(configure?: (client: FakeStructuredTurnClient) => void): {
   clientFactory: EphemeralStructuredTurnClientFactory;
@@ -469,25 +472,6 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
       },
     });
   }
-}
-
-function timerHarness(): {
-  setTimeout: ReturnType<typeof vi.fn<(callback: () => void, delayMs: number) => number>>;
-  clearTimeout: ReturnType<typeof vi.fn<(timer: number) => void>>;
-  fireTimeout(): void;
-} {
-  let timeoutCallback: (() => void) | null = null;
-  return {
-    setTimeout: vi.fn((callback: () => void, _delayMs: number) => {
-      timeoutCallback = callback;
-      return 123;
-    }),
-    clearTimeout: vi.fn(),
-    fireTimeout: () => {
-      if (!timeoutCallback) throw new Error("Expected timeout to be scheduled.");
-      timeoutCallback();
-    },
-  };
 }
 
 function threadStartResponse(threadId: string): ThreadStartResponse {
