@@ -7,7 +7,6 @@ import type { RpcOutboundMessage } from "./rpc-messages";
 interface AppServerSpawnSpec {
   command: string;
   args: string[];
-  killProcessTreeOnStop: boolean;
   windowsVerbatimArguments?: boolean;
 }
 
@@ -25,17 +24,15 @@ export interface AppServerTransportHandlers {
   onError: (error: Error) => void;
 }
 
-function createAppServerSpawnSpec(codexPath: string, options: { platform?: NodeJS.Platform; comSpec?: string } = {}): AppServerSpawnSpec {
-  const platform = options.platform ?? process.platform;
-  if (platform !== "win32" || !isWindowsCommandScript(codexPath)) {
-    return { command: codexPath, args: ["app-server"], killProcessTreeOnStop: false };
+function createAppServerSpawnSpec(codexPath: string): AppServerSpawnSpec {
+  if (process.platform !== "win32" || !isWindowsCommandScript(codexPath)) {
+    return { command: codexPath, args: ["app-server"] };
   }
 
-  const comSpec = options.comSpec?.trim() || process.env["ComSpec"]?.trim() || process.env["COMSPEC"]?.trim() || "cmd.exe";
+  const comSpec = process.env["ComSpec"]?.trim() || process.env["COMSPEC"]?.trim() || "cmd.exe";
   return {
     command: comSpec,
     args: ["/d", "/s", "/c", `"${quoteWindowsCmdArgument(codexPath)} app-server"`],
-    killProcessTreeOnStop: true,
     windowsVerbatimArguments: true,
   };
 }
@@ -63,7 +60,6 @@ export class StdioAppServerTransport implements AppServerTransport {
   private running: {
     process: ChildProcessWithoutNullStreams;
     reader: readline.Interface;
-    killProcessTreeOnStop: boolean;
   } | null = null;
   private stderrBuffer = "";
 
@@ -106,7 +102,7 @@ export class StdioAppServerTransport implements AppServerTransport {
     });
 
     const reader = readline.createInterface({ input: child.stdout });
-    this.running = { process: child, reader, killProcessTreeOnStop: launch.killProcessTreeOnStop };
+    this.running = { process: child, reader };
     reader.on("line", (line) => {
       this.handlers.onLine(line);
     });
@@ -123,12 +119,12 @@ export class StdioAppServerTransport implements AppServerTransport {
   }
 
   stop(): void {
-    const running = this.releaseProcess();
-    const child = running?.process;
+    const child = this.releaseProcess()?.process;
     if (child && !child.killed) {
-      if (running.killProcessTreeOnStop && typeof child.pid === "number") {
+      if (process.platform === "win32" && typeof child.pid === "number") {
         killWindowsProcessTree(child.pid, this.spawnProcess);
       } else {
+        child.stdin.end();
         child.kill();
       }
     }

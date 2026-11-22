@@ -24,5 +24,13 @@
     "types": ["node", "vitest"],
     "lib": ["ES2022", "DOM"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "tests/**/*.tsx", "vitest.config.mts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "tests/**/*.ts",
+    "tests/**/*.tsx",
+    "vitest.config.mts",
+    "scripts/smoke/*.ts",
+    "scripts/smoke/*.mts"
+  ]
 }

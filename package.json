@@ -38,7 +38,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit --incremental --tsBuildInfoFile node_modules/.cache/typescript/tsconfig.tsbuildinfo",
     "review:duplication": "node scripts/review/change.mjs duplication",
     "review:duplication:all": "jscpd src tests --ignore \"**/src/generated/**,src/generated/**\" --reporters console,json --output reports/duplication",
-    "review:mutation": "node scripts/review/change.mjs mutation"
+    "review:mutation": "node scripts/review/change.mjs mutation",
+    "test:cli": "vitest run --config scripts/smoke/cli.config.mts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.7",

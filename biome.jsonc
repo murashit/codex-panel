@@ -141,6 +141,7 @@
       "scripts/**/*.{json,jsonc}",
       "scripts/**/*.grit",
       "scripts/**/*.mjs",
+      "scripts/smoke/*.{mts,ts}",
       "src/**/*.{css,ts,tsx}",
       "tests/**/*.{mjs,ts,tsx}",
       "!src/generated"
