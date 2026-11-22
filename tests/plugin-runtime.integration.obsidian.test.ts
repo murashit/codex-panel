@@ -212,7 +212,6 @@ describe("CodexPanelPlugin runtime integration", () => {
   });
 
   it("repairs duplicate ownership on panel activity changes without hydrating panels", async () => {
-    vi.useFakeTimers();
     const first = leaf({ state: { threadId: "same" } });
     const duplicate = leaf({ state: { threadId: "same" } });
     const plugin = await pluginWithLeaves([first, duplicate]);
@@ -220,7 +219,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     host.workspace.notifyPanelActivityChanged();
     host.workspace.notifyPanelActivityChanged();
     expect(duplicate.setViewState).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(0);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     expect(duplicate.setViewState).toHaveBeenCalledOnce();
     expect(first.loadIfDeferred).not.toHaveBeenCalled();
     expect(duplicate.loadIfDeferred).not.toHaveBeenCalled();

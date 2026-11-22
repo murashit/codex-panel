@@ -21,7 +21,6 @@ describe("CodexPanelPlugin lifecycle", () => {
   });
 
   it("opens the panel through its registered command and ribbon action", async () => {
-    vi.useFakeTimers();
     const plugin = await pluginWithLeaves([]);
     const commands = vi.spyOn(plugin, "addCommand");
     const ribbons = vi.spyOn(plugin, "addRibbonIcon");
@@ -60,7 +59,6 @@ describe("CodexPanelPlugin lifecycle", () => {
   });
 
   it("loads restored Codex panel leaves after startup without blocking onload", async () => {
-    vi.useFakeTimers();
     const firstLeaf = leaf();
     const secondLeaf = leaf();
     const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
@@ -71,13 +69,12 @@ describe("CodexPanelPlugin lifecycle", () => {
     expect(plugin.runtime.settingTabHost().settings).toMatchObject({ showToolbar: false, sendShortcut: "mod-enter" });
     expect(firstLeaf.loadIfDeferred).not.toHaveBeenCalled();
     expect(secondLeaf.loadIfDeferred).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(0);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     expect(firstLeaf.loadIfDeferred).toHaveBeenCalledOnce();
     expect(secondLeaf.loadIfDeferred).toHaveBeenCalledOnce();
   });
 
   it("repairs background layout changes without loading restored leaves", async () => {
-    vi.useFakeTimers();
     const leaves = [leaf({ state: { threadId: "same" } })];
     const plugin = await pluginWithLeaves(leaves);
     const handlers: (() => void)[] = [];
@@ -86,20 +83,19 @@ describe("CodexPanelPlugin lifecycle", () => {
       return {};
     });
     await plugin.onload();
-    await vi.advanceTimersByTimeAsync(0);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     leaves[0]?.loadIfDeferred.mockClear();
     const duplicate = leaf({ state: { threadId: "same" } });
     leaves.push(duplicate);
     for (const handler of handlers) handler();
     expect(duplicate.setViewState).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(0);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     expect(duplicate.setViewState).toHaveBeenCalledOnce();
     for (const target of leaves) expect(target.loadIfDeferred).not.toHaveBeenCalled();
     plugin.onunload();
   });
 
   it("does not revive reconciliation when layout becomes ready after unload", async () => {
-    vi.useFakeTimers();
     const panel = leaf();
     const plugin = await pluginWithLeaves([panel]);
     let ready: (() => void) | undefined;
@@ -109,7 +105,7 @@ describe("CodexPanelPlugin lifecycle", () => {
     await plugin.onload();
     plugin.onunload();
     ready?.();
-    await vi.advanceTimersByTimeAsync(0);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     expect(panel.loadIfDeferred).not.toHaveBeenCalled();
   });
 
@@ -124,13 +120,12 @@ describe("CodexPanelPlugin lifecycle", () => {
   });
 
   it("cancels pending workspace reconciliation on unload", async () => {
-    vi.useFakeTimers();
     const panelLeaf = leaf();
     const plugin = await pluginWithLeaves([panelLeaf]);
 
     await plugin.onload();
     plugin.onunload();
-    await vi.advanceTimersByTimeAsync(0);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
 
     expect(panelLeaf.loadIfDeferred).not.toHaveBeenCalled();
   });
@@ -173,7 +168,6 @@ describe("CodexPanelPlugin lifecycle", () => {
   });
 
   it("loads and hydrates the startup foreground panel", async () => {
-    vi.useFakeTimers();
     const activeLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored thread" } });
     const view = chatView(CodexChatView, activeLeaf);
     activeLeaf.loadIfDeferred.mockImplementation(async () => {
@@ -184,7 +178,7 @@ describe("CodexPanelPlugin lifecycle", () => {
 
     await plugin.onload();
     const hydrate = vi.spyOn(view.surface, "activateThread").mockResolvedValue(true);
-    await vi.advanceTimersByTimeAsync(0);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
 
     await waitForAsyncWork(() => {
       expect(activeLeaf.loadIfDeferred).toHaveBeenCalledOnce();
@@ -193,7 +187,6 @@ describe("CodexPanelPlugin lifecycle", () => {
   });
 
   it("repairs duplicate reattached thread panels before hydrating the owner", async () => {
-    vi.useFakeTimers();
     const firstLeaf = leaf();
     const duplicateLeaf = leaf();
     const firstView = chatView(CodexChatView, firstLeaf);
@@ -228,7 +221,7 @@ describe("CodexPanelPlugin lifecycle", () => {
     });
     const firstHydrate = vi.spyOn(firstView.surface, "activateThread").mockResolvedValue(true);
     const duplicateHydrate = vi.spyOn(duplicateView.surface, "activateThread").mockResolvedValue(true);
-    await vi.advanceTimersByTimeAsync(0);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
 
     await waitForAsyncWork(() => {
       expect(firstHydrate).toHaveBeenCalledOnce();

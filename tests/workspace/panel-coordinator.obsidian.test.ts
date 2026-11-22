@@ -114,7 +114,6 @@ describe("WorkspacePanelCoordinator", () => {
   });
 
   it("coalesces repair without hydration and captures the current layout when it runs", async () => {
-    vi.useFakeTimers();
     const first = leaf({ state: { threadId: "same" } });
     const duplicate = leaf({ state: { threadId: "same" } });
     const leaves = [first];
@@ -125,19 +124,18 @@ describe("WorkspacePanelCoordinator", () => {
     coordinator.scheduleWorkspacePanelReconcile({ restore: false });
     leaves.push(duplicate);
     expect(duplicate.setViewState).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(0);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     expect(duplicate.setViewState).toHaveBeenCalledOnce();
     expect(first.loadIfDeferred).not.toHaveBeenCalled();
     expect(duplicate.loadIfDeferred).not.toHaveBeenCalled();
   });
 
   it.each([true, false])("preserves full restoration when repair is requested %s first", async (repairFirst) => {
-    vi.useFakeTimers();
     const restored = leaf({ state: { threadId: "one" } });
     const coordinator = panels(await pluginWithLeaves([restored]));
     coordinator.scheduleWorkspacePanelReconcile({ restore: !repairFirst });
     coordinator.scheduleWorkspacePanelReconcile({ restore: repairFirst });
-    await vi.advanceTimersByTimeAsync(0);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     expect(restored.loadIfDeferred).toHaveBeenCalledOnce();
   });
 
