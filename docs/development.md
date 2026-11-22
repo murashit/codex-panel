@@ -78,6 +78,8 @@ The [Check workflow](../.github/workflows/check.yml) runs the ordinary checks, b
 
 Use a deterministic test when it reproduces the cause of a defect. Exercise the plugin in Obsidian when material integration behavior depends on the real desktop, DOM, or vault. Build the current source with `npm run build` if `check` has not already built it. Follow the [Obsidian Dev skill](../.agents/skills/codex-panel-obsidian-dev/SKILL.md) for artifact checks, CLI commands, and interaction inspection.
 
+The Obsidian smoke workflow is manually dispatchable and runs on PRs that change its harness. It resolves the latest stable Linux AppImage, verifies its release digest and opens the plugin in a disposable vault. The desktop container runs without external networking. Failed desktop runs upload the app log and, when the renderer is reachable, a screenshot.
+
 ## Update API compatibility
 
 Keep compatibility declarations and the README Compatibility table aligned. Metadata checks establish consistency. Runtime behavior and generated bindings need verification against their own integrations.

@@ -1,0 +1,34 @@
+name: Obsidian smoke
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/desktop-smoke.yml
+      - scripts/smoke/Dockerfile
+      - scripts/smoke/desktop.*
+      - scripts/smoke/install-cli.sh
+permissions:
+  contents: read
+jobs:
+  connect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: bash scripts/smoke/install-cli.sh
+      - run: bash scripts/smoke/desktop.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@v7.0.2
+        if: failure()
+        with:
+          name: desktop-diagnostics
+          path: reports/desktop/
