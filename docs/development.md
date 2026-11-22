@@ -24,9 +24,13 @@ Inspect the existing flow and apply the [interaction principles](design.md#inter
 
 ### Tests
 
-Exercise reachable user actions, external contracts, and meaningful state transitions through production code. For timing or captured state, cross the actual wait or capture boundary and assert its consequence. Use a minimal double for an external effect or a timing or failure condition that is impractical to reproduce reliably. Explain what the double establishes and where verification ends. Check app-server semantics against the supported producer and version.
+Exercise reachable user actions, external contracts, and meaningful state transitions through production code. For timing or captured state, cross the actual wait or capture boundary and assert its consequence. Prefer real collaborators and assert observable outcomes. When an external effect, failure, or timing boundary is impractical to exercise in a fast, deterministic test, double only that boundary and explain what the test covers. Retire the double once a test using the real implementation catches the same regression. Check app-server semantics against the supported producer and version.
 
 Vitest reuses workers with `isolate: false`. Restore spies, timers, globals, and DOM overrides after each test. If shared setup registers hooks, export an installer and call it from each test file so module caching cannot skip registration. For development scripts, exercise the real tool with representative inputs. Keep a permanent test when it protects a concrete product or source-policy contract worth maintaining.
+
+### Focused test runs
+
+Run `npm test -- <test-file>` for a single pass. Both Vitest projects work offline with installed dependencies. Use the `.obsidian.test.ts` or `.obsidian.test.tsx` suffix for suites that load the simulated Obsidian runtime. Other suites resolve their regular dependencies.
 
 ## Review and simplify a change
 
