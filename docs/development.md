@@ -32,6 +32,8 @@ Vitest reuses workers with `isolate: false`. Restore spies, timers, globals, and
 
 Run `npm test -- <test-file>` for a single pass. Both Vitest projects work offline with installed dependencies. Use the `.obsidian.test.ts` or `.obsidian.test.tsx` suffix for suites that load the simulated Obsidian runtime. Other suites resolve their regular dependencies.
 
+To exercise the production transport locally, set `PANEL_CODEX_BINARY` to the absolute path of the native executable for the version in `src/app-server/compatibility.json` and run `npm run test:cli`. The smoke test uses a temporary profile. On Windows it also exercises command scripts in a path containing spaces. The Native CLI workflow runs this check on Linux, macOS and Windows for changes affecting startup.
+
 ## Review and simplify a change
 
 Review the resulting behavior across owners, callers, related tests, and fixtures, including paths outside the diff. For a behavioral finding, identify a reachable failure and the contract it violates. Reproduce it at the cheapest reliable layer. For a structural finding, identify the maintenance cost. For a performance concern, establish the expected workload and frequency and measure where needed.
