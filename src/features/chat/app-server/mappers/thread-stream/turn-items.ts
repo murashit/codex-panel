@@ -279,14 +279,15 @@ function dynamicToolCallThreadStreamItem(item: DynamicToolCallItem, turnId?: str
 
 function webSearchThreadStreamItem(item: WebSearchItem, turnId?: string): ThreadStreamItem {
   const target = webSearchTarget(item);
+  const details = webSearchDetails(item, target);
   return {
     ...turnItemSourceFields(item, turnId),
     kind: "tool",
     role: "tool",
     toolName: "web search",
-    operation: item.action ? webSearchActionLabel(item.action.type) : item.query ? "search" : "web search",
+    operation: details?.action ?? (item.query ? "search" : "web search"),
     ...(target ? { primaryTarget: { kind: "value" as const, value: target } } : {}),
-    ...definedProp("webSearch", webSearchDetails(item)),
+    ...definedProp("webSearch", details),
     output: "",
   };
 }
@@ -420,31 +421,21 @@ function unquoteShellCommand(value: string): string {
 function webSearchTarget(item: WebSearchItem): string | null {
   if (item.action?.type === "openPage") return item.action.url;
   if (item.action?.type === "findInPage") return item.action.pattern ?? item.action.url;
-  if (item.action?.type === "search") return webSearchQueryList(item.action.query, item.action.queries, item.query);
+  if (item.action?.type === "search") {
+    const queries = [item.action.query, ...(item.action.queries ?? []), item.query];
+    const values = queries.map((query) => query?.trim()).filter(Boolean);
+    return [...new Set(values)].join("; ");
+  }
   return item.query;
 }
 
 function webSearchActionLabel(actionType: string): string {
   if (actionType === "openPage") return "open page";
   if (actionType === "findInPage") return "find in page";
-  if (actionType === "search") return "search";
-  if (actionType === "other") return "other";
   return actionType;
 }
 
-function webSearchQueryList(
-  query: string | null | undefined,
-  queries: string[] | null | undefined,
-  fallback?: string | null,
-): string | null {
-  const values = [query, ...(queries ?? []), fallback].map((value) => value?.trim()).filter((value): value is string => Boolean(value));
-  const unique = [...new Set(values)];
-  if (unique.length === 0) return null;
-  if (unique.length === 1) return unique[0] ?? null;
-  return unique.join("; ");
-}
-
-function webSearchDetails(item: WebSearchItem): Extract<ThreadStreamItem, { kind: "tool" }>["webSearch"] {
+function webSearchDetails(item: WebSearchItem, target: string | null): Extract<ThreadStreamItem, { kind: "tool" }>["webSearch"] {
   const details: {
     action?: string;
     query?: string;
@@ -452,16 +443,13 @@ function webSearchDetails(item: WebSearchItem): Extract<ThreadStreamItem, { kind
     pattern?: string;
   } = {};
   if (item.action) details.action = webSearchActionLabel(item.action.type);
-  if (item.action?.type === "search") {
-    const queries = webSearchQueryList(item.action.query, item.action.queries, item.query);
-    if (queries) details.query = queries;
-  } else if (item.action?.type === "openPage") {
+  if (item.action?.type === "openPage") {
     if (item.action.url) details.url = item.action.url;
   } else if (item.action?.type === "findInPage") {
     if (item.action.pattern) details.pattern = item.action.pattern;
     if (item.action.url) details.url = item.action.url;
-  } else if (item.query) {
-    details.query = item.query;
+  } else if (target) {
+    details.query = target;
   }
 
   return Object.keys(details).length > 0 ? details : undefined;
