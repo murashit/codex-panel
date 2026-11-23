@@ -340,18 +340,31 @@ describe("app-server query resources", () => {
     });
   });
 
-  it("does not refresh plugin inventory for app-list notifications", async () => {
+  it("refreshes only live MCP subscriptions after an app-list update", async () => {
     const plugins = vi.fn().mockResolvedValue({ marketplaces: [], marketplaceLoadErrors: [] });
-    const mcpServers = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
-    const cache = cacheWithRequestHandlers({ "plugin/installed": plugins, "mcpServerStatus/list": mcpServers });
-    const unsubscribe = cache.toolInventoryQueries.observe("thread", vi.fn());
-    await cache.toolInventoryQueries.ensure("thread");
+    const list = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
+    const { toolInventoryQueries, scope } = cacheWithRequestHandlers({ "plugin/installed": plugins, "mcpServerStatus/list": list });
+    const closed = vi.fn();
+    const live = vi.fn();
+    const closeInventory = toolInventoryQueries.observe("closed-panel", closed);
+    const closeRegistrations = toolInventoryQueries.observeMcpRegistrations("closed-registrations", closed);
+    toolInventoryQueries.observe("live", live);
+    await Promise.all(["closed-panel", "closed-registrations", "live"].map((thread) => toolInventoryQueries.ensure(thread)));
 
-    cache.toolInventoryQueries.handleAppListUpdated();
-    await vi.waitFor(() => expect(mcpServers).toHaveBeenCalledTimes(2));
-
-    expect(plugins).toHaveBeenCalledOnce();
-    unsubscribe();
+    closeInventory();
+    closeRegistrations();
+    closed.mockClear();
+    plugins.mockClear();
+    list.mockClear().mockResolvedValue({ data: [mcpStatus("updated")], nextCursor: null });
+    toolInventoryQueries.handleAppListUpdated();
+    await vi.waitFor(() =>
+      expect(live).toHaveBeenLastCalledWith(expect.objectContaining({ mcpServers: [expect.objectContaining({ name: "updated" })] })),
+    );
+    expect(closed).not.toHaveBeenCalled();
+    expect(list).not.toHaveBeenCalledWith(expect.objectContaining({ threadId: "closed-panel" }));
+    expect(list).not.toHaveBeenCalledWith(expect.objectContaining({ threadId: "closed-registrations" }));
+    expect(plugins).not.toHaveBeenCalled();
+    scope.dispose();
   });
 
   it("projects global startup diagnostics into existing and future thread snapshots", async () => {
@@ -359,8 +372,13 @@ describe("app-server query resources", () => {
       "plugin/installed": vi.fn().mockResolvedValue({ marketplaces: [], marketplaceLoadErrors: [] }),
       "mcpServerStatus/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
     });
-    await cache.toolInventoryQueries.ensure("thread-a");
-    await cache.toolInventoryQueries.ensure("thread-b");
+    const observeDiagnostics = (thread: string, listener: (ids: (string | null)[] | undefined) => void) =>
+      cache.toolInventoryQueries.observe(thread, (value) => listener(value?.mcpDiagnostics.map((item) => item.environmentId)));
+    const first = vi.fn();
+    const second = vi.fn();
+    observeDiagnostics("thread-a", first);
+    observeDiagnostics("thread-b", second);
+    await Promise.all([cache.toolInventoryQueries.ensure("thread-a"), cache.toolInventoryQueries.ensure("thread-b")]);
     cache.toolInventoryQueries.handleMcpStartupStatusUpdated({
       environmentId: null,
       threadId: null,
@@ -379,10 +397,11 @@ describe("app-server query resources", () => {
     });
 
     await vi.waitFor(() => {
-      expect(cache.toolInventoryQueries.snapshot("thread-a")?.mcpDiagnostics.map((item) => item.environmentId)).toEqual([null, "work"]);
-      expect(cache.toolInventoryQueries.snapshot("thread-b")?.mcpDiagnostics.map((item) => item.environmentId)).toEqual([null]);
-      expect(cache.toolInventoryQueries.snapshot("thread-future")?.mcpDiagnostics.map((item) => item.environmentId)).toEqual([null]);
+      expect(first).toHaveBeenLastCalledWith(expect.arrayContaining([null, "work"]));
+      expect(second).toHaveBeenLastCalledWith([null]);
     });
+    expect(second).not.toHaveBeenCalledWith(expect.arrayContaining(["work"]));
+    expect(cache.toolInventoryQueries.snapshot("thread-future")?.mcpDiagnostics.map((item) => item.environmentId)).toEqual([null]);
 
     await cache.toolInventoryQueries.refresh("thread-a");
     expect(cache.toolInventoryQueries.snapshot("thread-a")?.mcpDiagnostics.map((item) => item.environmentId)).toEqual([null]);
@@ -391,6 +410,7 @@ describe("app-server query resources", () => {
     await cache.toolInventoryQueries.refresh(null);
     expect(cache.toolInventoryQueries.snapshot("thread-a")?.mcpDiagnostics).toEqual([]);
     expect(cache.toolInventoryQueries.snapshot("thread-b")?.mcpDiagnostics).toEqual([]);
+    cache.scope.dispose();
   });
 
   it("tears down observers without notifying them after disposal", async () => {
