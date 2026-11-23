@@ -201,6 +201,12 @@ describe("selection rewrite command", () => {
   it.each([
     { name: "repeated text inserted before the target", changes: { from: 0, insert: "same\n" }, expected: "same\nsame\nREWRITTEN" },
     { name: "insertion at the start boundary", changes: { from: 5, insert: "prefix " }, expected: "same\nprefix REWRITTEN" },
+    {
+      name: "replacement starting at the end boundary",
+      noteText: "same\nsame tail",
+      changes: { from: 9, to: 14, insert: " edited" },
+      expected: "same\nREWRITTEN edited",
+    },
     { name: "insertion at the end boundary", changes: { from: 9, insert: " suffix" }, expected: "same\nREWRITTEN suffix" },
     {
       name: "multiple surrounding edits",
@@ -211,9 +217,9 @@ describe("selection rewrite command", () => {
       expected: "longame\nREWRITTEN suffix",
     },
     { name: "deletion before the target", changes: { from: 0, to: 5 }, expected: "REWRITTEN" },
-  ])("keeps the chosen occurrence after $name during generation", async ({ changes, expected }) => {
+  ])("keeps the chosen occurrence after $name during generation", async ({ changes, expected, noteText = "same\nsame" }) => {
     const result = deferred<{ replacementText: string }>();
-    const { run, cm } = commandHarness({ noteText: "same\nsame", anchor: 5, head: 9, generate: () => result.promise });
+    const { run, cm } = commandHarness({ noteText, anchor: 5, head: 9, generate: () => result.promise });
     void act(() => {
       run();
     });
