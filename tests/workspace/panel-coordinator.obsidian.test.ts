@@ -171,6 +171,52 @@ describe("WorkspacePanelCoordinator", () => {
     expect(focus).toHaveBeenCalledWith({ force: true });
   });
 
+  it.each(["open", "new chat"] as const)("uses the restored recent panel for %s with another panel available", async (command) => {
+    const restored = leaf({ state: { threadId: "saved" } });
+    const other = materializedPanel(panelSnapshot({ viewId: "other", threadId: "independent" }));
+    const leaves = [other.panelLeaf, restored];
+    const plugin = await pluginWithLeaves(leaves);
+    const view = chatView(CodexChatView, restored);
+    const connecting = deferred<void>();
+    const connect = vi.spyOn(view.surface, "connect").mockReturnValue(connecting.promise);
+    const hydrate = vi.spyOn(view.surface, "activateThread").mockResolvedValue(true);
+    const start = vi.spyOn(view.surface, "startNewThread").mockResolvedValue(undefined);
+    const focus = vi.spyOn(view.surface, "focusComposer");
+    vi.mocked(plugin.app.workspace.getMostRecentLeaf).mockReturnValue(restored as never);
+    vi.mocked(plugin.app.workspace.revealLeaf).mockImplementation(async (target) => {
+      if (target === (restored as unknown)) restored.view = view;
+    });
+    const coordinator = panels(plugin);
+    const opening = command === "open" ? coordinator.activateView() : coordinator.startNewChat();
+    await vi.waitFor(() => expect(connect).toHaveBeenCalled());
+    expect(focus).not.toHaveBeenCalled();
+    connecting.resolve();
+    await opening;
+    expect(hydrate).toHaveBeenCalledWith(undefined, { focus: false });
+    expect(start.mock.calls.length > 0).toBe(command === "new chat");
+    expect(focus).toHaveBeenCalledWith({ force: true });
+    expect(other.activateThread).not.toHaveBeenCalled();
+  });
+
+  it("leaves a retired session alone when its connection settles", async () => {
+    const panel = leaf();
+    const plugin = await pluginWithLeaves([panel]);
+    const view = chatView(CodexChatView, panel);
+    panel.view = view;
+    const connecting = deferred<void>();
+    const connect = vi.spyOn(view.surface, "connect").mockReturnValue(connecting.promise);
+    const hydrate = vi.spyOn(view.surface, "activateThread");
+    const focus = vi.spyOn(view.surface, "focusComposer");
+    const opening = panels(plugin).activateView();
+    await vi.waitFor(() => expect(connect).toHaveBeenCalled());
+    await view.detachRuntime();
+    plugin.runtime.attachChatView(view);
+    connecting.resolve();
+    await expect(opening).resolves.toBeNull();
+    expect(hydrate).not.toHaveBeenCalled();
+    expect(focus).not.toHaveBeenCalled();
+  });
+
   it("does not connect a panel that was replaced during reveal", async () => {
     const { leaves, plugin, connect, focus } = await sidePanelFixture();
     (plugin.app.workspace.revealLeaf as ReturnType<typeof vi.fn>).mockImplementation(async () => {

@@ -93,65 +93,47 @@ export class WorkspacePanelCoordinator {
     const isCurrent = this.workspaceIsCurrent();
     if (!isCurrent()) return null;
     const target = this.findCurrentThreadPanelLeaf();
-    if (target) return this.activatePanelLeaf(isCurrent, target, true);
+    if (target) return (await this.activatePanelLeaf(isCurrent, target, true))?.view ?? null;
 
     const leaf = await this.options.app.workspace.ensureSideLeaf(VIEW_TYPE_CODEX_PANEL, "right", {
       active: false,
       reveal: false,
     });
-    if (!isCurrent() || !isAttachedChatView(leaf.view)) return null;
-    const targetPanel = this.captureTarget(isCurrent, leaf, leaf.view);
-    if (!targetPanel || !(await this.revealAndVerifyPanel(targetPanel))) return null;
-    await targetPanel.surface.connect();
-    return this.focusOwnedPanel(targetPanel) ? targetPanel.view : null;
+    return (await this.revealAndConnect(this.captureTarget(isCurrent, leaf), true))?.view ?? null;
   }
 
   async startNewChat(): Promise<void> {
     const isCurrent = this.workspaceIsCurrent();
     if (!isCurrent()) return;
-    const target = this.findCurrentThreadPanelLeaf();
-    if (target && isAttachedChatView(target.view)) {
-      await this.startNewChatInView(isCurrent, target, target.view);
+    const start = (target: PanelTarget) => this.completePanelOperation(target, () => target.surface.startNewThread({ focus: false }));
+    const leaf = this.findCurrentThreadPanelLeaf();
+    if (!leaf) {
+      await this.withNewView(isCurrent, start);
       return;
     }
-    if (target) {
-      const view = await this.activatePanelLeaf(isCurrent, target, false);
-      if (!view) return;
-      const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
-      if (!leaf) return;
-      await this.startNewChatInView(isCurrent, leaf, view);
-      return;
-    }
-
-    const view = await this.createNewViewNow(isCurrent);
-    if (!view) return;
-    const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
-    if (!leaf) return;
-    await this.startNewChatInView(isCurrent, leaf, view);
+    const target = isAttachedChatView(leaf.view)
+      ? this.captureTarget(isCurrent, leaf)
+      : await this.activatePanelLeaf(isCurrent, leaf, false);
+    if (target) await start(target);
   }
 
   async activateNewView(options: { focus?: boolean } = {}): Promise<CodexChatView | null> {
-    const isCurrent = this.workspaceIsCurrent();
-    if (!isCurrent()) return null;
-    const view = await this.createNewViewNow(isCurrent);
-    if (!view) return null;
-    const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
-    if (!leaf) return null;
-    const target = this.captureTarget(isCurrent, leaf, view);
+    return (await this.activateNewTarget(this.workspaceIsCurrent(), options.focus !== false))?.view ?? null;
+  }
+
+  private activateNewTarget(isCurrent: OperationCurrent, focus: boolean): Promise<PanelTarget | null> {
+    return this.withNewView(isCurrent, (target) => this.revealAndConnect(target, focus));
+  }
+
+  private async revealAndConnect(target: PanelTarget | null, focus: boolean): Promise<PanelTarget | null> {
     if (!target || !(await this.revealAndVerifyPanel(target))) return null;
     await target.surface.connect();
-    if (options.focus !== false) this.focusOwnedPanel(target);
-    return target.isCurrent() ? view : null;
+    if (!target.isCurrent()) return null;
+    if (focus) target.surface.focusComposer({ force: true });
+    return target;
   }
 
-  private async createNewViewNow(isCurrent: OperationCurrent): Promise<CodexChatView | null> {
-    return this.withNewView(isCurrent, async (_leaf, view) => view);
-  }
-
-  private async withNewView<T>(
-    isCurrent: OperationCurrent,
-    operation: (leaf: WorkspaceLeaf, view: CodexChatView) => Promise<T>,
-  ): Promise<T | null> {
+  private async withNewView<T>(isCurrent: OperationCurrent, operation: (target: PanelTarget) => Promise<T>): Promise<T | null> {
     if (!isCurrent()) return null;
     const leaf = this.createRightSidebarTab();
     if (!leaf) throw new Error("Could not create a right sidebar leaf.");
@@ -167,16 +149,17 @@ export class WorkspacePanelCoordinator {
     isCurrent: OperationCurrent,
     leaf: WorkspaceLeaf,
     load: () => Promise<void>,
-    operation: (leaf: WorkspaceLeaf, view: CodexChatView) => Promise<T>,
+    operation: (target: PanelTarget) => Promise<T>,
   ): Promise<T | null> {
     const claim = { isCurrent };
     this.materializingPanels.set(leaf, claim);
     let result: Promise<T>;
     try {
       await load();
-      if (!isCurrent() || !isAttachedChatView(leaf.view)) return null;
+      const target = this.captureTarget(isCurrent, leaf);
+      if (!target) return null;
       // Dispatch hands loading/fork ownership to the session before releasing materialization.
-      result = operation(leaf, leaf.view);
+      result = operation(target);
     } finally {
       if (this.materializingPanels.get(leaf) === claim) this.materializingPanels.delete(leaf);
     }
@@ -199,12 +182,9 @@ export class WorkspacePanelCoordinator {
     preparation: ForkDraftPreparation,
     initialMessage?: string,
   ): Promise<void> {
-    await this.withNewView(isCurrent, (leaf, view) => {
-      const target = this.captureTarget(isCurrent, leaf, view);
-      return target
-        ? this.completePanelOperation(target, () => target.surface.applyForkDraft(preparation, initialMessage))
-        : Promise.resolve(false);
-    });
+    await this.withNewView(isCurrent, (target) =>
+      this.completePanelOperation(target, () => target.surface.applyForkDraft(preparation, initialMessage)),
+    );
   }
 
   async openNewPanel(): Promise<void> {
@@ -460,18 +440,18 @@ export class WorkspacePanelCoordinator {
     );
   }
 
-  private async activatePanelLeaf(isCurrent: OperationCurrent, leaf: WorkspaceLeaf, focus: boolean): Promise<CodexChatView | null> {
+  private async activatePanelLeaf(isCurrent: OperationCurrent, leaf: WorkspaceLeaf, focus: boolean): Promise<PanelTarget | null> {
     if (!isCurrent()) return null;
     await this.options.app.workspace.revealLeaf(leaf);
     if (!isCurrent()) return null;
-    if (!isAttachedChatView(leaf.view)) return this.activateNewView({ focus });
-    const target = this.captureTarget(isCurrent, leaf, leaf.view);
+    if (!isAttachedChatView(leaf.view)) return this.activateNewTarget(isCurrent, focus);
+    const target = this.captureTarget(isCurrent, leaf);
     if (!target) return null;
     await target.surface.connect();
     if (!target.isCurrent()) return null;
     await target.surface.activateThread(undefined, { focus: false });
     if (focus) this.focusOwnedPanel(target);
-    return target.isCurrent() ? target.view : null;
+    return target.isCurrent() ? target : null;
   }
 
   private async openThreadAtLeaf(
@@ -481,16 +461,12 @@ export class WorkspacePanelCoordinator {
     displaySnapshot?: ForkDisplaySnapshot,
   ): Promise<boolean> {
     if (!isCurrent()) return false;
-    const activate = (leaf: WorkspaceLeaf, view: CodexChatView, reveal = true) => {
-      const target = this.captureTarget(isCurrent, leaf, view);
-      return target
-        ? this.completePanelOperation(
-            target,
-            () => target.surface.activateThread(threadId, { focus: false, ...(displaySnapshot ? { displaySnapshot } : {}) }),
-            { reveal },
-          )
-        : Promise.resolve(false);
-    };
+    const activate = (target: PanelTarget, reveal = true) =>
+      this.completePanelOperation(
+        target,
+        () => target.surface.activateThread(threadId, { focus: false, ...(displaySnapshot ? { displaySnapshot } : {}) }),
+        { reveal },
+      );
     if (!leaf) return (await this.withNewView(isCurrent, activate)) ?? false;
     if (!isAttachedChatView(leaf.view)) {
       return (
@@ -498,26 +474,25 @@ export class WorkspacePanelCoordinator {
           isCurrent,
           leaf,
           () => this.options.app.workspace.revealLeaf(leaf),
-          (leaf, view) => activate(leaf, view, false),
+          (target) => activate(target, false),
         )) ?? false
       );
     }
-    return activate(leaf, leaf.view);
+    const target = this.captureTarget(isCurrent, leaf);
+    return target ? activate(target) : false;
   }
 
-  private async startNewChatInView(isCurrent: OperationCurrent, leaf: WorkspaceLeaf, view: CodexChatView): Promise<void> {
-    const target = this.captureTarget(isCurrent, leaf, view);
-    if (target) await this.completePanelOperation(target, () => target.surface.startNewThread({ focus: false }));
-  }
-
-  private panelStillOwnsView(leaf: WorkspaceLeaf, view: CodexChatView): boolean {
-    return this.panelLeaves().includes(leaf) && leaf.view === view && isAttachedChatView(leaf.view);
-  }
-
-  private captureTarget(isCurrent: OperationCurrent, leaf: WorkspaceLeaf, view: CodexChatView): PanelTarget | null {
-    if (!isCurrent() || !this.panelStillOwnsView(leaf, view)) return null;
+  private captureTarget(isCurrent: OperationCurrent, leaf: WorkspaceLeaf): PanelTarget | null {
+    const view = leaf.view;
+    if (!isCurrent() || !isAttachedChatView(view) || !this.panelLeaves().includes(leaf)) return null;
     const surface = view.surface;
-    return { leaf, view, surface, isCurrent: () => isCurrent() && this.panelStillOwnsView(leaf, view) && view.surface === surface };
+    return {
+      leaf,
+      view,
+      surface,
+      isCurrent: () =>
+        isCurrent() && leaf.view === view && view.isRuntimeAttached() && view.surface === surface && this.panelLeaves().includes(leaf),
+    };
   }
 
   private async revealAndVerifyPanel(target: PanelTarget): Promise<boolean> {
