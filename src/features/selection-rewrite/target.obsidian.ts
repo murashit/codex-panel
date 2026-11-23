@@ -90,7 +90,7 @@ export function createRewriteTargets(): {
 function changesTouchTarget(changes: ChangeDesc, target: { from: number; to: number }): boolean {
   let touched = false;
   changes.iterChangedRanges((from, to) => {
-    if (from === to ? target.from < from && from < target.to : from < target.to && to > target.from) touched = true;
+    if (from < target.to && to > target.from) touched = true;
   }, true);
   return touched;
 }
