@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { type CatalogSkillMetadata, skillMetadataFromCatalogSkills } from "../../../../../src/app-server/protocol/catalog";
 import { mcpServerStatusSummariesFromStatuses } from "../../../../../src/app-server/protocol/tool-inventory";
 import { readInstalledPluginInventory } from "../../../../../src/app-server/services/tool-inventory";
-import type { SkillMetadata } from "../../../../../src/domain/runtime/catalog";
 import {
   createMetadataResourceDiagnostics,
   type DiagnosticProbeId,
@@ -24,7 +24,12 @@ function withProbe(
   return { ...diagnostics, probes: { ...diagnostics.probes, [id]: probe } };
 }
 
-function skillFixture(name: string, scope: SkillMetadata["scope"], pluginId: string | null = null, enabled = true): SkillMetadata {
+function skillFixture(
+  name: string,
+  scope: CatalogSkillMetadata["scope"],
+  pluginId: string | null = null,
+  enabled = true,
+): CatalogSkillMetadata {
   return { name, scope, pluginId, enabled, description: "", path: `/skills/${name}/SKILL.md` };
 }
 
@@ -162,7 +167,7 @@ describe("connection diagnostics", () => {
   });
 
   it("summarizes usable Codex capabilities and groups skills by provenance", () => {
-    const skills = [
+    const skills = skillMetadataFromCatalogSkills([
       skillFixture("codex-panel-local", "repo"),
       skillFixture("jujutsu-agent-workflow", "user"),
       skillFixture("openai-docs", "system"),
@@ -171,7 +176,7 @@ describe("connection diagnostics", () => {
       skillFixture("gmail:gmail", "user", "disabled-plugin", false),
       skillFixture("admin:guidance", "admin"),
       skillFixture("writer", "user", "unversioned-plugin"),
-    ];
+    ]);
     const inventory: InventoryFixture = {
       plugins: [
         {

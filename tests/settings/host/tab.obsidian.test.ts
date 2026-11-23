@@ -579,7 +579,20 @@ describe("settings tab", () => {
 
   it("renders archived threads and hooks as dynamic setting rows", async () => {
     const client = settingsClient({
-      hooks: [hook({ key: "hook-1", command: "node hook.js", currentHash: "abc123", trustStatus: "untrusted" })],
+      hooks: [
+        {
+          key: "hook-1",
+          eventName: "postToolUse",
+          handlerType: "prompt",
+          matcher: "apply_patch",
+          statusMessage: null,
+          sourcePath: "/vault/.codex/hooks.json",
+          currentHash: "abc123",
+          trustStatus: "untrusted",
+          enabled: true,
+          isManaged: false,
+        },
+      ],
     });
     useContextClients(client);
     const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
@@ -587,7 +600,8 @@ describe("settings tab", () => {
     tab.display();
     await flushPromises();
 
-    expect(tab.containerEl.querySelectorAll(".codex-panel-settings__hook-list .codex-panel-settings__hook-row")).toHaveLength(1);
+    const hookNames = tab.containerEl.querySelectorAll(".codex-panel-settings__hook-row .setting-item-name");
+    expect(Array.from(hookNames, (name) => name.textContent)).toEqual(["apply_patch"]);
     expect(tab.containerEl.querySelectorAll(".codex-panel-settings__archived-list .codex-panel-settings__archived-row")).toHaveLength(1);
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-list")?.textContent).not.toContain("abc123");
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-list")?.textContent).toContain("untrusted · inactive");
