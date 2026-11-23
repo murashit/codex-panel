@@ -64,10 +64,10 @@ describe("session connection", () => {
     { tool: "list_outgoing_notes", notePath: "B.md", paths: [] },
     { tool: "list_backlink_notes", notePath: "Missing.md", paths: null },
   ])("answers $tool for $notePath using resolved Markdown links", async ({ tool, notePath, paths }) => {
-    const files = new Map(["A.md", "B.md", "C.md", "photo.png"].map((path) => [path, { path, extension: path.split(".").pop() }]));
+    const files = new Map(["A.md", "B.md", "C.md", "D.md", "photo.png"].map((path) => [path, { path, extension: path.split(".").pop() }]));
     const fixture = sessionConnectionFixture(undefined, {
       vault: { getFileByPath: (path: string) => files.get(path) },
-      metadataCache: { resolvedLinks: { "C.md": { "B.md": 1 }, "A.md": { "B.md": 2, "photo.png": 1 } } },
+      metadataCache: { resolvedLinks: { "D.md": { "A.md": 1 }, "C.md": { "B.md": 1 }, "A.md": { "B.md": 2, "photo.png": 1 } } },
     } as unknown as App);
     await fixture.connect();
     const response = callPanelTool(fixture, tool, { notePath });
