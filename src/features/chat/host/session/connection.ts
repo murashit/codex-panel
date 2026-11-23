@@ -10,6 +10,7 @@ import type { ChatStateStore } from "../../application/state/store";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import { panelThreadSubscriptions } from "../../application/threads/thread-subscriptions";
 import type { ChatPanelEnvironment } from "../contracts";
+import { listLinkedNotes } from "../obsidian/note-links.obsidian";
 import { resolveObsidianWikilinks } from "../obsidian/wikilink-resolution.obsidian";
 import type { SessionThreadReadState } from "./thread-read-state";
 
@@ -74,6 +75,7 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
       },
       executeDynamicTool: (call) =>
         executePanelDynamicTool(call, {
+          listNotes: (direction, args) => listLinkedNotes(environment.obsidian.app, direction, args),
           resolveWikilinks: (argumentsValue) => resolveObsidianWikilinks(environment.obsidian.app, argumentsValue),
         }),
     },

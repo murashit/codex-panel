@@ -40,25 +40,9 @@ describe("session connection", () => {
       metadataCache: { getFirstLinkpathDest },
     } as unknown as App);
     await fixture.connect();
-    const respond = vi.fn();
-    fixture.deliver(
-      {
-        id: 31,
-        method: "item/tool/call",
-        params: {
-          threadId: "thread-active",
-          turnId: "turn-active",
-          callId: "resolve-call",
-          namespace: "codex_panel",
-          tool: "resolve_wikilinks",
-          arguments: { sourcePath: "notes/source.md", wikilinks: ["[[Alpha#Heading|note]]"] },
-        },
-      },
-      { respond, reject: vi.fn() },
-    );
-    expect(respond).toHaveBeenCalledOnce();
-    expect(respond.mock.calls[0]?.[0]).toMatchObject({ success: true, contentItems: [{ type: "inputText" }] });
-    expect(JSON.parse(respond.mock.calls[0]?.[0].contentItems[0].text)).toMatchObject({
+    const response = callPanelTool(fixture, "resolve_wikilinks", { sourcePath: "notes/source.md", wikilinks: ["[[Alpha#Heading|note]]"] });
+    expect(response).toMatchObject({ success: true, contentItems: [{ type: "inputText" }] });
+    expect(JSON.parse(response.contentItems[0].text)).toMatchObject({
       sourcePath: "notes/source.md",
       results: [
         {
@@ -72,6 +56,25 @@ describe("session connection", () => {
       ],
     });
     expect(getFirstLinkpathDest).toHaveBeenCalledExactlyOnceWith("Alpha", "notes/source.md");
+    fixture.deactivate();
+  });
+  it.each([
+    { tool: "list_outgoing_notes", notePath: "A.md", paths: ["B.md"] },
+    { tool: "list_backlink_notes", notePath: "B.md", paths: ["A.md", "C.md"] },
+    { tool: "list_outgoing_notes", notePath: "B.md", paths: [] },
+    { tool: "list_backlink_notes", notePath: "Missing.md", paths: null },
+  ])("answers $tool for $notePath using resolved Markdown links", async ({ tool, notePath, paths }) => {
+    const files = new Map(["A.md", "B.md", "C.md", "photo.png"].map((path) => [path, { path, extension: path.split(".").pop() }]));
+    const fixture = sessionConnectionFixture(undefined, {
+      vault: { getFileByPath: (path: string) => files.get(path) },
+      metadataCache: { resolvedLinks: { "C.md": { "B.md": 1 }, "A.md": { "B.md": 2, "photo.png": 1 } } },
+    } as unknown as App);
+    await fixture.connect();
+    const response = callPanelTool(fixture, tool, { notePath });
+    expect(response.success).toBe(paths !== null);
+    const text = response.contentItems[0].text;
+    const result = response.success ? JSON.parse(text) : { error: text };
+    expect(result).toMatchObject(paths === null ? { error: `Markdown note not found: ${notePath}` } : { notePath, paths });
     fixture.deactivate();
   });
   it.each(["reset", "exit", "close"] as const)("settles input but preserves approvals on presentation close (%s)", async (boundary) => {
@@ -180,6 +183,20 @@ describe("session connection", () => {
     expect(fixture.stateStore.getState().requests.approvals).toHaveLength(1);
   });
 });
+
+function callPanelTool(fixture: ReturnType<typeof sessionConnectionFixture>, tool: string, args: Record<string, string | string[]>) {
+  const respond = vi.fn();
+  fixture.deliver(
+    {
+      id: 31,
+      method: "item/tool/call",
+      params: { threadId: "thread-active", turnId: "turn-active", callId: "tool-call", namespace: "codex_panel", tool, arguments: args },
+    },
+    { respond, reject: vi.fn() },
+  );
+  expect(respond).toHaveBeenCalledOnce();
+  return respond.mock.calls[0]?.[0];
+}
 
 function sessionConnectionFixture(lease?: AppServerContextConnectionLease, app = {} as App) {
   let connected = false;
