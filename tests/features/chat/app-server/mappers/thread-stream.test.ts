@@ -690,12 +690,12 @@ describe("turn item conversion preserves app-server semantics", () => {
     expect(mapped?.kind === "tool" ? mapped.primaryTarget : undefined).toEqual(expectedTarget);
   });
 
-  it("summarizes web search actions by action type and target", () => {
+  it("shows distinct nonblank queries in source order in the search summary and details", () => {
     const item: TurnItem = {
       type: "webSearch",
       id: "search-1",
       query: "fallback query",
-      action: { type: "search", query: "codex app-server", queries: ["obsidian codex panel"] },
+      action: { type: "search", query: "  codex app-server", queries: [" ", "obsidian codex panel ", "codex app-server"] },
       results: null,
     };
 
@@ -712,9 +712,22 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it.each([
-    { action: { type: "openPage", url: "https://example.com" }, label: "open page", target: "https://example.com" },
-    { action: { type: "findInPage", url: "https://example.com", pattern: "Codex" }, label: "find in page", target: "Codex" },
-  ] as const)("normalizes $action.type for both the summary and detail action", ({ action, label, target }) => {
+    {
+      action: { type: "openPage", url: "https://example.com" },
+      details: { action: "open page", url: "https://example.com" },
+      target: "https://example.com",
+    },
+    {
+      action: { type: "findInPage", url: "https://example.com", pattern: "Codex" },
+      details: { action: "find in page", url: "https://example.com", pattern: "Codex" },
+      target: "Codex",
+    },
+    {
+      action: { type: "findInPage", url: "https://example.com", pattern: null },
+      details: { action: "find in page", url: "https://example.com" },
+      target: "https://example.com",
+    },
+  ] as const)("shows the target and page details for $action", ({ action, details, target }) => {
     const item: TurnItem = {
       type: "webSearch",
       id: "web-action",
@@ -724,11 +737,23 @@ describe("turn item conversion preserves app-server semantics", () => {
     };
 
     expect(threadStreamItemFromTurnItem(item, "t1")).toMatchObject({
-      operation: label,
+      operation: details.action,
       primaryTarget: { kind: "value", value: target },
-      webSearch: { action: label },
+      webSearch: details,
     });
   });
+
+  it.each([null, { type: "search", query: null, queries: null }] as const)(
+    "shows the item query when the action supplies no search terms (%j)",
+    (action) => {
+      const item: TurnItem = { type: "webSearch", id: "search", query: "fallback", action, results: null };
+      expect(threadStreamItemFromTurnItem(item)).toMatchObject({
+        operation: "search",
+        primaryTarget: { kind: "value", value: "fallback" },
+        webSearch: { query: "fallback" },
+      });
+    },
+  );
 
   it("keeps a web search recognizable when its target and action are unavailable", () => {
     const item: TurnItem = { type: "webSearch", id: "search-empty", query: "", action: null, results: null };
