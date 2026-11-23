@@ -34,6 +34,27 @@ export function panelDynamicTools(): NonNullable<AppServerStartThreadOptions["dy
             },
           },
         },
+        ...[
+          {
+            name: "list_outgoing_notes",
+            description: "List the vault-relative paths of Markdown notes directly linked from the specified note.",
+          },
+          {
+            name: "list_backlink_notes",
+            description: "List the vault-relative paths of Markdown notes that directly link to the specified note.",
+          },
+        ].map((tool) => ({
+          type: "function" as const,
+          ...tool,
+          inputSchema: {
+            type: "object",
+            additionalProperties: false,
+            required: ["notePath"],
+            properties: {
+              notePath: { type: "string", minLength: 1, description: "Exact vault-relative Markdown file path including the extension." },
+            },
+          },
+        })),
       ],
     },
   ];

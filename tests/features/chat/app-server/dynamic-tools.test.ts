@@ -28,6 +28,13 @@ describe("Codex Panel dynamic tools", () => {
               },
             }),
           }),
+          ...["list_outgoing_notes", "list_backlink_notes"].map((name) =>
+            expect.objectContaining({
+              name,
+              type: "function",
+              inputSchema: expect.objectContaining({ required: ["notePath"], additionalProperties: false }),
+            }),
+          ),
         ],
       }),
     ]);
@@ -37,7 +44,7 @@ describe("Codex Panel dynamic tools", () => {
     const result = { schemaVersion: 1, results: [{ resolvedPath: "Notes/Target.md" }] };
     const resolveWikilinks = vi.fn(() => result);
 
-    const response = executePanelDynamicTool(toolCall(), { resolveWikilinks });
+    const response = executePanelDynamicTool(toolCall(), { resolveWikilinks, listNotes: vi.fn() });
 
     expect(resolveWikilinks).toHaveBeenCalledWith({ sourcePath: "Notes/Source.md", wikilinks: ["[[Target]]"] });
     expect(response).toEqual({
@@ -53,7 +60,7 @@ describe("Codex Panel dynamic tools", () => {
   ])("returns a tool failure for $case", ({ namespace, tool }) => {
     const resolveWikilinks = vi.fn();
 
-    const response = executePanelDynamicTool({ ...toolCall(), namespace, tool }, { resolveWikilinks });
+    const response = executePanelDynamicTool({ ...toolCall(), namespace, tool }, { resolveWikilinks, listNotes: vi.fn() });
 
     expect(response.success).toBe(false);
     expect(response.contentItems[0]).toMatchObject({ type: "inputText", text: expect.stringContaining("Unknown") });
@@ -62,6 +69,7 @@ describe("Codex Panel dynamic tools", () => {
 
   it("returns validation failures without rejecting the JSON-RPC request", () => {
     const response = executePanelDynamicTool(toolCall(), {
+      listNotes: vi.fn(),
       resolveWikilinks: () => {
         throw new Error("Invalid raw wikilink: target");
       },

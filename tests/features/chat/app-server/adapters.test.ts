@@ -50,7 +50,7 @@ describe("chat app-server adapters", () => {
         expect.objectContaining({
           type: "namespace",
           name: "codex_panel",
-          tools: [expect.objectContaining({ type: "function", name: "resolve_wikilinks" })],
+          tools: expect.arrayContaining([expect.objectContaining({ type: "function", name: "resolve_wikilinks" })]),
         }),
       ],
     });
