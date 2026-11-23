@@ -16,9 +16,11 @@ import { taskProgressFixture as taskProgress } from "../../support/thread-stream
 
 describe("fork display snapshots", () => {
   it.each([
-    { position: { kind: "through-turn", turnId: "turn-1" } as const },
-    { position: { kind: "before-turn", turnId: "turn-2" } as const },
-  ])("captures only scoped display state at $position.kind", ({ position }) => {
+    { kind: "through-turn", turnId: "turn-1", items: ["u1", "plan-progress-turn-1"], diffs: [["turn-1", "diff one"]], cursor: "older" },
+    { kind: "before-turn", turnId: "turn-2", items: ["u1", "plan-progress-turn-1"], diffs: [["turn-1", "diff one"]], cursor: "older" },
+    { kind: "before-turn", turnId: "turn-1", items: [], diffs: [], cursor: "older" },
+    { kind: "before-turn", turnId: "unloaded", items: [], diffs: [], cursor: null },
+  ] as const)("captures scoped items, diffs and paging cursor $kind $turnId", ({ kind, turnId, items, diffs, cursor }) => {
     const stable = initialChatThreadStreamState([
       message("u1", "turn-1"),
       unscopedSystemMessage(),
@@ -28,6 +30,7 @@ describe("fork display snapshots", () => {
     const state = threadStreamStartActiveSegment(
       {
         ...stable,
+        historyCursor: "older",
         ...initialChatActiveTurnState(),
         turnDiffs: new Map([
           ["turn-1", "diff one"],
@@ -38,39 +41,11 @@ describe("fork display snapshots", () => {
       [message("active", "turn-active")],
     );
 
-    const snapshot = captureForkDisplaySnapshot(state, position);
+    const snapshot = captureForkDisplaySnapshot(state, { kind, turnId });
 
-    expect(snapshot.items.map((item) => item.id)).toEqual(["u1", "plan-progress-turn-1"]);
-    expect([...snapshot.turnDiffs]).toEqual([["turn-1", "diff one"]]);
-  });
-
-  it.each([
-    { kind: "through-turn", turnId: "turn-1" },
-    { kind: "before-turn", turnId: "turn-1" },
-  ] as const)("retains the older source cursor for a loaded $kind boundary", (boundary) => {
-    const state = {
-      ...initialChatThreadStreamState([message("u1", "turn-1"), message("u2", "turn-2")]),
-      ...initialChatActiveTurnState(),
-      historyCursor: "older-than-turn-1",
-    };
-
-    const snapshot = captureForkDisplaySnapshot(state, boundary);
-
-    expect(snapshot.historyCursor).toBe("older-than-turn-1");
-    expect(snapshot.items.map((item) => item.id)).toEqual(boundary.kind === "before-turn" ? [] : ["u1"]);
-  });
-
-  it("does not allow paging an unknown fork boundary", () => {
-    const state = {
-      ...initialChatThreadStreamState([message("u1", "turn-1")]),
-      ...initialChatActiveTurnState(),
-      historyCursor: "older",
-    };
-
-    const snapshot = captureForkDisplaySnapshot(state, { kind: "before-turn", turnId: "unloaded" });
-
-    expect(snapshot.items).toEqual([]);
-    expect(snapshot.historyCursor).toBeNull();
+    expect(snapshot.items.map((item) => item.id)).toEqual(items);
+    expect([...snapshot.turnDiffs]).toEqual(diffs);
+    expect(snapshot.historyCursor).toBe(cursor);
   });
 
   it("keeps display-only items while preferring hydrated app-server items", () => {

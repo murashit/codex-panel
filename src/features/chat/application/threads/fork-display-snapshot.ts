@@ -47,10 +47,8 @@ export function reconcileForkDisplayItems(
     delete hydratedItem.provenance;
     return hydratedItem;
   });
-  const historyTurnIds = orderedTurnIds(historyItemsWithDisplayState);
-  const historyTurnIdSet = new Set(historyTurnIds);
-  const reconciledItemsByTurnId = new Map(
-    historyTurnIds.map((turnId) => [
+  const pendingItemsByTurn = new Map(
+    orderedTurnIds(historyItemsWithDisplayState).map((turnId) => [
       turnId,
       reconcileCompletedTurnItems({
         currentItems: displayItems.filter((item) => item.turnId === turnId),
@@ -59,17 +57,15 @@ export function reconcileForkDisplayItems(
       }),
     ]),
   );
-  const emittedTurnIds = new Set<string>();
   const retainedItems = displayItems.flatMap((item) => {
-    if (!item.turnId || !historyTurnIdSet.has(item.turnId)) return [item];
-    if (emittedTurnIds.has(item.turnId)) return [];
-    emittedTurnIds.add(item.turnId);
-    return reconciledItemsByTurnId.get(item.turnId) ?? [];
+    if (!item.turnId) return [item];
+    const pending = pendingItemsByTurn.get(item.turnId);
+    if (!pending) return [item];
+    // Keep the key so later display items from this turn are skipped.
+    pendingItemsByTurn.set(item.turnId, []);
+    return pending;
   });
-  const missingTurnItems = historyTurnIds.flatMap((turnId) => {
-    if (emittedTurnIds.has(turnId)) return [];
-    return reconciledItemsByTurnId.get(turnId) ?? [];
-  });
+  const missingTurnItems = [...pendingItemsByTurn.values()].flat();
   return options.missingTurns === "prepend" ? [...missingTurnItems, ...retainedItems] : [...retainedItems, ...missingTurnItems];
 }
 
@@ -83,12 +79,9 @@ function forkDisplayRetainedTurnIds(items: readonly ThreadStreamItem[], boundary
 }
 
 function orderedTurnIds(items: readonly ThreadStreamItem[]): string[] {
-  const turnIds: string[] = [];
-  const seen = new Set<string>();
+  const turnIds = new Set<string>();
   for (const item of items) {
-    if (!item.turnId || seen.has(item.turnId)) continue;
-    seen.add(item.turnId);
-    turnIds.push(item.turnId);
+    if (item.turnId) turnIds.add(item.turnId);
   }
-  return turnIds;
+  return [...turnIds];
 }
