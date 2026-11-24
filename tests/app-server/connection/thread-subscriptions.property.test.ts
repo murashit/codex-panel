@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { AppServerClient } from "../../../src/app-server/connection/client";
 import { StaleConnectionError } from "../../../src/app-server/connection/connection-manager";
 import { ThreadSubscriptions } from "../../../src/app-server/connection/thread-subscriptions";
-import { type Deferred, deferred } from "../../support/async";
+import { type Deferred, deferred, eventOrders } from "../../support/async";
 
 const thread = fc.constantFrom("a", "b");
 const events = fc.array(
@@ -45,6 +45,28 @@ interface Activation {
 }
 
 describe("sampled thread subscription interleavings", () => {
+  it.each(eventOrders("release-first", "claim-second", "resume-reply"))(
+    "converges when two panels hand off demand around a pending resume for $order",
+    async ({ order }) => {
+      const fixture = subscriptionInterleavings();
+      try {
+        await fixture.apply({ kind: "interest", panel: 0, thread: "a", mode: "resume" });
+        for (const event of order) {
+          if (event === "release-first") await fixture.apply({ kind: "interest", panel: 0, thread: "a", mode: "none" });
+          if (event === "claim-second") await fixture.apply({ kind: "interest", panel: 1, thread: "a", mode: "resume" });
+          if (event === "resume-reply") await fixture.apply({ kind: "complete", slot: 0, success: true });
+        }
+        await fixture.converge();
+        const droppedBetweenOwners = order.at(-1) === "claim-second";
+        expect(fixture.methods()).toEqual(
+          droppedBetweenOwners ? ["thread/resume", "thread/unsubscribe", "thread/resume"] : ["thread/resume"],
+        );
+      } finally {
+        await fixture.dispose();
+      }
+    },
+  );
+
   it("preserves update exclusion, activation barriers and connection isolation, then converges after successful replies", async () => {
     await expect(
       fc.assert(
@@ -155,6 +177,7 @@ function subscriptionInterleavings() {
   }
 
   return {
+    methods: () => updates.map(({ method }) => method),
     async apply(event: Event): Promise<void> {
       switch (event.kind) {
         case "interest": {

@@ -6,6 +6,7 @@ import type { AppServerTransport, AppServerTransportHandlers } from "../../../sr
 import type { InitializeParams } from "../../../src/generated/app-server/InitializeParams";
 import type { InitializeResponse } from "../../../src/generated/app-server/InitializeResponse";
 import type { ServerRequest } from "../../../src/generated/app-server/ServerRequest";
+import { eventOrders } from "../../support/async";
 import { commandApprovalRequestFixture } from "../../support/server-requests";
 
 const TEST_INITIALIZE_PARAMS: InitializeParams = {
@@ -683,27 +684,36 @@ describe("AppServerClient", () => {
     expect(onExit).not.toHaveBeenCalled();
   });
 
-  it("suppresses late responses after per-request timeouts", async () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("window", {
-      clearTimeout,
-      setTimeout,
-    });
-    const logs: string[] = [];
-    const { client, transport } = await connectedClient({ onLog: (message) => logs.push(message) });
-
-    const reading = readFile(client, "/tmp/slow.jsonl", { timeoutMs: 10 });
-    const sent = latestSent(transport);
-    if (!("id" in sent) || typeof sent.id !== "number") throw new Error("Expected an app-server request id.");
-
-    await Promise.all([
-      expect(reading).rejects.toThrow("Codex app-server request timed out: fs/readFile"),
-      vi.advanceTimersByTimeAsync(10),
-    ]);
-
-    transport.emitLine({ id: sent.id, result: { dataBase64: btoa("late") } });
-    expect(logs).toEqual([]);
-  });
+  it.each(eventOrders("reply", "deadline", "disconnect"))(
+    "settles an RPC once and handles its repeated reply for $order",
+    async ({ order }) => {
+      vi.useFakeTimers();
+      vi.stubGlobal("window", { clearTimeout, setTimeout });
+      const onLog = vi.fn();
+      const { client, transport } = await connectedClient({ onLog });
+      const settled = Promise.allSettled([readFile(client, "/tmp/slow.jsonl", { timeoutMs: 10 })]);
+      const sent = latestSent(transport);
+      if (!("id" in sent)) throw new Error("Expected a request id.");
+      const response = { id: sent.id, result: { dataBase64: btoa("file") } };
+      for (const event of order) {
+        if (event === "deadline") await vi.advanceTimersByTimeAsync(10);
+        if (event === "disconnect") client.disconnect();
+        if (event === "reply") {
+          transport.emitLine(response);
+          transport.emitLine(response);
+        }
+      }
+      const outcomes = {
+        reply: { status: "fulfilled", value: response.result },
+        deadline: { status: "rejected", reason: { message: "Codex app-server request timed out: fs/readFile" } },
+        disconnect: { status: "rejected", reason: { message: "Codex app-server disconnected." } },
+      };
+      expect(await settled).toMatchObject([outcomes[order[0]]]);
+      const duplicateLog = [expect.stringContaining("Orphan app-server response")];
+      expect(onLog.mock.calls).toEqual(order.indexOf("reply") < order.indexOf("disconnect") ? [duplicateLog] : []);
+      expect(vi.getTimerCount()).toBe(0);
+    },
+  );
 
   it("eventually forgets old timeouts while still suppressing recent late responses", async () => {
     vi.useFakeTimers();

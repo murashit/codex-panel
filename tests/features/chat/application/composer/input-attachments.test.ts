@@ -98,16 +98,6 @@ describe("ComposerInput attachment lifetime", () => {
     expect(input.attachmentSaveBlocksSubmit(false)).toBe(false);
   });
 
-  it("resolves both copies of a pending attachment link", async () => {
-    const { input, edit, saved } = pendingAttachmentFixture();
-    input.transferAttachments([new File(["file"], "diagram.png")]);
-    edit([input.draft, input.draft].join("\n"));
-    const attachment = attachmentFixture("diagram");
-    saved.resolve(attachmentSaveResult([attachment]));
-    await saved.promise;
-    expect(input.draft).toBe([attachment.marker, attachment.marker].join("\n"));
-  });
-
   it("keeps the first save visible when dropping another file onto its pending link", async () => {
     const first = deferred<ComposerAttachmentSaveResult>();
     const second = deferred<ComposerAttachmentSaveResult>();
@@ -220,28 +210,43 @@ describe("ComposerInput attachment lifetime", () => {
     expect(stateStore.getState().composer.attachmentSavePending).toBe(false);
   });
 
-  it("inserts multiple transfers that began at the same draft anchor", async () => {
-    const first = deferred<ComposerAttachmentSaveResult>();
-    const second = deferred<ComposerAttachmentSaveResult>();
-    const { input, select, stateStore } = createInput({
-      attachmentHandler: {
-        saveFiles: vi.fn<ComposerAttachmentHandler["saveFiles"]>().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise),
-      },
-    });
-    input.setDraft("note");
-    select(4, 4);
-    input.transferAttachments([new File(["image"], "first.png", { type: "image/png" })]);
-    input.transferAttachments([new File(["image"], "second.png", { type: "image/png" })]);
+  it.each(["same anchor", "duplicated first marker", "deleted second marker"] as const)(
+    "resolves out-of-order transfers after edits (%s)",
+    async (editCase) => {
+      const first = deferred<ComposerAttachmentSaveResult>();
+      const second = deferred<ComposerAttachmentSaveResult>();
+      const { input, select, edit, stateStore } = createInput({
+        attachmentHandler: {
+          saveFiles: vi.fn<ComposerAttachmentHandler["saveFiles"]>().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise),
+        },
+      });
+      input.setDraft("note");
+      select(4, 4);
+      input.transferAttachments([new File(["image"], "first.png", { type: "image/png" })]);
+      const firstDraft = input.draft;
+      input.transferAttachments([new File(["image"], "second.png", { type: "image/png" })]);
+      if (editCase === "duplicated first marker") edit(input.draft + firstDraft.slice("note".length));
+      if (editCase === "deleted second marker") edit(firstDraft);
 
-    second.resolve(attachmentSaveResult([attachmentFixture("second")]));
-    await vi.waitFor(() => expect(stateStore.getState().composer.attachmentSavePending).toBe(true));
-    expect(input.draft).toContain("![[Codex Attachments/second.png]]");
-    first.resolve(attachmentSaveResult([attachmentFixture("first")]));
-    await vi.waitFor(() => expect(stateStore.getState().composer.attachmentSavePending).toBe(false));
-
-    expect(input.draft).toBe("note\n![[Codex Attachments/first.png]]\n![[Codex Attachments/second.png]]");
-    expect(input.captureInputSnapshot().attachments.map((attachment) => attachment.name)).toEqual(["first", "second"]);
-  });
+      const firstAttachment = attachmentFixture("first");
+      const secondAttachment = attachmentFixture("second");
+      const keepSecond = editCase !== "deleted second marker";
+      second.resolve(attachmentSaveResult([secondAttachment]));
+      await second.promise;
+      expect(input.draft.includes(secondAttachment.marker)).toBe(keepSecond);
+      expect(stateStore.getState().composer.attachmentSavePending).toBe(true);
+      first.resolve(attachmentSaveResult([firstAttachment]));
+      await first.promise;
+      const lines = ["note", firstAttachment.marker];
+      if (keepSecond) lines.push(secondAttachment.marker);
+      if (editCase === "duplicated first marker") lines.push(firstAttachment.marker);
+      expect(input.draft).toBe(lines.join("\n"));
+      expect(input.captureInputSnapshot().attachments.map((attachment) => attachment.name)).toEqual(
+        keepSecond ? ["first", "second"] : ["first"],
+      );
+      expect(stateStore.getState().composer.attachmentSavePending).toBe(false);
+    },
+  );
 
   it("ignores partial attachment results after disposal", async () => {
     const onAttachmentError = vi.fn();

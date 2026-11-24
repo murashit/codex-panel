@@ -1,14 +1,14 @@
-import { sideChatDraft } from "../../src/features/chat/application/threads/fork-draft";
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { VIEW_TYPE_CODEX_PANEL } from "../../src/constants";
 import { createChatState } from "../../src/features/chat/application/state/model";
 import type { ForkDraftPreparation } from "../../src/features/chat/application/threads/fork-draft";
+import { sideChatDraft } from "../../src/features/chat/application/threads/fork-draft";
 import { CodexChatView } from "../../src/features/chat/host/view.obsidian";
 import type CodexPanelPlugin from "../../src/main";
 import { WorkspacePanelCoordinator } from "../../src/workspace/panel-coordinator";
-import { deferred } from "../support/async";
+import { deferred, eventOrders } from "../support/async";
 import { installObsidianDomShims } from "../support/dom";
 import { chatView, leaf, panelSnapshot, pluginWithLeaves } from "../support/plugin-fixtures";
 
@@ -112,6 +112,42 @@ describe("WorkspacePanelCoordinator", () => {
       { viewId: "active", lastFocused: true },
     ]);
   });
+
+  it.each(eventOrders("first", "second", "repair"))(
+    "retains one owner when two restored leaves materialize around repair for $order",
+    async ({ order }) => {
+      const first = leaf({ state: { threadId: "shared" } });
+      const second = leaf({ state: { threadId: "shared" } });
+      const leaves = [first, second];
+      const coordinator = panels(await pluginWithLeaves(leaves));
+      const entries = { first, second };
+      for (const panel of leaves) {
+        panel.setViewState.mockImplementation(async (state: ReturnType<typeof panel.getViewState>) => {
+          panel.getViewState.mockReturnValue(state);
+        });
+        panel.detach.mockImplementation(() => leaves.splice(leaves.indexOf(panel), 1));
+      }
+      for (const event of order) {
+        if (event === "repair") coordinator.reconcileWorkspacePanels(null, "repair");
+        else {
+          const panel = entries[event];
+          const view = chatView(CodexChatView, panel);
+          const id = panel.getViewState().state["threadId"];
+          vi.spyOn(view.surface, "openPanelSnapshot").mockReturnValue(
+            panelSnapshot({ viewId: event, threadId: typeof id === "string" ? id : null }),
+          );
+          panel.view = view;
+        }
+      }
+      const winner = order[0] === "second" && order[1] === "repair" ? "second" : "first";
+      const owners = () => leaves.filter((panel) => (panel.view as CodexChatView).surface.openPanelSnapshot().threadId === "shared");
+      expect(owners()).toEqual([entries[winner]]);
+      coordinator.reconcileWorkspacePanels(null, "repair");
+      expect(owners()).toEqual([entries[winner]]);
+      const repairs = [first, second].flatMap((panel) => [...panel.detach.mock.calls, ...panel.setViewState.mock.calls]);
+      expect(repairs).toHaveLength(1);
+    },
+  );
 
   it("coalesces repair without hydration and captures the current layout when it runs", async () => {
     const first = leaf({ state: { threadId: "same" } });
@@ -576,7 +612,7 @@ describe("WorkspacePanelCoordinator", () => {
     expect(secondLeaf.detach).not.toHaveBeenCalled();
   });
 
-  it("does not focus either view when replaced after operation completion and before reveal", async () => {
+  it.each(eventOrders("activate", "reveal", "replace"))("focuses only a still-owned panel for $order", async ({ order }) => {
     const panelLeaf = leaf();
     panelLeaf.view = chatView(CodexChatView, panelLeaf);
     const view = panelLeaf.view as CodexChatView;
@@ -594,13 +630,15 @@ describe("WorkspacePanelCoordinator", () => {
 
     const request = coordinator.openThreadInCurrentView("target");
     await vi.waitFor(() => expect(open).toHaveBeenCalledWith("target", { focus: false }));
-    operation.resolve(true);
-    await operation.promise;
-    panelLeaf.view = replacementView;
-    reveal.resolve();
+    for (const event of order) {
+      if (event === "activate") operation.resolve(true);
+      if (event === "reveal") reveal.resolve();
+      if (event === "replace") panelLeaf.view = replacementView;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
     await request;
 
-    expect(oldFocus).not.toHaveBeenCalled();
+    expect(oldFocus).toHaveBeenCalledTimes(order.at(-1) === "replace" ? 1 : 0);
     expect(newFocus).not.toHaveBeenCalled();
   });
 

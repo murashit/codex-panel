@@ -67,7 +67,7 @@ export async function publishCodexPath(plugin: CodexPanelPlugin, codexPath: stri
 
 export interface TestLeaf {
   view: unknown;
-  getViewState: ReturnType<typeof vi.fn>;
+  getViewState: ReturnType<typeof vi.fn<() => { type: string; state: Record<string, unknown> }>>;
   getRoot: ReturnType<typeof vi.fn>;
   parent: object;
   setViewState: ReturnType<typeof vi.fn>;
