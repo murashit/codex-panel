@@ -36,6 +36,7 @@ export function appServerThreadFixture(input: Pick<Thread, ThreadScenarioFields>
     environments: null,
     originator: null,
     daybreakEnabled: null,
+    daybreakProgramPropagationEnrolled: null,
     forkedFromId: null,
     attachedToThreadId: null,
     parentThreadId: null,
