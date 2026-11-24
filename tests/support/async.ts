@@ -25,3 +25,17 @@ export async function waitForAsyncWork(assertion: () => void): Promise<void> {
   }
   assertion();
 }
+
+/** All six delivery orders for three distinct events, as named it.each cases. */
+export function eventOrders<const T extends string>(a: T, b: T, c: T) {
+  return (
+    [
+      [a, b, c],
+      [a, c, b],
+      [b, a, c],
+      [b, c, a],
+      [c, a, b],
+      [c, b, a],
+    ] as const
+  ).map((order) => ({ order }));
+}
