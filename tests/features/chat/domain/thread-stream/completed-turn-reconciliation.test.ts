@@ -22,7 +22,15 @@ describe("reconcileCompletedTurnItems", () => {
         const serverItems = specs.flatMap(({ text, observed }, index) =>
           observed ? [Object.freeze(userDialogue(`server-${index}`, text, "turn", `local-user-${index}`))] : [],
         );
-        const assistant = Object.freeze(assistantDialogue("assistant", "done", "turn"));
+        const assistant = Object.freeze({
+          id: "assistant",
+          kind: "dialogue",
+          dialogueKind: "assistantResponse",
+          role: "assistant",
+          text: "done",
+          dialogueState: "completed",
+          turnId: "turn",
+        } satisfies ThreadStreamItem);
         const turnItems = Object.freeze([...serverItems, assistant]);
         const next = reconcileCompletedTurnItems({ currentItems, completedTurnId: "turn", turnItems });
         expect(next).toEqual([
@@ -55,31 +63,34 @@ describe("reconcileCompletedTurnItems", () => {
     );
   });
 
-  it("keeps fallback reconciliation scoped to the completed turn", () => {
-    const completedTurnOptimistic = {
-      ...userDialogue("local-user-completed", "same text", "completed"),
-      contextAttachments: [{ label: "Completed context", detail: "completed" }],
-    } satisfies ThreadStreamItem;
-    const otherTurnOptimistic = {
-      ...userDialogue("local-user-other", "same text", "other"),
-      contextAttachments: [{ label: "Other context", detail: "other" }],
-    } satisfies ThreadStreamItem;
-    const server = userDialogue("server-user", "same text", "completed");
-
-    const next = reconcileCompletedTurnItems({
-      currentItems: [completedTurnOptimistic, otherTurnOptimistic],
-      completedTurnId: "completed",
-      turnItems: [server],
-    });
-
-    expect(next).toEqual([
-      otherTurnOptimistic,
-      expect.objectContaining({
-        id: "server-user",
+  it.each([false, true])(
+    "uses same-turn text fallback only for snapshots without client IDs (identified message present: %s)",
+    (identified) => {
+      const completedTurnOptimistic = {
+        ...userDialogue("local-user-completed", "same text", "completed"),
         contextAttachments: [{ label: "Completed context", detail: "completed" }],
-      }),
-    ]);
-  });
+        referencedFiles: [{ name: "Local", path: "Local.md" }],
+      } satisfies ThreadStreamItem;
+      const otherTurnOptimistic = {
+        ...userDialogue("local-user-other", "same text", "other"),
+        contextAttachments: [{ label: "Other context", detail: "other" }],
+      } satisfies ThreadStreamItem;
+      const server = { ...userDialogue("server-user", "same text", "completed"), referencedFiles: [] };
+      const identifiedMessage = userDialogue("server-second", "other text", "completed", "client-id");
+
+      const next = reconcileCompletedTurnItems({
+        currentItems: [completedTurnOptimistic, otherTurnOptimistic],
+        completedTurnId: "completed",
+        turnItems: identified ? [server, identifiedMessage] : [server],
+      });
+
+      expect(next).toEqual(
+        identified
+          ? [otherTurnOptimistic, completedTurnOptimistic, server, identifiedMessage]
+          : [otherTurnOptimistic, { ...server, contextAttachments: completedTurnOptimistic.contextAttachments }],
+      );
+    },
+  );
 });
 
 function userDialogue(id: string, text: string, turnId: string, clientId?: string): Extract<ThreadStreamItem, { dialogueKind: "user" }> {
@@ -92,17 +103,5 @@ function userDialogue(id: string, text: string, turnId: string, clientId?: strin
     copyText: text,
     turnId,
     ...(clientId ? { clientId } : {}),
-  };
-}
-
-function assistantDialogue(id: string, text: string, turnId: string): ThreadStreamItem {
-  return {
-    id,
-    kind: "dialogue",
-    dialogueKind: "assistantResponse",
-    role: "assistant",
-    text,
-    dialogueState: "completed",
-    turnId,
   };
 }

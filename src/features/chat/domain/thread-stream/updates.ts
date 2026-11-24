@@ -1,4 +1,18 @@
-import type { ThreadStreamFileChange, ThreadStreamItem } from "./items";
+import type { ThreadStreamFileChange, ThreadStreamItem, UserThreadStreamDialogueItem } from "./items";
+
+export function userDialogueWithLocalContext(
+  item: UserThreadStreamDialogueItem,
+  local: UserThreadStreamDialogueItem | undefined,
+  pending?: UserThreadStreamDialogueItem,
+): UserThreadStreamDialogueItem {
+  const contextAttachments = item.contextAttachments ?? local?.contextAttachments ?? pending?.contextAttachments;
+  const referencedFiles = item.referencedFiles ?? local?.referencedFiles ?? pending?.referencedFiles;
+  return {
+    ...item,
+    ...(contextAttachments ? { contextAttachments } : {}),
+    ...(referencedFiles ? { referencedFiles } : {}),
+  };
+}
 
 export function upsertThreadStreamItemById(items: readonly ThreadStreamItem[], next: ThreadStreamItem): ThreadStreamItem[] {
   const index = items.findIndex((item) => item.id === next.id);

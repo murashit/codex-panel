@@ -9,7 +9,12 @@ import {
   appendToolOutputStreamingDelta,
   streamedItemOutputThreadStreamItem,
 } from "../../domain/thread-stream/streaming-items";
-import { completeReasoningItems, mergeThreadStreamItem, upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
+import {
+  completeReasoningItems,
+  mergeThreadStreamItem,
+  upsertThreadStreamItemById,
+  userDialogueWithLocalContext,
+} from "../../domain/thread-stream/updates";
 import { patchObject } from "./patch";
 
 interface ChatThreadStreamActiveSegment {
@@ -262,13 +267,7 @@ function observeUserMessage(state: ChatThreadStreamViewState, item: UserThreadSt
         optimisticDialogueClientId(candidate) === item.clientId &&
         sameTurn(candidate),
     );
-  const contextAttachments = item.contextAttachments ?? local?.contextAttachments ?? pending?.contextAttachments;
-  const referencedFiles = item.referencedFiles ?? local?.referencedFiles ?? pending?.referencedFiles;
-  const canonical = {
-    ...item,
-    ...(contextAttachments ? { contextAttachments } : {}),
-    ...(referencedFiles ? { referencedFiles } : {}),
-  };
+  const canonical = userDialogueWithLocalContext(item, local, pending);
   const next = pending ? patchObject(state, { pendingSteers: state.pendingSteers.filter((candidate) => candidate !== pending) }) : state;
   if (local && next.stableItems.includes(local)) {
     return patchObject(next, { stableItems: next.stableItems.map((candidate) => (candidate === local ? canonical : candidate)) });
