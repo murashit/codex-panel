@@ -11,8 +11,8 @@ import { shortThreadId } from "../../../../domain/threads/model";
 import { threadSearchMatches } from "../../../../domain/threads/search";
 import { threadCommandDisplayTitle } from "../../../../domain/threads/title";
 import type { ComposerSuggestion } from "../composer/suggestion";
+import { partialThreadTitleQuery, quotedThreadTitleArgument, THREAD_TITLE_COMMANDS, type ThreadTitleCommand } from "./arguments";
 import { isSlashCommandName, SLASH_COMMANDS, type SlashCommandName, slashCommandSubcommands } from "./catalog";
-import { partialThreadTitleQuery, quotedThreadTitleArgument, THREAD_TITLE_COMMANDS, type ThreadTitleCommand } from "./thread-arguments";
 
 interface ThreadCommandSuggestionPolicy {
   excludeActiveThread: boolean;

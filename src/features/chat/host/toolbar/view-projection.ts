@@ -8,7 +8,7 @@ import { activePanelOperationDecision } from "../../application/panel-operation-
 import { runtimeSnapshotForChatSlices } from "../../application/runtime/snapshot";
 import { activeThreadState, type ChatState, panelThreadProvenance } from "../../application/state/model";
 import { chatTurnBusy } from "../../application/turns/turn-state";
-import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
+import type { RuntimeSnapshot } from "../../domain/runtime/state";
 import { appServerDiagnosticSections } from "../../ui/runtime/diagnostics";
 import { runtimePermissionSections } from "../../ui/runtime/permissions";
 import { rateLimitSummary } from "../../ui/runtime/status";

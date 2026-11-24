@@ -1,5 +1,5 @@
 import { errorMessage } from "../../../../domain/text/error-message";
-import { parseThreadAndTextArgs, parseThreadOnlyArgs, resolveThreadArgument, usageError } from "./execution-arguments";
+import { parseThreadAndTextArgs, parseThreadOnlyArgs, resolveThreadArgument, usageError } from "./arguments";
 import type { SlashCommandExecutionContext, SlashCommandExecutionResult } from "./execution-contracts";
 
 export type ThreadSlashCommandName = "clear" | "resume" | "reconnect" | "fork" | "btw" | "rollback" | "compact" | "archive" | "rename";

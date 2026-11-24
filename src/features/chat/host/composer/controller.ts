@@ -1,12 +1,12 @@
 import { isComposerSendKey, type SendShortcut } from "../../../../domain/input/send-shortcut";
 import { ComposerInput, type ComposerInputOptions } from "../../application/composer/input";
+import type { ComposerSelection } from "../../application/composer/selection";
 import { composerSuggestionNavigationDirection } from "../../application/composer/suggestion";
 import type { ChatState } from "../../application/state/model";
 import { ordinaryComposerAction } from "../../domain/composer/action";
 import type { ComposerCallbacks, ComposerPendingSelection, ComposerShellProps } from "../../ui/composer/composer";
 import { type ComposerBoundaryScrollAction, composerBoundaryScrollActionFromElement } from "../thread-stream/composer-scroll";
 import { composerFilesFromTransfer, composerTransferHasFiles } from "./file-transfers.dom";
-import { composerSelectionSource } from "./selection";
 import type { ChatPanelComposerActions, ChatPanelComposerModel } from "./view-projection";
 import { type ChatPanelComposerRuntimeActions, projectChatPanelComposer } from "./view-projection";
 
@@ -219,4 +219,14 @@ export class ChatComposerController {
       },
     };
   }
+}
+
+function composerSelectionSource(composer: HTMLTextAreaElement | null): ComposerSelection | null {
+  if (!composer) return null;
+  return {
+    value: composer.value,
+    start: composer.selectionStart,
+    end: composer.selectionEnd,
+    direction: composer.selectionDirection,
+  };
 }

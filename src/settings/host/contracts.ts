@@ -1,4 +1,4 @@
-import type { SettingsResources } from "../application/resources";
+import type { SettingsResources } from "../application/resources-controller";
 import type { CodexPanelSettings } from "../preferences";
 
 export interface SettingsTabHost {

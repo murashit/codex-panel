@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import { activeThreadState, type ChatState } from "../../../../../src/features/chat/application/state/model";
-import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../../../../src/features/chat/application/state/panel-target";
+import {
+  activeThreadState,
+  type ChatState,
+  capturePanelTargetLease,
+  panelTargetLeaseIsCurrent,
+} from "../../../../../src/features/chat/application/state/model";
 import { type ChatAction, chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { localUserDialogueItemFromInput } from "../../../../../src/features/chat/application/submission/local-user-dialogue";

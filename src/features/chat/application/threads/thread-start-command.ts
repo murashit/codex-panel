@@ -1,11 +1,17 @@
 import type { RuntimeServiceTierRequest, RuntimeSettingsPatch } from "../../../../domain/runtime/settings";
 import { runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
 import type { Thread, ThreadActivationSnapshot } from "../../../../domain/threads/model";
-import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
+import type { RuntimeSnapshot } from "../../domain/runtime/state";
 import { permissionProfileRequestForThreadStart, serviceTierRequestForThreadStart } from "../../domain/runtime/thread-settings-patch";
 import type { EffectOutcome } from "../effect-outcome";
-import { activeThreadId, type ChatState, newConversationEphemeral } from "../state/model";
-import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
+import {
+  activeThreadId,
+  type ChatState,
+  capturePanelTargetLease,
+  newConversationEphemeral,
+  type PanelTargetLease,
+  panelTargetLeaseIsCurrent,
+} from "../state/model";
 import type { ChatStateStore } from "../state/store";
 import { resumedThreadAction } from "../state/transition-actions";
 import { forkRuntimeSettings, type ThreadForkOptions, type ThreadForkRuntimeOverrides } from "./fork-draft";

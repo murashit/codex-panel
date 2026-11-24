@@ -1,5 +1,5 @@
 import type { SkillMetadata } from "../../../../domain/runtime/catalog";
-import type { ThreadCommandTarget } from "../slash-commands/thread-arguments";
+import type { ThreadCommandTarget } from "../slash-commands/arguments";
 import type { ComposerAttachment } from "./attachments";
 import type { ActiveNoteContextReference, ComposerContextReferences, SelectionContextSnapshot } from "./context-references";
 

@@ -10,6 +10,8 @@ export interface SkillReference {
 
 export const ACTIVE_FILE_REFERENCE_NAME = "<active>";
 
+export const WEB_CONTEXT_KEY = "codex_panel_web_context";
+
 export interface RequestAdditionalContext {
   key: string;
   value: string;

@@ -1,8 +1,10 @@
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
 import type { EphemeralStructuredTurnRunner } from "../../../app-server/services/ephemeral-structured-turn";
+import type { AppServerRequestClient } from "../../../app-server/services/request-client";
 import {
   archiveThread,
   deleteThread,
+  readCompletedTurnTranscriptSummariesPage,
   readThreadForArchiveExport,
   renameThread,
   restoreArchivedThread,
@@ -10,8 +12,8 @@ import {
 } from "../../../app-server/services/threads";
 import type { ReasoningEffort } from "../../../domain/runtime/catalog";
 import { errorMessage } from "../../../domain/text/error-message";
+import { type ThreadTitleContext, threadTitleContextFromTurnTranscriptSummary } from "../../../domain/threads/title";
 import type { ThreadMutationPort, ThreadTitlePort } from "../workflows/ports";
-import { readPersistedTitleContext } from "./persisted-title-context";
 import { generateThreadTitleWithCodex } from "./thread-title-generation";
 
 export function createThreadMutationAdapter(clientAccess: AppServerClientAccess): ThreadMutationPort {
@@ -56,4 +58,23 @@ export function createThreadTitleAdapter(options: {
         { runner: options.runner, signal },
       ),
   };
+}
+
+const DEFAULT_CONTEXT_PAGE_LIMIT = 20;
+const DEFAULT_CONTEXT_MAX_PAGES = 5;
+
+export async function readPersistedTitleContext(client: AppServerRequestClient, threadId: string): Promise<ThreadTitleContext | null> {
+  let cursor: string | null = null;
+
+  for (let page = 0; page < DEFAULT_CONTEXT_MAX_PAGES; page += 1) {
+    const response = await readCompletedTurnTranscriptSummariesPage(client, threadId, cursor, DEFAULT_CONTEXT_PAGE_LIMIT);
+    for (const summary of response.summaries) {
+      const context = threadTitleContextFromTurnTranscriptSummary(summary);
+      if (context) return context;
+    }
+    if (!response.nextCursor) break;
+    cursor = response.nextCursor;
+  }
+
+  return null;
 }

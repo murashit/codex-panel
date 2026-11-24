@@ -10,7 +10,7 @@ import type { LocalIdSource } from "../../application/local-id-source";
 import type { PendingRequests } from "../../application/pending-requests/controller";
 import type { ChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
 import type { ChatRuntimeSharedResources } from "../../application/runtime/snapshot";
-import { executePanelSlashCommand, type PanelSlashCommandHost } from "../../application/slash-commands/execute-with-state";
+import { executePanelSlashCommand, type PanelSlashCommandHost } from "../../application/slash-commands/execute";
 import { activeThreadId } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import { type ComposerSubmitCommandHost, submitComposer } from "../../application/submission/composer-submit-command";

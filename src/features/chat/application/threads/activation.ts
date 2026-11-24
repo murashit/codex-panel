@@ -1,8 +1,13 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/usage";
 import { errorMessage } from "../../../../domain/text/error-message";
 import type { Thread, ThreadActivationSnapshot } from "../../../../domain/threads/model";
-import { activeThreadState, awaitingResumeThreadState } from "../state/model";
-import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
+import {
+  activeThreadState,
+  awaitingResumeThreadState,
+  capturePanelTargetLease,
+  type PanelTargetLease,
+  panelTargetLeaseIsCurrent,
+} from "../state/model";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamIsEmpty } from "../state/thread-stream";
 import { resumedThreadAction } from "../state/transition-actions";

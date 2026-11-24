@@ -8,7 +8,7 @@ import type { HookItem, ModelMetadata, ReasoningEffort } from "../../src/domain/
 import type { Thread } from "../../src/domain/threads/model";
 import { createThreadMutationAdapter } from "../../src/features/threads/app-server/workflow-adapters";
 import { createThreadMutationCommands } from "../../src/features/threads/workflows/thread-mutation-commands";
-import type { SettingsResources } from "../../src/settings/application/resources";
+import type { SettingsResources } from "../../src/settings/application/resources-controller";
 import type { SettingsTabHost } from "../../src/settings/host/contracts";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/preferences";
 import { panelThreadFixture } from "../support/panel-thread";

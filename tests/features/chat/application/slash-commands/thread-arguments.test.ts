@@ -6,7 +6,7 @@ import {
   partialThreadTitleQuery,
   quotedThreadTitleArgument,
   threadCommandTargetForDraft,
-} from "../../../../../src/features/chat/application/slash-commands/thread-arguments";
+} from "../../../../../src/features/chat/application/slash-commands/arguments";
 
 describe("slash command thread arguments", () => {
   it("round-trips arbitrary quoted titles with a following argument", () => {

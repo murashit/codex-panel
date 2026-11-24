@@ -3,7 +3,6 @@ import { splitUtf8Context, truncateUtf8, utf8ByteLength } from "../../domain/tex
 import type { AdditionalContextEntry as AppServerAdditionalContextEntry } from "../../generated/app-server/v2/AdditionalContextEntry";
 import type { TurnStartParams } from "../../generated/app-server/v2/TurnStartParams";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
-import { contextIdPart } from "./context-id";
 
 type AppServerUserInput = Extract<UserInput, { type: "text" | "image" | "localImage" | "skill" }>;
 type AppServerUserInputImageDetail = NonNullable<Extract<UserInput, { type: "image" }>["detail"]>;
@@ -98,4 +97,9 @@ function appServerImageDetailProp(detail: Extract<CodexInputItem, { type: "image
   detail?: AppServerUserInputImageDetail;
 } {
   return detail === undefined ? {} : { detail };
+}
+
+function contextIdPart(value: string): string {
+  const safe = value.replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 120);
+  return safe || "context";
 }

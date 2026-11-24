@@ -1,9 +1,8 @@
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { ThreadStreamAuditFact, ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
+import { parseThreadAndTextArgs, parseWebCommandArgs, resolveThreadArgument, usageError } from "./arguments";
 import { type GoalSubcommandDefinition, goalSubcommandDefinition } from "./catalog";
-import { parseThreadAndTextArgs, resolveThreadArgument, usageError } from "./execution-arguments";
 import type { SlashCommandExecutionContext, SlashCommandExecutionResult } from "./execution-contracts";
-import { parseWebCommandArgs } from "./parse";
 
 export type ContextSlashCommandName = "refer" | "web" | "goal";
 

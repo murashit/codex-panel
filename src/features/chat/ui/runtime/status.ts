@@ -3,7 +3,7 @@ import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } fro
 import { jsonPreview } from "../../../../shared/ui/json-preview";
 import { collaborationModeLabel, pendingRuntimeSettingLabel, serviceTierLabel } from "../../domain/runtime/labels";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
-import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
+import type { RuntimeSnapshot } from "../../domain/runtime/state";
 import type { ToolbarStatusRow as DiagnosticRow, RateLimitSummary } from "../toolbar/model";
 
 interface ContextSummary {

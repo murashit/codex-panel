@@ -1,8 +1,7 @@
 import { errorMessage } from "../../../../domain/text/error-message";
 import type { EffectOutcome } from "../effect-outcome";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
-import { activeThreadId, type ChatState } from "../state/model";
-import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
+import { activeThreadId, type ChatState, capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamItems, threadStreamRollbackCandidate } from "../state/thread-stream";
 import { chatThreadStreamViewState } from "../state/turn-scope";

@@ -19,15 +19,13 @@ import {
 } from "../../domain/runtime/intent";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
-import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import type { ActiveThreadRuntimeState, PendingRuntimeIntentState } from "../../domain/runtime/state";
+import type { ActiveThreadRuntimeState, PendingRuntimeIntentState, RuntimeSnapshot } from "../../domain/runtime/state";
 import {
   pendingRuntimeSettingsPatch as buildPendingRuntimeSettingsPatch,
   type PendingRuntimeSettingsPatch,
 } from "../../domain/runtime/thread-settings-patch";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
-import { activeThreadId, type ChatState } from "../state/model";
-import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
+import { activeThreadId, type ChatState, capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/model";
 import type { ChatAction } from "../state/reducer";
 import type { ChatStateStore } from "../state/store";
 

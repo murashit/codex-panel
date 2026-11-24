@@ -1,6 +1,6 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { parseWebCommandArgs } from "../../../../../src/features/chat/application/slash-commands/parse";
+import { parseWebCommandArgs } from "../../../../../src/features/chat/application/slash-commands/arguments";
 
 describe("parseWebCommandArgs", () => {
   it("preserves web URL and message content across separating whitespace", () => {

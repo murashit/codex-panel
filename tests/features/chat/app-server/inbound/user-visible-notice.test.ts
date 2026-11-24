@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { UserVisibleNoticeNotification } from "../../../../../src/features/chat/app-server/inbound/notification-routing";
-import { userVisibleNoticeItem } from "../../../../../src/features/chat/app-server/inbound/user-visible-notice";
+import { userVisibleNoticeItem } from "../../../../../src/features/chat/app-server/inbound/runtime-fact-adapter";
 
 function visibleText(notification: UserVisibleNoticeNotification): string {
   const item = userVisibleNoticeItem(notification, "notice-1");

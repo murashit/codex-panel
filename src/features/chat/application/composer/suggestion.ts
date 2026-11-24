@@ -1,4 +1,4 @@
-import type { ThreadCommandTarget } from "../slash-commands/thread-arguments";
+import type { ThreadCommandTarget } from "../slash-commands/arguments";
 import type { ActiveNoteContextReference, SelectionContextReference } from "./context-references";
 
 export interface ComposerSuggestion {

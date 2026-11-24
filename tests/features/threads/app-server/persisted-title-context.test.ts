@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { AppServerRequestClient } from "../../../../src/app-server/services/request-client";
-import { readPersistedTitleContext } from "../../../../src/features/threads/app-server/persisted-title-context";
+import { readPersistedTitleContext } from "../../../../src/features/threads/app-server/workflow-adapters";
 import { appServerTurnFixture } from "../../../support/app-server-records";
 
 describe("persisted title context", () => {

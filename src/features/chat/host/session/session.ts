@@ -8,11 +8,12 @@ import {
   activeThreadState,
   awaitingResumeThreadState,
   type ChatState,
+  capturePanelTargetLease,
   isSideChatLifetime,
+  panelTargetLeaseIsCurrent,
   panelThreadId,
   panelThreadProvenance,
 } from "../../application/state/model";
-import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../application/state/panel-target";
 import { type ChatStateStore, createChatStateStore } from "../../application/state/store";
 import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
 import type { ForkDraftPreparation } from "../../application/threads/fork-draft";

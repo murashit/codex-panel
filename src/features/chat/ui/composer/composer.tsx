@@ -2,8 +2,8 @@ import type { Ref, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { disposeDomListeners, listenDomEscapeKey, listenDomEvent, listenOutsideDomEvent } from "../../../../shared/ui/events.dom";
 import { Icon, IconButton } from "../../../../shared/ui/icon.dom";
+import { syncTextareaHeight } from "../../../../shared/ui/textarea-autogrow.measure";
 import type { OrdinaryComposerAction } from "../../domain/composer/action";
-import { syncComposerHeight } from "./height";
 
 interface ComposerSuggestion {
   display: string;
@@ -680,4 +680,14 @@ export function scrollComposerSuggestionIntoView(container: HTMLElement, option:
   } else if (optionBottom > viewportBottom) {
     container.scrollTop = Math.max(0, optionBottom - container.clientHeight);
   }
+}
+
+export function syncComposerHeight(composer: HTMLTextAreaElement | null): boolean {
+  const previousHeight = composer?.style.height ?? "";
+  const previousOverflowY = composer?.style.overflowY ?? "";
+  syncTextareaHeight(composer, {
+    minHeightFallback: 56,
+    maxHeightFallback: composer ? Math.min(208, composer.win.innerHeight * 0.4) : 208,
+  });
+  return Boolean(composer && (composer.style.height !== previousHeight || composer.style.overflowY !== previousOverflowY));
 }

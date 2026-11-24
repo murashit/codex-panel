@@ -1,8 +1,10 @@
-import type { CodexInput } from "../../../../domain/input/input";
-import { contextAttachmentsFromInput } from "../../domain/thread-stream/format/context-attachments";
-import { fileReferencesFromInput } from "../../domain/thread-stream/format/file-references";
+import { ACTIVE_FILE_REFERENCE_NAME, type CodexInput, type CodexInputItem, WEB_CONTEXT_KEY } from "../../../../domain/input/input";
 import { userMessageDisplayText } from "../../domain/thread-stream/format/user-message-text";
-import type { UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
+import type {
+  ThreadStreamContextAttachment,
+  ThreadStreamFileReference,
+  UserThreadStreamDialogueItem,
+} from "../../domain/thread-stream/items";
 import { isLocalSteerDialogueClientId } from "../../domain/thread-stream/local-dialogue-ids";
 import type { ThreadStreamItemProvenance } from "../../domain/thread-stream/provenance";
 
@@ -40,4 +42,35 @@ function localUserDialogueProvenance(id: string, interaction?: "prompt" | "steer
     interaction: interaction ?? (isLocalSteerDialogueClientId(id) ? "steer" : "prompt"),
     sourceId: id,
   };
+}
+
+function contextAttachmentsFromInput(input: readonly CodexInputItem[]): ThreadStreamContextAttachment[] {
+  return input.flatMap((item) => {
+    if (item.type !== "additionalContext" || item.key !== WEB_CONTEXT_KEY) return [];
+    const source = webContextSource(item.value);
+    return [{ label: "Web page", ...(source ? { detail: source } : {}) }];
+  });
+}
+
+function webContextSource(value: string): string | null {
+  const sourceLine = value.split("\n").find((line) => line.startsWith("Source:"));
+  const source = sourceLine?.slice("Source:".length).trim() ?? "";
+  return source || null;
+}
+
+const ACTIVE_FILE_DISPLAY_NAME = "Active file";
+
+function fileReferencesFromInput(input: readonly CodexInputItem[]): ThreadStreamFileReference[] {
+  const seenFilePaths = new Set<string>();
+  const seenActiveNotePaths = new Set<string>();
+  const fileReferences: ThreadStreamFileReference[] = [];
+  for (const reference of input) {
+    if (reference.type !== "fileReference") continue;
+    const activeFileReference = reference.name === ACTIVE_FILE_REFERENCE_NAME;
+    const seen = activeFileReference ? seenActiveNotePaths : seenFilePaths;
+    if (seen.has(reference.path)) continue;
+    seen.add(reference.path);
+    fileReferences.push({ name: activeFileReference ? ACTIVE_FILE_DISPLAY_NAME : reference.name, path: reference.path });
+  }
+  return fileReferences;
 }

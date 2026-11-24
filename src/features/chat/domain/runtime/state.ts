@@ -1,11 +1,12 @@
-import type { ReasoningEffort } from "../../../../domain/runtime/catalog";
+import type { ModelMetadata, ReasoningEffort } from "../../../../domain/runtime/catalog";
 import {
   initialRuntimePermissionKnownState,
   initialRuntimePermissionState,
   type RuntimePermissionKnownState,
   type RuntimePermissionState,
 } from "../../../../domain/runtime/permissions";
-import type { ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/settings";
+import type { ApprovalsReviewer, RuntimeConfigSnapshot, ServiceTier } from "../../../../domain/runtime/settings";
+import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/usage";
 import {
   type ActiveCollaborationMode,
   type CollaborationModeIntent,
@@ -78,4 +79,15 @@ export function confirmRuntimeIntentState(state: ChatRuntimeState, intents: Part
     if (pending[key] === intents[key]) pending[key] = unchangedRuntimeIntent();
   }
   return { ...state, pending };
+}
+
+export interface RuntimeSnapshot {
+  runtimeConfig: RuntimeConfigSnapshot | null;
+  activeThreadId: string | null;
+  active: ActiveThreadRuntimeState;
+  pending: PendingRuntimeIntentState;
+  tokenUsage: ThreadTokenUsage | null;
+  rateLimit: RateLimitSnapshot | null;
+  hasThreadTurns: boolean;
+  availableModels: readonly ModelMetadata[];
 }
