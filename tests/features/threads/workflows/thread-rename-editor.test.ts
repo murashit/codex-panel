@@ -159,6 +159,34 @@ describe("thread rename editor", () => {
     expect(states.get("thread")).toEqual({ kind: "editing", draft: "My title", autoName: { kind: "ready", context } });
   });
 
+  it.each(["success", "failure"])("preserves a newer save when an invalidated save settles with %s", async (outcome) => {
+    const old = deferred<void>();
+    const current = deferred<void>();
+    const renameThread = vi
+      .fn<ThreadRenameEditorHost["renameThread"]>()
+      .mockReturnValueOnce(old.promise)
+      .mockReturnValueOnce(current.promise);
+    const reportError = vi.fn();
+    const { editor, states } = fixture({ renameThread, reportError });
+
+    editor.start("thread");
+    const first = editor.save("thread", "First");
+    await flushPromises();
+    editor.invalidate();
+    editor.start("thread");
+    const second = editor.save("thread", "Second");
+    await flushPromises();
+
+    if (outcome === "success") old.resolve();
+    else old.reject(new Error("Old save failed"));
+    await first;
+    expect(renameThread.mock.calls[1]?.[2]()).toBe(true);
+    expect(reportError).not.toHaveBeenCalled();
+    current.resolve();
+    await second;
+    expect(states.has("thread")).toBe(false);
+  });
+
   it("releases an exclusive save after its externally owned state is replaced", async () => {
     const saved = deferred<void>();
     const renameThread = vi.fn(() => saved.promise);
