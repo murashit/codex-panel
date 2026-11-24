@@ -14,6 +14,11 @@ expectedTurnId: string,
  */
 allowInProgressTurn?: boolean, prompt: string,
 /**
+ * Override the model for this sample.
+ * Omit or pass `null` to inherit the source thread's model.
+ */
+model?: string | null,
+/**
  * Applied only when the provider and model support cache-preserving reasoning-effort updates.
  */
 effort?: ReasoningEffort | null, threadSource?: ThreadSource | null, turnTrigger?: string | null,

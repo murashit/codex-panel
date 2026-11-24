@@ -149,6 +149,11 @@ name: string | null,
  */
 daybreakEnabled: boolean | null,
 /**
+ * Whether the live thread joined the Daybreak propagation experiment at startup.
+ * Null when only stored metadata is available. Older servers can omit this field.
+ */
+daybreakProgramPropagationEnrolled: boolean | null,
+/**
  * Only populated on `thread/resume`, `thread/fork`, and `thread/read`
  * (when `includeTurns` is true) responses.
  * For all other responses and notifications returning a Thread,
