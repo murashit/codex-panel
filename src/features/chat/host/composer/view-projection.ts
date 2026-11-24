@@ -13,7 +13,7 @@ import {
 import { threadStreamItems } from "../../application/state/thread-stream";
 import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import { activeTurnId, chatTurnBusy } from "../../application/turns/turn-state";
-import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
+import type { RuntimeSnapshot } from "../../domain/runtime/state";
 import type { ComposerShellProps } from "../../ui/composer/composer";
 import { composerPresentation } from "../../ui/composer/presentation";
 

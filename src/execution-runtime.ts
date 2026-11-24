@@ -26,7 +26,7 @@ import { createThreadMutationCommands, type ThreadMutationCommands } from "./fea
 import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import type { ThreadsRuntimeView } from "./features/threads-view/view.obsidian";
-import type { SettingsResources } from "./settings/application/resources";
+import type { SettingsResources } from "./settings/application/resources-controller";
 import type { CodexPanelSettings } from "./settings/preferences";
 import { createKeyedOperationCoordinator } from "./shared/async/keyed-operation-coordinator";
 import { createObsidianVaultMarkdownDestination } from "./shared/vault/write-destination.obsidian";

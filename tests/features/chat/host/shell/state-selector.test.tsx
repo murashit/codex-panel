@@ -5,7 +5,7 @@ import { act } from "preact/test-utils";
 import { describe, expect, it } from "vitest";
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
 import type { ChatStateSource } from "../../../../../src/features/chat/application/state/store";
-import type { RuntimeSnapshot } from "../../../../../src/features/chat/domain/runtime/snapshot";
+import type { RuntimeSnapshot } from "../../../../../src/features/chat/domain/runtime/state";
 import { selectChatPanelComposer } from "../../../../../src/features/chat/host/composer/view-projection";
 import { useChatSelector } from "../../../../../src/features/chat/host/shell/state-selector";
 import { selectChatPanelToolbar } from "../../../../../src/features/chat/host/toolbar/view-projection";

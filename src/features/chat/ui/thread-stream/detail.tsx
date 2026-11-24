@@ -1,7 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
-
 import { RawDiffView } from "../../../../shared/ui/diff-view";
-import { OpenAgentThreadAction } from "./agent-thread-action";
+import { IconButton } from "../../../../shared/ui/icon.dom";
 import type { ThreadStreamDisclosureState } from "./context";
 import { type DetailSection, type DetailView, threadStreamExecutionClassName } from "./model";
 
@@ -143,5 +142,26 @@ function OutputSection({ title, className, children }: { title: string; classNam
       <div className="codex-panel__output-title">{title}</div>
       {children}
     </div>
+  );
+}
+
+function OpenAgentThreadAction({
+  threadId,
+  openThreadInNewView,
+}: {
+  threadId: string;
+  openThreadInNewView: (threadId: string) => void;
+}): UiNode {
+  return (
+    <IconButton
+      icon="external-link"
+      label="Open agent thread"
+      className="clickable-icon codex-panel__hover-action codex-panel__agent-open-thread"
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openThreadInNewView(threadId);
+      }}
+    />
   );
 }

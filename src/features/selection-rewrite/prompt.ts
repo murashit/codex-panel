@@ -1,5 +1,16 @@
+import type { EditorPosition } from "obsidian";
 import { backtickDelimiter } from "../../domain/text/markdown";
-import type { SelectionRewriteInput } from "./model";
+
+export interface SelectionRewriteInput {
+  readonly filePath: string;
+  readonly targetRange: {
+    readonly from: EditorPosition;
+    readonly to: EditorPosition;
+  };
+  readonly selectionOffsets: { readonly from: number; readonly to: number };
+  readonly originalText: string;
+  readonly noteText: string;
+}
 
 const MAX_NOTE_CONTEXT_CHARS = 20_000;
 

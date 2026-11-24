@@ -4,8 +4,7 @@ import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items"
 import type { EffectOutcome } from "../effect-outcome";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
-import { activeThreadId } from "../state/model";
-import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
+import { activeThreadId, capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 import type { ComposerSubmissionAdoption } from "../submission/input-claim";
 import type { ThreadStartCommand } from "./thread-start-command";

@@ -1,6 +1,6 @@
 import type { ModelMetadata } from "../../../../../src/domain/runtime/catalog";
 import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../../src/domain/runtime/settings";
-import type { RuntimeSnapshot } from "../../../../../src/features/chat/domain/runtime/snapshot";
+import type { RuntimeSnapshot } from "../../../../../src/features/chat/domain/runtime/state";
 import { initialChatRuntimeState } from "../../../../../src/features/chat/domain/runtime/state";
 import { modelMetadataFixture } from "../../../../support/model-metadata";
 import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";

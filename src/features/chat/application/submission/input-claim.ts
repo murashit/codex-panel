@@ -1,6 +1,5 @@
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
-import { type ChatState, panelThreadId } from "../state/model";
-import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
+import { type ChatState, capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent, panelThreadId } from "../state/model";
 
 export interface ComposerSubmissionAdoption {
   readonly isCurrent: () => boolean;

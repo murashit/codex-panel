@@ -6,8 +6,7 @@ import {
 } from "../../../../domain/runtime/settings";
 import type { PendingRuntimeIntent } from "./intent";
 import { type RuntimeControlsResolution, resolveRuntimeControls } from "./resolution";
-import type { RuntimeSnapshot } from "./snapshot";
-import type { PendingRuntimeIntentState } from "./state";
+import type { PendingRuntimeIntentState, RuntimeSnapshot } from "./state";
 
 type TurnCollaborationModeWarning = "missing-model";
 

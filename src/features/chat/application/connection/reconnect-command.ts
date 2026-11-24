@@ -1,6 +1,12 @@
 import { errorMessage } from "../../../../domain/text/error-message";
-import { activeThreadId, activeThreadState, type ChatConnectionPhase, panelThreadId } from "../state/model";
-import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
+import {
+  activeThreadId,
+  activeThreadState,
+  type ChatConnectionPhase,
+  capturePanelTargetLease,
+  panelTargetLeaseIsCurrent,
+  panelThreadId,
+} from "../state/model";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadResumeActivation } from "../threads/activation";
 

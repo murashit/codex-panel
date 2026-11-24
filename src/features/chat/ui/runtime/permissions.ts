@@ -1,7 +1,7 @@
 import type { RuntimeApprovalPolicy, RuntimeSandboxPolicy } from "../../../../domain/runtime/permissions";
 import { type ApprovalsReviewer, runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
 import { type RuntimeControlsResolution, resolveRuntimeControls } from "../../domain/runtime/resolution";
-import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
+import type { RuntimeSnapshot } from "../../domain/runtime/state";
 import type { ToolbarStatusRow as DiagnosticRow, ToolbarStatusSection as DiagnosticSection } from "../toolbar/model";
 
 interface RuntimePermissionSectionsInput {

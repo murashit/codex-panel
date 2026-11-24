@@ -1,20 +1,14 @@
 import type { ServerInitialization } from "../../../../domain/runtime/metadata";
 import type { ThreadTokenUsage } from "../../../../domain/runtime/usage";
 import type { Thread, ThreadReadReceipt } from "../../../../domain/threads/model";
-import type { ChatRuntimeState } from "../../domain/runtime/state";
-import { initialChatRuntimeState } from "../../domain/runtime/state";
-import type { ChatRequestState } from "../pending-requests/state";
-import { initialChatRequestState } from "../pending-requests/state";
+import { type ChatRuntimeState, initialChatRuntimeState } from "../../domain/runtime/state";
+import { type ChatRequestState, initialChatRequestState } from "../pending-requests/state";
 import type { ForkDraft, ForkReplacement } from "../threads/fork-draft";
-import type { ChatComposerState } from "./composer";
-import { initialComposerState } from "./composer";
+import { type ChatComposerState, initialComposerState } from "./composer";
 import type { ChatPendingSubmissionState } from "./pending-submission";
-import type { ChatThreadStreamState } from "./thread-stream";
-import { initialChatThreadStreamState } from "./thread-stream";
-import type { ChatActiveTurnState } from "./turn-scope";
-import { initialChatActiveTurnState } from "./turn-scope";
-import type { ChatUiState } from "./ui";
-import { initialUiState } from "./ui";
+import { type ChatThreadStreamState, initialChatThreadStreamState } from "./thread-stream";
+import { type ChatActiveTurnState, initialChatActiveTurnState } from "./turn-scope";
+import { type ChatUiState, initialUiState } from "./ui";
 
 export type ChatConnectionPhase =
   | { kind: "idle" }
@@ -168,3 +162,25 @@ type DeepReadonly<T> = T extends (...args: never[]) => unknown
         : T extends object
           ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
           : T;
+
+export interface PanelTargetLease {
+  readonly revision: number;
+  readonly threadId: string | null;
+}
+
+export function capturePanelTargetLease(state: ChatState): PanelTargetLease {
+  return {
+    revision: state.panelTargetRevision,
+    threadId: panelThreadId(state) || null,
+  };
+}
+
+export function panelTargetLeaseIsCurrent(state: ChatState, lease: PanelTargetLease): boolean {
+  // Server ID assignment materializes the same local conversation. Explicit
+  // navigation increments the revision, including a round trip to the same ID.
+  return state.panelTargetRevision === lease.revision;
+}
+
+export function panelTargetLeasesMatch(left: PanelTargetLease, right: PanelTargetLease): boolean {
+  return left.revision === right.revision;
+}

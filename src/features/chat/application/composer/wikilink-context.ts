@@ -6,8 +6,7 @@ import {
   type VaultFileReference,
 } from "../../../../domain/input/input";
 import type { SkillMetadata } from "../../../../domain/runtime/catalog";
-import { type MarkdownCodeRange, markdownCodeRangeContainsOffset, markdownCodeRanges } from "../../domain/markdown/code-ranges";
-import { markdownCodeSpan } from "../../domain/markdown/code-span";
+import { type MarkdownCodeRange, markdownCodeRangeContainsOffset, markdownCodeRanges, markdownCodeSpan } from "../../domain/markdown/code";
 import {
   type ActiveNoteContextReference,
   activeNoteContextReferenceMarker,

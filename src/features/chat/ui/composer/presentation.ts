@@ -3,7 +3,7 @@ import { sortedModelMetadata } from "../../../../domain/runtime/catalog";
 import { runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
 import { compactReasoningEffortLabel } from "../../domain/runtime/labels";
 import { type RuntimeControlsResolution, resolveRuntimeControls } from "../../domain/runtime/resolution";
-import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
+import type { RuntimeSnapshot } from "../../domain/runtime/state";
 import { contextSummary } from "../runtime/status";
 import type { ComposerMetaViewModel } from "./composer";
 

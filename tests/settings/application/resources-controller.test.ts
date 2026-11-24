@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { HookCatalog, HookItem, ModelMetadata } from "../../../src/domain/runtime/catalog";
 import type { Thread } from "../../../src/domain/threads/model";
-import type { SettingsResources } from "../../../src/settings/application/resources";
+import type { SettingsResources } from "../../../src/settings/application/resources-controller";
 import { SettingsResourcesController } from "../../../src/settings/application/resources-controller";
 import type { ObservedResult } from "../../../src/shared/async/observed-result";
 import { deferred } from "../../support/async";

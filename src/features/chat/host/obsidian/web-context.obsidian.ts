@@ -1,12 +1,10 @@
 import Defuddle from "defuddle";
 import { htmlToMarkdown, type RequestUrlResponse, requestUrl } from "obsidian";
-
-import { codexTextInputWithAttachments } from "../../../../domain/input/input";
+import { codexTextInputWithAttachments, WEB_CONTEXT_KEY } from "../../../../domain/input/input";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
 import type { NoteCandidateProvider } from "../../application/composer/note-context";
 import { type PreparedInput, prepareComposerInput } from "../../application/composer/prepared-input";
 import { normalizedHttpUrl } from "../../application/submission/web-submission";
-import { WEB_CONTEXT_KEY } from "../../domain/thread-stream/format/context-attachments";
 
 interface WebContextReaderOptions {
   resolveFileReference: NoteCandidateProvider["resolveFileReference"];

@@ -7,7 +7,7 @@ import type { ChatRuntimeSettingsCommands } from "../runtime/settings-commands";
 import type { ComposerSubmissionAdoption } from "../submission/input-claim";
 import type { GoalCommands } from "../threads/goal-commands";
 import type { ThreadCommands } from "../threads/thread-commands";
-import type { ThreadCommandTarget } from "./thread-arguments";
+import type { ThreadCommandTarget } from "./arguments";
 
 export interface SlashCommandExecutionPorts {
   startNewThread: () => Promise<void>;

@@ -1,4 +1,9 @@
-import type { SelectionRewriteRuntimeSettings } from "./model";
+import type { ReasoningEffort } from "../../domain/runtime/catalog";
+
+export interface SelectionRewriteRuntimeSettings {
+  rewriteSelectionModel: string | null;
+  rewriteSelectionEffort: ReasoningEffort | null;
+}
 
 type SelectionRewriteActivity = "reasoning" | "writing";
 

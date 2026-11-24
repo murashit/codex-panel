@@ -8,8 +8,12 @@ import { createLocalIdSource, type LocalIdSource } from "../../application/local
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { createChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
 import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
-import { activeThreadId, type ChatConnectionPhase } from "../../application/state/model";
-import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../application/state/panel-target";
+import {
+  activeThreadId,
+  type ChatConnectionPhase,
+  capturePanelTargetLease,
+  panelTargetLeaseIsCurrent,
+} from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import type { ForkDraftPreparation } from "../../application/threads/fork-draft";
 import { sideChatDraft } from "../../application/threads/fork-draft";

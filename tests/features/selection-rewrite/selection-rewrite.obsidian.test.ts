@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EphemeralStructuredTurnRunner } from "../../../src/app-server/services/ephemeral-structured-turn";
 import { createAppServerSelectionRewriteAdapter } from "../../../src/features/selection-rewrite/app-server-adapter";
 import { buildSelectionDiffLines } from "../../../src/features/selection-rewrite/diff";
-import type { SelectionRewriteInput } from "../../../src/features/selection-rewrite/model";
 import {
   openSelectionRewritePopover,
   type SelectionRewritePopoverHandle,
@@ -14,6 +13,7 @@ import {
 } from "../../../src/features/selection-rewrite/popover.dom";
 import { SelectionRewriteOutputError, type SelectionRewritePortRequest } from "../../../src/features/selection-rewrite/port";
 import { positionSelectionRewritePopover } from "../../../src/features/selection-rewrite/position.dom";
+import type { SelectionRewriteInput } from "../../../src/features/selection-rewrite/prompt";
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
 import { appServerAgentMessageFixture as agentMessage, appServerCompletedTurnFixture as turn } from "../../support/app-server-records";
 import { deferred } from "../../support/async";

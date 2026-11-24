@@ -15,7 +15,7 @@ import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import { CodexThreadsView, type ThreadsRuntimeView, type ThreadsViewRuntimeOwner } from "./features/threads-view/view.obsidian";
 import type { TurnDiffViewState } from "./features/turn-diff/model";
 import { CodexTurnDiffView } from "./features/turn-diff/view.obsidian";
-import type { SettingsResources } from "./settings/application/resources";
+import type { SettingsResources } from "./settings/application/resources-controller";
 import type { SettingsTabHost } from "./settings/host/contracts";
 import type { CodexPanelSettings } from "./settings/preferences";
 import { OwnerLifetime } from "./shared/async/owner-lifetime";

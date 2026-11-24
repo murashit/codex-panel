@@ -1,7 +1,6 @@
 import { errorMessage } from "../../../../domain/text/error-message";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
-import { activeThreadId, type ChatState } from "../state/model";
-import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
+import { activeThreadId, type ChatState, capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/model";
 import type { ChatAction } from "../state/reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamItems } from "../state/thread-stream";

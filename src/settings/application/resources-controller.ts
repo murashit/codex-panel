@@ -1,10 +1,18 @@
-import type { HookCatalog, HookItem, ModelMetadata, ReasoningEffort } from "../../domain/runtime/catalog";
-import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../../domain/runtime/catalog";
+import {
+  findModelMetadataByIdOrName,
+  type HookCatalog,
+  type HookItem,
+  type ModelMetadata,
+  type ReasoningEffort,
+  sortedModelMetadata,
+  supportedEffortsForModelMetadata,
+} from "../../domain/runtime/catalog";
 import { errorMessage } from "../../domain/text/error-message";
 import type { Thread } from "../../domain/threads/model";
-import type { ObservedResult } from "../../shared/async/observed-result";
+import type { ThreadCatalogArchivedReader } from "../../features/threads/catalog/thread-catalog";
+import type { ThreadMutationCommands } from "../../features/threads/workflows/thread-mutation-commands";
+import type { ObservedResult, ResultObservation } from "../../shared/async/observed-result";
 import { OwnerLifetime } from "../../shared/async/owner-lifetime";
-import type { SettingsResources } from "./resources";
 
 interface SettingsResourcesControllerCallbacks {
   display(): void;
@@ -235,4 +243,20 @@ function lifecycleFromObservedResult<T>(result: ObservedResult<T> | undefined, l
   if (result?.isFetching) return { kind: "loading" };
   if (result?.error) return { kind: "failed", error: `${label}: ${result.error.message}` };
   return { kind: "idle" };
+}
+
+export interface SettingsResources {
+  readonly queries: SettingsResourceQueries;
+  readonly threadCatalog: ThreadCatalogArchivedReader;
+  readonly threadMutations: Pick<ThreadMutationCommands, "restoreThread" | "deleteThread">;
+}
+
+interface SettingsResourceQueries {
+  watchModels(changed: () => void): ResultObservation<readonly ModelMetadata[]>;
+  watchHooks(changed: () => void): ResultObservation<HookCatalog>;
+  fetchModels(): Promise<readonly ModelMetadata[]>;
+  refreshModels(): Promise<readonly ModelMetadata[]>;
+  refreshHooks(): Promise<void>;
+  trustHook(hook: HookItem): Promise<void>;
+  setHookEnabled(hook: HookItem, enabled: boolean): Promise<void>;
 }

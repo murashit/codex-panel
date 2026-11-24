@@ -10,9 +10,10 @@ import { renderObsidianUiRoot } from "../../shared/ui/preact-root.obsidian";
 import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow.measure";
 import { textareaCursorAtVisualBoundary } from "../../shared/ui/textarea-caret.measure";
 import { buildSelectionDiffLines } from "./diff";
-import type { SelectionRewriteInput, SelectionRewriteRuntimeSettings } from "./model";
+import type { SelectionRewriteRuntimeSettings } from "./port";
 import { SelectionRewriteOutputError, type SelectionRewritePort } from "./port";
 import { positionSelectionRewritePopover } from "./position.dom";
+import type { SelectionRewriteInput } from "./prompt";
 import { buildSelectionRewritePrompt } from "./prompt";
 import type { RewriteTarget } from "./target.obsidian";
 

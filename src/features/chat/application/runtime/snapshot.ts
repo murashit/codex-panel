@@ -1,5 +1,5 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/usage";
-import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
+import type { RuntimeSnapshot } from "../../domain/runtime/state";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { activeThreadState, type ChatState } from "../state/model";
 import { threadStreamItems } from "../state/thread-stream";
