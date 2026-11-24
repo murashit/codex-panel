@@ -1,4 +1,3 @@
-import { userInputDraftKey, userInputOtherDraftKey } from "../../domain/pending-requests/drafts";
 import type {
   McpElicitationFieldEdit,
   PendingApproval,
@@ -13,15 +12,21 @@ export interface ChatRequestState {
   readonly approvals: readonly PendingApproval[];
   readonly pendingUserInputs: readonly PendingUserInput[];
   readonly pendingMcpElicitations: readonly PendingMcpElicitation[];
-  readonly userInputDrafts: ReadonlyMap<string, string>;
 }
 
 export type RequestAction =
   | { type: "request/approval-queued"; approval: PendingApproval }
   | { type: "request/user-input-queued"; input: PendingUserInput }
-  | { type: "request/user-input-auto-resolution-extended"; requestId: PendingRequestId; autoResolutionAtMs: number }
+  | { type: "request/user-input-timeout-failed"; input: PendingUserInput }
   | { type: "request/mcp-elicitation-queued"; elicitation: PendingMcpElicitation }
-  | { type: "request/user-input-draft-set"; key: string; value: string }
+  | {
+      type: "request/user-input-draft-set";
+      requestId: PendingRequestId;
+      questionId: string;
+      value: string;
+      other?: boolean;
+      autoResolutionAtMs: number | null;
+    }
   | { type: "request/mcp-elicitation-field-set"; requestId: PendingRequestId; fieldId: string; edit: McpElicitationFieldEdit };
 
 export function initialChatRequestState(): ChatRequestState {
@@ -29,7 +34,6 @@ export function initialChatRequestState(): ChatRequestState {
     approvals: [],
     pendingUserInputs: [],
     pendingMcpElicitations: [],
-    userInputDrafts: new Map(),
   };
 }
 
@@ -41,17 +45,23 @@ export function reduceRequestSlice(state: ChatRequestState, action: RequestActio
     case "request/user-input-queued":
       if (state.pendingUserInputs.some((existing) => existing.requestId === action.input.requestId)) return state;
       return patchObject(state, { pendingUserInputs: [...state.pendingUserInputs, action.input] });
-    case "request/user-input-auto-resolution-extended":
+    case "request/user-input-timeout-failed":
+      if (!state.pendingUserInputs.includes(action.input)) return state;
       return patchObject(state, {
-        pendingUserInputs: state.pendingUserInputs.map((input) =>
-          input.requestId === action.requestId ? { ...input, autoResolutionAtMs: action.autoResolutionAtMs } : input,
-        ),
+        pendingUserInputs: state.pendingUserInputs.map((item) => (item === action.input ? { ...item, autoResolutionAtMs: null } : item)),
       });
     case "request/mcp-elicitation-queued":
       if (state.pendingMcpElicitations.some((existing) => existing.requestId === action.elicitation.requestId)) return state;
       return patchObject(state, { pendingMcpElicitations: [...state.pendingMcpElicitations, action.elicitation] });
-    case "request/user-input-draft-set":
-      return setUserInputDraftSlice(state, action.key, action.value);
+    case "request/user-input-draft-set": {
+      const input = state.pendingUserInputs.find((item) => item.requestId === action.requestId);
+      const question = input?.params.questions.find((item) => item.id === action.questionId);
+      if (!input || !question) return state;
+      const edited = { ...question, draft: action.value, ...(action.other ? { otherDraft: action.value } : {}) };
+      const questions = input.params.questions.map((item) => (item === question ? edited : item));
+      const updated = { ...input, autoResolutionAtMs: action.autoResolutionAtMs, params: { ...input.params, questions } };
+      return patchObject(state, { pendingUserInputs: state.pendingUserInputs.map((item) => (item === input ? updated : item)) });
+    }
     case "request/mcp-elicitation-field-set": {
       const elicitation = state.pendingMcpElicitations.find((item) => item.requestId === action.requestId);
       if (elicitation?.params.mode !== "form") return state;
@@ -71,30 +81,16 @@ export function reduceRequestSlice(state: ChatRequestState, action: RequestActio
 }
 
 export function resolveChatRequest(state: ChatRequestState, requestId: PendingRequestId): ChatRequestState {
-  const resolvedInputs = state.pendingUserInputs.filter((input) => input.requestId === requestId);
-  const hasResolvedApproval = state.approvals.some((approval) => approval.requestId === requestId);
-  const resolvedMcpElicitations = state.pendingMcpElicitations.filter((elicitation) => elicitation.requestId === requestId);
-  if (!hasResolvedApproval && resolvedInputs.length === 0 && resolvedMcpElicitations.length === 0) return state;
-
-  let userInputDrafts: Map<string, string> | null = null;
-  for (const input of resolvedInputs) {
-    for (const question of input.params.questions) {
-      userInputDrafts ??= new Map(state.userInputDrafts);
-      userInputDrafts.delete(userInputDraftKey(requestId, question.id));
-      userInputDrafts.delete(userInputOtherDraftKey(requestId, question.id));
-    }
-  }
-  return patchObject(state, {
-    approvals: state.approvals.filter((approval) => approval.requestId !== requestId),
-    pendingUserInputs: state.pendingUserInputs.filter((input) => input.requestId !== requestId),
-    pendingMcpElicitations: state.pendingMcpElicitations.filter((elicitation) => elicitation.requestId !== requestId),
-    userInputDrafts: userInputDrafts ?? state.userInputDrafts,
-  });
-}
-
-function setUserInputDraftSlice(state: ChatRequestState, key: string, value: string): ChatRequestState {
-  if (state.userInputDrafts.get(key) === value) return state;
-  return patchObject(state, { userInputDrafts: new Map(state.userInputDrafts).set(key, value) });
+  const approvals = state.approvals.filter((item) => item.requestId !== requestId);
+  const pendingUserInputs = state.pendingUserInputs.filter((item) => item.requestId !== requestId);
+  const pendingMcpElicitations = state.pendingMcpElicitations.filter((item) => item.requestId !== requestId);
+  if (
+    approvals.length === state.approvals.length &&
+    pendingUserInputs.length === state.pendingUserInputs.length &&
+    pendingMcpElicitations.length === state.pendingMcpElicitations.length
+  )
+    return state;
+  return { approvals, pendingUserInputs, pendingMcpElicitations };
 }
 
 function editMcpElicitationField(field: PendingMcpElicitationField, edit: McpElicitationFieldEdit): PendingMcpElicitationField {

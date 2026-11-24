@@ -205,7 +205,6 @@ export function renderPendingRequestNode(
   parent: HTMLElement,
   approvals: readonly PendingApproval[],
   pendingUserInputs: readonly PendingUserInput[],
-  drafts: ReadonlyMap<string, string>,
   approvalDetails: ReadonlySet<string>,
   actions: PendingRequestBlockActions,
   autoFocusRequested = false,
@@ -217,7 +216,6 @@ export function renderPendingRequestNode(
     approvals,
     pendingUserInputs,
     pendingMcpElicitations: [],
-    userInputDrafts: drafts,
     approvalDetails,
   });
   renderUiRootInAct(
@@ -244,7 +242,6 @@ function emptyPendingRequestSnapshot(): PendingRequestBlockSnapshot {
     approvals: [],
     pendingUserInputs: [],
     pendingMcpElicitations: [],
-    userInputDrafts: new Map(),
     approvalDetails: new Set(),
   });
 }

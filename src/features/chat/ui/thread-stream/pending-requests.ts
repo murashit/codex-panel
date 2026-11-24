@@ -1,10 +1,5 @@
 import { type McpServerRegistration, mcpServerRegistrationLabel } from "../../../../domain/runtime/tool-inventory";
-import {
-  defaultPendingApprovalOptions,
-  questionDefaultAnswer,
-  userInputDraftKey,
-  userInputOtherDraftKey,
-} from "../../domain/pending-requests/drafts";
+import { defaultPendingApprovalOptions } from "../../domain/pending-requests/drafts";
 import { contentForPendingMcpElicitation, type McpElicitationFieldIssue } from "../../domain/pending-requests/mcp-elicitation";
 import {
   type ApprovalAction,
@@ -14,12 +9,7 @@ import {
   type PendingUserInput,
 } from "../../domain/pending-requests/model";
 import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
-import type {
-  PendingApprovalViewModel,
-  PendingMcpElicitationViewModel,
-  PendingRequestBlockSnapshot,
-  PendingUserInputViewModel,
-} from "./model";
+import type { PendingApprovalViewModel, PendingMcpElicitationViewModel, PendingRequestBlockSnapshot } from "./model";
 
 type ApprovalActionOption = PendingApprovalViewModel["actions"][number];
 
@@ -28,7 +18,6 @@ interface PendingRequestBlockSnapshotSource {
   approvals: readonly PendingApproval[];
   pendingUserInputs: readonly PendingUserInput[];
   pendingMcpElicitations: readonly PendingMcpElicitation[];
-  userInputDrafts: ReadonlyMap<string, string>;
   approvalDetails: ReadonlySet<string>;
 }
 
@@ -45,9 +34,8 @@ export function projectPendingRequestBlock(source: PendingRequestBlockSnapshotSo
 export function pendingRequestBlockSnapshotFromState(source: PendingRequestBlockSnapshotSource): PendingRequestBlockSnapshot {
   return {
     approvals: source.approvals.map(pendingApprovalViewModel),
-    pendingUserInputs: source.pendingUserInputs.map(pendingUserInputViewModel),
+    pendingUserInputs: source.pendingUserInputs,
     pendingMcpElicitations: source.pendingMcpElicitations.map((item) => pendingMcpElicitationViewModel(item, source.registrations)),
-    userInputDrafts: source.userInputDrafts,
     approvalDetails: source.approvalDetails,
   };
 }
@@ -74,26 +62,6 @@ function approvalActionOptionViewModel(option: { id: string; label: string; acti
     label: option.label,
     action: option.action,
     className: approvalActionClassName(option.action),
-  };
-}
-
-function pendingUserInputViewModel(input: PendingUserInput): PendingUserInputViewModel {
-  return {
-    requestId: input.requestId,
-    title: "Codex needs input",
-    body: `Answer ${String(input.params.questions.length)} question${input.params.questions.length === 1 ? "" : "s"} to continue.`,
-    autoResolutionAtMs: input.autoResolutionAtMs,
-    questions: input.params.questions.map((question) => ({
-      id: question.id,
-      header: question.header,
-      question: question.question,
-      isOther: question.isOther,
-      isSecret: question.isSecret,
-      defaultAnswer: questionDefaultAnswer(question),
-      draftKey: userInputDraftKey(input.requestId, question.id),
-      otherDraftKey: userInputOtherDraftKey(input.requestId, question.id),
-      options: question.options,
-    })),
   };
 }
 
