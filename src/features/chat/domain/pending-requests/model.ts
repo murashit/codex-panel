@@ -51,6 +51,8 @@ interface PendingUserInputOption {
 }
 
 export interface PendingUserInputQuestion {
+  draft?: string;
+  otherDraft?: string;
   id: string;
   header: string;
   question: string;

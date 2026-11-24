@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 import { createChatState } from "../../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../../src/features/chat/application/state/store";
 import { localUserDialogueItemFromInput } from "../../../../../../src/features/chat/application/submission/local-user-dialogue";
-import { userInputDraftKey, userInputOtherDraftKey } from "../../../../../../src/features/chat/domain/pending-requests/drafts";
 import type {
   PendingApproval,
   PendingMcpElicitation,
@@ -69,7 +68,7 @@ describe("panel pending request rendering", () => {
         command: "npm test",
       }),
     );
-    renderPendingRequestNode(parent, stateStore.getState().requests.approvals, [], new Map(), new Set(), pendingRequests.actions);
+    renderPendingRequestNode(parent, stateStore.getState().requests.approvals, [], new Set(), pendingRequests.actions);
     expect(textContents(parent, ".codex-panel__pending-request-body")).toContain("npm test");
     const buttons = [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-actions button")];
     expect(buttons.map((item) => item.textContent)).toEqual(["Allow once", "Deny", "Cancel"]);
@@ -117,8 +116,7 @@ describe("panel pending request rendering", () => {
     original.respond.mockImplementationOnce(() => {
       throw new Error("transport unavailable");
     });
-    const render = () =>
-      renderPendingRequestNode(parent, stateStore.getState().requests.approvals, [], new Map(), new Set(), pendingRequests.actions);
+    const render = () => renderPendingRequestNode(parent, stateStore.getState().requests.approvals, [], new Set(), pendingRequests.actions);
     render();
     actEvent(() => parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-actions button")?.click());
     render();
@@ -156,7 +154,6 @@ describe("panel pending request rendering", () => {
         parent,
         state.approvals,
         state.pendingUserInputs,
-        state.userInputDrafts,
         new Set(),
         requests.actions,
         false,
@@ -172,14 +169,18 @@ describe("panel pending request rendering", () => {
       expect(document.activeElement).toBe(field);
       stateStore.dispatch({
         type: "request/user-input-draft-set",
-        key: userInputDraftKey(input.requestId, question.id),
+        questionId: question.id,
+        requestId: input.requestId,
+        autoResolutionAtMs: null,
         value: "draft answer",
       });
       render();
       expect(field.value).toBe("draft answer");
       field.setSelectionRange(2, 5);
       stateStore.dispatch({
-        type: "request/user-input-auto-resolution-extended",
+        type: "request/user-input-draft-set",
+        questionId: question.id,
+        value: "draft answer",
         requestId: input.requestId,
         autoResolutionAtMs: Date.now() + 60_000,
       });
@@ -211,7 +212,7 @@ describe("panel pending request rendering", () => {
     const second = document.createElement("div");
     const input = pendingUserInput();
     const render = (parent: HTMLElement, namespace: string) =>
-      renderPendingRequestNode(parent, [], [input], new Map(), new Set(), pendingRequestActions(), false, undefined, "", namespace);
+      renderPendingRequestNode(parent, [], [input], new Set(), pendingRequestActions(), false, undefined, "", namespace);
 
     render(first, "panel-a");
     render(second, "panel-b");
@@ -225,11 +226,10 @@ describe("panel pending request rendering", () => {
 
   it("renders the default user input option and dispatches submission", () => {
     const parent = document.createElement("div");
-    const drafts = new Map<string, string>();
     const resolveUserInput = vi.fn();
     const input = pendingUserInput();
 
-    renderPendingRequestNode(parent, [], [input], drafts, new Set(), pendingRequestActions({ resolveUserInput }));
+    renderPendingRequestNode(parent, [], [input], new Set(), pendingRequestActions({ resolveUserInput }));
 
     expect(parent.querySelectorAll(".codex-panel__pending-request-block")).toHaveLength(1);
     expect(parent.querySelector(".codex-panel__pending-request-block")?.classList.contains("codex-panel__status-stream-item")).toBe(true);
@@ -254,32 +254,27 @@ describe("panel pending request rendering", () => {
     const blockingInput = pendingUserInput();
     const input: PendingUserInput = {
       ...blockingInput,
-      autoResolutionAtMs: 121_000,
       params: { ...blockingInput.params, isBlocking: false },
     };
     const actions = pendingRequestActions();
     try {
-      renderPendingRequestNode(parent, [], [input], new Map(), new Set(), actions);
+      for (const autoResolutionAtMs of [121_000, 211_000]) {
+        renderPendingRequestNode(parent, [], [{ ...input, autoResolutionAtMs }], new Set(), actions);
+        expect(parent.querySelector(".codex-panel__pending-request-body")?.textContent).toBe(
+          "Optional — Codex will continue automatically.",
+        );
+        expect(textContents(parent, ".codex-panel__pending-request-button")).toEqual(["Submit", "Skip"]);
+        actEvent(() => {
+          vi.advanceTimersByTime(90_000);
+        });
+        expect(parent.querySelector(".codex-panel__pending-request-body")?.textContent).toBe(
+          "Optional — Codex will continue without an answer in 30 seconds.",
+        );
+      }
 
-      expect(parent.querySelector(".codex-panel__pending-request-body")?.textContent).toBe("Optional — Codex will continue automatically.");
+      renderPendingRequestNode(parent, [], [{ ...input, autoResolutionAtMs: null }], new Set(), actions);
+      expect(parent.querySelector(".codex-panel__pending-request-body")?.textContent).toBe("Optional — submit an answer or skip.");
       expect(textContents(parent, ".codex-panel__pending-request-button")).toEqual(["Submit", "Skip"]);
-
-      actEvent(() => {
-        vi.advanceTimersByTime(90_000);
-      });
-      expect(parent.querySelector(".codex-panel__pending-request-body")?.textContent).toBe(
-        "Optional — Codex will continue without an answer in 30 seconds.",
-      );
-
-      renderPendingRequestNode(parent, [], [{ ...input, autoResolutionAtMs: 211_000 }], new Map(), new Set(), actions);
-      expect(parent.querySelector(".codex-panel__pending-request-body")?.textContent).toBe("Optional — Codex will continue automatically.");
-
-      actEvent(() => {
-        vi.advanceTimersByTime(90_000);
-      });
-      expect(parent.querySelector(".codex-panel__pending-request-body")?.textContent).toBe(
-        "Optional — Codex will continue without an answer in 30 seconds.",
-      );
 
       actEvent(() => {
         parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-button").item(1).click();
@@ -310,7 +305,7 @@ describe("panel pending request rendering", () => {
       expectPresent(radios.at(1)).click();
     });
 
-    expect(drafts().get(userInputDraftKey(99, "scope"))).toBe("");
+    expect(drafts()?.draft).toBe("");
 
     render();
     const rerenderedRadios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
@@ -321,8 +316,8 @@ describe("panel pending request rendering", () => {
       changeInputValue(expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")), "Custom scope");
     });
 
-    expect(drafts().get(userInputOtherDraftKey(99, "scope"))).toBe("Custom scope");
-    expect(drafts().get(userInputDraftKey(99, "scope"))).toBe("Custom scope");
+    expect(drafts()?.otherDraft).toBe("Custom scope");
+    expect(drafts()?.draft).toBe("Custom scope");
     render();
     expect([...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")].map((radio) => radio.checked)).toEqual([
       false,
@@ -349,8 +344,8 @@ describe("panel pending request rendering", () => {
       });
       render();
       expect(otherInput.value).toBe("にほん");
-      expect(drafts().get(userInputOtherDraftKey(99, "scope"))).toBeUndefined();
-      expect(drafts().get(userInputDraftKey(99, "scope"))).toBe("");
+      expect(drafts()?.otherDraft).toBeUndefined();
+      expect(drafts()?.draft).toBe("");
       expect(parent.querySelector<HTMLInputElement>('.codex-panel__user-input-radio[value="__other__"]')?.checked).toBe(true);
 
       actEvent(() => {
@@ -359,8 +354,8 @@ describe("panel pending request rendering", () => {
       });
       render();
       expect(otherInput.value).toBe("日本");
-      expect(drafts().get(userInputOtherDraftKey(99, "scope"))).toBe("日本");
-      expect(drafts().get(userInputDraftKey(99, "scope"))).toBe("日本");
+      expect(drafts()?.otherDraft).toBe("日本");
+      expect(drafts()?.draft).toBe("日本");
 
       actEvent(() => {
         otherInput.value = "日本!";
@@ -368,8 +363,8 @@ describe("panel pending request rendering", () => {
       });
       render();
       expect(otherInput.value).toBe("日本!");
-      expect(drafts().get(userInputOtherDraftKey(99, "scope"))).toBe("日本!");
-      expect(drafts().get(userInputDraftKey(99, "scope"))).toBe("日本!");
+      expect(drafts()?.otherDraft).toBe("日本!");
+      expect(drafts()?.draft).toBe("日本!");
     } finally {
       unmountUiRootInAct(parent);
       parent.remove();
@@ -381,7 +376,7 @@ describe("panel pending request rendering", () => {
     const approval = pendingApproval();
     const input = pendingUserInput();
 
-    renderPendingRequestNode(parent, [approval], [input], new Map(), new Set(), pendingRequestActions());
+    renderPendingRequestNode(parent, [approval], [input], new Set(), pendingRequestActions());
 
     expect(parent.querySelectorAll(".codex-panel__pending-request-block")).toHaveLength(1);
     expect(parent.querySelectorAll(".codex-panel__pending-request-card")).toHaveLength(2);
@@ -417,7 +412,7 @@ describe("panel pending request rendering", () => {
         parent,
         [pendingApproval()],
         [input],
-        new Map(),
+
         new Set(),
         pendingRequestActions({ setUserInputDraft }),
         true,
@@ -427,7 +422,7 @@ describe("panel pending request rendering", () => {
       expect(document.activeElement).toBe(inputElement);
       expect(inputElement?.type).toBe(type);
       changeInputValue(expectPresent(inputElement), "Answer");
-      expect(setUserInputDraft).toHaveBeenCalledWith(input.requestId, userInputDraftKey(99, "scope"), "Answer");
+      expect(setUserInputDraft).toHaveBeenCalledWith(input.requestId, "scope", "Answer");
     } finally {
       unmountUiRootInAct(parent);
       parent.remove();
@@ -440,7 +435,7 @@ describe("panel pending request rendering", () => {
     const input = pendingOtherUserInput();
 
     try {
-      renderPendingRequestNode(parent, [], [input], new Map(), new Set(), pendingRequestActions(), true);
+      renderPendingRequestNode(parent, [], [input], new Set(), pendingRequestActions(), true);
 
       expect(document.activeElement).toBe(parent.querySelector(".codex-panel__user-input-radio:checked"));
       expect(document.activeElement).not.toBe(parent.querySelector(".codex-panel__user-input-other-text"));
@@ -455,7 +450,7 @@ describe("panel pending request rendering", () => {
     document.body.appendChild(parent);
 
     try {
-      renderPendingRequestNode(parent, [pendingApproval()], [], new Map(), new Set(), pendingRequestActions(), true);
+      renderPendingRequestNode(parent, [pendingApproval()], [], new Set(), pendingRequestActions(), true);
 
       expect(document.activeElement).toBe(parent.querySelector(".codex-panel__pending-request-button.mod-cta"));
     } finally {
@@ -493,7 +488,7 @@ describe("panel pending request rendering", () => {
     };
     const resolveApproval = vi.fn();
 
-    renderPendingRequestNode(parent, [approval], [], new Map(), new Set(), pendingRequestActions({ resolveApproval }));
+    renderPendingRequestNode(parent, [approval], [], new Set(), pendingRequestActions({ resolveApproval }));
 
     const buttons = [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-button")];
     expect(textContents(parent, ".codex-panel__pending-request-button")).toEqual(["Allow network rule", "Deny"]);
@@ -804,7 +799,7 @@ describe("panel pending request rendering", () => {
       parent,
       [approval],
       [input],
-      new Map(),
+
       new Set(),
       pendingRequestActions({ cancelUserInput, setApprovalDetailsExpanded }),
     );
@@ -875,7 +870,6 @@ function emptyPendingRequestBlockSnapshot(overrides: Partial<PendingRequestBlock
     approvals: [],
     pendingUserInputs: [],
     pendingMcpElicitations: [],
-    userInputDrafts: new Map(),
     approvalDetails: new Set(),
     ...overrides,
   };
@@ -916,7 +910,6 @@ function pendingApprovalSnapshot(approval: PendingApproval): PendingRequestBlock
       approvals: [approval],
       pendingUserInputs: [],
       pendingMcpElicitations: [],
-      userInputDrafts: new Map(),
       approvalDetails: new Set(),
     }).approvals[0],
   );
@@ -928,7 +921,6 @@ function pendingMcpElicitationSnapshot(elicitation: PendingMcpElicitation): Pend
       approvals: [],
       pendingUserInputs: [],
       pendingMcpElicitations: [elicitation],
-      userInputDrafts: new Map(),
       approvalDetails: new Set(),
     }).pendingMcpElicitations[0],
   );
@@ -937,10 +929,10 @@ function pendingMcpElicitationSnapshot(elicitation: PendingMcpElicitation): Pend
 function controlledOtherInput(parent = document.createElement("div"), input = pendingOtherUserInput()) {
   const { stateStore, pendingRequests } = pendingRequestFixture();
   stateStore.dispatch({ type: "request/user-input-queued", input });
-  const drafts = () => stateStore.getState().requests.userInputDrafts;
+  const drafts = () => stateStore.getState().requests.pendingUserInputs[0]?.params.questions[0];
   const render = () => {
     const state = stateStore.getState().requests;
-    renderPendingRequestNode(parent, [], state.pendingUserInputs, drafts(), new Set(), pendingRequests.actions);
+    renderPendingRequestNode(parent, [], state.pendingUserInputs, new Set(), pendingRequests.actions);
   };
   return { parent, drafts, render };
 }

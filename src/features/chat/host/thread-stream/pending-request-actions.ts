@@ -43,8 +43,8 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
         open: expanded,
       });
     },
-    setUserInputDraft: (requestId, key, value) => {
-      host.requests.setUserInputDraft(requestId, key, value);
+    setUserInputDraft: (requestId, questionId, value, other) => {
+      host.requests.setUserInputDraft(requestId, questionId, value, other);
     },
     setMcpElicitationField: (requestId, fieldId, edit) => {
       host.requests.setMcpElicitationField(requestId, fieldId, edit);

@@ -52,7 +52,7 @@ export class PendingRequests {
       ? input
       : { ...input, autoResolutionAtMs: Date.now() + NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS };
     this.host.stateStore.dispatch({ type: "request/user-input-queued", input: pending });
-    if (!pending.params.isBlocking) this.scheduleUserInputAutoResolution(pending);
+    if (this.pendingUserInput(input.requestId) === pending) this.scheduleUserInputAutoResolution(pending);
   }
 
   queueMcpElicitation(elicitation: PendingMcpElicitation): void {
@@ -98,7 +98,7 @@ export class PendingRequests {
   resolveUserInput(requestId: PendingRequestId): boolean {
     const input = this.pendingUserInput(requestId);
     if (!input) return false;
-    const answers = answersForPendingUserInput(input, this.state.userInputDrafts);
+    const answers = answersForPendingUserInput(input);
     if (!this.host.responses.respondUserInput(requestId, answers)) {
       this.host.addSystemMessage("Could not send user input because Codex app-server is not connected.");
       return true;
@@ -139,13 +139,13 @@ export class PendingRequests {
     return true;
   }
 
-  setUserInputDraft(requestId: PendingRequestId, key: string, value: string): void {
-    this.host.stateStore.dispatch({ type: "request/user-input-draft-set", key, value });
+  setUserInputDraft(requestId: PendingRequestId, questionId: string, value: string, other = false): void {
     const input = this.pendingUserInput(requestId);
-    if (!input || input.params.isBlocking) return;
-    const autoResolutionAtMs = Date.now() + NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS;
-    this.host.stateStore.dispatch({ type: "request/user-input-auto-resolution-extended", requestId, autoResolutionAtMs });
-    this.scheduleUserInputAutoResolution({ ...input, autoResolutionAtMs });
+    if (!input) return;
+    const autoResolutionAtMs = input.params.isBlocking ? null : Date.now() + NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS;
+    this.host.stateStore.dispatch({ type: "request/user-input-draft-set", requestId, questionId, value, other, autoResolutionAtMs });
+    const updated = this.pendingUserInput(requestId);
+    if (updated && updated !== input) this.scheduleUserInputAutoResolution(updated);
   }
 
   setMcpElicitationField(requestId: PendingRequestId, fieldId: string, edit: McpElicitationFieldEdit): void {
@@ -179,12 +179,14 @@ export class PendingRequests {
   }
 
   private scheduleUserInputAutoResolution(input: PendingUserInput): void {
+    if (input.autoResolutionAtMs === null) return;
     this.clearUserInputTimer(input.requestId);
-    const delayMs = Math.max(0, (input.autoResolutionAtMs ?? Date.now()) - Date.now());
+    const delayMs = Math.max(0, input.autoResolutionAtMs - Date.now());
     const timer = window.setTimeout(() => {
       this.userInputTimers.delete(input.requestId);
-      if (!this.pendingUserInput(input.requestId)) return;
+      if (this.pendingUserInput(input.requestId) !== input) return;
       if (!this.host.responses.respondUserInput(input.requestId, null)) {
+        this.host.stateStore.dispatch({ type: "request/user-input-timeout-failed", input });
         this.host.addSystemMessage("Could not auto-resolve user input because Codex app-server is not connected.");
         return;
       }

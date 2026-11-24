@@ -45,8 +45,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "composer/suggestions-set":
       return patchObject(state, { composer: reduceComposerSlice(state.composer, action) });
     case "request/approval-queued":
+    case "request/user-input-timeout-failed":
     case "request/user-input-queued":
-    case "request/user-input-auto-resolution-extended":
     case "request/mcp-elicitation-queued":
     case "request/user-input-draft-set":
     case "request/mcp-elicitation-field-set":

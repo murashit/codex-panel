@@ -1,4 +1,4 @@
-import type { PendingApprovalOption, PendingRequestId, PendingUserInput, PendingUserInputQuestion } from "./model";
+import type { PendingApprovalOption, PendingUserInput, PendingUserInputQuestion } from "./model";
 
 export function defaultPendingApprovalOptions(): PendingApprovalOption[] {
   return [
@@ -9,23 +9,10 @@ export function defaultPendingApprovalOptions(): PendingApprovalOption[] {
   ];
 }
 
-export function questionDefaultAnswer(question: PendingUserInputQuestion): string {
-  return question.options?.[0]?.label ?? "";
+export function userInputAnswer(question: PendingUserInputQuestion): string {
+  return question.draft ?? question.options?.[0]?.label ?? "";
 }
 
-export function userInputDraftKey(requestId: PendingRequestId, questionId: string): string {
-  return JSON.stringify([requestId, questionId]);
-}
-
-export function userInputOtherDraftKey(requestId: PendingRequestId, questionId: string): string {
-  return JSON.stringify([requestId, questionId, "other"]);
-}
-
-export function answersForPendingUserInput(input: PendingUserInput, drafts: ReadonlyMap<string, string>): Record<string, string> {
-  return Object.fromEntries(
-    input.params.questions.map((question) => [
-      question.id,
-      drafts.get(userInputDraftKey(input.requestId, question.id)) ?? questionDefaultAnswer(question),
-    ]),
-  );
+export function answersForPendingUserInput(input: PendingUserInput): Record<string, string> {
+  return Object.fromEntries(input.params.questions.map((question) => [question.id, userInputAnswer(question)]));
 }

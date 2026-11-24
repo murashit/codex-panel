@@ -8,7 +8,6 @@ import { localUserDialogueItemFromInput } from "../../../../../src/features/chat
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { activeTurnId, chatTurnBusy } from "../../../../../src/features/chat/application/turns/turn-state";
 import { approvalDetailsDisclosureId } from "../../../../../src/features/chat/domain/pending-requests/disclosure-ids";
-import { userInputDraftKey, userInputOtherDraftKey } from "../../../../../src/features/chat/domain/pending-requests/drafts";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { panelThreadFixture } from "../../../../support/panel-thread";
@@ -560,7 +559,6 @@ describe("chatReducer", () => {
     state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn" } } });
     state = chatStateWith(state, { requests: { approvals: [approval(1)] } });
     state = chatStateWith(state, { requests: { pendingUserInputs: [userInput(2)] } });
-    state = chatStateWith(state, { requests: { userInputDrafts: new Map([[userInputDraftKey(2, "note"), "draft"]]) } });
     state = withChatStateStableThreadStreamItems(state, [dialogueItem("kept")]);
     state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set([approvalDetailsDisclosureId(1)]) } } });
     state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["kept:details"]) } } });
@@ -576,7 +574,6 @@ describe("chatReducer", () => {
     expect(activeTurnId(next.activeTurn)).toBeNull();
     expect(next.requests.approvals).toEqual([]);
     expect(next.requests.pendingUserInputs).toEqual([]);
-    expect(next.requests.userInputDrafts.size).toBe(0);
     expect(chatStateThreadStreamItems(next)).toEqual([dialogueItem("kept")]);
     expect(next.activeTurn.subagents.byThreadId.size).toBe(0);
     expect([...next.ui.disclosures.approvalDetails]).toEqual([]);
@@ -587,14 +584,6 @@ describe("chatReducer", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { requests: { approvals: [approval(1)] } });
     state = chatStateWith(state, { requests: { pendingUserInputs: [userInput(2)] } });
-    state = chatStateWith(state, {
-      requests: {
-        userInputDrafts: new Map([
-          [userInputDraftKey(2, "note"), "draft"],
-          [userInputOtherDraftKey(2, "note"), "other draft"],
-        ]),
-      },
-    });
     state = withChatStateStableThreadStreamItems(state, [dialogueItem("existing")]);
     state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set([approvalDetailsDisclosureId(1)]) } } });
     state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["existing:details"]) } } });
@@ -609,7 +598,6 @@ describe("chatReducer", () => {
     const resultItem = dialogueItem("result");
     const withResult = chatReducer(withoutResult, { type: "request/resolved", requestId: 2, resultItem });
     expect(withResult.requests.pendingUserInputs).toEqual([]);
-    expect(withResult.requests.userInputDrafts.size).toBe(0);
     expect(chatStateThreadStreamItems(withResult)).toEqual([dialogueItem("existing"), resultItem]);
     expect([...withResult.ui.disclosures.textDetails]).toEqual(["existing:details"]);
   });
@@ -663,7 +651,13 @@ describe("chatReducer", () => {
     });
     panelA.dispatch({ type: "composer/draft-set", draft: "panel A draft" });
     panelA.dispatch({ type: "request/user-input-queued", input: userInput(1) });
-    panelA.dispatch({ type: "request/user-input-draft-set", key: userInputDraftKey(1, "note"), value: "panel A answer" });
+    panelA.dispatch({
+      type: "request/user-input-draft-set",
+      requestId: 1,
+      questionId: "note",
+      autoResolutionAtMs: null,
+      value: "panel A answer",
+    });
 
     panelB.dispatch({
       ...threadActivationFixture(thread("thread-b")),
@@ -671,7 +665,13 @@ describe("chatReducer", () => {
     });
     panelB.dispatch({ type: "composer/draft-set", draft: "panel B draft" });
     panelB.dispatch({ type: "request/user-input-queued", input: userInput(2) });
-    panelB.dispatch({ type: "request/user-input-draft-set", key: userInputDraftKey(2, "note"), value: "panel B answer" });
+    panelB.dispatch({
+      type: "request/user-input-draft-set",
+      requestId: 2,
+      questionId: "note",
+      autoResolutionAtMs: null,
+      value: "panel B answer",
+    });
 
     panelA.dispatch({ type: "request/resolved", requestId: 1 });
     panelA.dispatch({ type: "active-thread/cleared" });
@@ -681,14 +681,13 @@ describe("chatReducer", () => {
       composer: { draft: "" },
       requests: { pendingUserInputs: [] },
     });
-    expect(panelA.getState().requests.userInputDrafts.size).toBe(0);
 
     expect(panelB.getState()).toMatchObject({
       panelThread: { kind: "active", thread: { id: "thread-b" } },
       composer: { draft: "panel B draft" },
       requests: { pendingUserInputs: [expect.objectContaining({ requestId: 2 })] },
     });
-    expect(panelB.getState().requests.userInputDrafts.get(userInputDraftKey(2, "note"))).toBe("panel B answer");
+    expect(panelB.getState().requests.pendingUserInputs[0]?.params.questions[0]?.draft).toBe("panel B answer");
   });
 });
 
@@ -728,7 +727,6 @@ function threadScopedResidue(options: { threadId?: string; turnId?: string; draf
     requests: {
       approvals: [approval(1)],
       pendingUserInputs: [userInput(2)],
-      userInputDrafts: new Map([[userInputDraftKey(2, "note"), "draft"]]),
     },
     composer: {
       draft: options.draft ?? "previous draft",
@@ -757,7 +755,6 @@ function expectThreadScopeReset(state: ChatState, options: { items: readonly Thr
   expect(state.threadStream.loadingHistory).toBe(false);
   expect(state.requests.approvals).toEqual([]);
   expect(state.requests.pendingUserInputs).toEqual([]);
-  expect(state.requests.userInputDrafts.size).toBe(0);
   expect(state.composer.draft).toBe("");
   expect(state.composer.suggestSelected).toBe(0);
   expect(state.composer.suggestions).toEqual([]);

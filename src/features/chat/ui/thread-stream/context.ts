@@ -19,7 +19,7 @@ export interface PendingRequestBlockActions {
   cancelUserInput: (requestId: PendingRequestId) => void;
   resolveMcpElicitation: (requestId: PendingRequestId, action: McpElicitationAction) => void;
   setApprovalDetailsExpanded: (requestId: PendingRequestId, expanded: boolean) => void;
-  setUserInputDraft: (requestId: PendingRequestId, key: string, value: string) => void;
+  setUserInputDraft: (requestId: PendingRequestId, questionId: string, value: string, other?: boolean) => void;
   setMcpElicitationField: (requestId: PendingRequestId, fieldId: string, edit: McpElicitationFieldEdit) => void;
 }
 

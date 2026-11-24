@@ -19,7 +19,6 @@ import { chatThreadStreamViewState } from "../../../../../src/features/chat/appl
 import { localUserDialogueItemFromInput } from "../../../../../src/features/chat/application/submission/local-user-dialogue";
 import { captureForkDisplaySnapshot } from "../../../../../src/features/chat/application/threads/fork-display-snapshot";
 import { panelThreadSubscriptions } from "../../../../../src/features/chat/application/threads/thread-subscriptions";
-import { userInputDraftKey } from "../../../../../src/features/chat/domain/pending-requests/drafts";
 import { projectThreadStream, selectChatPanelThreadStream } from "../../../../../src/features/chat/host/thread-stream/view-projection";
 import {
   appServerAgentMessageFixture,
@@ -1170,11 +1169,6 @@ describe("ChatInboundHandler", () => {
           ],
         },
       });
-      state = chatStateWith(state, {
-        requests: {
-          userInputDrafts: new Map([[userInputDraftKey(51, "note"), "draft"]]),
-        },
-      });
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -1185,17 +1179,14 @@ describe("ChatInboundHandler", () => {
       expect(handler.currentState().requests.approvals).toEqual([]);
       expect(handler.currentState().requests.pendingUserInputs).toHaveLength(1);
       expect(handler.currentState().requests.pendingMcpElicitations).toHaveLength(1);
-      expect(handler.currentState().requests.userInputDrafts.size).toBe(1);
 
       handler.handleNotification({ method: "serverRequest/resolved", params: { threadId: "thread-active", requestId: 51 } });
       expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
-      expect(handler.currentState().requests.userInputDrafts.size).toBe(0);
       expect(handler.currentState().requests.pendingMcpElicitations).toHaveLength(1);
 
       handler.handleNotification({ method: "serverRequest/resolved", params: { threadId: "thread-active", requestId: 52 } });
       expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
       expect(handler.currentState().requests.pendingMcpElicitations).toEqual([]);
-      expect(handler.currentState().requests.userInputDrafts.size).toBe(0);
     });
   });
 

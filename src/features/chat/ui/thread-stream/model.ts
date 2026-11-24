@@ -1,4 +1,4 @@
-import type { ApprovalAction, PendingMcpElicitationField, PendingRequestId } from "../../domain/pending-requests/model";
+import type { ApprovalAction, PendingMcpElicitationField, PendingRequestId, PendingUserInput } from "../../domain/pending-requests/model";
 import type { PlanImplementationTarget } from "../../domain/thread-stream/conversation";
 import type { ExecutionState, TaskProgressThreadStreamItem } from "../../domain/thread-stream/items";
 
@@ -21,26 +21,6 @@ export interface PendingApprovalViewModel {
     action: ApprovalAction;
     className: string;
   }[];
-}
-
-export interface PendingUserInputQuestionViewModel {
-  id: string;
-  header?: string | null;
-  question: string;
-  isOther: boolean;
-  isSecret: boolean;
-  defaultAnswer: string;
-  draftKey: string;
-  otherDraftKey: string;
-  options: readonly { label: string; description?: string | null }[] | null;
-}
-
-export interface PendingUserInputViewModel {
-  requestId: PendingRequestId;
-  title: string;
-  body: string;
-  autoResolutionAtMs: number | null;
-  questions: readonly PendingUserInputQuestionViewModel[];
 }
 
 interface PendingMcpElicitationFieldViewModelBase {
@@ -70,9 +50,8 @@ export type PendingMcpElicitationViewModel = PendingMcpElicitationViewModelBase 
 
 export interface PendingRequestBlockSnapshot {
   approvals: readonly PendingApprovalViewModel[];
-  pendingUserInputs: readonly PendingUserInputViewModel[];
+  pendingUserInputs: readonly PendingUserInput[];
   pendingMcpElicitations: readonly PendingMcpElicitationViewModel[];
-  userInputDrafts: ReadonlyMap<string, string>;
   approvalDetails: ReadonlySet<string>;
 }
 
