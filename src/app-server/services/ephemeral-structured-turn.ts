@@ -49,39 +49,46 @@ export async function runEphemeralStructuredTurn(
     new AppServerClient({ codexPath, cwd, handlers, initializeParams: codexPanelAppServerInitializeParams() }),
 ): Promise<TurnRecord> {
   if (options.signal?.aborted) throw ephemeralStructuredTurnAbortError(options.abortMessage);
-  const state: EphemeralStructuredTurnState = { lifecycle: { kind: "starting" }, completedItems: [] };
+  let scope: NotificationScope = { kind: "starting" };
+  const completedItems: TurnItem[] = [];
   let handleNotification!: (notification: ServerNotification) => void;
   let interrupt!: (reason: Error) => void;
   const interrupted = new Promise<never>((_, reject) => {
     interrupt = reject;
   });
   const runAbortable = <T>(promise: Promise<T>): Promise<T> => Promise.race([promise, interrupted]);
+  const stop = (reason: Error): void => {
+    scope = { kind: "closed" };
+    interrupt(reason);
+  };
   const cancel = (): void => {
-    interrupt(ephemeralStructuredTurnAbortError(options.abortMessage));
+    stop(ephemeralStructuredTurnAbortError(options.abortMessage));
+  };
+  const track = (next: Extract<NotificationScope, { threadId: string }>): void => {
+    if (scope.kind !== "closed") scope = next;
   };
 
   const completedTurn = new Promise<TurnRecord>((resolve) => {
     handleNotification = (notification): void => {
-      if (state.lifecycle.kind === "completed") return;
       switch (notification.method) {
         case "item/agentMessage/delta":
-          if (!ephemeralStructuredTurnMatches(state.lifecycle, notification.params.threadId, notification.params.turnId)) return;
+          if (!ephemeralStructuredTurnMatches(scope, notification.params.threadId, notification.params.turnId)) return;
           options.onProgress?.({ type: "agent-message-delta", delta: notification.params.delta });
           return;
         case "item/reasoning/summaryTextDelta":
         case "item/reasoning/textDelta":
         case "item/reasoning/summaryPartAdded":
-          if (!ephemeralStructuredTurnMatches(state.lifecycle, notification.params.threadId, notification.params.turnId)) return;
+          if (!ephemeralStructuredTurnMatches(scope, notification.params.threadId, notification.params.turnId)) return;
           options.onProgress?.({ type: "reasoning-activity" });
           return;
         case "item/completed":
-          if (!ephemeralStructuredTurnMatches(state.lifecycle, notification.params.threadId, notification.params.turnId)) return;
-          state.completedItems.push(notification.params.item);
+          if (!ephemeralStructuredTurnMatches(scope, notification.params.threadId, notification.params.turnId)) return;
+          completedItems.push(notification.params.item);
           return;
         case "turn/completed":
-          if (!ephemeralStructuredTurnMatches(state.lifecycle, notification.params.threadId, notification.params.turn.id)) return;
-          state.lifecycle = { kind: "completed" };
-          resolve(turnWithCollectedItems(notification.params.turn, state.completedItems));
+          if (!ephemeralStructuredTurnMatches(scope, notification.params.threadId, notification.params.turn.id)) return;
+          scope = { kind: "closed" };
+          resolve(turnWithCollectedItems(notification.params.turn, completedItems));
       }
     };
   });
@@ -93,15 +100,13 @@ export async function runEphemeralStructuredTurn(
     },
     onLog: () => undefined,
     onExit: () => {
-      if (state.lifecycle.kind === "completed") return;
-      state.lifecycle = { kind: "completed" };
-      interrupt(new Error(options.exitedMessage));
+      if (scope.kind === "closed") return;
+      stop(new Error(options.exitedMessage));
     },
   });
 
   const timeout = window.setTimeout(() => {
-    state.lifecycle = { kind: "completed" };
-    interrupt(new Error(options.timedOutMessage));
+    stop(new Error(options.timedOutMessage));
   }, options.timeoutMs);
 
   try {
@@ -116,7 +121,7 @@ export async function runEphemeralStructuredTurn(
       }),
     );
     const threadId = threadResponse.thread.id;
-    if (state.lifecycle.kind !== "completed") state.lifecycle = { kind: "thread-started", threadId };
+    track({ kind: "thread-started", threadId });
     const turnResponse = await runAbortable(
       startStructuredTurn(client, {
         threadId,
@@ -126,14 +131,12 @@ export async function runEphemeralStructuredTurn(
         runtime,
       }),
     );
-    if (state.lifecycle.kind !== "completed") {
-      state.lifecycle = { kind: "turn-started", threadId, turnId: turnResponse.turn.id };
-    }
+    track({ kind: "turn-started", threadId, turnId: turnResponse.turn.id });
     return turnResponse.turn.status === "completed"
-      ? turnWithCollectedItems(turnResponse.turn, state.completedItems)
+      ? turnWithCollectedItems(turnResponse.turn, completedItems)
       : await runAbortable(completedTurn);
   } finally {
-    state.lifecycle = { kind: "completed" };
+    scope = { kind: "closed" };
     options.signal?.removeEventListener("abort", cancel);
     window.clearTimeout(timeout);
     // Ephemeral threads are not persisted; thread/delete rejects them. Stop their private process instead.
@@ -159,18 +162,13 @@ export async function runEphemeralStructuredTurnForLastAgentText(
   return lastAgentMessageTextFromTurnRecord(turn);
 }
 
-type EphemeralStructuredTurnLifecycleState =
+type NotificationScope =
   | { kind: "starting" }
   | { kind: "thread-started"; threadId: string }
   | { kind: "turn-started"; threadId: string; turnId: string }
-  | { kind: "completed" };
+  | { kind: "closed" };
 
-interface EphemeralStructuredTurnState {
-  lifecycle: EphemeralStructuredTurnLifecycleState;
-  completedItems: TurnItem[];
-}
-
-function ephemeralStructuredTurnMatches(state: EphemeralStructuredTurnLifecycleState, threadId: string, turnId: string): boolean {
+function ephemeralStructuredTurnMatches(state: NotificationScope, threadId: string, turnId: string): boolean {
   if (state.kind === "thread-started") return state.threadId === threadId;
   return state.kind === "turn-started" && state.threadId === threadId && state.turnId === turnId;
 }

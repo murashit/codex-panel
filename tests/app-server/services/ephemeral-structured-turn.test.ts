@@ -16,7 +16,7 @@ import {
   appServerThreadFixture,
   appServerCompletedTurnFixture as turn,
 } from "../../support/app-server-records";
-import { deferred } from "../../support/async";
+import { deferred, eventOrders } from "../../support/async";
 
 interface TurnStartResponse {
   turn: TurnRecord;
@@ -27,19 +27,41 @@ describe("runEphemeralStructuredTurn", () => {
     vi.useRealTimers();
   });
 
-  it("collects items when completion arrives before turn/start resolves", async () => {
-    const { clientFactory } = fakeStructuredTurnClientFactory((fake) => {
-      fake.startStructuredTurnImpl = async () => {
-        fake.emit(completedItemNotification("thread", "turn", agentMessage("answer", '{"ok":true}')));
-        fake.emit(turnCompletedNotification("thread", turn([], { id: "turn", status: "completed" })));
-        return { turn: turn([], { id: "turn", status: "inProgress" }) };
-      };
+  it.each(eventOrders("reply", "completion", "abort"))("settles once and stops progress for $order", async ({ order }) => {
+    const controller = new AbortController();
+    const reply = deferred<TurnStartResponse>();
+    const progress = vi.fn();
+    const answer = agentMessage("answer", '{"ok":true}');
+    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
+      fake.startStructuredTurnImpl = () => reply.promise;
     });
-
-    const result = await runEphemeralStructuredTurn(runOptions(), clientFactory);
-
-    expect(result.items).toEqual([agentMessage("answer", '{"ok":true}')]);
-    expect(result.itemsView).toBe("full");
+    const running = runEphemeralStructuredTurn({ ...runOptions(), signal: controller.signal, onProgress: progress }, clientFactory);
+    const outcome = Promise.allSettled([running]);
+    const fake = expectPresent(client.current);
+    await fake.structuredTurnStarted;
+    for (const event of order) {
+      switch (event) {
+        case "reply":
+          reply.resolve({ turn: turn([], { id: "turn", status: "inProgress" }) });
+          break;
+        case "completion":
+          fake.emit(completedItemNotification("thread", "turn", answer));
+          fake.emit(turnCompletedNotification("thread", turn([], { id: "turn", status: "completed" })));
+          break;
+        case "abort":
+          controller.abort();
+          fake.emit(agentDeltaNotification("thread", "turn", "late"));
+          break;
+      }
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    expect(await outcome).toMatchObject([
+      order.at(-1) === "abort"
+        ? { status: "fulfilled", value: { id: "turn", items: [answer], itemsView: "full" } }
+        : { status: "rejected", reason: new Error("Ephemeral structured turn cancelled.") },
+    ]);
+    expect(progress).not.toHaveBeenCalled();
+    expect(fake.disconnect).toHaveBeenCalledOnce();
   });
 
   it("enforces the deadline when completion precedes a stalled start reply", async () => {
