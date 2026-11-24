@@ -8,7 +8,9 @@ import {
 } from "../../../../../src/features/chat/application/threads/history-controller";
 import { projectTurnRuntimeFact } from "../../../../../src/features/chat/application/turns/runtime-fact-projection";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
-import { deferred } from "../../../../support/async";
+import { deferred, eventOrders } from "../../../../support/async";
+import { panelThreadFixture } from "../../../../support/panel-thread";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 import { chatStateFixture } from "../../support/state";
 import { chatStateThreadStreamItems, taskProgressFixture as taskProgress } from "../../support/thread-stream";
 
@@ -48,6 +50,8 @@ describe("HistoryController", () => {
 
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([expect.objectContaining({ id: "answer", text: "Hello" })]);
     expect(setThreadTurnPresence).not.toHaveBeenCalledWith(false);
+    await loader.loadLatest();
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
   });
 
   it("preserves live completion before applying a preloaded resume page", () => {
@@ -59,33 +63,44 @@ describe("HistoryController", () => {
     expect(chatStateThreadStreamItems(stateStore.getState()).map((item) => item.id)).toEqual(["older", "answer"]);
   });
 
-  it("keeps the latest history load when an older request resolves later", async () => {
-    const first = deferred<ThreadHistoryPage | null>();
-    const second = deferred<ThreadHistoryPage | null>();
+  it.each(eventOrders("first", "latest", "live"))("keeps the latest page and live completion for $order", async ({ order }) => {
+    const first = deferred<ThreadHistoryPage>();
+    const latest = deferred<ThreadHistoryPage>();
     const { loader, stateStore } = historyFixture(
-      vi.fn<HistoryPageReader>().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise),
+      vi.fn<HistoryPageReader>().mockReturnValueOnce(first.promise).mockReturnValueOnce(latest.promise),
     );
-
-    const firstLoad = loader.loadLatest();
-    const secondLoad = loader.loadLatest();
-
-    second.resolve(historyPage([], "second-cursor"));
-    await secondLoad;
-    first.resolve(historyPage([], "first-cursor"));
-    await firstLoad;
-
-    expect(stateStore.getState().threadStream.historyCursor).toBe("second-cursor");
-    expect(stateStore.getState().threadStream.loadingHistory).toBe(false);
+    const loads = { first: loader.loadLatest(), latest: loader.loadLatest() };
+    let published = false;
+    for (const event of order) {
+      if (event === "live") completeLiveTurn(stateStore);
+      else {
+        const reply = event === "first" ? first : latest;
+        reply.resolve(historyPage([message("page", event, "old-turn")], event));
+        await loads[event];
+        published ||= event === "latest";
+      }
+      expect(stateStore.getState().threadStream.historyCursor).toBe(published ? "latest" : null);
+      expect(stateStore.getState().threadStream.loadingHistory).toBe(!published);
+    }
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
+      expect.objectContaining({ id: "page", text: "latest" }),
+      expect.objectContaining({ id: "answer", text: "Hello" }),
+    ]);
   });
 
-  it("ignores a history load that is invalidated while pending", async () => {
+  it.each(["explicit invalidation", "navigation away and back"])("ignores a pending history page after %s", async (change) => {
     const pending = deferred<ThreadHistoryPage | null>();
     const { loader, stateStore, addSystemMessage } = historyFixture(() => pending.promise);
 
     const loading = loader.loadLatest();
     expect(stateStore.getState().threadStream.loadingHistory).toBe(true);
 
-    loader.invalidate();
+    if (change === "explicit invalidation") loader.invalidate();
+    else {
+      for (const id of ["other", "thread"]) {
+        stateStore.dispatch({ type: "active-thread/resumed", ...threadActivationFixture(panelThreadFixture({ id })) });
+      }
+    }
     pending.resolve(historyPage([message("assistant", "Stale")], "stale-cursor"));
     await loading;
 

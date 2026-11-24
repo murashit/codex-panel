@@ -69,6 +69,23 @@ describe("selection rewrite command", () => {
     },
   );
 
+  it("invalidates a moved selection even when an interior insertion is undone", async () => {
+    const { run, cm, editor } = commandHarness();
+    void act(() => {
+      run();
+    });
+    await startGeneration();
+    cm.dispatch({ changes: { from: 0, insert: "😀" } });
+    expect(document.querySelector(".codex-panel-selection-emphasis")?.textContent).toBe("Revise this sentence.");
+    const inside = cm.state.doc.length - 1;
+    cm.dispatch({ changes: { from: inside, insert: "!" } });
+    expect(document.querySelector(".codex-panel-selection-emphasis")).toBeNull();
+    cm.dispatch({ changes: { from: inside, to: inside + 1 } });
+    void act(() => button("Apply").click());
+    expect(editor.replaceRange).not.toHaveBeenCalled();
+    expect(cm.state.doc.toString()).toBe("😀Revise this sentence.");
+  });
+
   it.each(["changed", "restored", "replaced-file", "renamed-file"])(
     "rejects a %s target and recovers after reselecting and reopening",
     async (change) => {
@@ -200,7 +217,12 @@ describe("selection rewrite command", () => {
 
   it.each([
     { name: "repeated text inserted before the target", changes: { from: 0, insert: "same\n" }, expected: "same\nsame\nREWRITTEN" },
-    { name: "insertion at the start boundary", changes: { from: 5, insert: "prefix " }, expected: "same\nprefix REWRITTEN" },
+    {
+      name: "successive insertions at the mapped start and end boundaries",
+      changes: { from: 5, insert: "😀" },
+      nextChanges: { from: 11, insert: "\n" },
+      expected: "same\n😀REWRITTEN\n",
+    },
     {
       name: "replacement starting at the end boundary",
       noteText: "same\nsame tail",
@@ -217,7 +239,7 @@ describe("selection rewrite command", () => {
       expected: "longame\nREWRITTEN suffix",
     },
     { name: "deletion before the target", changes: { from: 0, to: 5 }, expected: "REWRITTEN" },
-  ])("keeps the chosen occurrence after $name during generation", async ({ changes, expected, noteText = "same\nsame" }) => {
+  ])("keeps the chosen occurrence after $name during generation", async ({ changes, nextChanges, expected, noteText = "same\nsame" }) => {
     const result = deferred<{ replacementText: string }>();
     const { run, cm } = commandHarness({ noteText, anchor: 5, head: 9, generate: () => result.promise });
     void act(() => {
@@ -225,6 +247,7 @@ describe("selection rewrite command", () => {
     });
     await startGeneration();
     cm.dispatch({ changes });
+    if (nextChanges) cm.dispatch({ changes: nextChanges });
     expect(document.querySelector(".codex-panel-selection-emphasis")?.textContent).toBe("same");
     await act(async () => {
       result.resolve({ replacementText: "REWRITTEN" });

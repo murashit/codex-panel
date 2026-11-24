@@ -172,24 +172,35 @@ describe("ThreadMutationCommands", () => {
     expect(afterArchive).not.toHaveBeenCalled();
   });
 
-  it("reports the committed export when archiving fails and does not run the success callback", async () => {
+  it("keeps the committed export when archive fails and writes a separate note on retry", async () => {
     const client = clientMock();
     const request = client.request.getMockImplementation();
+    if (!request) throw new Error("Missing request implementation");
     client.request.mockImplementation((method, params) => {
       if (method === "thread/archive") return Promise.reject(new Error("Archive failed."));
-      if (!request) throw new Error("Missing request implementation");
       return request(method, params);
     });
     const { mutations, archiveDestination } = operationsFixture({ client });
-    const afterArchive = vi.fn();
+    const files = new Set<string>();
+    archiveDestination.exists = async (path) => files.has(path);
+    archiveDestination.createMarkdownFile.mockImplementation(async (path) => {
+      files.add(path);
+    });
+    const options = { saveMarkdown: true, afterArchive: vi.fn() };
+    const firstPath = "Archive/Archived Thread abcdef12.md";
+    const secondPath = "Archive/Archived Thread abcdef12 2.md";
 
-    await expect(mutations.archiveThread("thread", { saveMarkdown: true, afterArchive })).resolves.toEqual({
+    await expect(mutations.archiveThread("thread", options)).resolves.toEqual({
       kind: "failed",
       message: "Archive failed.",
-      exportedPath: "Archive/Archived Thread abcdef12.md",
+      exportedPath: firstPath,
     });
-    expect(archiveDestination.createMarkdownFile).toHaveBeenCalledOnce();
-    expect(afterArchive).not.toHaveBeenCalled();
+    expect([...files]).toEqual([firstPath]);
+    expect(options.afterArchive).not.toHaveBeenCalled();
+    client.request.mockImplementation(request);
+    await expect(mutations.archiveThread("thread", options)).resolves.toEqual({ kind: "archived", exportedPath: secondPath });
+    expect([...files]).toEqual([firstPath, secondPath]);
+    expect(options.afterArchive).toHaveBeenCalledOnce();
   });
 
   it("does not write or archive when a later history page fails", async () => {

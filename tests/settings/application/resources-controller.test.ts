@@ -10,6 +10,28 @@ import { modelMetadataFixture } from "../../support/model-metadata";
 import { panelThreadFixture } from "../../support/panel-thread";
 
 describe("SettingsResourcesController", () => {
+  it.each([
+    { reopened: false, replaced: false },
+    { reopened: false, replaced: true },
+    { reopened: true, replaced: false },
+    { reopened: true, replaced: true },
+  ])("delivers hook mutation failures to the current view (reopened=$reopened, replaced=$replaced)", async ({ reopened, replaced }) => {
+    const { controller, resources, notify } = controllerFixture();
+    const write = deferred<void>();
+    resources.queries.trustHook.mockReturnValue(write.promise);
+    controller.activate();
+    const mutation = controller.trustHook(hookFixture());
+    controller.dispose();
+    if (replaced) controller.replaceResources(resourceFixture().resources);
+    if (reopened) controller.activate();
+    expect(controller.snapshot().hooksLifecycle.kind).toBe(replaced ? "idle" : "loading");
+    write.reject(new Error("write failed"));
+    await mutation;
+    expect(notify).toHaveBeenCalledTimes(reopened && !replaced ? 1 : 0);
+    expect(controller.snapshot().hooksLifecycle.kind).toBe("idle");
+    controller.dispose();
+  });
+
   it("publishes archived thread catalog updates", () => {
     const { controller, archived, display } = controllerFixture();
     controller.activate();

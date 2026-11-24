@@ -572,31 +572,32 @@ describe("TurnSubmissionCommand", () => {
     ]);
   });
 
-  it("keeps an indeterminate steer pending so a later user-message observation can commit it", async () => {
+  it.each([
+    ["reply-first", "completed"],
+    ["notification-first", "completed"],
+    ["reply-first", "delivery-unknown"],
+    ["notification-first", "delivery-unknown"],
+  ] as const)("commits one observed steer (%s, %s)", async (order, outcome) => {
     const { host, stateStore, steerTurn } = createHost();
     resumeThread(stateStore);
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
-    steerTurn.mockResolvedValue({ kind: "delivery-unknown" });
-    const commands = claimedCommand(host);
-
-    await expect(commands.sendTurnText({ preparedInput: preparedText("follow up") })).resolves.toBe(true);
+    const reply = deferred<Awaited<ReturnType<typeof host.turnPort.steerTurn>>>();
+    steerTurn.mockReturnValue(reply.promise);
+    const sending = claimedCommand(host).sendTurnText({ preparedInput: preparedText("follow up") });
+    await vi.waitFor(() => expect(steerTurn).toHaveBeenCalledOnce());
     const clientId = steerTurn.mock.calls[0]?.[0].clientUserMessageId;
-    expect(stateStore.getState().activeTurn.pendingSteers).toEqual([expect.objectContaining({ clientId })]);
+    const observe = () =>
+      stateStore.dispatch({
+        type: "thread-stream/user-message-observed",
+        item: { id: "server-user", clientId, kind: "dialogue", dialogueKind: "user", role: "user", text: "follow up", turnId: "turn" },
+      });
+    if (order === "notification-first") observe();
+    reply.resolve(outcome === "completed" ? completed(undefined) : { kind: outcome });
+    await expect(sending).resolves.toBe(true);
+    expect(stateStore.getState().activeTurn.pendingSteers.map((item) => item.clientId)).toEqual(order === "reply-first" ? [clientId] : []);
+    observe();
+    observe();
     expect(host.addSystemMessage).not.toHaveBeenCalled();
-
-    stateStore.dispatch({
-      type: "thread-stream/user-message-observed",
-      item: {
-        id: "server-user",
-        clientId,
-        kind: "dialogue",
-        dialogueKind: "user",
-        role: "user",
-        text: "follow up",
-        turnId: "turn",
-      },
-    });
-
     expect(stateStore.getState().activeTurn.pendingSteers).toEqual([]);
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([expect.objectContaining({ id: "server-user", clientId })]);
   });

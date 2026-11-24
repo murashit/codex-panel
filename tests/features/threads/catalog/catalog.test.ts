@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { eventOrders } from "../../../support/async";
 import { panelThreadFixture as thread } from "../../../support/panel-thread";
 import { threadCatalogFixture } from "../../../support/thread-catalog";
 
@@ -100,6 +101,31 @@ describe("thread replacement publication", () => {
     await vi.waitFor(() => expect(read).toHaveBeenCalled());
     expect(published).toHaveBeenCalledWith([{ type: "thread-renamed", threadId: "other", name: "Other renamed" }]);
   });
+
+  it.each(eventOrders("finish-a", "finish-b", "rename-both"))(
+    "publishes each replacement's rename only after its own release in $order",
+    ({ order: schedule }) => {
+      const renamed: string[] = [];
+      const { catalog } = threadCatalogFixture(
+        async () => [],
+        (facts) => {
+          for (const fact of facts) if (fact.type === "thread-renamed") renamed.push(fact.threadId);
+        },
+      );
+      const a = catalog.beginReplacement("source-a");
+      const b = catalog.beginReplacement("source-b");
+      a.attach(thread({ id: "a" }));
+      b.attach(thread({ id: "b" }));
+      for (const [index, event] of schedule.entries()) {
+        if (event === "finish-a") a.finish(false);
+        else if (event === "finish-b") b.finish(false);
+        else catalog.facts.applyBatch(["a", "b"].map((threadId) => ({ type: "thread-renamed", threadId, name: "Renamed" })));
+        const seen = schedule.slice(0, index + 1);
+        const expected = ["a", "b"].filter((id) => seen.includes("rename-both") && seen.includes(id === "a" ? "finish-a" : "finish-b"));
+        expect([...renamed].sort()).toEqual(expected);
+      }
+    },
+  );
 
   it("retires late facts and completion with its execution scope", () => {
     const published = vi.fn();
