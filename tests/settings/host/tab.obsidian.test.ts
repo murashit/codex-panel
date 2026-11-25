@@ -423,16 +423,18 @@ describe("settings tab", () => {
 
     const codexInput = inputForSetting(tab, "Codex executable");
     if (!codexInput) throw new Error("Missing Codex executable input");
-    codexInput.value = "/opt/codex";
+    codexInput.value = "  /opt/codex  ";
     codexInput.dispatchEvent(new InputEvent("input", { bubbles: true }));
     await flushPromises();
 
     expect(saveSettings).not.toHaveBeenCalled();
 
+    codexInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    expect(codexInput.value).toBe("/opt/codex");
     codexInput.dispatchEvent(new FocusEvent("blur"));
     await flushPromises();
 
-    expect(saveSettings).toHaveBeenCalledOnce();
+    expect(saveSettings).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ codexPath: "/opt/codex" }));
     expect(settingsContextClientMock).toHaveBeenCalledTimes(2);
     expect(tab.containerEl.textContent).not.toContain("gpt-old");
     expect(tab.containerEl.textContent).not.toContain("Old archived");

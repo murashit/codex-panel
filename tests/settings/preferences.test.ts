@@ -59,22 +59,7 @@ describe("settings preferences", () => {
   });
 
   it("detects when normalized settings need to be written back", () => {
-    const settings = normalizeSettings({
-      codexPath: "/usr/local/bin/codex",
-      threadNamingModel: "gpt-5.4-mini",
-      threadNamingEffort: "low",
-      rewriteSelectionModel: "gpt-5.4-mini",
-      rewriteSelectionEffort: "minimal",
-      showToolbar: true,
-      sendShortcut: "mod-enter",
-      scrollThreadFromComposerEdges: true,
-      referenceActiveNoteOnSend: true,
-      attachmentFolder: "Codex Attachments",
-      archiveExportEnabled: true,
-      archiveExportFolderTemplate: "Codex Archives",
-      archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
-      archiveExportTags: "codex, archive",
-    });
+    const settings = { ...DEFAULT_SETTINGS, codexPath: "/usr/local/bin/codex" };
     expect(settingsMatchStoredSettings({ ...settings }, settings)).toBe(true);
     expect(settingsMatchStoredSettings({ ...settings, extraPanelState: {} }, settings)).toBe(false);
     expect(settingsMatchStoredSettings({ ...settings, codexPath: "   " }, settings)).toBe(false);
