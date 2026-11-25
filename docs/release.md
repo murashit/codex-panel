@@ -12,16 +12,29 @@ If exact-content verification is uncertain or a content mismatch occurs, stop pu
 
 ## Prepare the release PR and notes
 
-Audit the complete range from the previous release tag to the proposed head before choosing the version and notes. Verify user-visible changes against relevant implementation, tests, and callers. Plugin versions describe Obsidian distribution, not a library API contract: use patch releases for workflow-preserving changes, minor releases for visible capabilities or raised runtime baselines, and major releases for disruptive workflow, settings, storage, or support-policy changes.
+Audit the complete range from the previous release tag to the proposed head before choosing the version and notes. Verify user-visible changes against relevant implementation, tests, and callers. Plugin versions describe Obsidian distribution, not a library API contract: use patch releases for workflow-preserving fixes and internal changes, minor releases for new capabilities, non-disruptive feature changes or removals, or raised runtime baselines, and major releases for disruptive changes to workflows, settings, stored data, or support policy. Choose the version for the most consequential change in the range, independently of the release-note headings.
 
 Review tagpr's proposed version. The `tagpr:minor` and `tagpr:major` labels take effect when tagpr next runs on a main push; adding a label does not trigger a refresh. Wait for that run and verify the version, or edit `package.json` and `manifest.json` on the PR branch, then run `node scripts/release/sync-lock.mjs` there. For runtime-floor changes, follow [Obsidian compatibility](development.md#obsidian). Leave tagpr's generated commits and subjects unchanged during preparation: tagpr recognizes its own commits by their exact subjects when regenerating.
 
-Read the previous three published [GitHub Releases](https://github.com/murashit/codex-panel/releases) for language, brevity, and level of detail. Write for plugin users who have not followed development: name the affected action and visible change in familiar UI terms, preferring one concise outcome per bullet. Group related changes and omit internal work unless it changes a visible contract or support baseline. Keep implementation rationale and validation in the work discussion. Thank relevant Issue authors by GitHub handle for reports or proposals that contributed to the release; verify authors from the Issues.
+Read the previous three published [GitHub Releases](https://github.com/murashit/codex-panel/releases) for language, brevity, and level of detail. Write for plugin users who have not followed development: name the affected action and visible change in familiar UI terms, preferring one concise outcome per bullet. Group related changes by the outcome users see. Keep implementation rationale and validation in the work discussion. Thank relevant Issue authors by GitHub handle for reports or proposals that contributed to the release; verify authors from the Issues.
+
+### Write the public notes
+
+Use the applicable `##` headings below in this order, with a blank line after each heading. Put each change under one heading and omit headings with no entries.
+
+- **Breaking Changes**: Disruptive product changes, such as removal of a commonly used operation without an equivalent or a required migration of existing settings or data. Say what no longer works and how affected users can adapt.
+- **Compatibility**: Changes to supported Codex CLI versions or the minimum Obsidian version. State what is newly supported or no longer supported, the old and new minimums when a floor rises, and any update users need to make first. Keep runtime support changes here even if their impact warrants a major release. If a fix leaves the supported versions unchanged, describe the symptom under Bug Fixes instead.
+- **Features & Changes**: New capabilities and changes or removals that do not substantially disrupt existing workflows. Describe what users can now do or what they will notice in the affected workflow.
+- **Bug Fixes**: Corrections to intended behavior. Name the situation that triggered the problem and what now happens instead.
+
+Start each entry with `- `. End with a **Full Changelog** link comparing the previous and final release tags, not the temporary release branch. Leave refactors, tests, and generated binding updates with no effect on behavior or support to that comparison. Use `[Full Changelog](…)` for the link. If the release has no user-facing entries, write `No user-facing changes.` followed by a blank line and the comparison link, with no heading.
+
+### Finalize the release PR
 
 Finalize the notes and release-branch history together immediately before merging, after tagpr generation has settled. Avoid concurrent main pushes and release-PR edits during finalization:
 
 1. Fetch the current main and PR head and inspect the full PR diff and commits. For patch, minor, and major releases alike, consolidate all release-PR commits into one commit on current main, preserving the intended final tree. The version diff must go directly from the previous released version to the final target, with no intermediate bump. Use `chore(release): X.Y.Z` as the final subject, matching the version files; reword even a single generated commit.
-2. Replace the entire PR body with the final public notes: one `## Changes` section, a blank line, and concrete bullets. The merged PR body becomes the release notes; no new per-version note file is needed.
+2. Replace the entire generated PR body with the [final public notes](#write-the-public-notes). The generated changelog is a starting list for the range audit. The merged PR body becomes the release notes; no new per-version note file is needed.
 3. Run the [handoff validation](development.md#validate-a-change), both metadata checks (`npm run api:baseline` and `npm run release:check`), and commitlint on the final commit. Push only the unmerged release branch using a lease tied to the inspected remote head; stop and re-fetch if it changed. Never rewrite main, tags, or published history. Verify successful required CI for that exact remote head. Obtain [publication approval](#authorization) for the finalized candidate.
 
 If main moves or tagpr regenerates, re-fetch and repeat finalization as needed: regeneration can overwrite the notes and preserve a manual version override or reworded commit alongside a new generated bump. Reverify the final tree, single-commit history, subject, notes, and CI for the resulting head. Apply the [approval reuse conditions](#authorization) to the resulting candidate.
@@ -44,7 +57,7 @@ For an existing tag, dispatch Check on main with only the tag:
 gh workflow run check.yml --ref main -f tag=X.Y.Z
 ```
 
-Normal publication and recovery both obtain the notes from the unique tagpr PR merged at that tag's commit. Recovery uses main's workflow and publisher to rebuild and check the immutable tag; it must be an ancestor of main. The attestation records both the repaired workflow and the actual tagged build source. Standard attestation defaults alone would identify main, not the separately checked-out tag.
+Normal publication and recovery both obtain the notes from the unique tagpr PR merged at that tag's commit. The publisher requires the [current notes format](#write-the-public-notes), including on recovery. Recovery uses main's workflow and publisher to rebuild and check the immutable tag; it must be an ancestor of main. The attestation records both the repaired workflow and the actual tagged build source. Standard attestation defaults alone would identify main, not the separately checked-out tag.
 
 The publisher creates a missing draft, resumes partial uploads only while the same release is a draft, and requires its notes to remain identical to the merged PR body. An already published release is verified without modification; any notes, asset, or source mismatch fails instead of overwriting it. Do not manually replace draft metadata to bypass a mismatch.
 
