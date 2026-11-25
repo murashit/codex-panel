@@ -62,7 +62,7 @@ export function ObsidianCommitTextInput({
 }: {
   value: string;
   placeholder: string;
-  normalizeValue?: (value: string) => string;
+  normalizeValue: (value: string) => string;
   onCommit: (value: string) => void;
 }): UiNode {
   const ref = useRef<HTMLSpanElement | null>(null);
@@ -75,7 +75,7 @@ export function ObsidianCommitTextInput({
     const text = new TextComponent(container);
     textRef.current = text;
     const commit = () => {
-      const committedValue = normalizeValueRef.current?.(text.inputEl.value) ?? text.inputEl.value;
+      const committedValue = normalizeValueRef.current(text.inputEl.value);
       text.inputEl.value = committedValue;
       onCommitRef.current(committedValue);
     };

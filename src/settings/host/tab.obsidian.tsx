@@ -22,11 +22,8 @@ import {
   DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE,
   DEFAULT_ATTACHMENT_FOLDER,
   isCodexPanelSettingsKey,
-  normalizeArchiveExportFilenameTemplate,
-  normalizeArchiveExportFolderTemplate,
-  normalizeArchiveExportTags,
-  normalizeAttachmentFolder,
-  normalizeCodexPath,
+  normalizeTextPreference,
+  type TextPreferenceKey,
 } from "../preferences";
 import { ArchivedThreadsContent, type ArchivedThreadsViewModel } from "../ui/archived-threads";
 import { CodexHooksContent, type CodexHooksViewModel } from "../ui/codex-hooks";
@@ -91,10 +88,8 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       this.commitTextDefinition({
         name: "Codex executable",
         desc: "Command used to start `codex app-server`. Use an absolute path when Obsidian cannot find `codex`.",
-        value: () => this.plugin.settings.codexPath,
+        key: "codexPath",
         placeholder: DEFAULT_CODEX_PATH,
-        normalizeValue: normalizeCodexPath,
-        onCommit: (value) => this.setCodexPath(value),
       }),
       {
         name: "Show chat toolbar",
@@ -176,10 +171,8 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           this.commitTextDefinition({
             name: "Attachment folder",
             desc: "Vault-relative folder for files pasted or dropped into composer inputs.",
-            value: () => this.plugin.settings.attachmentFolder,
+            key: "attachmentFolder",
             placeholder: DEFAULT_ATTACHMENT_FOLDER,
-            normalizeValue: normalizeAttachmentFolder,
-            onCommit: (value) => this.setPreference("attachmentFolder", normalizeAttachmentFolder(value)),
           }),
         ],
       },
@@ -196,26 +189,20 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           this.commitTextDefinition({
             name: "Saved note folder",
             desc: "Vault-relative folder for archived thread notes.",
-            value: () => this.plugin.settings.archiveExportFolderTemplate,
+            key: "archiveExportFolderTemplate",
             placeholder: DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE,
-            normalizeValue: normalizeArchiveExportFolderTemplate,
-            onCommit: (value) => this.setPreference("archiveExportFolderTemplate", normalizeArchiveExportFolderTemplate(value)),
           }),
           this.commitTextDefinition({
             name: "Saved note filename",
             desc: "Filename template. Supports {{date}}, {{time}}, {{title}}, {{id}}, and {{shortId}}.",
-            value: () => this.plugin.settings.archiveExportFilenameTemplate,
+            key: "archiveExportFilenameTemplate",
             placeholder: DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE,
-            normalizeValue: normalizeArchiveExportFilenameTemplate,
-            onCommit: (value) => this.setPreference("archiveExportFilenameTemplate", normalizeArchiveExportFilenameTemplate(value)),
           }),
           this.commitTextDefinition({
             name: "Saved note tags",
             desc: "Comma-separated tags added to saved thread notes.",
-            value: () => this.plugin.settings.archiveExportTags,
+            key: "archiveExportTags",
             placeholder: "codex, archive",
-            normalizeValue: normalizeArchiveExportTags,
-            onCommit: (value) => this.setPreference("archiveExportTags", normalizeArchiveExportTags(value)),
           }),
         ],
       },
@@ -314,24 +301,17 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     };
   }
 
-  private commitTextDefinition(options: {
-    name: string;
-    desc: string;
-    value: () => string;
-    placeholder: string;
-    normalizeValue: (value: string) => string;
-    onCommit: (value: string) => Promise<void>;
-  }): SettingDefinition {
+  private commitTextDefinition(options: { name: string; desc: string; key: TextPreferenceKey; placeholder: string }): SettingDefinition {
     return {
       name: options.name,
       desc: options.desc,
       render: (setting) =>
         this.renderDeclarativeControl(setting, () => (
           <ObsidianCommitTextInput
-            value={options.value()}
+            value={this.plugin.settings[options.key]}
             placeholder={options.placeholder}
-            normalizeValue={options.normalizeValue}
-            onCommit={(value) => void options.onCommit(value)}
+            normalizeValue={(value) => normalizeTextPreference(options.key, value)}
+            onCommit={(value) => void this.setPreference(options.key, value)}
           />
         )),
     };
@@ -372,15 +352,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     };
   }
 
-  private setCodexPath(value: string): Promise<void> {
-    const codexPath = normalizeCodexPath(value);
-    return this.queueSettingsMutation((settings) => {
-      if (codexPath === settings.codexPath) return false;
-      settings.codexPath = codexPath;
-      return true;
-    });
-  }
-
   private setThreadNamingModel(value: string | null): Promise<void> {
     return this.queueSettingsMutation((settings) => {
       settings.threadNamingModel = value;
@@ -401,7 +372,9 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private setPreference<Key extends keyof CodexPanelSettings>(key: Key, value: CodexPanelSettings[Key]): Promise<void> {
     return this.queueSettingsMutation((settings) => {
+      if (key === "codexPath" && settings[key] === value) return false;
       settings[key] = value;
+      return true;
     });
   }
 

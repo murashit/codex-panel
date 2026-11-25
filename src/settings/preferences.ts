@@ -54,7 +54,7 @@ export function isCodexPanelSettingsKey(key: string): key is keyof CodexPanelSet
 export function normalizeSettings(storedSettings: unknown): CodexPanelSettings {
   const record = asRecord(storedSettings);
   return {
-    codexPath: normalizeCodexPath(record["codexPath"]),
+    codexPath: normalizeTextPreference("codexPath", record["codexPath"]),
     threadNamingModel: modelOrDefault(record["threadNamingModel"], DEFAULT_SETTINGS.threadNamingModel),
     threadNamingEffort: reasoningEffortOrDefault(record["threadNamingEffort"], DEFAULT_SETTINGS.threadNamingEffort),
     rewriteSelectionModel: modelOrDefault(record["rewriteSelectionModel"], DEFAULT_SETTINGS.rewriteSelectionModel),
@@ -67,32 +67,23 @@ export function normalizeSettings(storedSettings: unknown): CodexPanelSettings {
       DEFAULT_SETTINGS.scrollThreadFromComposerEdges,
     ),
     referenceActiveNoteOnSend: booleanOrDefault(record["referenceActiveNoteOnSend"], DEFAULT_SETTINGS.referenceActiveNoteOnSend),
-    attachmentFolder: normalizeAttachmentFolder(record["attachmentFolder"]),
+    attachmentFolder: normalizeTextPreference("attachmentFolder", record["attachmentFolder"]),
     archiveExportEnabled: booleanOrDefault(record["archiveExportEnabled"], DEFAULT_SETTINGS.archiveExportEnabled),
-    archiveExportFolderTemplate: normalizeArchiveExportFolderTemplate(record["archiveExportFolderTemplate"]),
-    archiveExportFilenameTemplate: normalizeArchiveExportFilenameTemplate(record["archiveExportFilenameTemplate"]),
-    archiveExportTags: normalizeArchiveExportTags(record["archiveExportTags"]),
+    archiveExportFolderTemplate: normalizeTextPreference("archiveExportFolderTemplate", record["archiveExportFolderTemplate"]),
+    archiveExportFilenameTemplate: normalizeTextPreference("archiveExportFilenameTemplate", record["archiveExportFilenameTemplate"]),
+    archiveExportTags: normalizeTextPreference("archiveExportTags", record["archiveExportTags"]),
   };
 }
 
-export function normalizeCodexPath(value: unknown): string {
-  return stringOrDefault(value, DEFAULT_CODEX_PATH).trim() || DEFAULT_CODEX_PATH;
-}
+export type TextPreferenceKey =
+  | "codexPath"
+  | "attachmentFolder"
+  | "archiveExportFolderTemplate"
+  | "archiveExportFilenameTemplate"
+  | "archiveExportTags";
 
-export function normalizeAttachmentFolder(value: unknown): string {
-  return stringOrDefault(value, DEFAULT_ATTACHMENT_FOLDER).trim() || DEFAULT_ATTACHMENT_FOLDER;
-}
-
-export function normalizeArchiveExportFolderTemplate(value: unknown): string {
-  return stringOrDefault(value, DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE).trim() || DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE;
-}
-
-export function normalizeArchiveExportFilenameTemplate(value: unknown): string {
-  return stringOrDefault(value, DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE).trim() || DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE;
-}
-
-export function normalizeArchiveExportTags(value: unknown): string {
-  return stringOrDefault(value, DEFAULT_SETTINGS.archiveExportTags).trim();
+export function normalizeTextPreference(key: TextPreferenceKey, value: unknown): string {
+  return (typeof value === "string" && value.trim()) || DEFAULT_SETTINGS[key];
 }
 
 export function settingsMatchStoredSettings(storedSettings: unknown, settings: CodexPanelSettings): boolean {
@@ -102,10 +93,6 @@ export function settingsMatchStoredSettings(storedSettings: unknown, settings: C
 
 function asRecord(value: unknown): Record<string, unknown> {
   return isObjectValue(value) ? value : {};
-}
-
-function stringOrDefault(value: unknown, fallback: string): string {
-  return typeof value === "string" ? value : fallback;
 }
 
 function booleanOrDefault(value: unknown, fallback: boolean): boolean {
