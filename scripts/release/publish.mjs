@@ -41,13 +41,14 @@ const pullRequests = run("gh", ["api", `repos/${repository}/commits/${sha}/pulls
   );
 if (pullRequests.length !== 1) throw new Error("Expected one tagpr PR merged at the checked SHA");
 const body = pullRequests[0].body;
-if (
-  typeof body !== "string" ||
-  !/^## Changes\r?\n\r?\n/.test(body) ||
-  !/^-\s+\S/m.test(body) ||
-  [...body.matchAll(/^## /gm)].length !== 1
-) {
-  throw new Error("Replace the generated PR body with final notes: one Changes section with bullets");
+const notes = typeof body === "string" ? body.replace(/\r\n/g, "\n") : "";
+const headings = [...notes.matchAll(/^## (.+)$/gm)].map((match) => match[1]);
+const categories = new Set(["Breaking Changes", "Compatibility", "Features & Changes", "Bug Fixes"]);
+const categorized =
+  headings.length > 0 && notes.startsWith(`## ${headings[0]}\n\n`) && headings.every((heading) => categories.has(heading));
+const internalOnly = /^No user-facing changes\.\n\n\[Full Changelog\]\(https:\/\/[^\s)]+\)\n?$/.test(notes);
+if (!internalOnly && (!categorized || !/^-\s+\S/m.test(notes))) {
+  throw new Error("Replace the generated PR body with final release notes before publishing");
 }
 
 const recordedSha = (await readFile(path.join(assetDir, "checked-sha"), "utf8")).trim();
