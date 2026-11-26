@@ -291,7 +291,9 @@ export class WorkspacePanelCoordinator {
     const existing = this.panelLeaves().find((leaf) => leaf.getRoot() === workspace.rightSplit);
     if (!existing) return workspace.getRightLeaf(false);
 
-    return workspace.createLeafInParent(existing.parent, Number.MAX_SAFE_INTEGER);
+    // Obsidian declares WorkspaceSplit here, but inserts into the supplied leaf parent.
+    const sidebar: { createLeafInParent(parent: WorkspaceLeaf["parent"], index: number): WorkspaceLeaf } = workspace;
+    return sidebar.createLeafInParent(existing.parent, Number.MAX_SAFE_INTEGER);
   }
 
   private findExistingThreadPanelLeaf(threadId: string): WorkspaceLeaf | null {

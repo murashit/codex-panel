@@ -19,6 +19,27 @@ describe("WorkspacePanelCoordinator", () => {
     vi.useRealTimers();
   });
 
+  it.each(["tab group", "mobile drawer"])("appends a new panel to its existing right sidebar %s", async (parent) => {
+    const existing = leaf();
+    const leaves = [existing];
+    const plugin = await pluginWithLeaves(leaves);
+    if (parent === "mobile drawer") existing.parent = plugin.app.workspace.rightSplit;
+    existing.getRoot.mockReturnValue(plugin.app.workspace.rightSplit);
+    const next = leaf();
+    const view = chatView(CodexChatView, next);
+    installLeafView(next, view, leaves);
+    vi.spyOn(view.surface, "connect").mockResolvedValue(undefined);
+    const append = plugin.app.workspace.createLeafInParent as ReturnType<typeof vi.fn>;
+    append.mockReturnValue(next);
+
+    expect(await panels(plugin).activateNewView({ focus: false })).toBe(view);
+    expect(append).toHaveBeenCalledExactlyOnceWith(existing.parent, Number.MAX_SAFE_INTEGER);
+    expect(append.mock.calls[0]?.[0]).toBe(existing.parent);
+    expect(append.mock.contexts[0]).toBe(plugin.app.workspace);
+    expect(leaves).toEqual([existing, next]);
+    plugin.runtime.reset();
+  });
+
   it("drops a scoped selection after empty-leaf creation without persisting its thread", async () => {
     const target = leaf();
     const leaves: ReturnType<typeof leaf>[] = [];
