@@ -8,7 +8,6 @@ import {
 import type { AgentStateSummary, ExecutionState, ThreadStreamItem } from "../../domain/thread-stream/items";
 import { agentMessagePreview } from "./agent-message-preview";
 
-const ACTIVE_AGENT_PREVIEW_LIMIT = 96;
 const ACTIVE_AGENT_ROW_LIMIT = 3;
 
 export interface ActiveSubagentActivity extends AgentCoordinationLifecycle {
@@ -40,8 +39,7 @@ export function activeAgentRunSummary(
       threadId: agent.threadId,
       ...(agent.agentLabel ? { agentLabel: agent.agentLabel } : {}),
       status: agent.status,
-      messagePreview:
-        subagentActivities?.get(agent.threadId)?.messagePreview ?? agentMessagePreview(agent.message, ACTIVE_AGENT_PREVIEW_LIMIT),
+      messagePreview: subagentActivities?.get(agent.threadId)?.messagePreview ?? agentMessagePreview(agent.message),
     }))
     .sort((a, b) => Number(Boolean(b.messagePreview)) - Number(Boolean(a.messagePreview)) || a.threadId.localeCompare(b.threadId));
   summary.agents = runningAgents.slice(0, ACTIVE_AGENT_ROW_LIMIT);

@@ -3,18 +3,18 @@ import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/t
 import { subagentActivityPreview } from "../../../../../src/features/chat/ui/thread-stream/subagent-preview";
 
 describe("subagent activity preview", () => {
-  it("shows streamed reasoning without its transport label", () => {
+  it("shortens long streamed reasoning after removing its transport label", () => {
     expect(
       subagentActivityPreview(
         {
           id: "reasoning",
           kind: "reasoning",
           role: "tool",
-          text: "reasoning: Inspecting notification routing",
+          text: `reasoning: ${"x".repeat(97)}`,
         },
         "/vault",
       ),
-    ).toBe("Inspecting notification routing");
+    ).toBe(`${"x".repeat(95)}...`);
   });
 
   it("prefers the active task step", () => {
