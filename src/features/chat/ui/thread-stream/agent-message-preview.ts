@@ -1,6 +1,6 @@
 import { truncate } from "../../../../domain/text/text";
 
-export function agentMessagePreview(message: string | null, maxLength: number): string | null {
+export function agentMessagePreview(message: string | null | undefined, maxLength = 96): string | null {
   if (!message) return null;
   const firstLine = message
     .split(/\r?\n/)

@@ -380,7 +380,7 @@ describe("panel thread stream item rendering", () => {
   });
 
   it("collapses long agent output away from the agent status row", () => {
-    const longMessage = `Done\n${"a".repeat(180)}`;
+    const longMessage = `${"b".repeat(120)}\n${"a".repeat(180)}`;
     const threadId = "019e061e-0046-7653-a362-86de9a47cb5c";
     const onDisclosureToggle = vi.fn();
     const { blocks, context } = projectedThreadStream({
@@ -401,7 +401,7 @@ describe("panel thread stream item rendering", () => {
 
     const agentRows = textContents(element, ".codex-panel__meta-grid dt, .codex-panel__meta-grid dd");
     expect(agentRows).toContain("019e061e");
-    expect(agentRows).toContain("completed: Done");
+    expect(agentRows).toContain(`completed: ${"b".repeat(120)}`);
     expect(agentRows.join("")).not.toContain("a".repeat(180));
     expect(textContents(element, "details summary")).toEqual(["agent"]);
     expect(element.querySelector<HTMLElement>("details summary")?.tabIndex).toBe(-1);
@@ -427,7 +427,7 @@ describe("panel thread stream item rendering", () => {
           targets: [{ threadId: "done" }, { threadId: "running" }],
           agents: [
             { threadId: "done", status: "completed", executionState: "completed", message: null },
-            { threadId: "running", status: "running", executionState: "running", message: "Inspecting renderer" },
+            { threadId: "running", status: "running", executionState: "running", message: "x".repeat(97) },
           ],
         }),
       ],
@@ -439,11 +439,10 @@ describe("panel thread stream item rendering", () => {
     expect(summary.classList.contains("codex-panel__agent-summary")).toBe(true);
     expect(summary.textContent).toContain("agents");
     expect(summary.textContent).toContain("Agents 1 running, 1 done");
-    expect(summary.textContent).toContain("runningInspecting renderer");
     expect(summary.textContent).not.toContain("donecompleted");
     expect(summary.querySelector<HTMLButtonElement>('[aria-label="Open agent thread"]')).toBeNull();
     const open = expectPresent(summary.querySelector<HTMLElement>(".codex-panel__agent-row--interactive"));
-    expect(open.textContent).toBe("runningInspecting renderer");
+    expect(open.textContent).toBe(`running${"x".repeat(95)}...`);
     open.click();
     expect(openThreadInNewView).toHaveBeenCalledWith("running");
   });
