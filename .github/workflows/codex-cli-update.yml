@@ -111,7 +111,7 @@ jobs:
       - name: Create App token
         if: steps.candidate.outputs.version != '' && steps.existing.outputs.found != 'true'
         id: app-token
-        uses: actions/create-github-app-token@v3.3.0
+        uses: actions/create-github-app-token@v3.4.0
         with:
           client-id: ${{ secrets.CODEX_PANEL_APP_CLIENT_ID }}
           private-key: ${{ secrets.CODEX_PANEL_APP_PRIVATE_KEY }}
