@@ -8,11 +8,20 @@ import {
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/settings";
 import type { McpServerRegistration, ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
 import type { RateLimitSnapshot } from "../../../../domain/runtime/usage";
+import { EMPTY_THREAD_ACTIVITY, type ObserveThreadListActivity } from "../../../../domain/threads/activity";
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ObservedPaginatedResult } from "../../../../shared/async/observed-result";
 import type { ThreadCatalogPaginatedActiveReader } from "../../../threads/catalog/thread-catalog";
 import type { ChatMetadataSource, ChatThreadGoalQueries, CodexChatHost } from "../contracts";
+
+export function useArchiveBlockedThreadIds(observe: ObserveThreadListActivity): ReadonlySet<string> {
+  return useObservedResource(observe, EMPTY_THREAD_ACTIVITY.archiveBlockedThreadIds, (update) =>
+    observe(({ archiveBlockedThreadIds }) => {
+      update(() => archiveBlockedThreadIds);
+    }),
+  );
+}
 
 export type ChatToolInventoryDisplayQueries = Pick<CodexChatHost["toolInventoryQueries"], "observe" | "observeMcpRegistrations">;
 

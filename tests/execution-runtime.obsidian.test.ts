@@ -7,16 +7,17 @@ import compatibility from "../src/app-server/compatibility.json";
 import { AppServerClient } from "../src/app-server/connection/client";
 import type { ConnectionManagerHandlers } from "../src/app-server/connection/connection-manager";
 import * as contextConnection from "../src/app-server/connection/context-connection";
+import type { PanelThreadActivity } from "../src/domain/threads/activity";
 import { CodexExecutionRuntime } from "../src/execution-runtime";
 import type { ChatRuntimeView, CodexChatHost } from "../src/features/chat/host/contracts";
 import type { ThreadPickerController } from "../src/features/thread-picker/modal.obsidian";
 import * as threadPicker from "../src/features/thread-picker/modal.obsidian";
 import type { ThreadsViewHost } from "../src/features/threads-view/session";
-import type { ThreadsViewPanelActivity } from "../src/features/threads-view/state";
 import type { ThreadsRuntimeView } from "../src/features/threads-view/view.obsidian";
 import type { RateLimitSnapshot } from "../src/generated/app-server/v2/RateLimitSnapshot";
 import { DEFAULT_SETTINGS } from "../src/settings/preferences";
 import { deferred } from "./support/async";
+import { panelThreadFixture } from "./support/panel-thread";
 
 const ActualContextConnection = contextConnection.AppServerContextConnection;
 const rateLimitSnapshot = {
@@ -102,15 +103,20 @@ describe("CodexExecutionRuntime", () => {
     const runtime = executionRuntime();
     const chat = attachChatHost(runtime);
     const threads = attachThreadsHost(runtime);
+    const changed = vi.fn();
+    const unsubscribe = threads.observeThreadListActivity(changed);
 
     const first = chat.threadMutations.archiveThread("thread", { saveMarkdown: false });
     await vi.waitFor(() => expect(contextConnectionMock.client.request).toHaveBeenCalledOnce());
+    expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({ archiveBlockedThreadIds: new Set(["thread"]) }));
     await expect(threads.threadMutations.archiveThread("thread", { saveMarkdown: false })).rejects.toThrow(
       "An operation is already in progress.",
     );
     archived.resolve({});
     await expect(first).resolves.toEqual({ kind: "archived", exportedPath: null });
+    expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({ archiveBlockedThreadIds: new Set() }));
     expect(contextConnectionMock.client.request).toHaveBeenCalledExactlyOnceWith("thread/archive", { threadId: "thread" });
+    unsubscribe();
     runtime.dispose();
   });
 
@@ -149,14 +155,18 @@ describe("CodexExecutionRuntime", () => {
 
   it("blocks archive for matching pending or running panels while allowing unrelated activity", async () => {
     contextConnectionMock.client.request.mockResolvedValue({});
-    const activities: ThreadsViewPanelActivity[] = [];
+    const activities: PanelThreadActivity[] = [];
     const runtime = executionRuntime(vi.fn(), () => activities);
     const chat = attachChatHost(runtime);
+    const changed = vi.fn();
+    const unsubscribe = chat.observeThreadListActivity(changed);
     for (const [pending, running] of [
       [true, false],
       [false, true],
     ] as const) {
-      activities.splice(0, activities.length, { threadId: "thread", selected: false, pending, running, unread: false });
+      activities.splice(0, activities.length, { threadId: "thread", lastFocused: false, pending, turnBusy: running, unread: false });
+      runtime.notifyPanelActivityChanged();
+      expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({ archiveBlockedThreadIds: new Set(["thread"]) }));
       await expect(chat.threadMutations.archiveThread("thread", { saveMarkdown: false })).resolves.toEqual({
         kind: "blocked",
         reason: "thread-busy",
@@ -164,12 +174,19 @@ describe("CodexExecutionRuntime", () => {
       });
       expect(contextConnectionMock.client.request).not.toHaveBeenCalled();
     }
-    activities.splice(0, activities.length, { threadId: "other", selected: true, pending: true, running: true, unread: false });
+    const fork = panelThreadFixture({ id: "fork" });
+    const replacement = chat.threadCatalog.beginReplacement("thread");
+    replacement.attach(fork);
+    activities.splice(0, activities.length, { threadId: fork.id, lastFocused: true, pending: true, turnBusy: true, unread: false });
+    runtime.notifyPanelActivityChanged();
+    expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({ archiveBlockedThreadIds: new Set([fork.id]) }));
     await expect(chat.threadMutations.archiveThread("thread", { saveMarkdown: false })).resolves.toEqual({
       kind: "archived",
       exportedPath: null,
     });
     expect(contextConnectionMock.client.request).toHaveBeenCalledExactlyOnceWith("thread/archive", { threadId: "thread" });
+    replacement.finish(true);
+    unsubscribe();
     runtime.dispose();
   });
 
@@ -424,10 +441,7 @@ function pickerFactory(): {
   return { controllers, finish };
 }
 
-function executionRuntime(
-  onThreadFacts = vi.fn(),
-  openPanelActivities = (): readonly ThreadsViewPanelActivity[] => [],
-): CodexExecutionRuntime {
+function executionRuntime(onThreadFacts = vi.fn(), openPanelActivities = (): readonly PanelThreadActivity[] => []): CodexExecutionRuntime {
   return new CodexExecutionRuntime({
     app: { vault: { configDir: ".obsidian" } } as never,
     context: { codexPath: "codex", vaultPath: "/vault" },

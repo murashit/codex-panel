@@ -735,7 +735,7 @@ function panels(plugin: CodexPanelPlugin) {
   const lifetime = new AbortController();
   const coordinator = new WorkspacePanelCoordinator({
     app: plugin.app,
-    refreshThreadsViewLiveState: vi.fn(),
+    notifyPanelActivityChanged: vi.fn(),
     workspaceSignal: () => lifetime.signal,
   });
   return Object.assign(coordinator, coordinator.forRuntime(lifetime.signal));

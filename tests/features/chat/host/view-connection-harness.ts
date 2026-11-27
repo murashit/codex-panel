@@ -23,7 +23,7 @@ import { appServerTurnFixture } from "../../../support/app-server-records";
 import { waitForAsyncWork } from "../../../support/async";
 import { installObsidianDomShims } from "../../../support/dom";
 import { panelThreadFixture } from "../../../support/panel-thread";
-import { threadMutationCommandsMock } from "../../../support/thread-mutations";
+import { observeNoThreadActivity, threadMutationCommandsMock } from "../../../support/thread-mutations";
 import { chatPanelSettingsAccess } from "../support/settings";
 
 export interface TestCodexChatHost extends CodexChatHost {
@@ -448,10 +448,11 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
         pageParams: [null],
       });
     },
+    observeThreadListActivity: observeNoThreadActivity,
     threadMutations: threadMutationCommandsMock(overrides.threadMutations),
     threadTitlePort: threadTitlePortFixture(),
     threadAutoTitleWork: { submit: vi.fn() },
-    runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
+    runtimeSettingsCommitQueue: createKeyedOperationCoordinator(),
     settings: chatPanelSettingsAccess(settings),
     workspace: workspacePanelsFixture({
       openThreadInNewView: overrides.openThreadInNewView ?? vi.fn(),

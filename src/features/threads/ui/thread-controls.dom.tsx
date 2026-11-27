@@ -8,6 +8,7 @@ import type {
 } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import { IconButton } from "../../../shared/ui/icon.dom";
+import type { ThreadRowCoreProjection, ThreadRowRenameProjection } from "../list/row-projection";
 
 type ButtonProps = ButtonHTMLAttributes & { disabled?: boolean | undefined };
 
@@ -18,7 +19,7 @@ export interface ThreadActionControlsProps {
   renameDisabled?: boolean | undefined;
   archiveDisabled?: boolean | undefined;
   restoreFocusOnSynchronousArchiveTransition?: boolean | undefined;
-  archiveConfirm: { active: boolean; defaultSaveMarkdown: boolean };
+  archiveConfirm: ThreadRowCoreProjection["archiveConfirm"];
   classNames: {
     action: string;
     pin?: string | undefined;
@@ -133,7 +134,7 @@ export function threadRenameControls({
   actions,
 }: {
   threadId: string;
-  state: { draft: string; generating: boolean; saving: boolean; autoNameDisabled: boolean };
+  state: ThreadRowRenameProjection;
   classNames: { input: string; action: string };
   actions: ThreadRenameControlActions;
 }): {

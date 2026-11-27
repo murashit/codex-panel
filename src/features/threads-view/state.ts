@@ -1,72 +1,44 @@
+import type { PanelThreadActivity, ThreadListActivity } from "../../domain/threads/activity";
 import { compareThreadsPinnedFirst, type Thread } from "../../domain/threads/model";
 import type { ThreadRenameActiveState } from "../../domain/threads/title";
 import { type ThreadRowCoreProjection, threadRowCoreProjection } from "../threads/list/row-projection";
 
 type ThreadsLiveStatus = "pending" | "running" | "unread" | "open";
 
-interface ThreadsLiveState {
-  status: ThreadsLiveStatus;
-}
-
-export interface ThreadsViewPanelActivity {
-  threadId: string | null;
-  selected: boolean;
-  pending: boolean;
-  running: boolean;
-  unread: boolean;
-}
-
 export interface ThreadsRowModel extends ThreadRowCoreProjection {
-  live: ThreadsLiveState | null;
-  archiveDisabled: boolean;
+  liveStatus: ThreadsLiveStatus | null;
 }
 
 export type ThreadsRenameState = ThreadRenameActiveState;
 
 export function threadRows(
   threads: readonly Thread[],
-  panelActivities: readonly ThreadsViewPanelActivity[],
+  activity: ThreadListActivity,
   renameStates: ReadonlyMap<string, ThreadsRenameState>,
   archiveConfirmThreadId: string | null = null,
   defaultArchiveSaveMarkdown = false,
-  lifecycleBusyThreadIds: ReadonlySet<string> = new Set(),
+  visibleThreadId: (id: string | null) => string | null = (id) => id,
 ): ThreadsRowModel[] {
-  const panelActivitiesByThread = panelActivitiesForThreads(panelActivities);
+  const panelActivitiesByThread = new Map(activity.panels.map((panel) => [visibleThreadId(panel.threadId), panel]));
   return [...threads].sort(compareThreadsPinnedFirst).map((thread) => {
     const threadPanelActivity = panelActivitiesByThread.get(thread.id);
-    const live = liveStateForPanelActivity(threadPanelActivity);
-    const core = threadRowCoreProjection({
-      thread,
-      selected: threadPanelActivity?.selected ?? false,
-      renameState: renameStates.get(thread.id),
-      archiveConfirmActive: archiveConfirmThreadId === thread.id,
-      defaultArchiveSaveMarkdown,
-    });
     return {
-      ...core,
-      live,
-      archiveDisabled: lifecycleBusyThreadIds.has(thread.id) || Boolean(threadPanelActivity?.pending || threadPanelActivity?.running),
+      ...threadRowCoreProjection({
+        thread,
+        selected: threadPanelActivity?.lastFocused ?? false,
+        archiveBlockedThreadIds: activity.archiveBlockedThreadIds,
+        renameState: renameStates.get(thread.id),
+        archiveConfirmActive: archiveConfirmThreadId === thread.id,
+        defaultArchiveSaveMarkdown,
+      }),
+      liveStatus: threadPanelActivity ? panelActivityStatus(threadPanelActivity) : null,
     };
   });
 }
 
-function liveStateForPanelActivity(activity: ThreadsViewPanelActivity | undefined): ThreadsLiveState | null {
-  if (!activity) return null;
-  return { status: panelActivityStatus(activity) };
-}
-
-function panelActivitiesForThreads(panelActivities: readonly ThreadsViewPanelActivity[]): Map<string, ThreadsViewPanelActivity> {
-  const map = new Map<string, ThreadsViewPanelActivity>();
-  for (const activity of panelActivities) {
-    if (!activity.threadId) continue;
-    map.set(activity.threadId, activity);
-  }
-  return map;
-}
-
-function panelActivityStatus(activity: ThreadsViewPanelActivity): ThreadsLiveStatus {
+function panelActivityStatus(activity: PanelThreadActivity): ThreadsLiveStatus {
   if (activity.pending) return "pending";
-  if (activity.running) return "running";
+  if (activity.turnBusy) return "running";
   if (activity.unread) return "unread";
   return "open";
 }

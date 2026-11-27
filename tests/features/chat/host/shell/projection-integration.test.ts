@@ -118,19 +118,27 @@ describe("chat panel projection integration", () => {
     expect(blocks()).toEqual([{ kind: "empty", key: "empty" }]);
   });
 
-  it("uses replacement visibility only for the selected toolbar row", () => {
-    let state = chatStateFixture({ activeThread: { id: "replacement" } });
-    const shared = chatToolbarSharedValuesFixture({
-      activeThreads: { ...emptyToolbarShared.activeThreads, threads: [threadFixture("source", "Source")] },
-    });
-    state = chatStateWith(state, {
+  it("selects the visible replacement row and disables archive only for the actual busy targets", () => {
+    const state = chatStateWith(chatStateFixture({ activeThread: { id: "replacement" } }), {
       activeTurn: { lifecycle: { kind: "running", turnId: "turn" } },
       ui: { toolbarPanel: "history" },
     });
-    const parent = renderToolbar(state, shared, toolbarSurfaceFixture({ visibleThreadId: () => "source" }));
+    const shared = chatToolbarSharedValuesFixture({
+      activeThreads: { ...emptyToolbarShared.activeThreads, threads: [threadFixture("source", "Source"), threadFixture("other", "Other")] },
+    });
+    const parent = renderToolbar(
+      state,
+      shared,
+      toolbarSurfaceFixture({ visibleThreadId: () => "source" }),
+      undefined,
+      new Set(["replacement", "other"]),
+    );
 
     expect(parent.querySelector(".codex-panel__thread-row--selected")?.textContent).toContain("Source");
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.disabled).toBe(false);
+    const archive = [...parent.querySelectorAll<HTMLButtonElement>('[aria-label="Archive thread"]')];
+    const rename = [...parent.querySelectorAll<HTMLButtonElement>('[aria-label="Rename thread"]')];
+    expect(archive.map((button) => button.disabled)).toEqual([false, true]);
+    expect(rename.map((button) => button.disabled)).toEqual([false, false]);
     unmountUiRoot(parent);
   });
 
@@ -146,26 +154,6 @@ describe("chat panel projection integration", () => {
     expect(compact?.classList.contains("is-disabled")).toBe(true);
     compact?.click();
     expect(actions.chat.compactContext).not.toHaveBeenCalled();
-    unmountUiRoot(parent);
-  });
-
-  it("disables archive only for the busy target thread", () => {
-    let state = chatStateFixture({ activeThread: { id: "thread" } });
-    const shared = chatToolbarSharedValuesFixture({
-      activeThreads: { ...emptyToolbarShared.activeThreads, threads: [threadFixture("thread", "Thread"), threadFixture("other", "Other")] },
-    });
-    state = chatStateWith(state, {
-      activeTurn: { lifecycle: { kind: "running", turnId: "turn" } },
-      ui: { toolbarPanel: "history" },
-    });
-    const parent = renderToolbar(state, shared);
-
-    const archiveButtons = [...parent.querySelectorAll<HTMLButtonElement>('[aria-label="Archive thread"]')];
-    const renameButtons = [...parent.querySelectorAll<HTMLButtonElement>('[aria-label="Rename thread"]')];
-    expect(archiveButtons).toHaveLength(2);
-    expect(archiveButtons.map((button) => button.disabled)).toEqual([true, false]);
-    expect(renameButtons).toHaveLength(2);
-    expect(renameButtons.every((button) => !button.disabled)).toBe(true);
     unmountUiRoot(parent);
   });
 
@@ -430,10 +418,15 @@ describe("chat panel projection integration", () => {
       },
     });
 
-    const projection = projectChatPanelToolbar(selectChatPanelToolbar(state, shared), toolbarSurfaceFixture(), 1_799_991_600_000);
+    const projection = projectChatPanelToolbar(
+      selectChatPanelToolbar(state, shared),
+      toolbarSurfaceFixture(),
+      1_799_991_600_000,
+      new Set(),
+    );
 
     expect(projection.rateLimit?.rows).toEqual([expect.objectContaining({ label: "5h", value: "72%", resetLabel: "reset in 2h 20m" })]);
-    const later = projectChatPanelToolbar(selectChatPanelToolbar(state, shared), toolbarSurfaceFixture(), 1_799_995_200_000);
+    const later = projectChatPanelToolbar(selectChatPanelToolbar(state, shared), toolbarSurfaceFixture(), 1_799_995_200_000, new Set());
     expect(later.rateLimit?.rows).toEqual([expect.objectContaining({ resetLabel: "reset in 1h 20m" })]);
   });
 
@@ -834,9 +827,10 @@ function renderToolbar(
   shared: ChatPanelToolbarSharedValues,
   dependencies: ChatPanelToolbarDependencies = toolbarSurfaceFixture(),
   actions: ToolbarActions = toolbarActionsFixture(),
+  archiveBlockedThreadIds: ReadonlySet<string> = new Set(),
 ): HTMLElement {
   const parent = document.createElement("div");
-  const model = projectChatPanelToolbar(selectChatPanelToolbar(state, shared), dependencies, 0);
+  const model = projectChatPanelToolbar(selectChatPanelToolbar(state, shared), dependencies, 0, archiveBlockedThreadIds);
   renderUiRoot(parent, h(Toolbar, { model, actions }));
   return parent;
 }

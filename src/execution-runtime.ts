@@ -8,6 +8,13 @@ import { ThreadCatalog } from "./app-server/query/thread-catalog-queries";
 import { AppServerThreadGoalQueries } from "./app-server/query/thread-goal-queries";
 import { AppServerToolInventoryQueries } from "./app-server/query/tool-inventory-queries";
 import { type EphemeralStructuredTurnRunner, runEphemeralStructuredTurn } from "./app-server/services/ephemeral-structured-turn";
+import {
+  type ObserveThreadListActivity,
+  type PanelThreadActivity,
+  panelBlocksArchive,
+  type ThreadListActivity,
+  threadListActivity,
+} from "./domain/threads/activity";
 import type { ThreadFact } from "./domain/threads/facts";
 import type {
   ChatPanelSettingsAccess,
@@ -22,9 +29,8 @@ import { openThreadPicker, type ThreadPickerController } from "./features/thread
 import { threadFactFromLifecycleNotification } from "./features/threads/app-server/thread-lifecycle-notifications";
 import { createThreadMutationAdapter, createThreadTitleAdapter } from "./features/threads/app-server/workflow-adapters";
 import { createThreadAutoTitleWork, type ThreadAutoTitleWork } from "./features/threads/workflows/thread-auto-title-work";
-import { createThreadMutationCommands, type ThreadMutationCommands } from "./features/threads/workflows/thread-mutation-commands";
+import { createThreadMutationCommands } from "./features/threads/workflows/thread-mutation-commands";
 import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
-import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import type { ThreadsRuntimeView } from "./features/threads-view/view.obsidian";
 import type { SettingsResources } from "./settings/application/resources-controller";
 import type { CodexPanelSettings } from "./settings/preferences";
@@ -41,7 +47,7 @@ export interface CodexExecutionRuntimeOptions {
 
 interface ExecutionWorkspaceOperations extends RuntimePanelOperations, WorkspacePresentation {
   openNewPanel(): Promise<unknown>;
-  openPanelActivities(): readonly ThreadsViewPanelActivity[];
+  openPanelActivities(): readonly PanelThreadActivity[];
 }
 
 export class CodexExecutionRuntime {
@@ -52,10 +58,16 @@ export class CodexExecutionRuntime {
   private readonly toolInventoryQueries: AppServerToolInventoryQueries;
   private readonly threadGoalQueries: AppServerThreadGoalQueries;
   private readonly threadCatalog: ThreadCatalog;
-  private readonly threadMutations: ThreadMutationCommands;
+  private readonly threadMutations: ReturnType<typeof createThreadMutationCommands>;
+  private readonly panelActivityListeners = new Set<(activity: ThreadListActivity) => void>();
+  private readonly observeThreadListActivity: ObserveThreadListActivity = (changed) => {
+    this.panelActivityListeners.add(changed);
+    changed(this.threadListActivity());
+    return () => this.panelActivityListeners.delete(changed);
+  };
   private threadAutoTitleWork: ThreadAutoTitleWork | null = null;
   readonly settingsResources: SettingsResources;
-  private readonly runtimeSettingsCommitQueue = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
+  private readonly runtimeSettingsCommitQueue = createKeyedOperationCoordinator<string>();
   private readonly structuredTurnOperations = new Set<AbortController>();
   private activeThreadPicker: ThreadPickerController | null = null;
   private disposed = false;
@@ -127,9 +139,10 @@ export class CodexExecutionRuntime {
       },
       archiveDestination: () => createObsidianVaultMarkdownDestination(this.options.app.vault),
       threadIsBusy: (threadId) =>
-        this.options.workspace
-          .openPanelActivities()
-          .some((activity) => activity.threadId === threadId && (activity.pending || activity.running)),
+        this.options.workspace.openPanelActivities().some((panel) => panel.threadId === threadId && panelBlocksArchive(panel)),
+      archiveActivityChanged: () => {
+        this.notifyPanelActivityChanged();
+      },
     });
     this.threadAutoTitleWork = createThreadAutoTitleWork({
       titlePort: this.threadTitlePort(),
@@ -142,12 +155,23 @@ export class CodexExecutionRuntime {
     };
   }
 
+  notifyPanelActivityChanged(): void {
+    if (this.panelActivityListeners.size === 0) return;
+    const activity = this.threadListActivity();
+    for (const changed of this.panelActivityListeners) changed(activity);
+  }
+
+  private threadListActivity(): ThreadListActivity {
+    return threadListActivity(this.options.workspace.openPanelActivities(), this.threadMutations.archivingThreadIds);
+  }
+
   private chatHost(): CodexChatHost {
     this.assertActive();
     return {
       appServerConnection: this.appServerConnection,
       appServerContext: this.context,
       settings: this.chatSettings(),
+      observeThreadListActivity: this.observeThreadListActivity,
       workspace: this.options.workspace,
       appServerQueries: this.appServerQueries,
       toolInventoryQueries: this.toolInventoryQueries,
@@ -165,16 +189,12 @@ export class CodexExecutionRuntime {
     this.assertActive();
     return {
       settings: this.threadsSettings(),
+      observeThreadListActivity: this.observeThreadListActivity,
       threadCatalog: this.threadCatalog,
       threadMutations: this.threadMutations,
       threadTitlePort: this.threadTitlePort(),
       openNewPanel: () => this.options.workspace.openNewPanel(),
       openThreadInAvailableView: (threadId) => this.options.workspace.openThreadInAvailableView(threadId),
-      visiblePanelActivities: (threads) =>
-        this.options.workspace.openPanelActivities().map((activity) => ({
-          ...activity,
-          threadId: this.threadCatalog.visibleThreadId(threads, activity.threadId),
-        })),
     };
   }
 
@@ -215,6 +235,7 @@ export class CodexExecutionRuntime {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.panelActivityListeners.clear();
     this.threadAutoTitleWork?.dispose();
     this.threadAutoTitleWork = null;
     this.tryCleanup(() => {

@@ -106,7 +106,7 @@ function ThreadsViewState({ status }: { status: ThreadsViewShellModel["status"] 
 
 function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsViewShellActions }): UiNode {
   const archiveConfirm = row.archiveConfirm;
-  const rename = row.rename.active
+  const rename = row.rename
     ? threadRenameControls({
         state: row.rename,
         classNames: { input: "codex-panel-threads__rename-input", action: "codex-panel-threads__row-button" },
@@ -124,7 +124,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
     "codex-panel-threads__row",
     row.selected ? "codex-panel-threads__row--selected" : "",
     row.selected ? "is-selected" : "",
-    row.rename.active ? "codex-panel-threads__row--renaming" : "",
+    rename ? "codex-panel-threads__row--renaming" : "",
     archiveConfirm.active ? "codex-panel-threads__archive-confirm" : "",
   ]
     .filter(Boolean)
@@ -132,14 +132,13 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
   const mainClassName = [
     "codex-panel-ui__nav-item",
     "codex-panel-threads__row-main",
-    row.live ? liveStatusClassName(row.live.status) : "",
+    row.liveStatus ? liveStatusClassName(row.liveStatus) : "",
     row.selected ? "codex-panel-threads__row--selected" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
   const open = () => {
-    if (row.rename.active) return;
     actions.openThread(row.threadId);
   };
   return (
@@ -147,7 +146,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
       onFocusOut={rename?.onFocusOut}
       onKeyDown={rename?.onKeyDown}
       className={rowClassName}
-      persistentActions={row.rename.active || archiveConfirm.active}
+      persistentActions={rename !== null || archiveConfirm.active}
       main={
         rename ? (
           <div className={`${mainClassName} codex-panel-threads__rename-form`}>
@@ -194,7 +193,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
   );
 }
 
-function liveStatusClassName(status: NonNullable<ThreadsRowModel["live"]>["status"]): string {
+function liveStatusClassName(status: NonNullable<ThreadsRowModel["liveStatus"]>): string {
   if (status === "open") return "codex-panel-threads__row--open";
   if (status === "pending") return "codex-panel-threads__row--pending";
   if (status === "unread") return "codex-panel-threads__row--unread";
