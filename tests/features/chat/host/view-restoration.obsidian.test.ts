@@ -85,7 +85,7 @@ describe("CodexChatView workspace restoration", () => {
     });
     await waitForAsyncWork(() => expect(composerElement(view).value).toBe(""));
     expect(view.getState()).toEqual({ version: 1 });
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: false });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, availableForReuse: true });
     expect(requestMethods(nextClient)).not.toContain("thread/resume");
     expect(requestMethods(client)).not.toContain("thread/delete");
   });
@@ -123,13 +123,13 @@ describe("CodexChatView workspace restoration", () => {
     await view.surface.applyForkDraft(preparation);
     expect(view.getDisplayText()).toBe("Fork draft");
     expect(view.getState()).toEqual({ version: 1 });
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasComposerDraft: false, hasForkDraft: true });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, availableForReuse: false });
     view.surface.setComposerText("Continue this branch");
     const replacementHost = chatHost();
     owner.replace(replacementHost);
     await waitForAsyncWork(() => expect(composerElement(view).value).toBe(""));
     expect(view.getDisplayText()).toBe("Codex");
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: false });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, availableForReuse: true });
     expect(view.getState()).toEqual({ version: 1 });
     expect(requestMethods(connectionMockState().client as ReturnType<typeof connectedClient>)).not.toContain("thread/fork");
   });
@@ -293,7 +293,6 @@ describe("CodexChatView workspace restoration", () => {
     expect(view.surface.openPanelSnapshot()).toMatchObject({
       threadId: "thread-2",
       turnBusy: false,
-      hasComposerDraft: false,
     });
     expect(composerElement(view).value).toBe("");
   });

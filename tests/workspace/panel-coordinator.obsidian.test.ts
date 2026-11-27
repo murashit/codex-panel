@@ -112,7 +112,7 @@ describe("WorkspacePanelCoordinator", () => {
     activeView.mockReturnValue(active.view);
     const coordinator = panels(plugin);
     expect(coordinator.getOpenPanelSnapshots()).toMatchObject([
-      { threadId: "other", connected: false, lastFocused: false, turnBusy: false, pending: false },
+      { threadId: "other", lastFocused: false, turnBusy: false, pending: false },
       { viewId: "active", lastFocused: true },
     ]);
     activeView.mockReturnValue(null);
@@ -358,21 +358,6 @@ describe("WorkspacePanelCoordinator", () => {
     expect(plugin.app.workspace.getRightLeaf).not.toHaveBeenCalled();
   });
 
-  it.each([{ pending: true }, { hasForkDraft: true }, { hasComposerDraft: true }])(
-    "does not reuse an occupied panel with %j",
-    async (occupation) => {
-      const { panelLeaf: pendingLeaf, activateThread: pendingOpen } = materializedPanel(
-        panelSnapshot({ viewId: "pending", threadId: null, ...occupation }),
-      );
-      const { panelLeaf: emptyLeaf, activateThread: emptyOpen } = materializedPanel(panelSnapshot({ viewId: "empty", threadId: null }));
-
-      await panels(await pluginWithLeaves([pendingLeaf, emptyLeaf])).openThreadInAvailableView("thread-1");
-
-      expect(pendingOpen).not.toHaveBeenCalled();
-      expect(emptyOpen).toHaveBeenCalledWith("thread-1", { focus: false });
-    },
-  );
-
   it.each([
     [false, false],
     [false, true],
@@ -387,7 +372,7 @@ describe("WorkspacePanelCoordinator", () => {
     const targetView = destination.view as CodexChatView;
     let originThread: string | null = null;
     vi.spyOn(originView.surface, "openPanelSnapshot").mockImplementation(() =>
-      panelSnapshot({ viewId: "origin", threadId: originThread, hasForkDraft: originThread === null }),
+      panelSnapshot({ viewId: "origin", threadId: originThread, availableForReuse: false }),
     );
     if (otherPanel)
       vi.spyOn(targetView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "target", threadId: "source" }));
@@ -578,7 +563,7 @@ describe("WorkspacePanelCoordinator", () => {
       await coordinator.openForkDraft(preparation);
       expect(coordinator.getOpenPanelSnapshots()).toHaveLength(2);
       for (const view of [firstView, secondView]) {
-        expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: true, hasComposerDraft: false });
+        expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, availableForReuse: false });
         expect(view.getState()).toEqual({ version: 1 });
       }
       expect(firstLeaf.detach).not.toHaveBeenCalled();
@@ -595,10 +580,9 @@ describe("WorkspacePanelCoordinator", () => {
     const secondView = secondLeaf.view as CodexChatView;
     let firstThreadId = "first-source";
     let secondThreadId = "second-source";
-    let secondHasDraft = true;
     vi.spyOn(firstView.surface, "openPanelSnapshot").mockImplementation(() => panelSnapshot({ viewId: "first", threadId: firstThreadId }));
     vi.spyOn(secondView.surface, "openPanelSnapshot").mockImplementation(() =>
-      panelSnapshot({ viewId: "second", threadId: secondThreadId, hasComposerDraft: secondHasDraft }),
+      panelSnapshot({ viewId: "second", threadId: secondThreadId }),
     );
     const firstActivation = deferred<void>();
     const firstOpen = vi.spyOn(firstView.surface, "activateThread").mockImplementation(async (threadId) => {
@@ -611,7 +595,6 @@ describe("WorkspacePanelCoordinator", () => {
     vi.spyOn(secondView.surface, "activateThread").mockImplementation(async (threadId) => {
       if (!threadId) return false;
       secondThreadId = threadId;
-      secondHasDraft = false;
       return true;
     });
     const coordinator = panels(await pluginWithLeaves([firstLeaf, secondLeaf]));
@@ -626,7 +609,7 @@ describe("WorkspacePanelCoordinator", () => {
     expect(coordinator.getOpenPanelSnapshots()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ viewId: "first", threadId: "target" }),
-        expect.objectContaining({ viewId: "second", threadId: "second-source", hasComposerDraft: true }),
+        expect.objectContaining({ viewId: "second", threadId: "second-source" }),
       ]),
     );
     expect(firstLeaf.detach).not.toHaveBeenCalled();

@@ -95,7 +95,6 @@ describe("CodexChatView thread state", () => {
     expect(surface.openPanelSnapshot()).toMatchObject({
       threadId: destination === "unavailable" ? source : destination === "other" ? "other" : null,
       ...(destination === "unavailable" ? { turnBusy: true } : {}),
-      hasForkDraft: destination === "fork-draft",
     });
     expect(client.request).not.toHaveBeenCalledWith("thread/unsubscribe", { threadId: "other" }, expect.anything());
     await view.onClose();
@@ -140,7 +139,7 @@ describe("CodexChatView thread state", () => {
         },
       });
       await child.surface.startNewThread();
-      expect(child.surface.openPanelSnapshot()).toMatchObject({ threadId: null, turnBusy: false, hasForkDraft: false });
+      expect(child.surface.openPanelSnapshot()).toMatchObject({ threadId: null, turnBusy: false, availableForReuse: true });
       for (const id of [51, 52]) {
         const responder = { respond: vi.fn(), reject: vi.fn() };
         transport.handlers?.onServerRequest(
@@ -389,7 +388,7 @@ describe("CodexChatView thread state", () => {
     expect(view.getDisplayText()).toBe("Codex");
     expect(requestMethods(client)).not.toContain("thread/start");
     expect(view.getState()).toEqual({ version: 1 });
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, turnBusy: false, hasComposerDraft: false });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, turnBusy: false, availableForReuse: true });
     expect(requestSaveLayout).toHaveBeenCalledTimes(2);
   });
 
@@ -430,7 +429,6 @@ describe("CodexChatView thread state", () => {
     await view.onOpen();
     await view.surface.activateThread("thread-1");
     view.surface.setComposerText("keep this draft");
-    expect(view.surface.openPanelSnapshot().hasComposerDraft).toBe(true);
     const composer = composerElement(view);
     await waitForAsyncWork(() => {
       expect(composer.value).toBe("keep this draft");

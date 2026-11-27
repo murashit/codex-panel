@@ -6,7 +6,7 @@ import type { ChatRuntimeView } from "../src/features/chat/host/contracts";
 import { CodexChatView } from "../src/features/chat/host/view.obsidian";
 import { deferred, waitForAsyncWork } from "./support/async";
 import { installObsidianDomShims } from "./support/dom";
-import { chatView, leaf, pluginWithLeaves, type TestLeaf } from "./support/plugin-fixtures";
+import { chatView, leaf, panelSnapshot, pluginWithLeaves, type TestLeaf } from "./support/plugin-fixtures";
 
 installObsidianDomShims();
 
@@ -197,28 +197,8 @@ describe("CodexPanelPlugin lifecycle", () => {
     (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(firstLeaf);
 
     await plugin.onload();
-    vi.spyOn(firstView.surface, "openPanelSnapshot").mockReturnValue({
-      viewId: "first",
-      threadId: "thread-1",
-      turnBusy: false,
-      pending: false,
-      unread: false,
-      loadingThread: false,
-      hasComposerDraft: false,
-      hasForkDraft: false,
-      connected: false,
-    });
-    vi.spyOn(duplicateView.surface, "openPanelSnapshot").mockReturnValue({
-      viewId: "duplicate",
-      threadId: "thread-1",
-      turnBusy: false,
-      pending: false,
-      unread: false,
-      loadingThread: false,
-      hasComposerDraft: false,
-      hasForkDraft: false,
-      connected: false,
-    });
+    vi.spyOn(firstView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "first", threadId: "thread-1" }));
+    vi.spyOn(duplicateView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "duplicate", threadId: "thread-1" }));
     const firstHydrate = vi.spyOn(firstView.surface, "activateThread").mockResolvedValue(true);
     const duplicateHydrate = vi.spyOn(duplicateView.surface, "activateThread").mockResolvedValue(true);
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));

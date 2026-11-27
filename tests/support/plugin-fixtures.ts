@@ -177,14 +177,11 @@ export function panelSnapshot(
 ): ReturnType<CodexChatView["surface"]["openPanelSnapshot"]> {
   return {
     viewId: "view",
-    loadingThread: false,
+    availableForReuse: overrides.threadId === null,
     threadId: "thread",
     turnBusy: false,
     pending: false,
     unread: false,
-    hasComposerDraft: false,
-    hasForkDraft: false,
-    connected: true,
     ...overrides,
   };
 }
