@@ -1,10 +1,5 @@
 import type { InfiniteData } from "@tanstack/query-core";
-import {
-  type ThreadCatalogChange,
-  threadCatalogChangeList,
-  threadCatalogEntryEqual,
-  threadCatalogUpdateEqual,
-} from "../../domain/threads/catalog";
+import { applyThreadCatalogChange, type ThreadCatalogChange, threadCatalogChangeList } from "../../domain/threads/catalog";
 import { compareThreadsPinnedFirst, isThreadVisibleInCatalog, type Thread } from "../../domain/threads/model";
 import type { ThreadPage } from "../services/threads";
 
@@ -28,39 +23,18 @@ export function activeThreadDataHasMore(data: ActiveThreadData | undefined): boo
 
 export function applyActiveThreadMutation(data: ActiveThreadData | undefined, change: ThreadCatalogChange): ActiveThreadData | undefined {
   if (!data || threadCatalogChangeList(change) !== "active" || change.kind === "revalidate") return data;
-  const pages = data.pages.map((page) => ({ ...page, threads: [...page.threads] }));
-
-  switch (change.kind) {
-    case "upsert": {
-      const current = pages.flatMap((page) => page.threads).find((thread) => thread.id === change.thread.id);
-      if (threadCatalogEntryEqual(current, change.thread)) return data;
-      const existing = current !== undefined;
-      if (existing) {
-        for (const page of pages) {
-          page.threads = page.threads.map((thread) => (thread.id === change.thread.id ? change.thread : thread));
-        }
-      } else if (pages[0]) {
-        pages[0].threads = [change.thread, ...pages[0].threads];
-      }
-      break;
-    }
-    case "remove":
-      if (!pages.some((page) => page.threads.some((thread) => thread.id === change.threadId))) return data;
-      for (const page of pages) page.threads = page.threads.filter((thread) => thread.id !== change.threadId);
-      break;
-    case "update":
-      if (!pages.some((page) => page.threads.some((thread) => threadCatalogUpdateChangesEntry(thread, change)))) return data;
-      for (const page of pages) {
-        page.threads = page.threads.map((thread) => (thread.id === change.threadId ? { ...thread, ...change.changes } : thread));
-      }
-      break;
+  let upsertPages: ThreadPage[] | undefined;
+  if (change.kind === "upsert") {
+    upsertPages = data.pages.filter((page) => page.threads.some((thread) => thread.id === change.thread.id));
+    if (upsertPages.length === 0) upsertPages = data.pages.slice(0, 1);
   }
 
-  return { pages, pageParams: [...data.pageParams] };
-}
-
-function threadCatalogUpdateChangesEntry(thread: Thread, change: Extract<ThreadCatalogChange, { kind: "update" }>): boolean {
-  return thread.id === change.threadId && !threadCatalogUpdateEqual(thread, change.changes);
+  const pages = data.pages.map((page) => {
+    if (upsertPages && !upsertPages.includes(page)) return page;
+    const threads = applyThreadCatalogChange(page.threads, change);
+    return threads && threads !== page.threads ? { ...page, threads } : page;
+  });
+  return pages.some((page, index) => page !== data.pages[index]) ? { ...data, pages } : data;
 }
 
 function orderedUniqueThreads(threads: readonly Thread[]): readonly Thread[] {

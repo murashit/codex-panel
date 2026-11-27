@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { applyThreadCatalogChange, threadCatalogEntryEqual } from "../../../src/domain/threads/catalog";
+import { applyThreadCatalogChange } from "../../../src/domain/threads/catalog";
 import type { Thread } from "../../../src/domain/threads/model";
 import { panelThreadFixture } from "../../support/panel-thread";
 
@@ -90,16 +90,10 @@ describe("thread catalog read model", () => {
     expect(applyThreadCatalogChange(snapshot, { kind: "revalidate", list: "active" })).toBe(snapshot);
   });
 
-  it("treats changed provenance as a non-equivalent catalog entry", () => {
-    expect(
-      threadCatalogEntryEqual(thread("thread"), {
-        ...thread("thread"),
-        provenance: {
-          kind: "subagent",
-          parentThreadId: null,
-        },
-      }),
-    ).toBe(false);
+  it("publishes an interactive thread when its cached provenance changes", () => {
+    const current = thread("thread");
+    const previous: Thread = { ...current, provenance: { kind: "subagent", parentThreadId: null } };
+    expect(applyThreadCatalogChange([previous], { kind: "upsert", thread: current })).toEqual([current]);
   });
 });
 
