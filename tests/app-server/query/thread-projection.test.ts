@@ -8,17 +8,11 @@ describe("thread projection", () => {
     const active = [thread("source"), thread("other")];
     const archived: Thread[] = [];
 
-    const changes = projectThreadFacts(
-      {
-        activeThreadsSnapshot: () => active,
-        archivedThreadsSnapshot: () => archived,
-      },
-      [
-        { type: "thread-upserted", thread: thread("child") },
-        { type: "thread-archived", threadId: "child" },
-        { type: "thread-archived", threadId: "source" },
-      ],
-    );
+    const changes = projectThreadFacts({ active, archived }, [
+      { type: "thread-upserted", thread: thread("child") },
+      { type: "thread-archived", threadId: "child" },
+      { type: "thread-archived", threadId: "source" },
+    ]);
 
     expect(changes).toEqual([
       { kind: "upsert", thread: thread("child") },
@@ -32,30 +26,18 @@ describe("thread projection", () => {
   });
 
   it("does not project subagent facts into the thread catalog", () => {
-    expect(
-      projectThreadFacts({ activeThreadsSnapshot: () => [], archivedThreadsSnapshot: () => [] }, [
-        { type: "thread-upserted", thread: subagent("child") },
-      ]),
-    ).toEqual([]);
+    expect(projectThreadFacts({ active: [], archived: [] }, [{ type: "thread-upserted", thread: subagent("child") }])).toEqual([]);
   });
 
   it("requests revalidation when a fact needs a record absent from the snapshot", () => {
-    expect(
-      projectThreadFacts({ activeThreadsSnapshot: () => null, archivedThreadsSnapshot: () => null }, [
-        { type: "thread-archived", threadId: "unknown" },
-      ]),
-    ).toEqual([
+    expect(projectThreadFacts({ active: null, archived: null }, [{ type: "thread-archived", threadId: "unknown" }])).toEqual([
       { kind: "remove", list: "active", threadId: "unknown" },
       { kind: "revalidate", list: "archived" },
     ]);
   });
 
   it("requests active revalidation when an unarchived thread is absent", () => {
-    expect(
-      projectThreadFacts({ activeThreadsSnapshot: () => [], archivedThreadsSnapshot: () => [] }, [
-        { type: "thread-unarchived", threadId: "unknown" },
-      ]),
-    ).toEqual([
+    expect(projectThreadFacts({ active: [], archived: [] }, [{ type: "thread-unarchived", threadId: "unknown" }])).toEqual([
       { kind: "remove", list: "archived", threadId: "unknown" },
       { kind: "revalidate", list: "active" },
     ]);
@@ -63,9 +45,7 @@ describe("thread projection", () => {
 
   it("projects pinned state into active and archived snapshots", () => {
     expect(
-      projectThreadFacts({ activeThreadsSnapshot: () => [thread("thread")], archivedThreadsSnapshot: () => [] }, [
-        { type: "thread-pinned", threadId: "thread", isPinned: true },
-      ]),
+      projectThreadFacts({ active: [thread("thread")], archived: [] }, [{ type: "thread-pinned", threadId: "thread", isPinned: true }]),
     ).toEqual([
       { kind: "update", list: "active", threadId: "thread", changes: { isPinned: true } },
       { kind: "update", list: "archived", threadId: "thread", changes: { isPinned: true } },
@@ -74,9 +54,7 @@ describe("thread projection", () => {
 
   it("moves an existing archived thread into the active list when unarchived", () => {
     expect(
-      projectThreadFacts({ activeThreadsSnapshot: () => [], archivedThreadsSnapshot: () => [thread("archived", true)] }, [
-        { type: "thread-unarchived", threadId: "archived" },
-      ]),
+      projectThreadFacts({ active: [], archived: [thread("archived", true)] }, [{ type: "thread-unarchived", threadId: "archived" }]),
     ).toEqual([
       { kind: "remove", list: "archived", threadId: "archived" },
       { kind: "upsert", thread: thread("archived") },

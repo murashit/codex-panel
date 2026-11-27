@@ -1,4 +1,4 @@
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   type ActiveThreadData,
   activeThreadDataHasMore,
@@ -49,21 +49,19 @@ describe("active thread inventory", () => {
     expect(unchanged).toBe(original);
   });
 
-  it("applies active upserts across pages", () => {
-    const original = inventory([page([thread("existing", 1)], "next", 1), page([thread("other", 2)], null, 1)]);
-    const updated = applyActiveThreadMutation(original, {
-      kind: "upsert",
-      thread: { ...thread("existing", 3), name: "Renamed" },
-    });
-    assert(updated);
-    expect(activeThreadsFromData(updated).map((item) => [item.id, item.name, item.recencyAt])).toEqual([
-      ["existing", "Renamed", 3],
-      ["other", null, 2],
-    ]);
+  it("updates each page containing a thread and inserts new threads only on the first page", () => {
+    const existing = thread("existing", 1);
+    const other = thread("other", 2);
+    const original = inventory([page([other], "next", 1), page([existing], "last", 1), page([existing], null, 1)]);
+    const renamed = { ...existing, name: "Renamed" };
+    const updated = applyActiveThreadMutation(original, { kind: "upsert", thread: renamed });
+    expect(updated?.pages.map((page) => page.threads)).toEqual([[other], [renamed], [renamed]]);
+    expect(updated?.pages[0]).toBe(original.pages[0]);
 
-    const inserted = applyActiveThreadMutation(original, { kind: "upsert", thread: thread("new", 4) });
-    assert(inserted);
-    expect(activeThreadsFromData(inserted).map((item) => item.id)).toEqual(["new", "other", "existing"]);
+    const newThread = thread("new", 4);
+    const inserted = applyActiveThreadMutation(original, { kind: "upsert", thread: newThread });
+    expect(inserted?.pages.map((page) => page.threads)).toEqual([[newThread, other], [existing], [existing]]);
+    expect(inserted?.pageParams).toBe(original.pageParams);
   });
 
   it("applies meaningful updates and removals, while ignoring unrelated changes", () => {

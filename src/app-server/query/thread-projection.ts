@@ -2,48 +2,44 @@ import { applyThreadCatalogChange, type ThreadCatalogChange, threadCatalogChange
 import type { ThreadFact } from "../../domain/threads/facts";
 import { isThreadVisibleInCatalog, type Thread } from "../../domain/threads/model";
 
-interface ThreadReadModelSnapshots {
-  activeThreadsSnapshot(): readonly Thread[] | null;
-  archivedThreadsSnapshot(): readonly Thread[] | null;
+interface ThreadLists {
+  active: readonly Thread[] | null;
+  archived: readonly Thread[] | null;
 }
 
-export function projectThreadFacts(snapshots: ThreadReadModelSnapshots, facts: readonly ThreadFact[]): ThreadCatalogChange[] {
-  let active = snapshots.activeThreadsSnapshot();
-  let archived = snapshots.archivedThreadsSnapshot();
+export function projectThreadFacts(snapshots: ThreadLists, facts: readonly ThreadFact[]): ThreadCatalogChange[] {
+  const lists = { ...snapshots };
   const changes: ThreadCatalogChange[] = [];
   for (const fact of facts) {
-    const factChanges = threadListChangesForFact({ active, archived }, fact);
-    changes.push(...factChanges);
-    for (const change of factChanges) {
-      if (threadCatalogChangeList(change) === "active") active = applyThreadCatalogChange(active, change);
-      else archived = applyThreadCatalogChange(archived, change);
+    for (const change of threadListChangesForFact(lists, fact)) {
+      const list = threadCatalogChangeList(change);
+      lists[list] = applyThreadCatalogChange(lists[list], change);
+      changes.push(change);
     }
   }
   return changes;
 }
 
-function threadListChangesForFact(
-  snapshots: { active: readonly Thread[] | null; archived: readonly Thread[] | null },
-  fact: ThreadFact,
-): ThreadCatalogChange[] {
+function threadListChangesForFact(snapshots: ThreadLists, fact: ThreadFact): ThreadCatalogChange[] {
   switch (fact.type) {
     case "thread-upserted":
       return isThreadVisibleInCatalog(fact.thread) ? [{ kind: "upsert", thread: { ...fact.thread, archived: false } }] : [];
     case "thread-renamed":
+    case "thread-pinned": {
+      const changes = fact.type === "thread-renamed" ? { name: fact.name } : { isPinned: fact.isPinned };
       return [
-        { kind: "update", list: "active", threadId: fact.threadId, changes: { name: fact.name } },
-        { kind: "update", list: "archived", threadId: fact.threadId, changes: { name: fact.name } },
+        { kind: "update", list: "active", threadId: fact.threadId, changes },
+        { kind: "update", list: "archived", threadId: fact.threadId, changes },
       ];
-    case "thread-pinned":
+    }
+    case "thread-archived":
+    case "thread-unarchived": {
+      const archived = fact.type === "thread-archived";
+      const from = archived ? "active" : "archived";
+      const thread = snapshots[from]?.find((thread) => thread.id === fact.threadId);
       return [
-        { kind: "update", list: "active", threadId: fact.threadId, changes: { isPinned: fact.isPinned } },
-        { kind: "update", list: "archived", threadId: fact.threadId, changes: { isPinned: fact.isPinned } },
-      ];
-    case "thread-archived": {
-      const thread = threadById(snapshots.active, fact.threadId);
-      return [
-        { kind: "remove", list: "active", threadId: fact.threadId },
-        thread ? { kind: "upsert", thread: { ...thread, archived: true } } : { kind: "revalidate", list: "archived" },
+        { kind: "remove", list: from, threadId: fact.threadId },
+        thread ? { kind: "upsert", thread: { ...thread, archived } } : { kind: "revalidate", list: archived ? "archived" : "active" },
       ];
     }
     case "thread-deleted":
@@ -51,16 +47,5 @@ function threadListChangesForFact(
         { kind: "remove", list: "active", threadId: fact.threadId },
         { kind: "remove", list: "archived", threadId: fact.threadId },
       ];
-    case "thread-unarchived": {
-      const thread = threadById(snapshots.archived, fact.threadId);
-      return [
-        { kind: "remove", list: "archived", threadId: fact.threadId },
-        thread ? { kind: "upsert", thread: { ...thread, archived: false } } : { kind: "revalidate", list: "active" },
-      ];
-    }
   }
-}
-
-function threadById(threads: readonly Thread[] | null, threadId: string): Thread | null {
-  return threads?.find((thread) => thread.id === threadId) ?? null;
 }

@@ -63,7 +63,9 @@ export class ThreadCatalog {
 
   private publishFacts(facts: readonly ThreadFact[]): void {
     if (this.scope.isDisposed() || facts.length === 0) return;
-    this.applyThreadCatalogChanges(projectThreadFacts(this, facts));
+    this.applyThreadCatalogChanges(
+      projectThreadFacts({ active: this.activeThreadsSnapshot(), archived: this.archivedThreadsSnapshot() }, facts),
+    );
     this.onPublishedFacts(facts);
   }
 
