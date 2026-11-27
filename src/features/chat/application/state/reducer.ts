@@ -55,7 +55,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "thread-stream/system-item-added":
     case "thread-stream/deduped-log-added":
     case "thread-stream/history-loading-set":
-    case "thread-stream/content-replaced":
+    case "thread-stream/history-loaded":
     case "thread-stream/item-upserted":
     case "thread-stream/pending-steer-added":
     case "thread-stream/pending-steer-removed":

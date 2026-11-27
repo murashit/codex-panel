@@ -10,27 +10,23 @@ import type { PendingRequestId } from "../../domain/pending-requests/model";
 import type { CollaborationModeSelection } from "../../domain/runtime/intent";
 import type { ActiveThreadRuntimeState } from "../../domain/runtime/state";
 import type { TurnOutcome } from "../../domain/runtime/turn-outcome";
+import type { ThreadHistoryPage } from "../../domain/thread-stream/history";
 import type { ThreadStreamItem, UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
 import type { ForkDraftPreparation } from "../threads/fork-draft";
 import type { ActiveThreadLifetime } from "./model";
 import type { ChatPendingSubmissionState } from "./pending-submission";
 
-interface ResumedThreadActionParams {
-  response: ThreadActivationSnapshot;
+interface ThreadActivationOptions {
   items?: readonly ThreadStreamItem[];
+  initialHistoryPage?: ThreadHistoryPage | null;
   activeTurnId?: string | null;
   preserveRequestedRuntimeSettings?: boolean;
   preserveGoalEditor?: boolean;
   expectedPanelTargetRevision?: number;
 }
 
-export interface ActiveThreadResumedAction extends ThreadActivationSnapshot {
+export interface ActiveThreadResumedAction extends ThreadActivationSnapshot, ThreadActivationOptions {
   type: "active-thread/resumed";
-  items?: readonly ThreadStreamItem[];
-  activeTurnId?: string | null;
-  preserveRequestedRuntimeSettings?: boolean;
-  preserveGoalEditor?: boolean;
-  expectedPanelTargetRevision?: number;
   lifetime?: ActiveThreadLifetime;
 }
 
@@ -139,19 +135,17 @@ export type ChatTransitionAction =
   | RequestResolvedAction
   | PendingSubmissionAction;
 
-export function resumedThreadAction(params: ResumedThreadActionParams): ActiveThreadResumedAction {
-  const { response } = params;
+export function resumedThreadAction({
+  response,
+  ...options
+}: ThreadActivationOptions & { response: ThreadActivationSnapshot }): ActiveThreadResumedAction {
   const permissions = runtimePermissionStateOrDefault(response);
   return {
     ...response,
     type: "active-thread/resumed",
     ...permissions,
     lifetime: response.thread.ephemeral ? { kind: "ephemeral", mode: "ordinary" } : { kind: "persistent" },
-    ...(params.items ? { items: params.items } : {}),
-    ...(params.activeTurnId ? { activeTurnId: params.activeTurnId } : {}),
-    ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
-    ...(params.preserveGoalEditor ? { preserveGoalEditor: true } : {}),
-    ...(params.expectedPanelTargetRevision === undefined ? {} : { expectedPanelTargetRevision: params.expectedPanelTargetRevision }),
+    ...options,
   };
 }
 

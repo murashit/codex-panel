@@ -10,13 +10,16 @@ import type {
   ThreadResumeEffects,
   ThreadResumeSnapshot,
 } from "../../../../../src/features/chat/application/threads/activation";
-import type { ThreadHistoryPage } from "../../../../../src/features/chat/application/threads/history-controller";
+import { createAutoTitleCoordinator } from "../../../../../src/features/chat/application/threads/auto-title-coordinator";
+import { completedTurnTitleContext } from "../../../../../src/features/chat/application/threads/title-context";
+import { projectTurnRuntimeFact } from "../../../../../src/features/chat/application/turns/runtime-fact-projection";
+import type { ThreadHistoryPage } from "../../../../../src/features/chat/domain/thread-stream/history";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { resumeSnapshot as activation, createThreadActivationFixture } from "../../support/activation";
-import { taskProgressFixture as taskProgress } from "../../support/thread-stream";
+import { historyPage, taskProgressFixture as taskProgress } from "../../support/thread-stream";
 
 function createActions(
   response: ThreadResumeSnapshot | null = activation("thread"),
@@ -55,7 +58,7 @@ describe("ThreadActivation", () => {
             await reply.promise;
             adopt(
               activation(threadId, {
-                initialHistoryPage: historyPage([message(`reply-${index}`, `Response ${index}`, "assistant")], null),
+                initialHistoryPage: historyPage({ turn: [message(`reply-${index}`, `Response ${index}`, "assistant")] }),
               }),
             );
           });
@@ -124,7 +127,7 @@ describe("ThreadActivation", () => {
               if (stage === "resume") await gate.promise;
               adopt(
                 activation(threadId, {
-                  initialHistoryPage: historyPage([message("fresh", "Fresh history", "assistant")], null),
+                  initialHistoryPage: historyPage({ turn: [message("fresh", "Fresh history", "assistant")] }),
                 }),
               );
             });
@@ -204,7 +207,7 @@ describe("ThreadActivation", () => {
       expect(selected).toBe(false);
       await expect(commands.ensureRestoredThreadLoaded()).resolves.toBe(true);
       expect(selected).toBe(false);
-      history.resolve(historyPage([message("answer", "Restored answer", "assistant")], "older"));
+      history.resolve(historyPage({ turn: [message("answer", "Restored answer", "assistant")] }, "older"));
 
       await expect(restoring).resolves.toBe(true);
       await expect(opening).resolves.toBe(true);
@@ -270,18 +273,60 @@ describe("ThreadActivation", () => {
     expect(activeThreadState(stateStore.getState())?.canAcceptDirectInput).toBe(false);
   });
 
-  it("hydrates resumed threads from the initial turns page when app-server returns one", async () => {
-    const initialHistoryPage = historyPage([message("u1", "hello", "user")], "older");
-    const response = activation("thread", { initialHistoryPage });
-    const { commands, stateStore, readHistoryPage, setThreadTurnPresence, showLatestPageAtBottom } = createActions(response);
+  it("keeps older pages and a completed turn received between resume adoption and hydration", async () => {
+    const prompt = message("prompt", "Hello", "user");
+    const earlier = { ...message("earlier", "Earlier answer", "assistant"), turnId: "older-turn" };
+    const answer = message("answer", "Done", "assistant");
+    const { commands, host, stateStore, readHistoryPage, showLatestPageAtBottom } = createActions(
+      activation("thread", { activeTurnId: "turn", initialHistoryPage: historyPage({ turn: [prompt] }, "older") }),
+    );
+    readHistoryPage.mockResolvedValue(historyPage({ "older-turn": [earlier] }, "earliest"));
 
     const resumed = await commands.resumeThread("thread");
+    await host.history.loadOlder();
+    const completion = projectTurnRuntimeFact(stateStore.getState(), {
+      type: "turnCompleted",
+      threadId: "thread",
+      turnId: "turn",
+      outcome: "completed",
+      completedItems: [prompt, answer],
+      completedTurnTranscriptSummary: null,
+    });
+    for (const action of completion.actions) stateStore.dispatch(action);
     await resumed?.hydrate();
 
-    expect(stateStore.getState().threadStream).toMatchObject({ stableItems: initialHistoryPage.items, historyCursor: "older" });
-    expect(setThreadTurnPresence).toHaveBeenCalledWith(true);
+    expect(stateStore.getState().threadStream).toMatchObject({ stableItems: [earlier, prompt, answer], historyCursor: "earliest" });
     expect(showLatestPageAtBottom).toHaveBeenCalledOnce();
-    expect(readHistoryPage).not.toHaveBeenCalled();
+    expect(readHistoryPage).toHaveBeenCalledExactlyOnceWith("thread", "older", 20);
+  });
+
+  it.each([
+    { label: "turns with no display items", page: historyPage({ invisible: [] }), titles: 0 },
+    { label: "an empty page", page: historyPage({}), titles: 1 },
+    { label: "no embedded page", page: null, titles: 1 },
+  ])("restores first-turn title eligibility before replay with $label", async ({ page, titles }) => {
+    const submitTitleWork = vi.fn();
+    const autoTitle = createAutoTitleCoordinator({
+      threadById: () => undefined,
+      completedTurnTitleContext: (turnId, summary) => completedTurnTitleContext(turnId, [], summary),
+      submitTitleWork,
+    });
+    autoTitle.resetThreadTurnPresence(true);
+    const { commands, showLatestPageAtBottom } = createThreadActivationFixture({
+      resetThreadTurnPresence: autoTitle.resetThreadTurnPresence,
+      effects: {
+        resumeThread: async (threadId, adopt) => {
+          adopt(activation(threadId, { initialHistoryPage: page }));
+          autoTitle.maybeAutoTitleThread(threadId, "replayed-turn", { userText: "Request", assistantText: "Answer" });
+        },
+      },
+    });
+
+    const resumed = await commands.resumeThread("thread");
+    expect(submitTitleWork).toHaveBeenCalledTimes(titles);
+    expect(showLatestPageAtBottom).not.toHaveBeenCalled();
+    await resumed?.hydrate();
+    expect(showLatestPageAtBottom).toHaveBeenCalledOnce();
   });
 
   it.each([false, true])("hydrates fork display artifacts and user context (initial page: %s)", async (initial) => {
@@ -309,7 +354,7 @@ describe("ThreadActivation", () => {
       clientId: "submission",
     } satisfies ThreadStreamItem;
     const progress = taskProgress("turn");
-    const page = historyPage([serverUser, message("answer", "Done", "assistant")], null);
+    const page = historyPage({ turn: [serverUser, message("answer", "Done", "assistant")] });
     const response = activation("thread", { initialHistoryPage: initial ? page : null });
     const { commands, stateStore, readHistoryPage } = createActions(response);
     if (!initial) readHistoryPage.mockResolvedValue(page);
@@ -498,10 +543,6 @@ function panelThread(id: string): PanelThread {
     createdAt: 0,
     updatedAt: 0,
   });
-}
-
-function historyPage(items: ThreadStreamItem[], nextCursor: string | null): ThreadHistoryPage {
-  return { items, nextCursor, hadTurns: items.length > 0 };
 }
 
 function message(id: string, text: string, role: "assistant" | "user"): ThreadStreamItem {

@@ -169,7 +169,10 @@ function reduceActiveThreadActivatedTransition(state: ChatState, action: ActiveT
   const runtimeBase = action.preserveRequestedRuntimeSettings ? state.runtime : initialChatRuntimeState();
   const turnScopedState = clearTurnScopedState(state);
   const nextPanelTargetRevision = sameConversation ? state.panelTargetRevision : state.panelTargetRevision + 1;
-  const threadStream = initialChatThreadStreamState(creatingFork ? state.threadStream.stableItems : (action.items ?? []));
+  const threadStream = initialChatThreadStreamState(
+    creatingFork ? state.threadStream.stableItems : action.items,
+    action.initialHistoryPage,
+  );
   const restoredTurn = action.activeTurnId
     ? activeTurnStarted(initialChatActiveTurnState(), threadStream, action.activeTurnId)
     : { activeTurn: initialChatActiveTurnState(), threadStream };

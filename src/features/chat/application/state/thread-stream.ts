@@ -1,5 +1,5 @@
-import { definedPatch } from "../../../../domain/objects/optional-properties";
 import { threadStreamUserRoles } from "../../domain/thread-stream/conversation";
+import { reconcileHistoryItems, type ThreadHistoryPage } from "../../domain/thread-stream/history";
 import type { ThreadStreamDialogueItem, ThreadStreamItem, UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
 import { matchesOptimisticUserDialogue } from "../../domain/thread-stream/local-dialogue-ids";
 import {
@@ -51,10 +51,11 @@ export type ThreadStreamAction =
   | { type: "thread-stream/deduped-log-added"; text: string; item: ThreadStreamItem }
   | { type: "thread-stream/history-loading-set"; loading: boolean }
   | {
-      type: "thread-stream/content-replaced";
-      items: readonly ThreadStreamItem[];
-      historyCursor?: string | null;
-      loadingHistory?: boolean;
+      type: "thread-stream/history-loaded";
+      page: ThreadHistoryPage;
+      stableItemsAtStart: readonly ThreadStreamItem[];
+      displayItems: readonly ThreadStreamItem[];
+      older: boolean;
     }
   | { type: "thread-stream/item-upserted"; item: ThreadStreamItem }
   | { type: "thread-stream/pending-steer-added"; item: UserThreadStreamDialogueItem }
@@ -88,11 +89,14 @@ export type ThreadStreamAction =
     }
   | { type: "thread-stream/turn-diff-updated"; turnId: string; diff: string };
 
-export function initialChatThreadStreamState(items: readonly ThreadStreamItem[] = []): ChatThreadStreamState {
+export function initialChatThreadStreamState(
+  items: readonly ThreadStreamItem[] = [],
+  page?: ThreadHistoryPage | null,
+): ChatThreadStreamState {
   return {
-    stableItems: items,
+    stableItems: page ? reconcileHistoryItems(items, page.turns) : items,
     turnDiffs: new Map(),
-    historyCursor: null,
+    historyCursor: page?.nextCursor ?? null,
     loadingHistory: false,
     reportedLogs: new Set(),
   };
@@ -125,12 +129,8 @@ export function threadStreamRollbackCandidateFromItems(items: readonly ThreadStr
   };
 }
 
-export function threadStreamWithItems(
-  state: ChatThreadStreamState,
-  items: readonly ThreadStreamItem[],
-  patch: Partial<Pick<ChatThreadStreamState, "historyCursor" | "loadingHistory">> = {},
-): ChatThreadStreamState {
-  return patchObject(state, { stableItems: items, ...patch });
+export function threadStreamWithItems(state: ChatThreadStreamState, items: readonly ThreadStreamItem[]): ChatThreadStreamState {
+  return patchObject(state, { stableItems: items });
 }
 
 export function threadStreamActiveState(
@@ -161,12 +161,20 @@ export function reduceThreadStreamSlice(state: ChatThreadStreamViewState, action
         reportedLogs: new Set([...state.reportedLogs, action.text]),
         ...appendThreadStreamItemPatch(state, action.item),
       });
-    case "thread-stream/content-replaced":
+    case "thread-stream/history-loaded": {
+      const { stableItemsAtStart, displayItems } = action;
+      // Active rows remain live even if the turn moved into stable history while the read was pending.
+      const baseline = new Set(stableItemsAtStart);
+      const live = threadStreamItems(state).filter((item) => !baseline.has(item));
+      const segment = state.activeSegment;
+      const items = reconcileHistoryItems(displayItems, action.page.turns, live, action.older, (item) =>
+        segment?.indexById.has(item.id) ? segment.turnId : null,
+      );
       return patchObject(state, {
-        ...replaceThreadStreamContent(state, action.items),
-        ...definedPatch("historyCursor", action.historyCursor),
-        ...definedPatch("loadingHistory", action.loadingHistory),
+        ...replaceThreadStreamContent(state, items),
+        historyCursor: action.page.nextCursor,
       });
+    }
     case "thread-stream/history-loading-set":
       return patchObject(state, { loadingHistory: action.loading });
     case "thread-stream/item-upserted":
@@ -226,14 +234,16 @@ function replaceThreadStreamContent(
 ): Partial<ChatThreadStreamViewState> {
   const segment = state.activeSegment;
   if (!segment) return { stableItems: items };
+  // A history page can identify the optimistic prompt's turn before turn/start is acknowledged.
+  const turnId =
+    segment.turnId ?? items.find((item) => segment.items.some((local) => matchesOptimisticUserDialogue(local, item)))?.turnId ?? null;
   const stableItems: ThreadStreamItem[] = [];
   const activeItems: ThreadStreamItem[] = [];
   for (const item of items) {
-    // Optimistic prompts and their hooks can belong to the active segment before it has a turn ID.
-    const active = segment.indexById.has(item.id) || (segment.turnId !== null && item.turnId === segment.turnId);
+    const active = segment.indexById.has(item.id) || (turnId !== null && item.turnId === turnId);
     (active ? activeItems : stableItems).push(item);
   }
-  return { stableItems, activeSegment: activeSegmentFromItems(segment.turnId, activeItems) };
+  return { stableItems, activeSegment: activeSegmentFromItems(turnId, activeItems) };
 }
 
 function removePendingSteer(state: ChatThreadStreamViewState, clientId: string): ChatThreadStreamViewState {

@@ -533,8 +533,17 @@ describe("chatReducer", () => {
     const notification: ChatAction = { type: "turn/started", threadId: "thread", turnId: "turn" };
     const response: ChatAction = { type: "turn/start-acknowledged", threadId: "thread", anchorItemId: prompt.id, turnId: "turn" };
     state = chatReducer(state, first === "notification" ? notification : response);
+    const stableItemsAtStart = state.threadStream.stableItems;
     state = chatReducer(state, { type: "thread-stream/system-item-added", item: notice });
     state = chatReducer(state, { type: "thread-stream/assistant-delta-appended", itemId: "assistant", turnId: "turn", delta: "working" });
+    const page: ChatAction = {
+      type: "thread-stream/history-loaded",
+      page: { turns: [{ id: "turn", items: [{ ...dialogueItem("assistant"), turnId: "turn" }] }], nextCursor: null },
+      displayItems: [],
+      stableItemsAtStart,
+      older: false,
+    };
+    state = chatReducer(state, page);
     const next = chatReducer(state, first === "notification" ? response : notification);
 
     const expected = [{ ...prompt, turnId: "turn" }, notice, expect.objectContaining({ id: "assistant", text: "working", turnId: "turn" })];
@@ -547,6 +556,7 @@ describe("chatReducer", () => {
     const completed = chatReducer(next, { type: "turn/completed", turnId: "turn", outcome: "completed", turnItems: [answer] });
     const finalItems = [{ ...prompt, turnId: "turn" }, notice, expect.objectContaining(answer)];
     expect(chatStateThreadStreamItems(completed)).toEqual(finalItems);
+    expect(chatStateThreadStreamItems(chatReducer(completed, page))).toEqual(finalItems);
   });
 
   it("ignores stale turn start failures after the turn is already running", () => {

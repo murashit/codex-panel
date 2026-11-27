@@ -1,6 +1,7 @@
 import type { ChatState } from "../../../../src/features/chat/application/state/model";
 import { threadStreamItems, threadStreamWithItems } from "../../../../src/features/chat/application/state/thread-stream";
 import { chatThreadStreamViewState } from "../../../../src/features/chat/application/state/turn-scope";
+import type { ThreadHistoryPage } from "../../../../src/features/chat/domain/thread-stream/history";
 import type { ThreadStreamItem } from "../../../../src/features/chat/domain/thread-stream/items";
 import { chatStateWith } from "./state";
 
@@ -27,5 +28,15 @@ export function taskProgressFixture(
     steps: [{ step: "Keep this", status: "completed" }],
     executionState: "completed",
     ...overrides,
+  };
+}
+
+export function historyPage(
+  turns: Readonly<Record<string, readonly ThreadStreamItem[]>>,
+  nextCursor: string | null = null,
+): ThreadHistoryPage {
+  return {
+    turns: Object.entries(turns).map(([id, items]) => ({ id, items: items.map((item) => ({ ...item, turnId: id })) })),
+    nextCursor,
   };
 }

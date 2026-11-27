@@ -1,6 +1,7 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/usage";
 import { errorMessage } from "../../../../domain/text/error-message";
 import type { Thread, ThreadActivationSnapshot } from "../../../../domain/threads/model";
+import type { ThreadHistoryPage } from "../../domain/thread-stream/history";
 import {
   activeThreadState,
   awaitingResumeThreadState,
@@ -12,8 +13,8 @@ import type { ChatStateStore } from "../state/store";
 import { threadStreamIsEmpty } from "../state/thread-stream";
 import { resumedThreadAction } from "../state/transition-actions";
 import { chatThreadStreamViewState } from "../state/turn-scope";
-import { type ForkDisplaySnapshot, reconcileForkDisplayItems } from "./fork-display-snapshot";
-import type { HistoryController, ThreadHistoryPage } from "./history-controller";
+import type { ForkDisplaySnapshot } from "./fork-display-snapshot";
+import type { HistoryController } from "./history-controller";
 import { canSwitchToThread } from "./thread-switching";
 
 export interface ThreadResumeSnapshot {
@@ -165,11 +166,10 @@ export class ThreadActivation {
     try {
       if (this.isStaleResume(resume, panelTarget)) return false;
       this.recoverResumedThreadTokenUsage(response.activation.thread.id, response.rolloutPath, resume, panelTarget);
-      const historyOptions = displaySnapshot ? { displayItems: displaySnapshot.items } : {};
       if (response.initialHistoryPage) {
-        this.host.history.applyInitialPage(response.activation.thread.id, response.initialHistoryPage, historyOptions);
+        this.host.history.showLatestPageAtBottom();
       } else {
-        await this.host.history.loadLatest(response.activation.thread.id, historyOptions);
+        await this.host.history.loadLatest(response.activation.thread.id, displaySnapshot?.items);
       }
       if (this.isStaleResume(resume, panelTarget)) return false;
       const state = this.host.stateStore.getState();
@@ -194,9 +194,8 @@ export class ThreadActivation {
       resumedThreadAction({
         response: response.activation,
         expectedPanelTargetRevision,
-        items: response.initialHistoryPage
-          ? reconcileForkDisplayItems(displaySnapshot?.items ?? [], response.initialHistoryPage.items)
-          : (displaySnapshot?.items ?? []),
+        ...(displaySnapshot ? { items: displaySnapshot.items } : {}),
+        initialHistoryPage: response.initialHistoryPage,
         activeTurnId: response.activeTurnId,
       }),
     );
@@ -206,7 +205,7 @@ export class ThreadActivation {
         this.host.stateStore.dispatch({ type: "thread-stream/turn-diff-updated", turnId, diff });
       }
     }
-    this.host.resetThreadTurnPresence(false);
+    this.host.resetThreadTurnPresence((response.initialHistoryPage?.turns.length ?? 0) > 0);
     this.host.notifyActiveThreadIdentityChanged();
     return capturePanelTargetLease(state);
   }
