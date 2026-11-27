@@ -1,5 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useMemo } from "preact/hooks";
+import type { ObserveThreadListActivity } from "../../../../domain/threads/activity";
 import { listenDomEvent } from "../../../../shared/ui/events.dom";
 import { unmountUiRoot } from "../../../../shared/ui/preact-root.dom";
 import { renderObsidianUiRoot } from "../../../../shared/ui/preact-root.obsidian";
@@ -7,13 +8,11 @@ import type { ThreadCatalogPaginatedActiveReader } from "../../../threads/catalo
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { activeThreadId, type ChatState } from "../../application/state/model";
 import type { ChatStateSource } from "../../application/state/store";
-import { chatTurnBusy } from "../../application/turns/turn-state";
 import { ComposerShell } from "../../ui/composer/composer";
 import { GoalPanel } from "../../ui/goal/goal";
 import { ConversationHeader } from "../../ui/header/header";
 import type { ThreadStreamScrollPortBinding } from "../../ui/thread-stream/flow-scroll";
 import { ThreadStreamViewport } from "../../ui/thread-stream/stream-blocks";
-import { toolbarThreadRows } from "../../ui/toolbar/thread-rows";
 import { Toolbar, type ToolbarActions } from "../../ui/toolbar/toolbar";
 import type { ChatPanelComposerActions, ChatPanelComposerPresenter } from "../composer/view-projection";
 import { selectChatPanelComposer } from "../composer/view-projection";
@@ -21,11 +20,17 @@ import type { ChatMetadataSource, ChatThreadGoalQueries } from "../contracts";
 import { type ChatPanelGoalDependencies, projectChatPanelGoal, selectChatPanelGoal } from "../goal/view-projection";
 import { conversationIdentity } from "../header/view-projection";
 import { type ChatThreadStreamDependencies, projectThreadStream, selectChatPanelThreadStream } from "../thread-stream/view-projection";
-import { type ChatPanelToolbarDependencies, projectChatPanelToolbar, selectChatPanelToolbar } from "../toolbar/view-projection";
+import {
+  type ChatPanelToolbarDependencies,
+  projectChatPanelToolbar,
+  selectChatPanelToolbar,
+  toolbarThreadRow,
+} from "../toolbar/view-projection";
 import {
   type ChatToolInventoryDisplayQueries,
   metadataDiagnosticsFromResources,
   useActiveThreadsResource,
+  useArchiveBlockedThreadIds,
   useMcpRegistrations,
   useModelsResource,
   usePermissionProfilesProbe,
@@ -39,6 +44,7 @@ import { useChatSelector } from "./state-selector";
 
 export interface ChatPanelShellParts {
   toolbar: {
+    observeThreadListActivity: ObserveThreadListActivity;
     dependencies: ChatPanelToolbarDependencies;
     actions: ToolbarActions;
   };
@@ -95,6 +101,7 @@ function ChatPanelShell({
   showToolbar,
   parts,
 }: ChatPanelShellProps): UiNode {
+  const archiveBlockedThreadIds = useArchiveBlockedThreadIds(parts.toolbar.observeThreadListActivity);
   return (
     <>
       {showToolbar ? (
@@ -104,6 +111,7 @@ function ChatPanelShell({
             metadata={metadata}
             toolInventoryQueries={toolInventoryQueries}
             threadCatalog={threadCatalog}
+            archiveBlockedThreadIds={archiveBlockedThreadIds}
             dependencies={parts.toolbar.dependencies}
             actions={parts.toolbar.actions}
           />
@@ -115,6 +123,7 @@ function ChatPanelShell({
             stateStore={stateStore}
             setNewConversationEphemeral={setNewConversationEphemeral}
             threadCatalog={threadCatalog}
+            archiveBlockedThreadIds={archiveBlockedThreadIds}
             dependencies={parts.toolbar.dependencies}
             actions={parts.toolbar.actions}
             showToolbar={showToolbar}
@@ -146,10 +155,12 @@ function ChatPanelIdentityRegion({
   setNewConversationEphemeral,
   threadCatalog,
   dependencies,
+  archiveBlockedThreadIds,
   actions,
   showToolbar,
 }: Pick<ChatPanelShellProps, "stateStore" | "setNewConversationEphemeral" | "threadCatalog" | "showToolbar"> & {
   dependencies: ChatPanelToolbarDependencies;
+  archiveBlockedThreadIds: ReadonlySet<string>;
   actions: ToolbarActions;
 }): UiNode {
   const resource = useActiveThreadsResource(threadCatalog);
@@ -165,7 +176,6 @@ function ChatPanelIdentityRegion({
         rename: state.ui.rename,
         historyOpen: showToolbar && state.ui.toolbarPanel === "history",
         archiveConfirmThreadId: state.ui.archiveConfirmThreadId,
-        turnBusy: chatTurnBusy(state.activeTurn),
       };
     },
     [resource.threads, showToolbar],
@@ -174,14 +184,11 @@ function ChatPanelIdentityRegion({
   const thread = model.active ? resource.threads.find((item) => item.id === model.active?.id) : undefined;
   const row =
     thread && !thread.ephemeral && !thread.archived
-      ? toolbarThreadRows({
-          threads: [thread],
-          selectedRowId: thread.id,
-          archiveBlockedThreadId: model.turnBusy ? thread.id : null,
-          archiveConfirmThreadId: model.archiveConfirmThreadId,
+      ? toolbarThreadRow(thread, model, {
+          selected: true,
+          archiveBlockedThreadIds,
           archiveExportEnabled: dependencies.settings.archiveExportEnabled(),
-          renameState: model.rename.kind !== "idle" ? model.rename : null,
-        })[0]
+        })
       : undefined;
   return (
     <ConversationHeader
@@ -222,6 +229,7 @@ function ChatPanelToolbarRegion({
   toolInventoryQueries,
   threadCatalog,
   dependencies,
+  archiveBlockedThreadIds,
   actions,
 }: {
   stateStore: ChatStateSource;
@@ -229,6 +237,7 @@ function ChatPanelToolbarRegion({
   toolInventoryQueries: ChatToolInventoryDisplayQueries;
   threadCatalog: ThreadCatalogPaginatedActiveReader;
   dependencies: ChatPanelToolbarDependencies;
+  archiveBlockedThreadIds: ReadonlySet<string>;
   actions: ToolbarActions;
 }): UiNode {
   const activeThreads = useActiveThreadsResource(threadCatalog);
@@ -257,7 +266,7 @@ function ChatPanelToolbarRegion({
     [activeThreads, runtimeConfig, models, skills, rateLimits, metadataDiagnostics, toolInventory],
   );
   const model = useChatSelector(stateStore, selector);
-  return <Toolbar model={projectChatPanelToolbar(model, dependencies, Date.now())} actions={actions} />;
+  return <Toolbar model={projectChatPanelToolbar(model, dependencies, Date.now(), archiveBlockedThreadIds)} actions={actions} />;
 }
 
 function selectToolInventoryKey(state: ChatState): { threadId: string | null; enabled: boolean } {

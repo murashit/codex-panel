@@ -5,7 +5,7 @@ import { deferred, waitForAsyncWork } from "../../support/async";
 
 describe("KeyedOperationCoordinator", () => {
   it("keeps queued operations in FIFO order when another arrives during the second operation", async () => {
-    const coordinator = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
+    const coordinator = createKeyedOperationCoordinator<string>();
     const firstRelease = deferred<void>();
     const secondRelease = deferred<void>();
     const events: string[] = [];
@@ -38,7 +38,7 @@ describe("KeyedOperationCoordinator", () => {
   });
 
   it("does not let a failed operation block the next operation for the same key", async () => {
-    const coordinator = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
+    const coordinator = createKeyedOperationCoordinator<string>();
     const firstOperation = deferred<void>();
     const nextOperation = vi.fn().mockResolvedValue("saved");
 
@@ -56,21 +56,8 @@ describe("KeyedOperationCoordinator", () => {
     expect(nextOperation).toHaveBeenCalledOnce();
   });
 
-  it("rejects another operation for the same key under the reject policy", async () => {
-    const coordinator = createKeyedOperationCoordinator<string>({ whenBusy: "reject" });
-    const pending = deferred<void>();
-
-    const first = coordinator.run("thread", () => pending.promise);
-
-    await expect(coordinator.run("thread", async () => undefined)).rejects.toThrow("An operation is already in progress.");
-    pending.resolve();
-    await first;
-
-    await expect(coordinator.run("thread", async () => "next")).resolves.toBe("next");
-  });
-
-  it.each(["queue", "reject"] as const)("keeps %s-policy operations for different keys independent", async (whenBusy) => {
-    const coordinator = createKeyedOperationCoordinator<string>({ whenBusy });
+  it("keeps operations for different keys independent", async () => {
+    const coordinator = createKeyedOperationCoordinator<string>();
     const pending = deferred<void>();
 
     const first = coordinator.run("first", () => pending.promise);

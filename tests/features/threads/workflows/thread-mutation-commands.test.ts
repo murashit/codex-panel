@@ -85,7 +85,7 @@ describe("ThreadMutationCommands", () => {
     expect(client.request).toHaveBeenNthCalledWith(3, "thread/name/set", { threadId: "thread", name: "Latest manual title" });
   });
 
-  it("rechecks busy state after connection acquisition without exporting", async () => {
+  it.each([false, true])("rechecks busy state after connection acquisition before archiving with saveMarkdown=%s", async (saveMarkdown) => {
     const connected = deferred<void>();
     const client = clientMock();
     let busy = false;
@@ -97,7 +97,7 @@ describe("ThreadMutationCommands", () => {
     };
     const withClient = vi.spyOn(clientAccess, "withClient");
     const { mutations } = operationsFixture({ client, clientAccess, threadIsBusy: () => busy });
-    const operation = mutations.archiveThread("thread", { saveMarkdown: false });
+    const operation = mutations.archiveThread("thread", { saveMarkdown });
     await vi.waitFor(() => expect(withClient).toHaveBeenCalledOnce());
     busy = true;
     connected.resolve();
@@ -229,35 +229,37 @@ describe("ThreadMutationCommands", () => {
     expect(requestMethods(client)).not.toContain("thread/archive");
   });
 
-  it("rechecks panel activity inside the coordinated archive operation", async () => {
-    let busy = false;
-    const { mutations, client } = operationsFixture({ threadIsBusy: () => busy });
-
-    const archive = mutations.archiveThread("thread");
-    busy = true;
-
-    await expect(archive).resolves.toEqual({ kind: "blocked", reason: "thread-busy", exportedPath: null });
-    expect(client.request).not.toHaveBeenCalled();
-  });
-
-  it("runs the post-archive callback after the request succeeds", async () => {
-    const archive = deferred<object>();
-    const client = clientMock();
-    client.request.mockImplementation((method: string) => {
-      if (method === "thread/archive") return archive.promise;
-      throw new Error(`Unexpected app-server request: ${method}`);
+  it("keeps the archive reservation and success callback independent of a failing activity observer", async () => {
+    // Capture notification delivery so the observer error stays inside this test.
+    const notifications: VoidFunction[] = [];
+    const scheduler = vi.spyOn(globalThis, "queueMicrotask").mockImplementation((notify) => {
+      notifications.push(notify);
     });
-    const { mutations } = operationsFixture({ client });
-    const afterArchive = vi.fn();
+    try {
+      const archive = deferred<object>();
+      const client = clientMock();
+      client.request.mockReturnValue(archive.promise);
+      const { mutations } = operationsFixture({
+        client,
+        archiveActivityChanged: () => {
+          throw new Error("render failed");
+        },
+      });
+      const afterArchive = vi.fn();
+      const operation = mutations.archiveThread("thread", { saveMarkdown: false, afterArchive });
+      expect(() => notifications.shift()?.()).toThrow("render failed");
+      await expect(mutations.archiveThread("thread")).rejects.toThrow("already in progress");
+      expect(client.request).toHaveBeenCalledExactlyOnceWith("thread/archive", { threadId: "thread" });
+      expect(afterArchive).not.toHaveBeenCalled();
 
-    const operation = mutations.archiveThread("thread", { saveMarkdown: false, afterArchive });
-    await vi.waitFor(() => expect(client.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" }));
-
-    expect(afterArchive).not.toHaveBeenCalled();
-    archive.resolve({});
-    await operation;
-
-    expect(afterArchive).toHaveBeenCalledOnce();
+      archive.resolve({});
+      await expect(operation).resolves.toEqual({ kind: "archived", exportedPath: null });
+      expect(() => notifications.shift()?.()).toThrow("render failed");
+      expect(afterArchive).toHaveBeenCalledOnce();
+      expect(mutations.archivingThreadIds.size).toBe(0);
+    } finally {
+      scheduler.mockRestore();
+    }
   });
 
   it("archives without reading transcript history when markdown export is disabled", async () => {
@@ -286,7 +288,12 @@ describe("ThreadMutationCommands", () => {
 });
 
 function operationsFixture(
-  options: { clientAccess?: AppServerClientAccess; client?: MockClient; threadIsBusy?: (threadId: string) => boolean } = {},
+  options: {
+    clientAccess?: AppServerClientAccess;
+    client?: MockClient;
+    threadIsBusy?: (threadId: string) => boolean;
+    archiveActivityChanged?: () => void;
+  } = {},
 ) {
   const client = options.client ?? clientMock();
   const archiveDestination = archiveDestinationMock();
@@ -311,6 +318,7 @@ function operationsFixture(
       vaultConfigDir: "vault-config",
     },
     archiveDestination: archiveDestinationFactory,
+    archiveActivityChanged: options.archiveActivityChanged ?? (() => undefined),
     threadIsBusy: options.threadIsBusy ?? (() => false),
   };
   return {

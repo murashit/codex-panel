@@ -325,6 +325,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   const shell = {
     parts: {
       toolbar: {
+        observeThreadListActivity: environment.plugin.observeThreadListActivity,
         dependencies: toolbarDependencies,
         actions: toolbarActions,
       },

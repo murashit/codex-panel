@@ -98,10 +98,6 @@ export class CodexThreadsView extends ItemView {
     return this.attachment?.session.refresh() ?? Promise.resolve();
   }
 
-  refreshLiveState(): void {
-    this.attachment?.session.refreshLiveState();
-  }
-
   refreshSettings(): void {
     this.attachment?.session.refreshSettings();
   }

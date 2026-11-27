@@ -3,7 +3,8 @@ import type { MetadataResourceDiagnostics } from "../../../../domain/runtime/dia
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/settings";
 import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
 import type { RateLimitSnapshot } from "../../../../domain/runtime/usage";
-import type { Thread } from "../../../../domain/threads/model";
+import { compareThreadsPinnedFirst, type Thread } from "../../../../domain/threads/model";
+import { threadRowCoreProjection } from "../../../threads/list/row-projection";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { runtimeSnapshotForChatSlices } from "../../application/runtime/snapshot";
 import { activeThreadState, type ChatState, panelThreadProvenance } from "../../application/state/model";
@@ -13,8 +14,7 @@ import { appServerDiagnosticSections } from "../../ui/runtime/diagnostics";
 import { runtimePermissionSections } from "../../ui/runtime/permissions";
 import { rateLimitSummary } from "../../ui/runtime/status";
 import { toolInventoryDiagnosticSections } from "../../ui/runtime/tool-inventory";
-import type { ToolbarViewModel } from "../../ui/toolbar/model";
-import { toolbarThreadRows } from "../../ui/toolbar/thread-rows";
+import type { ToolbarThreadRow, ToolbarViewModel } from "../../ui/toolbar/model";
 
 export interface ChatPanelToolbarDependencies {
   connection: {
@@ -32,6 +32,7 @@ export function projectChatPanelToolbar(
   model: ChatPanelToolbarModel,
   dependencies: ChatPanelToolbarDependencies,
   nowMs: number,
+  archiveBlockedThreadIds: ReadonlySet<string>,
 ): ToolbarViewModel {
   const connected = dependencies.connection.connected();
   const vaultPath = dependencies.settings.vaultPath();
@@ -52,14 +53,11 @@ export function projectChatPanelToolbar(
     goalMutationDisabled: model.goalMutationDisabled,
     rateLimit: limit,
     openPanel,
-    threads: toolbarThreadRows({
-      threads: model.threads,
-      archiveBlockedThreadId: model.turnBusy ? model.activeThreadId : null,
-      selectedRowId,
-      archiveConfirmThreadId: model.archiveConfirmThreadId,
-      archiveExportEnabled,
-      renameState: model.rename.kind === "idle" ? null : model.rename,
-    }),
+    threads: [...model.threads]
+      .sort(compareThreadsPinnedFirst)
+      .map((thread) =>
+        toolbarThreadRow(thread, model, { selected: thread.id === selectedRowId, archiveBlockedThreadIds, archiveExportEnabled }),
+      ),
     hasMoreThreads: model.hasMoreThreads,
     threadListLoading: model.threadListLoading,
     threadListFetching: model.threadListFetching,
@@ -77,6 +75,24 @@ export function projectChatPanelToolbar(
       value: model.availableSkills,
       probe: model.metadataDiagnostics.probes.skills,
     }),
+  };
+}
+
+export function toolbarThreadRow(
+  thread: Thread,
+  model: Pick<ChatPanelToolbarModel, "rename" | "archiveConfirmThreadId">,
+  options: { selected: boolean; archiveBlockedThreadIds: ReadonlySet<string>; archiveExportEnabled: boolean },
+): ToolbarThreadRow {
+  return {
+    ...threadRowCoreProjection({
+      thread,
+      selected: options.selected,
+      archiveBlockedThreadIds: options.archiveBlockedThreadIds,
+      renameState: model.rename.kind !== "idle" && model.rename.threadId === thread.id ? model.rename : undefined,
+      archiveConfirmActive: model.archiveConfirmThreadId === thread.id,
+      defaultArchiveSaveMarkdown: options.archiveExportEnabled,
+    }),
+    renameDisabled: model.rename.kind === "saving",
   };
 }
 

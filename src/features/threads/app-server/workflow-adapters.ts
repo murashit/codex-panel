@@ -22,6 +22,7 @@ export function createThreadMutationAdapter(clientAccess: AppServerClientAccess)
     setThreadPinned: (threadId, isPinned) => clientAccess.withClient((client) => setThreadPinned(client, threadId, isPinned)),
     archiveThread: (threadId, { prepare, canArchive }) =>
       clientAccess.withClient(async (client) => {
+        if (prepare && !canArchive()) return { kind: "blocked", reason: "thread-busy", exportedPath: null };
         const prepared = prepare ? await prepare(await readThreadForArchiveExport(client, threadId)) : null;
         if (!canArchive()) return { kind: "blocked", reason: "thread-busy", exportedPath: prepared };
         try {

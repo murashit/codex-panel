@@ -22,6 +22,7 @@ import { modelMetadataFixture } from "../../../../support/model-metadata";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { mcpFormRequestFixture } from "../../../../support/server-requests";
 import { threadActivationFixture } from "../../../../support/thread-activation";
+import { observeNoThreadActivity, threadListActivityFixture } from "../../../../support/thread-mutations";
 import { composerPropsFixture } from "../../support/composer-shell";
 import { pendingRequestFixture } from "../../support/pending-requests";
 import { chatSharedSourcesFixture } from "../../support/shared-sources";
@@ -274,6 +275,8 @@ describe("ChatPanelShell", () => {
     const container = document.body.appendChild(document.createElement("div"));
     let saveMarkdown = true;
     const parts = shellParts({ archiveExportEnabled: () => saveMarkdown });
+    const activity = threadListActivityFixture();
+    parts.toolbar.observeThreadListActivity = activity.observe;
     const archiveThread = vi.fn().mockResolvedValue(undefined);
     const threadCommands = { archiveThread } as never;
     parts.toolbar.actions = createToolbarUiActions({
@@ -340,11 +343,24 @@ describe("ChatPanelShell", () => {
       composer(container).focus();
       await act(async () => {
         store.dispatch({ type: "ui/archive-confirm-set", threadId: null });
-        store.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+        activity.publish(["thread"]);
         await settleShellEffects();
       });
       expect(document.activeElement).toBe(composer(container));
-      expect(header?.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.disabled).toBe(true);
+      const historyArchive = (selected: boolean) =>
+        container.querySelector<HTMLButtonElement>(
+          `.codex-panel__thread-row${selected ? ".codex-panel__thread-row--selected" : ":not(.codex-panel__thread-row--selected)"} [aria-label="Archive thread"]`,
+        );
+      expect(archive()?.disabled).toBe(true);
+      expect(historyArchive(true)?.disabled).toBe(true);
+      expect(historyArchive(false)?.disabled).toBe(false);
+      await act(async () => {
+        activity.publish(["other"]);
+        await settleShellEffects();
+      });
+      expect(archive()?.disabled).toBe(false);
+      expect(historyArchive(true)?.disabled).toBe(false);
+      expect(historyArchive(false)?.disabled).toBe(true);
     } finally {
       await act(async () => unmountChatPanelShell(container));
       container.remove();
@@ -559,6 +575,7 @@ function shellProps(store: ReturnType<typeof createChatStateStore>) {
 function shellParts(options: { archiveExportEnabled?: () => boolean } = {}): ChatPanelShellParts {
   return {
     toolbar: {
+      observeThreadListActivity: observeNoThreadActivity,
       dependencies: {
         connection: {
           connected: () => false,

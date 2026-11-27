@@ -10,6 +10,7 @@ import type {
   SharedServerMetadataSnapshotValues,
 } from "../../../domain/runtime/metadata";
 import type { McpServerRegistration, ToolInventorySnapshot } from "../../../domain/runtime/tool-inventory";
+import type { ObserveThreadListActivity, PanelThreadActivity } from "../../../domain/threads/activity";
 import type { ThreadFactSink } from "../../../domain/threads/facts";
 import type { ThreadGoal } from "../../../domain/threads/goal";
 import type { KeyedOperationCoordinator } from "../../../shared/async/keyed-operation-coordinator";
@@ -22,6 +23,7 @@ import type { ForkDisplaySnapshot } from "../application/threads/fork-display-sn
 import type { ForkDraftPreparation } from "../application/threads/fork-draft";
 
 export interface CodexChatHost {
+  readonly observeThreadListActivity: ObserveThreadListActivity;
   readonly appServerConnection: Pick<AppServerContextConnection, "createLease" | "withClient">;
   readonly appServerContext: Readonly<AppServerExecutionContext>;
   readonly settings: ChatPanelSettingsAccess;
@@ -136,13 +138,9 @@ export interface ChatRuntimeView {
   detachRuntime(): Promise<void>;
 }
 
-export interface ChatWorkspacePanelSnapshot {
+export interface ChatWorkspacePanelSnapshot extends Omit<PanelThreadActivity, "lastFocused"> {
   availableForReuse: boolean;
   viewId: string;
-  threadId: string | null;
-  turnBusy: boolean;
-  pending: boolean;
-  unread: boolean;
 }
 
 interface ChatWorkspacePanelOperationOptions {

@@ -1,8 +1,36 @@
 import { vi } from "vitest";
+import {
+  EMPTY_THREAD_ACTIVITY,
+  type ObserveThreadListActivity,
+  type PanelThreadActivity,
+  type ThreadListActivity,
+  threadListActivity,
+} from "../../src/domain/threads/activity";
 
 import type { ThreadMutationCommands } from "../../src/features/threads/workflows/thread-mutation-commands";
 
 import { panelThreadFixture } from "./panel-thread";
+
+export const observeNoThreadActivity: ObserveThreadListActivity = (changed) => {
+  changed(EMPTY_THREAD_ACTIVITY);
+  return () => undefined;
+};
+
+export function threadListActivityFixture(panels: readonly PanelThreadActivity[] = []) {
+  let activity = threadListActivity(panels);
+  const listeners = new Set<(value: ThreadListActivity) => void>();
+  return {
+    observe(changed: (value: ThreadListActivity) => void) {
+      listeners.add(changed);
+      changed(activity);
+      return () => listeners.delete(changed);
+    },
+    publish(archiving: readonly string[], openPanels: readonly PanelThreadActivity[] = []) {
+      activity = threadListActivity(openPanels, archiving);
+      for (const changed of listeners) changed(activity);
+    },
+  };
+}
 
 export function threadMutationCommandsMock(overrides: Partial<ThreadMutationCommands> = {}): ThreadMutationCommands {
   const restored = panelThreadFixture({

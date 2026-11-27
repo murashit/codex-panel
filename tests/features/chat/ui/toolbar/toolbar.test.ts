@@ -415,6 +415,7 @@ function toolbarThreadRowFixture(overrides: Partial<ToolbarThreadRow> = {}): Too
     title: "Thread",
     threadId: "thread",
     selected: true,
+    isPinned: false,
     renameDisabled: false,
     archiveDisabled: false,
     archiveConfirm: { active: false, defaultSaveMarkdown: false },

@@ -12,7 +12,7 @@ export interface VaultMarkdownDestination extends VaultPathDestination {
   createMarkdownFile(path: string, content: string): Promise<void>;
 }
 
-const writeQueues = createKeyedOperationCoordinator<object>({ whenBusy: "queue" });
+const writeQueues = createKeyedOperationCoordinator<object>();
 
 export function withVaultWriteLock<T>(destination: VaultPathDestination, operation: () => Promise<T>): Promise<T> {
   return writeQueues.run(destination.writeLockKey ?? destination, operation);

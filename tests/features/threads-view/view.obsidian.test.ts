@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import type { PanelThreadActivity } from "../../../src/domain/threads/activity";
 import type { Thread } from "../../../src/domain/threads/model";
 import type { ThreadTitleContext } from "../../../src/domain/threads/title";
 import type { ArchiveThreadResult, ThreadTitlePort } from "../../../src/features/threads/workflows/ports";
 import type { ThreadsViewHost } from "../../../src/features/threads-view/session";
-import type { ThreadsViewPanelActivity } from "../../../src/features/threads-view/state";
 import type { CodexThreadsView } from "../../../src/features/threads-view/view.obsidian";
 import { DEFAULT_SETTINGS } from "../../../src/settings/preferences";
 import type { ObservedPaginatedResult } from "../../../src/shared/async/observed-result";
@@ -15,7 +15,7 @@ import { mountAuthoredStyles } from "../../support/authored-styles";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 import { panelThreadFixture } from "../../support/panel-thread";
 import { threadCatalogFixture as realCatalogFixture } from "../../support/thread-catalog";
-import { threadMutationCommandsMock } from "../../support/thread-mutations";
+import { observeNoThreadActivity, threadListActivityFixture, threadMutationCommandsMock } from "../../support/thread-mutations";
 
 const openViews: CodexThreadsView[] = [];
 
@@ -237,9 +237,18 @@ describe("CodexThreadsView", () => {
   it("lets a completed archive settle after the threads view closes", async () => {
     mountAuthoredStyles();
     const archived = deferred<ArchiveThreadResult>();
-    const archiveThread = vi.fn<ThreadsViewHost["threadMutations"]["archiveThread"]>(() => archived.promise);
+    const threadListActivity = threadListActivityFixture();
+    const archiveThread = vi.fn<ThreadsViewHost["threadMutations"]["archiveThread"]>((threadId) => {
+      threadListActivity.publish([threadId]);
+      return archived.promise;
+    });
 
-    const view = await threadsView(threadsHost({ threadMutations: threadMutationCommandsMock({ archiveThread }) }));
+    const view = await threadsView(
+      threadsHost({
+        observeThreadListActivity: threadListActivity.observe,
+        threadMutations: threadMutationCommandsMock({ archiveThread }),
+      }),
+    );
     document.body.append(view.containerEl);
 
     await view.refresh();
@@ -250,7 +259,9 @@ describe("CodexThreadsView", () => {
     await waitForAsyncWork(() => expect(archiveThread).toHaveBeenCalledWith("thread", { saveMarkdown: true }));
     moveOutsideThreadsView();
     expectExposedThreadActions(view);
-    expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Save and archive thread"]')?.disabled).toBe(true);
+    await vi.waitFor(() =>
+      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Save and archive thread"]')?.disabled).toBe(true),
+    );
     expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.disabled).toBe(true);
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Save and archive thread"]')?.click();
     expect(archiveThread).toHaveBeenCalledOnce();
@@ -262,31 +273,28 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.childElementCount).toBe(0);
   });
 
-  it.each(["pending", "running"] as const)("does not archive an unread thread while its panel is %s", async (status) => {
-    const archiveThread = vi
-      .fn<ThreadsViewHost["threadMutations"]["archiveThread"]>()
-      .mockResolvedValue({ kind: "archived", exportedPath: null });
-
-    const view = await threadsView(
-      threadsHost({
-        threadMutations: threadMutationCommandsMock({ archiveThread }),
-        visiblePanelActivities: vi.fn(() => [
-          {
-            threadId: "thread",
-            selected: false,
-            pending: status === "pending",
-            running: status === "running",
-            unread: true,
-          },
-        ]),
-      }),
-    );
+  it.each([
+    { panel: { pending: true, unread: true }, status: "pending", blocked: true },
+    { panel: { pending: true, turnBusy: true, unread: true }, status: "pending", blocked: true },
+    { panel: { turnBusy: true, unread: true }, status: "running", blocked: true },
+    { panel: {}, status: "open", blocked: false },
+    { panel: { threadId: null, turnBusy: true }, status: null, blocked: false },
+  ])("renders $panel with status $status and archive blocked=$blocked", async ({ panel, status, blocked }) => {
+    const activity = threadListActivityFixture([
+      { threadId: "thread", lastFocused: false, pending: false, turnBusy: false, unread: false, ...panel },
+    ]);
+    const view = await threadsView(threadsHost({ observeThreadListActivity: activity.observe }));
     await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Thread preview"));
 
-    const archiveButton = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]');
-    expect(archiveButton?.disabled).toBe(true);
-    archiveButton?.click();
-    expect(archiveThread).not.toHaveBeenCalled();
+    const row = view.containerEl.querySelector(".codex-panel-threads__row-main");
+    const statuses = ["pending", "running", "unread", "open"].filter((name) =>
+      row?.classList.contains(`codex-panel-threads__row--${name}`),
+    );
+    expect(statuses).toEqual(status ? [status] : []);
+    const archive = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]');
+    expect(archive?.disabled).toBe(blocked);
+    archive?.click();
+    expect(view.containerEl.querySelector('[aria-label="Archive thread without saving"]') !== null).toBe(!blocked);
   });
 
   it("keeps replacement panel activity on a visible row while the catalog observer is delayed", async () => {
@@ -295,15 +303,17 @@ describe("CodexThreadsView", () => {
     let serverThreads: readonly Thread[] = [source];
     const { catalog } = realCatalogFixture(async (archived) => (archived ? [] : serverThreads));
     await catalog.fetchActiveThreads();
-    let activities: readonly ThreadsViewPanelActivity[] = [
-      { threadId: "source", selected: true, pending: false, running: false, unread: false },
+    let activities: readonly PanelThreadActivity[] = [
+      { threadId: "source", lastFocused: true, pending: false, turnBusy: false, unread: false },
     ];
     let held: (() => void)[] | null = [];
+    const threadListActivity = threadListActivityFixture(activities);
     const pending = catalog.beginReplacement("source");
     pending.attach(replacement);
     const view = await threadsView(
       threadsHost({
         threadCatalog: {
+          visibleThreadId: (threads, id) => catalog.visibleThreadId(threads, id),
           refreshActiveThreads: () => catalog.refreshActiveThreads(),
           loadMoreActiveThreads: () => catalog.loadMoreActiveThreads(),
           watchActiveThreads: (changed) =>
@@ -312,11 +322,7 @@ describe("CodexThreadsView", () => {
               else changed();
             }),
         },
-        visiblePanelActivities: (threads: readonly Thread[]) =>
-          activities.map((activity) => ({
-            ...activity,
-            threadId: catalog.visibleThreadId(threads, activity.threadId),
-          })),
+        observeThreadListActivity: threadListActivity.observe,
       }),
     );
 
@@ -326,16 +332,18 @@ describe("CodexThreadsView", () => {
       expect(rows[0]?.querySelector(".codex-panel-threads__row--selected.codex-panel-threads__row--running")?.textContent).toBe(title);
     };
 
-    activities = [{ threadId: "replacement", selected: true, pending: false, running: true, unread: false }];
-    view.refreshLiveState();
+    activities = [{ threadId: "replacement", lastFocused: true, pending: false, turnBusy: true, unread: false }];
+    threadListActivity.publish([], activities);
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     expectActiveRow("Source");
+    expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.disabled).toBe(false);
 
     serverThreads = [replacement];
-    view.refreshLiveState();
+    threadListActivity.publish([], activities);
     pending.finish(true);
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     expectActiveRow("Replacement");
+    expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.disabled).toBe(true);
 
     expect(held.length).toBeGreaterThan(0);
     for (const notify of held) notify();
@@ -622,7 +630,6 @@ describe("CodexThreadsView", () => {
     view.detachRuntime();
 
     await expect(view.refresh()).resolves.toBeUndefined();
-    expect(() => view.refreshLiveState()).not.toThrow();
     expect(() => view.refreshSettings()).not.toThrow();
   });
 });
@@ -631,11 +638,11 @@ function threadsHost(overrides: Partial<ThreadsViewHost> = {}) {
   return {
     settings: { archiveExportEnabled: () => DEFAULT_SETTINGS.archiveExportEnabled },
     threadCatalog: catalogFixture(queryResult([threadFixture({ preview: "Thread preview" })])).catalog,
+    observeThreadListActivity: observeNoThreadActivity,
     threadMutations: threadMutationCommandsMock(),
     threadTitlePort: titlePortFixture(),
     openNewPanel: vi.fn<ThreadsViewHost["openNewPanel"]>().mockResolvedValue(undefined),
     openThreadInAvailableView: vi.fn<ThreadsViewHost["openThreadInAvailableView"]>().mockResolvedValue(undefined),
-    visiblePanelActivities: () => [],
     ...overrides,
   } satisfies ThreadsViewHost;
 }
@@ -651,6 +658,7 @@ function catalogFixture(initial = queryResult(null)) {
     catalog: {
       refreshActiveThreads: vi.fn<ThreadsViewHost["threadCatalog"]["refreshActiveThreads"]>().mockResolvedValue(undefined),
       loadMoreActiveThreads: vi.fn<ThreadsViewHost["threadCatalog"]["loadMoreActiveThreads"]>().mockResolvedValue(undefined),
+      visibleThreadId: (_threads: readonly Thread[], id: string | null) => id,
       watchActiveThreads: (listener: () => void) => {
         observer = listener;
         return {

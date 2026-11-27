@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { type PanelThreadActivity, threadListActivity } from "../../../src/domain/threads/activity";
 import type { Thread } from "../../../src/domain/threads/model";
 import { renderThreadsViewShell, unmountThreadsViewShell } from "../../../src/features/threads-view/shell.dom";
-import { type ThreadsRowModel, type ThreadsViewPanelActivity, threadRows } from "../../../src/features/threads-view/state";
+import { type ThreadsRowModel, threadRows } from "../../../src/features/threads-view/state";
 import { installObsidianDomShims } from "../../support/dom";
 import { panelThreadFixture } from "../../support/panel-thread";
 
@@ -20,12 +21,12 @@ function expectPresent<T>(value: T | null | undefined): T {
   return value;
 }
 
-function panelActivity(overrides: Partial<ThreadsViewPanelActivity> = {}): ThreadsViewPanelActivity {
+function panelActivity(overrides: Partial<PanelThreadActivity> = {}): PanelThreadActivity {
   return {
     threadId: "thread",
-    selected: false,
+    lastFocused: false,
     pending: false,
-    running: false,
+    turnBusy: false,
     unread: false,
     ...overrides,
   };
@@ -44,11 +45,11 @@ function rowFixture(overrides: Partial<ThreadsRowModel> = {}): ThreadsRowModel {
   return {
     threadId,
     title,
-    live: null,
+    liveStatus: null,
     archiveDisabled: false,
     selected: false,
     isPinned: false,
-    rename: { active: false, draft: title, generating: false, saving: false, autoNameDisabled: true },
+    rename: null,
     archiveConfirm: { active: false, defaultSaveMarkdown: false },
     ...overrides,
   };
@@ -96,43 +97,22 @@ describe("threads view renderer decisions", () => {
     expect(parent.querySelector(".codex-panel-threads__status")).toBeNull();
   });
 
-  it("shows pending, running, and idle states for the owning panel", () => {
-    expect(
-      threadRows(
-        [threadFixture({ id: "thread" })],
-        [panelActivity({ threadId: "thread", pending: true, running: true, unread: true })],
-        new Map(),
-      )[0]?.live,
-    ).toMatchObject({ status: "pending" });
-
-    expect(
-      threadRows([threadFixture({ id: "thread" })], [panelActivity({ threadId: "thread", running: true, unread: true })], new Map())[0]
-        ?.live,
-    ).toMatchObject({ status: "running" });
-    expect(threadRows([threadFixture({ id: "thread" })], [panelActivity({ threadId: "thread" })], new Map())[0]?.live).toMatchObject({
-      status: "open",
-    });
-    expect(
-      threadRows([threadFixture({ id: "thread" })], [panelActivity({ threadId: null, running: true })], new Map())[0]?.live,
-    ).toBeNull();
-  });
-
   it("shows unread only for open panels without changing selection or row actions", () => {
     const parent = mountParent();
-    const rows = threadRows([threadFixture()], [panelActivity({ unread: true, selected: true })], new Map());
-    expect(rows[0]?.live).toEqual({ status: "unread" });
+    const rows = threadRows([threadFixture()], threadListActivity([panelActivity({ unread: true, lastFocused: true })]), new Map());
+    expect(rows[0]?.liveStatus).toBe("unread");
     renderThreadsViewShell(parent, { status: null, loading: false, rows }, threadsViewActions());
     expect(parent.querySelector(".codex-panel-threads__row--unread")).not.toBeNull();
     expect(parent.querySelector(".is-selected")).not.toBeNull();
     expect(parent.querySelectorAll(".codex-panel-threads__row-button")).toHaveLength(3);
-    expect(threadRows([threadFixture()], [], new Map())[0]?.live).toBeNull();
+    expect(threadRows([threadFixture()], threadListActivity([]), new Map())[0]?.liveStatus).toBeNull();
   });
 
   it("renders live thread rows and toolbar controls", () => {
     const parent = mountParent();
     const rows = threadRows(
       [threadFixture({ id: "closed", preview: "Closed thread" }), threadFixture({ id: "open", preview: "Open thread", updatedAt: 2 })],
-      [panelActivity({ threadId: "open", pending: true, selected: true })],
+      threadListActivity([panelActivity({ threadId: "open", pending: true, lastFocused: true })]),
       new Map(),
     );
 

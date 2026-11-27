@@ -22,7 +22,7 @@ import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/pr
 import { createKeyedOperationCoordinator } from "../../src/shared/async/keyed-operation-coordinator";
 import { chatPanelSettingsAccess } from "../features/chat/support/settings";
 import { panelThreadFixture } from "./panel-thread";
-import { threadMutationCommandsMock } from "./thread-mutations";
+import { observeNoThreadActivity, threadMutationCommandsMock } from "./thread-mutations";
 
 const { default: CodexPanelPluginClass } = await import("../../src/main");
 
@@ -125,10 +125,11 @@ function chatHostFixture(): CodexChatHost {
       withClient: vi.fn().mockRejectedValue(new Error("No app-server client connected.")),
     },
     appServerContext: { codexPath: settings.codexPath, vaultPath: "/vault" },
+    observeThreadListActivity: observeNoThreadActivity,
     threadMutations: threadMutationCommandsMock(),
     threadTitlePort: threadTitlePortFixture(),
     threadAutoTitleWork: { submit: vi.fn() },
-    runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
+    runtimeSettingsCommitQueue: createKeyedOperationCoordinator(),
     settings: chatPanelSettingsAccess(settings),
     workspace: workspacePanelsFixture(),
     appServerQueries: appServerQueriesFixture(),

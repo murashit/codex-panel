@@ -36,7 +36,7 @@ export interface WorkspacePanelSnapshot extends ChatWorkspacePanelSnapshot {
 
 export interface WorkspacePanelCoordinatorOptions {
   app: App;
-  refreshThreadsViewLiveState: () => void;
+  notifyPanelActivityChanged: () => void;
   workspaceSignal: () => AbortSignal;
 }
 
@@ -47,7 +47,7 @@ export class WorkspacePanelCoordinator {
   private pendingRestoredRepairs = new WeakSet<WorkspaceLeaf>();
   private lastFocusedPanelViewId: string | null = null;
   private readonly deferredLeafLoads = new WeakMap<WorkspaceLeaf, Promise<void>>();
-  private readonly threadPanelOperations = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
+  private readonly threadPanelOperations = createKeyedOperationCoordinator<string>();
   private readonly materializingPanels = new WeakMap<WorkspaceLeaf, { isCurrent: OperationCurrent }>();
   private duplicatePanelLeaves = new WeakSet<WorkspaceLeaf>();
 
@@ -257,7 +257,7 @@ export class WorkspacePanelCoordinator {
         void this.loadRestoredPanelLeaf(leaf);
       }
     }
-    if (mode !== "foreground") this.options.refreshThreadsViewLiveState();
+    if (mode !== "foreground") this.options.notifyPanelActivityChanged();
   }
 
   scheduleWorkspacePanelReconcile(options: { restore?: boolean } = {}): void {
@@ -279,7 +279,7 @@ export class WorkspacePanelCoordinator {
     if (!viewId) return;
     if (this.lastFocusedPanelViewId === viewId) return;
     this.lastFocusedPanelViewId = viewId;
-    this.options.refreshThreadsViewLiveState();
+    this.options.notifyPanelActivityChanged();
   }
 
   private panelLeaves(): WorkspaceLeaf[] {
@@ -432,7 +432,7 @@ export class WorkspacePanelCoordinator {
     void writing.then(
       () => {
         pending.delete(leaf);
-        if (this.pendingRestoredRepairs === pending) this.options.refreshThreadsViewLiveState();
+        if (this.pendingRestoredRepairs === pending) this.options.notifyPanelActivityChanged();
       },
       () => {
         pending.delete(leaf);

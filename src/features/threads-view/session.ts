@@ -1,29 +1,31 @@
 import { Notice } from "obsidian";
 import { errorMessage } from "../../domain/text/error-message";
+import { EMPTY_THREAD_ACTIVITY, type ObserveThreadListActivity } from "../../domain/threads/activity";
 import type { Thread } from "../../domain/threads/model";
 import { threadRenameDraftTitle } from "../../domain/threads/title";
 import { DeferredTask } from "../../shared/async/deferred-task";
 import type { ObservedPaginatedResult } from "../../shared/async/observed-result";
 import { OwnerLifetime } from "../../shared/async/owner-lifetime";
-import type { ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
+import type { ThreadCatalogPaginatedActiveReader, ThreadCatalogPublication } from "../threads/catalog/thread-catalog";
 import type { ThreadTitlePort } from "../threads/workflows/ports";
 import type { ThreadMutationCommands } from "../threads/workflows/thread-mutation-commands";
 import { createThreadRenameEditor, type ThreadRenameEditor } from "../threads/workflows/thread-rename-editor";
 import { isThreadsArchiveConfirmPointer, renderThreadsViewShell, unmountThreadsViewShell } from "./shell.dom";
-import { type ThreadsRenameState, type ThreadsViewPanelActivity, threadRows } from "./state";
+import { type ThreadsRenameState, threadRows } from "./state";
 export interface ThreadsViewHost {
+  readonly observeThreadListActivity: ObserveThreadListActivity;
   readonly settings: ThreadsViewSettingsAccess;
   readonly threadCatalog: ThreadsViewThreadCatalog;
   readonly threadMutations: ThreadMutationCommands;
   readonly threadTitlePort: ThreadTitlePort;
   openNewPanel(): Promise<unknown>;
   openThreadInAvailableView(threadId: string): Promise<void>;
-  visiblePanelActivities(threads: readonly Thread[]): readonly ThreadsViewPanelActivity[];
 }
 
-type ThreadsViewThreadCatalog = Pick<ThreadCatalogPaginatedActiveReader, "refreshActiveThreads" | "loadMoreActiveThreads"> & {
-  watchActiveThreads(changed: () => void): { read(): ObservedPaginatedResult<readonly Thread[]>; close(): void };
-};
+type ThreadsViewThreadCatalog = Pick<ThreadCatalogPaginatedActiveReader, "refreshActiveThreads" | "loadMoreActiveThreads"> &
+  Pick<ThreadCatalogPublication, "visibleThreadId"> & {
+    watchActiveThreads(changed: () => void): { read(): ObservedPaginatedResult<readonly Thread[]>; close(): void };
+  };
 
 export interface ThreadsViewSettingsAccess {
   archiveExportEnabled(): boolean;
@@ -42,7 +44,8 @@ export class ThreadsViewSession {
   private readonly renameEditor: ThreadRenameEditor;
   private readonly renderTask: DeferredTask;
   private readonly renameStates = new Map<string, ThreadsRenameState>();
-  private readonly lifecycleBusyThreadIds = new Set<string>();
+  private activity = EMPTY_THREAD_ACTIVITY;
+  private stopObservingActivity: (() => void) | null = null;
   private observation: ReturnType<ThreadsViewThreadCatalog["watchActiveThreads"]> | null = null;
   private archiveConfirmThreadId: string | null = null;
   private rendering = false;
@@ -81,6 +84,10 @@ export class ThreadsViewSession {
     this.environment.registerPointerDown((event) => {
       this.cancelArchiveConfirmOnOutsidePointer(event);
     });
+    this.stopObservingActivity = this.host.observeThreadListActivity((activity) => {
+      this.activity = activity;
+      this.refreshLiveState();
+    });
     this.observation = this.host.threadCatalog.watchActiveThreads(() => {
       this.render();
     });
@@ -91,6 +98,8 @@ export class ThreadsViewSession {
   close(): void {
     this.lifetime.dispose();
     this.renameEditor.invalidate();
+    this.stopObservingActivity?.();
+    this.stopObservingActivity = null;
     this.renderTask.clear();
     this.observation?.close();
     this.observation = null;
@@ -119,7 +128,7 @@ export class ThreadsViewSession {
     }
   }
 
-  refreshLiveState(): void {
+  private refreshLiveState(): void {
     this.renderTask.schedule(() => {
       this.render();
     });
@@ -173,11 +182,11 @@ export class ThreadsViewSession {
         hasMore: result.hasMore,
         rows: threadRows(
           threads,
-          this.host.visiblePanelActivities(threads),
+          this.activity,
           this.renameStates,
           this.archiveConfirmThreadId,
           this.host.settings.archiveExportEnabled(),
-          this.lifecycleBusyThreadIds,
+          (id) => this.host.threadCatalog.visibleThreadId(threads, id),
         ),
       },
       {
@@ -251,10 +260,7 @@ export class ThreadsViewSession {
   }
 
   private async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
-    if (this.lifecycleBusyThreadIds.has(threadId)) return;
     const viewLifetime = this.lifetime.signal();
-    this.lifecycleBusyThreadIds.add(threadId);
-    this.render();
     try {
       const result = await this.mutations.archiveThread(threadId, {
         saveMarkdown,
@@ -271,7 +277,6 @@ export class ThreadsViewSession {
       if (!this.lifetime.isCurrent(viewLifetime)) return;
       this.noticeError(error);
     } finally {
-      this.lifecycleBusyThreadIds.delete(threadId);
       if (this.lifetime.isCurrent(viewLifetime)) this.render();
     }
   }

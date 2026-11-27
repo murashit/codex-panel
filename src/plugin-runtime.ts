@@ -11,7 +11,6 @@ import type {
 import { CodexChatView } from "./features/chat/host/view.obsidian";
 import type { SelectionRewriteCommandController } from "./features/selection-rewrite/command.obsidian";
 import type { SelectionRewritePort } from "./features/selection-rewrite/port";
-import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import { CodexThreadsView, type ThreadsRuntimeView, type ThreadsViewRuntimeOwner } from "./features/threads-view/view.obsidian";
 import type { TurnDiffViewState } from "./features/turn-diff/model";
 import { CodexTurnDiffView } from "./features/turn-diff/view.obsidian";
@@ -47,8 +46,8 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     this.panels = new WorkspacePanelCoordinator({
       app: options.app,
       workspaceSignal: () => this.workspaceLifetime.signal(),
-      refreshThreadsViewLiveState: () => {
-        this.refreshThreadsViewLiveState();
+      notifyPanelActivityChanged: () => {
+        this.execution?.runtime.notifyPanelActivityChanged();
       },
     });
   }
@@ -232,23 +231,6 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     }
   }
 
-  private refreshThreadsViewLiveState(): void {
-    if (!this.execution) return;
-    for (const view of this.threadsViews()) {
-      view.refreshLiveState();
-    }
-  }
-
-  private openPanelActivities(): readonly ThreadsViewPanelActivity[] {
-    return this.panels.getOpenPanelSnapshots().map((snapshot) => ({
-      threadId: snapshot.threadId,
-      selected: snapshot.lastFocused,
-      pending: snapshot.pending,
-      unread: snapshot.unread,
-      running: snapshot.turnBusy,
-    }));
-  }
-
   private threadsViews(): CodexThreadsView[] {
     return this.options.app.workspace
       .getLeavesOfType(VIEW_TYPE_CODEX_THREADS)
@@ -291,10 +273,10 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
         notifyPanelActivityChanged: () => {
           if (workspaceSignal.aborted) return;
           this.scheduleWorkspacePanelReconcile({ restore: false });
-          this.refreshThreadsViewLiveState();
+          this.execution?.runtime.notifyPanelActivityChanged();
         },
         openNewPanel: () => (workspaceSignal.aborted ? Promise.resolve() : this.panels.openNewPanel()),
-        openPanelActivities: () => this.openPanelActivities(),
+        openPanelActivities: () => this.panels.getOpenPanelSnapshots(),
       },
       onThreadFacts: (facts) => {
         this.applyThreadFacts(facts);

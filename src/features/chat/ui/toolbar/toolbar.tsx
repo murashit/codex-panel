@@ -380,7 +380,7 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
           rename.action
         ) : (
           <ThreadActionControls
-            isPinned={thread.isPinned === true}
+            isPinned={thread.isPinned}
             renameDisabled={thread.renameDisabled}
             archiveDisabled={thread.archiveDisabled}
             archiveConfirm={archiveConfirm}

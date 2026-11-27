@@ -43,7 +43,7 @@ import { modelMetadataFixture } from "../../../../support/model-metadata";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { threadActivationFixture } from "../../../../support/thread-activation";
-import { threadMutationCommandsMock } from "../../../../support/thread-mutations";
+import { observeNoThreadActivity, threadMutationCommandsMock } from "../../../../support/thread-mutations";
 import { chatPanelSettingsAccess } from "../../support/settings";
 import { chatComposerSharedValuesFixture } from "../../support/shared-display-values";
 
@@ -499,7 +499,7 @@ describe("chat panel session runtime", () => {
     "retires old model choices before accepting settings in a reopened session (%s)",
     async (outcome) => {
       const update = deferred<unknown>();
-      const queue = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
+      const queue = createKeyedOperationCoordinator<string>();
       const request = vi.fn((method: string, _params?: unknown) =>
         method === "thread/settings/update" ? update.promise : Promise.resolve({}),
       );
@@ -755,8 +755,9 @@ describe("chat panel session runtime", () => {
           apply: overrides.plugin?.threadFacts?.apply ?? vi.fn(),
           applyBatch: overrides.plugin?.threadFacts?.applyBatch ?? vi.fn(),
         },
+        observeThreadListActivity: observeNoThreadActivity,
         threadMutations: overrides.plugin?.threadMutations ?? threadMutationCommandsMock(),
-        runtimeSettingsCommitQueue: overrides.plugin?.runtimeSettingsCommitQueue ?? createKeyedOperationCoordinator({ whenBusy: "queue" }),
+        runtimeSettingsCommitQueue: overrides.plugin?.runtimeSettingsCommitQueue ?? createKeyedOperationCoordinator(),
       },
       view: {
         panelRoot: () => panelRoot,

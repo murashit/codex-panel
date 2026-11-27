@@ -78,7 +78,7 @@ export interface ChatRuntimeSettingsCommands {
 
 export function createChatRuntimeSettingsCommands(
   host: RuntimeSettingsCommandsHost,
-  threadCommits: KeyedOperationCoordinator<string> = createKeyedOperationCoordinator({ whenBusy: "queue" }),
+  threadCommits: KeyedOperationCoordinator<string> = createKeyedOperationCoordinator(),
 ): ChatRuntimeSettingsCommands {
   const context: RuntimeSettingsCommandsContext = { ...host, threadCommits };
   return {

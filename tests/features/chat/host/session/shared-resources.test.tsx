@@ -90,7 +90,7 @@ it("uses the provider catalogue for restored controls and display while isolatin
       collaborationModeLabel: () => "Default",
       addSystemMessage: () => {},
     },
-    createKeyedOperationCoordinator({ whenBusy: "queue" }),
+    createKeyedOperationCoordinator(),
   );
   const skills = vi.fn();
   onTestFinished(first.resources.observeMetadataResource("skills", skills));

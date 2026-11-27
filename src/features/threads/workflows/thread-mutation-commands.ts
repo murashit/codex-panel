@@ -1,5 +1,6 @@
 import { normalizeExplicitThreadName } from "../../../domain/threads/model";
-import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../shared/async/keyed-operation-coordinator";
+import type { ThreadTranscript } from "../../../domain/threads/transcript";
+import { createKeyedOperationCoordinator } from "../../../shared/async/keyed-operation-coordinator";
 import { type ArchiveExportDestination, type ArchiveExportSettings, exportArchivedThreadMarkdown } from "./archive-export";
 import type { ArchiveThreadResult, ThreadMutationPort } from "./ports";
 
@@ -13,6 +14,7 @@ export interface ThreadMutationCommandsHost {
   };
   archiveDestination(): ArchiveExportDestination;
   threadIsBusy(threadId: string): boolean;
+  archiveActivityChanged: () => void;
 }
 
 interface ArchiveThreadOptions {
@@ -29,60 +31,50 @@ export interface ThreadMutationCommands extends Pick<ThreadMutationPort, "setThr
   archiveThread(threadId: string, options?: ArchiveThreadOptions): Promise<ArchiveThreadResult>;
 }
 
-export function createThreadMutationCommands(host: ThreadMutationCommandsHost): ThreadMutationCommands {
-  const nameMutations = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
-  const archiveMutations = createKeyedOperationCoordinator<string>({ whenBusy: "reject" });
+export function createThreadMutationCommands(
+  host: ThreadMutationCommandsHost,
+): ThreadMutationCommands & { readonly archivingThreadIds: ReadonlySet<string> } {
+  const nameMutations = createKeyedOperationCoordinator<string>();
+  const archivingThreadIds = new Set<string>();
   return {
     ...host.port,
-    renameThread: (threadId, value, options) => renameThread(host, nameMutations, threadId, value, options),
-    archiveThread: (threadId, options) => archiveThread(host, archiveMutations, threadId, options),
+    archivingThreadIds,
+    async renameThread(threadId, value, options = {}) {
+      const name = normalizeExplicitThreadName(value);
+      if (!name) return false;
+      return nameMutations.run(threadId, async () => {
+        if (options.shouldStart && !options.shouldStart()) return false;
+        await host.port.renameThread(threadId, name);
+        return true;
+      });
+    },
+    async archiveThread(threadId, options = {}) {
+      if (archivingThreadIds.has(threadId)) throw new Error("An operation is already in progress.");
+      const canArchive = () => !host.threadIsBusy(threadId);
+      if (!canArchive()) return { kind: "blocked", reason: "thread-busy", exportedPath: null };
+      archivingThreadIds.add(threadId);
+      queueMicrotask(host.archiveActivityChanged);
+      try {
+        const saveMarkdown = options.saveMarkdown ?? host.archiveExport.enabled();
+        const result = await host.port.archiveThread(threadId, {
+          canArchive,
+          prepare: saveMarkdown ? (thread) => saveArchiveMarkdown(host, thread) : undefined,
+        });
+        if (result.kind === "archived") options.afterArchive?.();
+        return result;
+      } finally {
+        archivingThreadIds.delete(threadId);
+        queueMicrotask(host.archiveActivityChanged);
+      }
+    },
   };
 }
 
-async function renameThread(
-  host: ThreadMutationCommandsHost,
-  nameMutations: KeyedOperationCoordinator<string>,
-  threadId: string,
-  value: string,
-  options: RenameThreadOptions = {},
-): Promise<boolean> {
-  const name = normalizeExplicitThreadName(value);
-  if (!name) return false;
-  return nameMutations.run(threadId, async () => {
-    if (!(options.shouldStart?.() ?? true)) return false;
-    await host.port.renameThread(threadId, name);
-    return true;
-  });
-}
-
-async function archiveThread(
-  host: ThreadMutationCommandsHost,
-  archiveMutations: KeyedOperationCoordinator<string>,
-  threadId: string,
-  options: ArchiveThreadOptions = {},
-): Promise<ArchiveThreadResult> {
-  return archiveMutations.run(threadId, async () => {
-    if (host.threadIsBusy(threadId)) return { kind: "blocked", reason: "thread-busy", exportedPath: null };
-    const shouldExport = options.saveMarkdown ?? host.archiveExport.enabled();
-    const result = await host.port.archiveThread(threadId, {
-      canArchive: () => !host.threadIsBusy(threadId),
-      prepare: shouldExport
-        ? async (thread) => {
-            const archiveSettings = host.archiveExport.settings();
-            const result = await exportArchivedThreadMarkdown(
-              thread,
-              {
-                ...archiveSettings,
-                vaultPath: host.archiveExport.vaultPath,
-                vaultConfigDir: host.archiveExport.vaultConfigDir,
-              },
-              host.archiveDestination(),
-            );
-            return result.path;
-          }
-        : undefined,
-    });
-    if (result.kind === "archived") options.afterArchive?.();
-    return result;
-  });
+async function saveArchiveMarkdown(host: ThreadMutationCommandsHost, thread: ThreadTranscript): Promise<string> {
+  const { path } = await exportArchivedThreadMarkdown(
+    thread,
+    { ...host.archiveExport.settings(), vaultPath: host.archiveExport.vaultPath, vaultConfigDir: host.archiveExport.vaultConfigDir },
+    host.archiveDestination(),
+  );
+  return path;
 }

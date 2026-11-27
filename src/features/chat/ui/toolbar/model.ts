@@ -1,3 +1,5 @@
+import type { ThreadRowCoreProjection } from "../../../threads/list/row-projection";
+
 export interface RateLimitSummary {
   rows: {
     label: string;
@@ -9,20 +11,8 @@ export interface RateLimitSummary {
   }[];
 }
 
-export interface ToolbarThreadRow {
-  title: string;
-  threadId: string;
-  selected: boolean;
-  isPinned?: boolean;
-  renameDisabled: boolean;
-  archiveDisabled: boolean;
-  archiveConfirm: { active: boolean; defaultSaveMarkdown: boolean };
-  rename: {
-    draft: string;
-    generating: boolean;
-    saving: boolean;
-    autoNameDisabled: boolean;
-  } | null;
+export interface ToolbarThreadRow extends ThreadRowCoreProjection {
+  readonly renameDisabled: boolean;
 }
 
 export interface ToolbarStatusRow {
