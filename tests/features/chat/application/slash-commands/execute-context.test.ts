@@ -125,29 +125,6 @@ describe("context slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Cannot read a web URL without composer input context.");
   });
 
-  it("shows the current goal for /goal", async () => {
-    const currentGoal = goal();
-    const ctx = context();
-    ctx.goals.activeGoal = vi.fn(() => currentGoal);
-
-    await executeContextSlashCommand("goal", "", ctx);
-
-    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith(
-      "Thread goal",
-      expect.arrayContaining([
-        expect.objectContaining({ auditFacts: expect.arrayContaining([expect.objectContaining({ key: "objective", value: "Finish" })]) }),
-      ]),
-    );
-  });
-
-  it("reports no goal for bare /goal when unset", async () => {
-    const ctx = context();
-
-    await executeContextSlashCommand("goal", "", ctx);
-
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("No goal set.");
-  });
-
   it("sets, pauses, resumes, and clears goals", async () => {
     const currentGoal = goal();
     const ctx = context();
@@ -173,10 +150,10 @@ describe("context slash commands", () => {
     expect(result).toEqual({ composerDraft: "/goal set Ship goal support" });
   });
 
-  it("reports no goal for /goal edit when unset", async () => {
+  it.each(["", "edit"])("reports no goal when unset for /goal %s", async (args) => {
     const ctx = context();
 
-    await executeContextSlashCommand("goal", "edit", ctx);
+    await executeContextSlashCommand("goal", args, ctx);
 
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("No goal set.");
   });

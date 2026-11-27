@@ -1,4 +1,4 @@
-import type { ThreadGoal } from "../../../../domain/threads/goal";
+import { formatGoalElapsed, formatGoalTokens, type ThreadGoal } from "../../../../domain/threads/goal";
 import type { ThreadStreamAuditFact, ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import { parseThreadAndTextArgs, parseWebCommandArgs, resolveThreadArgument, usageError } from "./arguments";
 import { type GoalSubcommandDefinition, goalSubcommandDefinition } from "./catalog";
@@ -157,21 +157,8 @@ function goalDetails(goal: ThreadGoal): ThreadStreamNoticeSection[] {
   const auditFacts: ThreadStreamAuditFact[] = [
     { key: "status", value: goal.status },
     { key: "objective", value: goal.objective },
-    {
-      key: "tokens",
-      value: goal.tokenBudget === null ? String(goal.tokensUsed) : `${String(goal.tokensUsed)} / ${String(goal.tokenBudget)}`,
-    },
+    { key: "tokens", value: formatGoalTokens(goal) },
     { key: "elapsed", value: formatGoalElapsed(goal.timeUsedSeconds) },
   ];
   return [{ auditFacts }];
-}
-
-function formatGoalElapsed(seconds: number): string {
-  if (seconds < 60) return `${String(seconds)}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  if (minutes < 60) return remainingSeconds === 0 ? `${String(minutes)}m` : `${String(minutes)}m ${String(remainingSeconds)}s`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return remainingMinutes === 0 ? `${String(hours)}h` : `${String(hours)}h ${String(remainingMinutes)}m`;
 }

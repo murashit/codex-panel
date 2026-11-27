@@ -1,7 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { isComposerSendKey, type SendShortcut } from "../../../../domain/input/send-shortcut";
-import type { ThreadGoal, ThreadGoalStatus } from "../../../../domain/threads/goal";
+import { formatGoalElapsed, formatGoalTokens, type ThreadGoal, type ThreadGoalStatus } from "../../../../domain/threads/goal";
 import { disposeDomListeners, listenDomEscapeKey, listenOutsideDomEvent } from "../../../../shared/ui/events.dom";
 import { IconButton } from "../../../../shared/ui/icon.dom";
 import { observeElementResize } from "../../../../shared/ui/resize-observer.measure";
@@ -192,7 +192,9 @@ export function GoalPanel({ goal, actions, sendShortcut, editor, readOnly, objec
                 <summary tabIndex={-1}>Show more</summary>
               </details>
             </div>
-            {goal ? <div className="codex-panel__goal-usage">{goalUsage(goal)}</div> : null}
+            {goal ? (
+              <div className="codex-panel__goal-usage">{`${formatGoalTokens(goal)} tokens, ${formatGoalElapsed(goal.timeUsedSeconds)}`}</div>
+            ) : null}
           </>
         )}
       </div>
@@ -216,22 +218,6 @@ function goalStatusClassName(status: ThreadGoalStatus | null): string {
   if (status === "paused") return "codex-panel__goal--paused";
   if (status === "usageLimited") return "codex-panel__goal--usageLimited";
   return "";
-}
-
-function goalUsage(goal: ThreadGoal): string {
-  const tokens =
-    goal.tokenBudget === null ? `${String(goal.tokensUsed)} tokens` : `${String(goal.tokensUsed)} / ${String(goal.tokenBudget)} tokens`;
-  return `${tokens}, ${formatElapsed(goal.timeUsedSeconds)}`;
-}
-
-function formatElapsed(seconds: number): string {
-  if (seconds < 60) return `${String(seconds)}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  if (minutes < 60) return remainingSeconds === 0 ? `${String(minutes)}m` : `${String(minutes)}m ${String(remainingSeconds)}s`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return remainingMinutes === 0 ? `${String(hours)}h` : `${String(hours)}h ${String(remainingMinutes)}m`;
 }
 
 function syncGoalObjectiveHeight(textarea: HTMLTextAreaElement | null): void {

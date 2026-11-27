@@ -162,23 +162,29 @@ describe("executePanelSlashCommand", () => {
     expect(openSideChat).not.toHaveBeenCalled();
   });
 
-  it("allows directly typed goal display in a persistent subagent panel", async () => {
+  it.each([
+    { panel: "regular", provenance: { kind: "interactive" } },
+    { panel: "subagent", provenance: { kind: "subagent", parentThreadId: "parent" } },
+  ] as const)("shows the current goal for /goal in a persistent $panel panel", async ({ provenance }) => {
     const { host, stateStore } = createHost();
     stateStore.dispatch({
-      ...threadActivationFixture({
-        ...thread("child", "Child"),
-        provenance: {
-          kind: "subagent",
-          parentThreadId: "parent",
-        },
-      }),
+      ...threadActivationFixture({ ...thread("current"), provenance }),
       type: "active-thread/resumed",
     });
-    vi.mocked(host.goals.activeGoal).mockReturnValue(threadGoalFixture({ threadId: "child", objective: "Inspect" }));
+    vi.mocked(host.goals.activeGoal).mockReturnValue(threadGoalFixture({ threadId: "current", tokensUsed: 42, timeUsedSeconds: 3721 }));
 
     await expect(executePanelSlashCommand(host, "goal", "")).resolves.toBeUndefined();
 
-    expect(host.addStructuredSystemMessage).toHaveBeenCalledWith("Thread goal", expect.any(Array));
+    expect(host.addStructuredSystemMessage).toHaveBeenCalledWith("Thread goal", [
+      {
+        auditFacts: [
+          { key: "status", value: "active" },
+          { key: "objective", value: "Finish" },
+          { key: "tokens", value: "42" },
+          { key: "elapsed", value: "1h 2m" },
+        ],
+      },
+    ]);
     expect(host.goals.setObjective).not.toHaveBeenCalled();
   });
 
