@@ -407,8 +407,10 @@ describe("CodexChatView workspace restoration", () => {
     expect(notifyPanelActivityChanged).not.toHaveBeenCalled();
 
     await submitComposerByEnter(view);
+    await waitForAsyncWork(() =>
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1", turnBusy: true, pending: false }),
+    );
     expect(notifyPanelActivityChanged).toHaveBeenCalledOnce();
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1", turnBusy: true, pending: false });
 
     notifyPanelActivityChanged.mockClear();
     connectionMockState().onNotification?.({

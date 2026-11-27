@@ -1,14 +1,9 @@
 import { errorMessage } from "../../../../domain/text/error-message";
-import type { Thread } from "../../../../domain/threads/model";
+import type { BeginThreadReplacement } from "../../../../domain/threads/catalog";
 import type { ForkReplacement } from "./fork-draft";
 
-export interface ForkReplacementPublication {
-  attach: (thread: Thread) => void;
-  finish(sourceArchived: boolean): void;
-}
-
 export interface ForkReplacementEffects {
-  beginPublication(sourceThreadId: string): ForkReplacementPublication;
+  beginPublication: BeginThreadReplacement;
   latestTurnId(threadId: string): Promise<string | null>;
   archiveSource(threadId: string, saveMarkdown: boolean): Promise<boolean>;
   notify(message: string): void;

@@ -1,11 +1,12 @@
 import { errorMessage } from "../../../../domain/text/error-message";
+import type { ThreadReplacementPublication } from "../../../../domain/threads/catalog";
 import type { PreparedInput } from "../composer/prepared-input";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { activeThreadState, type ChatState, pendingForkReplacement } from "../state/model";
 import { pendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
-import { archiveForkSource, type ForkReplacementEffects, type ForkReplacementPublication } from "../threads/fork-replacement";
+import { archiveForkSource, type ForkReplacementEffects } from "../threads/fork-replacement";
 import type { ThreadStartCommand } from "../threads/thread-start-command";
 import type { ChatTurnPort } from "../turns/turn-port";
 import { activeTurnId, chatTurnBusy } from "../turns/turn-state";
@@ -78,35 +79,31 @@ async function sendTurnText(
   const submissionState = host.stateStore.getState();
   const plan = planTurnSubmission(submissionState);
   const replacement = pendingForkReplacement(submissionState);
-  let publication: ForkReplacementPublication | undefined;
+  let publication: ThreadReplacementPublication | undefined;
   let targetThreadId: string | null = plan.kind === "start-turn" ? plan.threadId : null;
   let optimisticItemId: string | null = null;
 
   try {
-    if (replacement && plan.kind !== "blocked" && plan.kind !== "steer") {
-      publication = host.forkReplacement.beginPublication(replacement.sourceThreadId);
-    }
     switch (plan.kind) {
       case "blocked":
         if (pendingSubmissionIsCurrent(host.stateStore, request.pendingSubmissionId)) host.addSystemMessage(plan.message);
         return false;
       case "steer":
         return await steerCurrentTurn(host, localItemIds, plan, prepared, request);
-      case "start-thread-then-turn":
+      case "start-thread-then-turn": {
+        if (replacement) publication = host.forkReplacement.beginPublication(replacement.sourceThreadId, "create");
         if (!commitPendingSubmission(host.stateStore, request.pendingSubmissionId)) return false;
-        {
-          const started = await host.startThread(prepared.text, {
-            ...(publication ? { onCreated: publication.attach } : {}),
-          });
-          if (started.kind !== "created-activated") {
-            failPendingSubmission(host.stateStore, request.pendingSubmissionId);
-            return false;
-          }
-          targetThreadId = started.target.threadId;
+        const started = await host.startThread(prepared.text, publication?.attach);
+        if (started.kind !== "created-activated") {
+          failPendingSubmission(host.stateStore, request.pendingSubmissionId);
+          return false;
         }
+        targetThreadId = started.target.threadId;
         if (!submissionIsCurrent(host, request)) return false;
         break;
+      }
       case "start-turn":
+        if (replacement) publication = host.forkReplacement.beginPublication(replacement.sourceThreadId, "retry");
         break;
     }
     const activeThreadId = targetThreadId;

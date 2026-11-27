@@ -222,7 +222,6 @@ describe("TurnSubmissionCommand", () => {
     const submitting = claimedCommand(host).sendTurnText({ preparedInput: { text, input } });
     await vi.waitFor(() => expect(host.applyPendingThreadSettings).toHaveBeenCalledOnce());
 
-    expect(host.startThread).toHaveBeenCalledWith(text, {});
     expect(activeThreadId(stateStore.getState())).toBe("thread");
     expect(startTurn).not.toHaveBeenCalled();
     settings.resolve(true);
@@ -735,22 +734,8 @@ describe("deferred fork submission", () => {
     const archiveSource = vi.fn().mockResolvedValue(true);
     const latestTurnId = vi.fn().mockResolvedValue("source-last");
     const notify = vi.fn();
-    const forkThread = vi.fn().mockResolvedValue(
-      completed({
-        thread: thread("forked"),
-        canAcceptDirectInput: true,
-        model: null,
-        reasoningEffort: null,
-        serviceTier: null,
-        approvalsReviewer: null,
-        approvalPolicy: null,
-        sandboxPolicy: null,
-        activePermissionProfile: null,
-        approvalPolicyKnown: false,
-        sandboxPolicyKnown: false,
-        permissionProfileKnown: false,
-      }),
-    );
+    const forkThread = vi.fn().mockResolvedValue(completed(threadActivationFixture(thread("forked"), { canAcceptDirectInput: true })));
+    const recordStartedThread = vi.fn();
     const startThread = vi.fn();
     const hydrateCreatedFork = vi.fn().mockResolvedValue(undefined);
     const onThreadActivated = vi.fn();
@@ -758,7 +743,7 @@ describe("deferred fork submission", () => {
       withThreadActivation: async (operation) => operation(),
       stateStore,
       effects: { forkSideChat: vi.fn(), startThread, forkThread },
-      recordStartedThread: vi.fn(),
+      recordStartedThread,
       hydrateCreatedFork,
       onThreadActivated,
       runtimeSnapshotForState: (state) =>
@@ -790,6 +775,7 @@ describe("deferred fork submission", () => {
     return {
       hydrateCreatedFork,
       onThreadActivated,
+      recordStartedThread,
       command,
       host,
       stateStore,
@@ -817,7 +803,8 @@ describe("deferred fork submission", () => {
         deferGoalContinuation: true,
       }),
     );
-    expect(test.startThread).not.toHaveBeenCalled();
+    expect(test.publication.attach).toHaveBeenCalledExactlyOnceWith({ ...thread("forked"), preview: "edited prompt" });
+    expect(test.recordStartedThread).not.toHaveBeenCalled();
     expect(test.archiveSource).not.toHaveBeenCalled();
     expect(activeThreadId(test.stateStore.getState())).toBe("forked");
     pending.resolve(completed({ turnId: "first" }));
@@ -868,6 +855,7 @@ describe("deferred fork submission", () => {
 
   it("retries the same created fork after a rejected turn instead of forking again", async () => {
     const test = setup();
+    const begin = vi.spyOn(test.host.forkReplacement, "beginPublication");
     test.startTurn.mockRejectedValueOnce(new Error("turn rejected"));
     await expect(test.command.sendTurnText({ preparedInput: preparedText("edited prompt") })).resolves.toBe(false);
     expect(activeThreadId(test.stateStore.getState())).toBe("forked");
@@ -876,6 +864,10 @@ describe("deferred fork submission", () => {
     await expect(test.command.sendTurnText({ preparedInput: preparedText("edited prompt") })).resolves.toBe(true);
     expect(test.forkThread).toHaveBeenCalledOnce();
     expect(test.startTurn).toHaveBeenNthCalledWith(2, expect.objectContaining({ threadId: "forked" }));
+    expect(begin.mock.calls).toEqual([
+      ["source", "create"],
+      ["source", "retry"],
+    ]);
     expect(test.archiveSource).toHaveBeenCalledOnce();
   });
 
@@ -920,7 +912,7 @@ describe("deferred fork submission", () => {
     const test = setup(false);
     const beginPublication = vi.spyOn(test.host.forkReplacement, "beginPublication");
     await expect(test.command.sendTurnText({ preparedInput: preparedText("new branch") })).resolves.toBe(true);
-    expect(test.forkThread).toHaveBeenCalledOnce();
+    expect(test.recordStartedThread).toHaveBeenCalledExactlyOnceWith({ ...thread("forked"), preview: "new branch" });
     expect(beginPublication).not.toHaveBeenCalled();
     expect(test.archiveSource).not.toHaveBeenCalled();
     expect(test.onThreadActivated).toHaveBeenCalledWith(true);

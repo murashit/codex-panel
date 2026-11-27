@@ -175,7 +175,7 @@ describe("CodexExecutionRuntime", () => {
       expect(contextConnectionMock.client.request).not.toHaveBeenCalled();
     }
     const fork = panelThreadFixture({ id: "fork" });
-    const replacement = chat.threadCatalog.beginReplacement("thread");
+    const replacement = chat.threadCatalog.beginReplacement("thread", "create");
     replacement.attach(fork);
     activities.splice(0, activities.length, { threadId: fork.id, lastFocused: true, pending: true, turnBusy: true, unread: false });
     runtime.notifyPanelActivityChanged();

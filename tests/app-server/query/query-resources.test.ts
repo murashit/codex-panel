@@ -21,6 +21,7 @@ import type { ThreadGoal } from "../../../src/domain/threads/goal";
 import type { Thread } from "../../../src/domain/threads/model";
 import { deferred } from "../../support/async";
 import { panelThreadFixture } from "../../support/panel-thread";
+import { threadCatalogFixture } from "../../support/thread-catalog";
 import { threadGoalFixture } from "../../support/thread-goal";
 
 describe("app-server query resources", () => {
@@ -436,11 +437,11 @@ describe("app-server query resources", () => {
 
   it("reuses a successful empty active thread query for reads and new observers", async () => {
     const fetchThreads = vi.fn().mockResolvedValue([]);
-    const cache = cacheWithThreads(fetchThreads);
+    const { catalog } = threadCatalogFixture(fetchThreads);
 
-    await cache.threadCatalog.fetchActiveThreads();
+    await catalog.fetchActiveThreads();
     const listener = vi.fn();
-    const unsubscribe = cache.threadCatalog.observeActiveThreadsResult(listener);
+    const unsubscribe = catalog.observeActiveThreadsResult(listener);
     try {
       expect(listener).toHaveBeenCalledExactlyOnceWith({
         value: [],
@@ -452,7 +453,7 @@ describe("app-server query resources", () => {
     } finally {
       unsubscribe();
     }
-    await expect(cache.threadCatalog.fetchActiveThreads()).resolves.toEqual([]);
+    await expect(catalog.fetchActiveThreads()).resolves.toEqual([]);
 
     expect(fetchThreads).toHaveBeenCalledOnce();
   });
@@ -463,104 +464,82 @@ describe("app-server query resources", () => {
       .mockResolvedValueOnce([{ ...thread("target"), name: "cached" }])
       .mockRejectedValueOnce(new Error("offline"))
       .mockResolvedValueOnce([{ ...thread("target"), name: "refreshed" }]);
-    const cache = cacheWithThreads(fetchThreads);
-    await cache.threadCatalog.refreshActiveThreads();
+    const { catalog } = threadCatalogFixture(fetchThreads);
+    await catalog.refreshActiveThreads();
 
-    await expect(cache.threadCatalog.refreshActiveThreads()).rejects.toThrow("offline");
-    cache.threadCatalog.applyThreadCatalogChanges([
-      { kind: "update", list: "active", threadId: "target", changes: { name: "from-event" } },
-    ]);
-    expect(cache.threadCatalog.activeThreadsSnapshot()?.[0]?.name).toBe("from-event");
-    await expect(cache.threadCatalog.fetchActiveThreads()).resolves.toEqual([{ ...thread("target"), name: "refreshed" }]);
+    await expect(catalog.refreshActiveThreads()).rejects.toThrow("offline");
+    catalog.applyThreadCatalogChanges([{ kind: "update", list: "active", threadId: "target", changes: { name: "from-event" } }]);
+    expect(catalog.activeThreadsSnapshot()?.[0]?.name).toBe("from-event");
+    await expect(catalog.fetchActiveThreads()).resolves.toEqual([{ ...thread("target"), name: "refreshed" }]);
   });
 
   it("shares concurrent active thread refreshes within one resource identity", async () => {
     const pending = deferred<readonly ReturnType<typeof thread>[]>();
     const fetchThreads = vi.fn(() => pending.promise);
-    const cache = cacheWithThreads(fetchThreads);
+    const { catalog } = threadCatalogFixture(fetchThreads);
 
-    const first = cache.threadCatalog.refreshActiveThreads();
-    const second = cache.threadCatalog.refreshActiveThreads();
+    const first = catalog.refreshActiveThreads();
+    const second = catalog.refreshActiveThreads();
     await nextEventLoopTurn();
 
     expect(fetchThreads).toHaveBeenCalledOnce();
     pending.resolve([thread("shared")]);
     await Promise.all([first, second]);
-    expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("shared")]);
+    expect(catalog.activeThreadsSnapshot()).toEqual([thread("shared")]);
   });
 
-  it("keeps the visible active thread snapshot stable while replacement publication is frozen", async () => {
-    const fetchThreads = vi
+  it("includes an unrelated next page even when the replacement is being created or archived", async () => {
+    const source = thread("source");
+    const child = thread("child");
+    const older = thread("older");
+    const listThreads = vi
       .fn()
-      .mockResolvedValueOnce([thread("source")])
-      .mockResolvedValueOnce([thread("replacement")]);
-    const cache = cacheWithThreads(fetchThreads);
-    await cache.threadCatalog.refreshActiveThreads();
-
-    const replacement = cache.threadCatalog.beginReplacement("source");
-
-    await cache.threadCatalog.refreshActiveThreads();
-    expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("source")]);
-    expect(fetchThreads).toHaveBeenCalledOnce();
-
-    replacement.finish(false);
-    await vi.waitFor(() => expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("replacement")]));
-  });
-
-  it("does not retry a cancelled initial active thread refresh while visibility is frozen", async () => {
-    const staleRequest = deferred<readonly ReturnType<typeof thread>[]>();
-    const fetchThreads = vi
-      .fn()
-      .mockReturnValueOnce(staleRequest.promise)
-      .mockResolvedValueOnce([thread("replacement")]);
-    const cache = cacheWithThreads(fetchThreads);
-    const initialRefresh = cache.threadCatalog.refreshActiveThreads();
+      .mockResolvedValueOnce({ data: [source], nextCursor: "older" })
+      .mockResolvedValueOnce({ data: [child, older], nextCursor: null });
+    const { threadCatalog: catalog } = cacheWithRequestHandlers({ "thread/list": listThreads });
+    await catalog.fetchActiveThreads();
+    const pending = catalog.beginReplacement(source.id);
+    const loadMore = catalog.loadMoreActiveThreads();
     await nextEventLoopTurn();
+    expect(listThreads).toHaveBeenCalledWith(expect.objectContaining({ cursor: "older" }));
+    expect(catalog.activeThreadsSnapshot()).toEqual([source]);
 
-    const replacement = cache.threadCatalog.beginReplacement("source");
-
-    await initialRefresh;
-    expect(fetchThreads).toHaveBeenCalledOnce();
-    replacement.finish(false);
-    await vi.waitFor(() => expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("replacement")]));
-
-    staleRequest.resolve([thread("source"), thread("replacement")]);
-    await nextEventLoopTurn();
-    expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("replacement")]);
+    pending.attach(child);
+    await loadMore;
+    expect(catalog.activeThreadsSnapshot()).toEqual([source, older]);
+    expect(catalog.hasMoreActiveThreads()).toBe(false);
+    pending.finish(false);
+    expect(new Set(catalog.activeThreadsSnapshot())).toEqual(new Set([source, child, older]));
   });
 
   it("keeps active and archived thread list snapshots separate", async () => {
-    const fetchThreads = vi.fn((_context: AppServerExecutionContext, archived: boolean) =>
-      Promise.resolve(archived ? [thread("archived", true)] : [thread("active")]),
-    );
-    const cache = cacheWithThreads(fetchThreads);
+    const fetchThreads = vi.fn((archived: boolean) => Promise.resolve(archived ? [thread("archived", true)] : [thread("active")]));
+    const { catalog } = threadCatalogFixture(fetchThreads);
 
-    await cache.threadCatalog.refreshActiveThreads();
-    await expect(cache.threadCatalog.refreshArchivedThreads()).resolves.toEqual([thread("archived", true)]);
+    await catalog.refreshActiveThreads();
+    await expect(catalog.refreshArchivedThreads()).resolves.toEqual([thread("archived", true)]);
 
-    expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("active")]);
-    expect(cache.threadCatalog.archivedThreadsSnapshot()).toEqual([thread("archived", true)]);
-    expect(fetchThreads).toHaveBeenNthCalledWith(1, cacheContext(), false);
-    expect(fetchThreads).toHaveBeenNthCalledWith(2, cacheContext(), true);
+    expect(catalog.activeThreadsSnapshot()).toEqual([thread("active")]);
+    expect(catalog.archivedThreadsSnapshot()).toEqual([thread("archived", true)]);
 
     const archivedResults = vi.fn();
-    const observation = cache.threadCatalog.watchArchivedThreads(() => archivedResults(observation.read().value));
+    const observation = catalog.watchArchivedThreads(() => archivedResults(observation.read().value));
     try {
       expect(observation.read().value).toEqual([thread("archived", true)]);
-      cache.threadCatalog.applyThreadCatalogChanges([{ kind: "remove", list: "archived", threadId: "archived" }]);
+      catalog.applyThreadCatalogChanges([{ kind: "remove", list: "archived", threadId: "archived" }]);
       expect(archivedResults).toHaveBeenLastCalledWith([]);
-      expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("active")]);
+      expect(catalog.activeThreadsSnapshot()).toEqual([thread("active")]);
     } finally {
       observation.close();
     }
   });
 
   it("keeps the last observed value when another listener closes the observation during publication", async () => {
-    const cache = cacheWithThreads(async () => [thread("archived", true)]);
-    await cache.threadCatalog.refreshArchivedThreads();
-    const first = cache.threadCatalog.watchArchivedThreads(() => second.close());
-    const second = cache.threadCatalog.watchArchivedThreads(vi.fn());
-    cache.threadCatalog.applyThreadCatalogChanges([{ kind: "remove", list: "archived", threadId: "archived" }]);
+    const { catalog } = threadCatalogFixture(async () => [thread("archived", true)]);
+    await catalog.refreshArchivedThreads();
+    const first = catalog.watchArchivedThreads(() => second.close());
+    const second = catalog.watchArchivedThreads(vi.fn());
+    catalog.applyThreadCatalogChanges([{ kind: "remove", list: "archived", threadId: "archived" }]);
 
     expect(first.read().value).toEqual([]);
     expect(second.read().value).toEqual([thread("archived", true)]);
@@ -707,24 +686,37 @@ describe("app-server query resources", () => {
     expect(cache.threadCatalog.hasMoreActiveThreads()).toBe(true);
   });
 
-  it("does not append a load-more page invalidated by an exact event", async () => {
-    const oldPage = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
-    const listThreads = vi
-      .fn()
-      .mockResolvedValueOnce({ data: [thread("first")], nextCursor: "page-2" })
-      .mockImplementationOnce(() => oldPage.promise)
-      .mockResolvedValueOnce({ data: [thread("first")], nextCursor: "page-2" });
-    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
-    await cache.threadCatalog.refreshActiveThreads();
-
-    const loadMore = cache.threadCatalog.loadMoreActiveThreads();
+  it.each(["fork replacement", "deletion"])("finishes a requested page from the current cursor after a %s", async (action) => {
+    const source = thread("source");
+    const child = thread("child");
+    const older = thread("older");
+    const stale = deferred<{ data: Thread[]; nextCursor: null }>();
+    const currentPage = deferred<{ data: Thread[]; nextCursor: null }>();
+    let firstPage = { data: [source], nextCursor: "before" };
+    const { threadCatalog: catalog } = cacheWithRequestHandlers({
+      "thread/list": async (params) => {
+        const { cursor, archived } = params as { cursor?: string; archived?: boolean };
+        if (archived) return { data: [], nextCursor: null };
+        if (cursor === "before") return stale.promise;
+        return cursor === "after" ? currentPage.promise : firstPage;
+      },
+    });
+    await catalog.fetchActiveThreads();
+    const replacement = action === "fork replacement" ? catalog.beginReplacement(source.id) : null;
+    replacement?.attach(child);
+    const loadMore = catalog.loadMoreActiveThreads();
     await nextEventLoopTurn();
-    cache.threadCatalog.applyThreadCatalogChanges([{ kind: "remove", list: "active", threadId: "deleted-on-page-2" }]);
-    oldPage.resolve({ data: [thread("deleted-on-page-2")], nextCursor: null });
-
+    firstPage = { data: [child], nextCursor: "after" };
+    if (replacement) replacement.finish(true);
+    else catalog.facts.apply({ type: "thread-deleted", threadId: source.id });
+    stale.resolve({ data: [source], nextCursor: null });
+    await nextEventLoopTurn();
+    catalog.facts.apply({ type: replacement ? "thread-archived" : "thread-deleted", threadId: source.id });
+    currentPage.resolve({ data: [older], nextCursor: null });
     await loadMore;
-    expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("first")]);
-    expect(cache.threadCatalog.hasMoreActiveThreads()).toBe(true);
+
+    expect(catalog.activeThreadsSnapshot()).toEqual([child, older]);
+    expect(catalog.hasMoreActiveThreads()).toBe(false);
   });
 
   it("projects an exact event without preserving a synthetic page boundary", async () => {
@@ -805,24 +797,24 @@ describe("app-server query resources", () => {
     expect(listThreads).toHaveBeenCalledTimes(3);
   });
 
-  it("revalidates after an exact event cancels an initial thread read", async () => {
+  it("returns the refreshed rows to an initial reader interrupted by an exact event", async () => {
     const staleRead = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
-    const listThreads = vi
-      .fn()
-      .mockImplementationOnce(() => staleRead.promise)
-      .mockResolvedValueOnce({ data: [{ ...thread("target"), name: "authoritative" }], nextCursor: null });
+    const currentRead = deferred<{ data: Thread[]; nextCursor: null }>();
+    const listThreads = vi.fn().mockReturnValueOnce(staleRead.promise).mockReturnValueOnce(currentRead.promise);
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
 
-    const initial = cache.threadCatalog.refreshActiveThreads();
+    const initial = cache.threadCatalog.fetchActiveThreads();
     await nextEventLoopTurn();
     cache.threadCatalog.applyThreadCatalogChanges([
       { kind: "update", list: "active", threadId: "target", changes: { name: "from-event" } },
     ]);
     staleRead.resolve({ data: [{ ...thread("target"), name: "stale" }], nextCursor: null });
 
-    await initial;
-    await vi.waitFor(() => expect(cache.threadCatalog.activeThreadsSnapshot()?.[0]?.name).toBe("authoritative"));
-    expect(listThreads).toHaveBeenCalledTimes(2);
+    await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(2));
+    const current = [{ ...thread("target"), name: "authoritative" }];
+    currentRead.resolve({ data: current, nextCursor: null });
+    await expect(initial).resolves.toEqual(current);
+    expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual(current);
   });
 
   it("refetches after an exact lifecycle fact arrives following an initial thread read failure", async () => {
@@ -839,40 +831,69 @@ describe("app-server query resources", () => {
     await vi.waitFor(() => expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("created")]));
   });
 
-  it("keeps a thread-picker inventory read out of the shared recent list", async () => {
-    const oldInventory = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: string | null }>();
-    const listThreads = vi
-      .fn()
-      .mockImplementationOnce(() => oldInventory.promise)
-      .mockResolvedValueOnce({ data: [thread("new-first")], nextCursor: "new-page-2" });
-    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+  it("shares an open picker's full scan without paging the recent list", async () => {
+    const listThreads = vi.fn(async (params: unknown) =>
+      (params as { cursor?: string }).cursor
+        ? { data: [thread("older")], nextCursor: null }
+        : { data: [thread("recent")], nextCursor: "older" },
+    );
+    const { threadCatalog: catalog } = cacheWithRequestHandlers({ "thread/list": listThreads });
+    await catalog.fetchActiveThreads();
+    const search = catalog.watchActiveThreadSearch(vi.fn());
+    expect(listThreads).toHaveBeenCalledOnce();
 
-    const inventory = cache.threadCatalog.fetchActiveThreadSearchInventory();
-    await nextEventLoopTurn();
-    await cache.threadCatalog.refreshActiveThreads();
-    oldInventory.resolve({ data: [thread("old")], nextCursor: null });
-
-    await expect(inventory).resolves.toEqual([thread("old")]);
-    expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("new-first")]);
-    expect(cache.threadCatalog.hasMoreActiveThreads()).toBe(true);
+    await Promise.all([catalog.fetchActiveThreadSearch(), catalog.fetchActiveThreadSearch()]);
+    await catalog.fetchActiveThreadSearch();
+    expect(search.read().value).toEqual([thread("recent"), thread("older")]);
+    expect(listThreads).toHaveBeenCalledTimes(3);
+    expect(catalog.recentActiveThreadsSnapshot()).toEqual([thread("recent")]);
+    expect(catalog.hasMoreActiveThreads()).toBe(true);
+    search.close();
   });
 
-  it("treats a thread-picker inventory as an operation-local snapshot", async () => {
-    const staleRead = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
-    const listThreads = vi
+  it("publishes a search-only source's archive even when the reopened picker receives a stale reply", async () => {
+    const source = thread("source");
+    const child = thread("child");
+    const stale = deferred<readonly Thread[]>();
+    const fetchThreads = vi.fn().mockResolvedValueOnce([source]).mockReturnValueOnce(stale.promise).mockResolvedValue([child]);
+    const { catalog } = threadCatalogFixture((archived) => (archived ? Promise.resolve([]) : fetchThreads()));
+    await catalog.refreshArchivedThreads();
+    const originalSearch = catalog.watchActiveThreadSearch(vi.fn());
+    await catalog.fetchActiveThreadSearch();
+    const publication = catalog.beginReplacement(source.id);
+    originalSearch.close();
+
+    publication.attach(child);
+    const reopened = catalog.watchActiveThreadSearch(vi.fn());
+    const reading = catalog.fetchActiveThreadSearch().catch(() => undefined);
+    await nextEventLoopTurn();
+    expect(reopened.read().isFetching).toBe(true);
+    publication.finish(true);
+    expect(catalog.archivedThreadsSnapshot()).toEqual([{ ...source, archived: true }]);
+    stale.resolve([source]);
+    await reading;
+    await vi.waitFor(() => expect(reopened.read().value).toEqual([child]));
+    reopened.close();
+  });
+
+  it("retries an interrupted search after reconnecting the same picker", async () => {
+    const fetchThreads = vi
       .fn()
-      .mockResolvedValueOnce({ data: [thread("cached")], nextCursor: null })
-      .mockImplementationOnce(() => staleRead.promise);
-    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
-    await expect(cache.threadCatalog.fetchActiveThreadSearchInventory()).resolves.toEqual([thread("cached")]);
+      .mockResolvedValueOnce([thread("child")])
+      .mockResolvedValue([thread("fresh")]);
+    const { catalog, scope } = threadCatalogFixture(fetchThreads);
+    const fork = catalog.beginReplacement("source");
+    const search = catalog.watchActiveThreadSearch(vi.fn());
+    const interrupted = catalog.fetchActiveThreadSearch();
+    await nextEventLoopTurn();
+    expect(search.read().isFetching).toBe(true);
 
-    const inventory = cache.threadCatalog.fetchActiveThreadSearchInventory();
-    await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(2));
-    cache.threadCatalog.applyThreadCatalogChanges([{ kind: "update", list: "active", threadId: "event", changes: { name: "changed" } }]);
-    staleRead.resolve({ data: [thread("operation-snapshot")], nextCursor: null });
-
-    await expect(inventory).resolves.toEqual([thread("operation-snapshot")]);
-    expect(listThreads).toHaveBeenCalledTimes(2);
+    scope.invalidate();
+    await expect(interrupted).rejects.toThrow();
+    fork.finish(false);
+    await catalog.fetchActiveThreadSearch();
+    expect(search.read().value).toEqual([thread("fresh")]);
+    search.close();
   });
 
   it("runs local app-server queries independently of browser network state", async () => {
@@ -1268,30 +1289,6 @@ function cacheContext(overrides: Partial<AppServerExecutionContext> = {}): AppSe
     vaultPath: "/vault",
     ...overrides,
   };
-}
-
-function cacheWithThreads(
-  fetchThreads: (context: AppServerExecutionContext, archived: boolean) => Promise<readonly ReturnType<typeof thread>[]>,
-  context: AppServerExecutionContext = cacheContext(),
-): TestQueryResources {
-  const runtimeContext = { ...context };
-  return createCache(
-    {
-      withClient: async (operation) => {
-        return operation({
-          request: async (method: string, params: { archived?: boolean; sectionId?: string }) => {
-            if (method !== "thread/list") throw new Error(`Unexpected app-server request: ${method}`);
-            if (params.sectionId === BUILT_IN_PINNED_THREAD_SECTION_ID) return { data: [], nextCursor: null };
-            return {
-              data: await fetchThreads(runtimeContext, params.archived ?? false),
-              nextCursor: null,
-            };
-          },
-        } as never);
-      },
-    },
-    context,
-  );
 }
 
 function cacheWithRequestHandlers(

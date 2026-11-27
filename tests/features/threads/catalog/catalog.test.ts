@@ -4,50 +4,59 @@ import { panelThreadFixture as thread } from "../../../support/panel-thread";
 import { threadCatalogFixture } from "../../../support/thread-catalog";
 
 describe("thread replacement publication", () => {
-  it("keeps the old row and activity until a single replacement snapshot, including refresh and late notification", async () => {
-    let server = [thread({ id: "source" }), thread({ id: "other" })];
-    const read = vi.fn(async (archived: boolean) => (archived ? [] : server));
-    const { catalog } = threadCatalogFixture(read);
+  it("publishes a replacement across active, archived, and search inventories while unrelated rows stay current", async () => {
+    const source = thread({ id: "source", updatedAt: 5 });
+    const replacement = thread({ id: "replacement", preview: "Resumed fork", updatedAt: 6 });
+    const other = thread({ id: "other" });
+    let active = [source];
+    let archived: typeof active = [];
+    const { catalog } = threadCatalogFixture(async (includeArchived) => (includeArchived ? archived : active));
     await Promise.all([catalog.fetchActiveThreads(), catalog.refreshArchivedThreads()]);
-    let actualThreadId = "source";
-    const frames: { ids: string[]; selected: string | null }[] = [];
-    const capture = (threads = catalog.activeThreadsSnapshot() ?? []) => {
-      frames.push({ ids: threads.map((item) => item.id), selected: catalog.visibleThreadId(threads, actualThreadId) });
-    };
-    catalog.observeActiveThreadsResult((result) => capture(result.value ?? []));
-    const replacement = catalog.beginReplacement("source");
-    const readsBefore = read.mock.calls.length;
-    await catalog.refreshActiveThreads();
-    expect(read).toHaveBeenCalledTimes(readsBefore);
-    replacement.attach(thread({ id: "replacement" }));
-    actualThreadId = "replacement";
-    capture();
-    catalog.facts.apply({ type: "thread-upserted", thread: thread({ id: "replacement", preview: "resumed" }) });
-    catalog.facts.apply({ type: "thread-archived", threadId: "source" });
-    expect(frames.every((frame) => frame.selected === "source")).toBe(true);
-    server = [thread({ id: "replacement", preview: "resumed" }), thread({ id: "other" })];
-    replacement.finish(true);
-    await vi.waitFor(() => expect(read.mock.calls.length).toBeGreaterThan(readsBefore));
-    catalog.facts.apply({ type: "thread-archived", threadId: "source" });
-    for (const frame of frames) {
-      expect(frame.ids).toEqual(frame.selected === "source" ? ["source", "other"] : ["replacement", "other"]);
-      expect(frame.ids).toContain(frame.selected);
-    }
-    expect(frames.at(-1)?.selected).toBe("replacement");
-    expect(catalog.archivedThreadsSnapshot()).toEqual([thread({ id: "source", archived: true })]);
+    const publication = catalog.beginReplacement(source.id);
+    publication.attach({ ...replacement, preview: "" });
+    catalog.facts.apply({ type: "thread-upserted", thread: replacement });
+    const frames: { visible: readonly string[]; selected: string | null }[] = [];
+    const stop = catalog.observeActiveThreadsResult(({ value }) => {
+      const rows = value ?? [];
+      const visible = rows.map(({ id }) => id).filter((id) => id === source.id || id === replacement.id);
+      frames.push({ visible, selected: catalog.visibleThreadId(rows, replacement.id) });
+    });
+    active = [replacement, other];
+    archived = [{ ...source, archived: true }];
+    const search = catalog.watchActiveThreadSearch(vi.fn());
+    await Promise.all([catalog.refreshActiveThreads(), catalog.refreshArchivedThreads()]);
+
+    expect(catalog.recentActiveThreadsSnapshot()).toEqual([source, other]);
+    expect(new Set(await catalog.fetchActiveThreadSearch())).toEqual(new Set([source, other]));
+    expect(catalog.archivedThreadsSnapshot()).toEqual([]);
+    expect(frames.at(-1)?.selected).toBe(source.id);
+
+    publication.finish(true);
+    catalog.facts.apply({ type: "thread-archived", threadId: source.id });
+    expect(catalog.activeThreadsSnapshot()).toEqual([replacement, other]);
+    expect(catalog.archivedThreadsSnapshot()).toEqual(archived);
+    expect(new Set(await catalog.fetchActiveThreadSearch())).toEqual(new Set([replacement, other]));
+    expect(frames.at(-1)?.selected).toBe(replacement.id);
+    for (const { visible, selected } of frames) expect(visible).toEqual([selected]);
+    search.close();
+    stop();
   });
 
   it("publishes an archive accepted on retry before its notification arrives", async () => {
-    const { catalog } = threadCatalogFixture(async () => []);
+    const source = thread({ id: "source" });
+    const child = thread({ id: "replacement" });
+    let active = [source];
+    const { catalog } = threadCatalogFixture(async () => active);
     await catalog.fetchActiveThreads();
-    catalog.facts.apply({ type: "thread-upserted", thread: thread({ id: "source" }) });
-    const replacement = catalog.beginReplacement("source");
-    replacement.attach(thread({ id: "replacement" }));
+    const replacement = catalog.beginReplacement(source.id);
+    replacement.attach(child);
     replacement.finish(false);
-    expect(catalog.activeThreadsSnapshot()?.map((item) => item.id)).toEqual(["replacement", "source"]);
-    const retry = catalog.beginReplacement("source");
+    active = [child, source];
+    const retry = catalog.beginReplacement(source.id, "retry");
+    await catalog.refreshActiveThreads();
+    expect(catalog.activeThreadsSnapshot()).toEqual([child, source]);
     retry.finish(true);
-    expect(catalog.activeThreadsSnapshot()?.map((item) => item.id)).toEqual(["replacement"]);
+    expect(catalog.activeThreadsSnapshot()).toEqual([child]);
   });
 
   it("rejects overlap, publishes unrelated facts immediately, and releases a creation that did not start", async () => {
@@ -77,29 +86,34 @@ describe("thread replacement publication", () => {
     ]);
   });
 
-  it("keeps reads blocked through reentrant publication and overlapping independent replacements", async () => {
-    const read = vi.fn(async () => []);
+  it("releases only the affected publication when a listener reenters the catalog", async () => {
     const published = vi.fn();
-    const { catalog } = threadCatalogFixture(read, published);
+    let active = [thread({ id: "source" }), thread({ id: "other" })];
+    const { catalog } = threadCatalogFixture(async () => active, published);
     await catalog.fetchActiveThreads();
-    read.mockClear();
     const first = catalog.beginReplacement("source");
     const second = catalog.beginReplacement("other");
-    first.attach(thread({ id: "replacement" }));
+    const replacement = thread({ id: "replacement" });
+    const otherChild = thread({ id: "other-child" });
+    active = [replacement, otherChild];
+    first.attach(replacement);
+    second.attach(otherChild);
     published.mockImplementationOnce(() => {
       first.finish(true);
       catalog.facts.apply({ type: "thread-renamed", threadId: "replacement", name: "Renamed" });
       catalog.facts.apply({ type: "thread-renamed", threadId: "other", name: "Other renamed" });
-      void catalog.refreshActiveThreads();
       expect(() => catalog.beginReplacement("source")).toThrow("already in progress");
     });
+
     first.finish(true);
-    expect(read).not.toHaveBeenCalled();
     expect(catalog.activeThreadsSnapshot()?.find((item) => item.id === "replacement")?.name).toBe("Renamed");
-    expect(published).not.toHaveBeenCalledWith([{ type: "thread-renamed", threadId: "other", name: "Other renamed" }]);
+    const otherRename = { type: "thread-renamed", threadId: "other", name: "Other renamed" };
+    expect(published).not.toHaveBeenCalledWith(expect.arrayContaining([otherRename]));
+    const search = catalog.watchActiveThreadSearch(vi.fn());
+    expect((await catalog.fetchActiveThreadSearch()).map(({ id }) => id).sort()).toEqual(["other", "replacement"]);
+    search.close();
     second.finish(false);
-    await vi.waitFor(() => expect(read).toHaveBeenCalled());
-    expect(published).toHaveBeenCalledWith([{ type: "thread-renamed", threadId: "other", name: "Other renamed" }]);
+    expect(published).toHaveBeenLastCalledWith([{ type: "thread-upserted", thread: otherChild }, otherRename]);
   });
 
   it.each(eventOrders("finish-a", "finish-b", "rename-both"))(
