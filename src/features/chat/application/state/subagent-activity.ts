@@ -11,7 +11,7 @@ import {
   appendTextStreamingDelta,
   appendToolOutputStreamingDelta,
 } from "../../domain/thread-stream/streaming-items";
-import { upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
+import { mergeThreadStreamItem } from "../../domain/thread-stream/updates";
 import type { TurnRuntimeFact } from "../turns/runtime-facts";
 
 interface SubagentActivityEntry extends AgentCoordinationLifecycle {
@@ -200,14 +200,9 @@ function isStaleChildTurn(entry: SubagentActivityEntry, childTurnId: string | nu
 
 function observedLatestItem(current: ThreadStreamItem | null, item: ThreadStreamItem, advance: boolean): ThreadStreamItem | null {
   if (advance || !current) return item;
-  if (!sameSourceItem(current, item.id)) return current;
-  return upsertThreadStreamItemById([current], item)[0] ?? item;
+  return current.id === item.id ? mergeThreadStreamItem(current, item) : current;
 }
 
 function latestDisplayableItem(items: readonly ThreadStreamItem[]): ThreadStreamItem | null {
   return [...items].reverse().find((item) => item.kind !== "system" && !(item.kind === "dialogue" && item.role === "user")) ?? null;
-}
-
-function sameSourceItem(item: ThreadStreamItem, sourceItemId: string): boolean {
-  return item.id === sourceItemId || item.sourceItemId === sourceItemId;
 }
