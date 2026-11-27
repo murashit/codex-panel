@@ -151,8 +151,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       threadFoundation.autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
       notifyActiveThreadIdentityChanged();
     },
-    hydrateCreatedFork: (threadId) =>
-      threadFoundation.history.loadLatest(threadId, { displayItems: stateStore.getState().threadStream.stableItems }),
+    hydrateCreatedFork: (threadId) => threadFoundation.history.loadLatest(threadId, stateStore.getState().threadStream.stableItems),
     runtimeSnapshotForState: (state) => runtimeSnapshotForChatState(state, sharedResources),
     recordStartedThread: (thread) => {
       environment.plugin.threadFacts.apply({ type: "thread-upserted", thread });

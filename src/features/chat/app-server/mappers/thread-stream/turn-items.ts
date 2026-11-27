@@ -8,10 +8,10 @@ import { isObjectValue } from "../../../../../domain/objects/object-value";
 import { definedProp } from "../../../../../domain/objects/optional-properties";
 import type { TurnTranscriptSummary } from "../../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../../shared/ui/json-preview";
-import type { ThreadHistoryPage } from "../../../application/threads/history-controller";
 import { createStructuredSystemItem } from "../../../domain/thread-stream/factories/system-items";
 import { normalizeProposedPlanMarkdown } from "../../../domain/thread-stream/format/proposed-plan";
 import { userMessageDisplayText } from "../../../domain/thread-stream/format/user-message-text";
+import type { ThreadHistoryPage } from "../../../domain/thread-stream/history";
 import type {
   CommandThreadStreamTarget,
   ThreadStreamDiagnosticSection,
@@ -90,22 +90,19 @@ export function chatThreadHistoryPageFromNewestFirstTurnsPage(page: {
   readonly nextCursor: string | null;
 }): ThreadHistoryPage {
   return {
-    items: threadStreamItemsFromTurns([...page.data].reverse()),
+    turns: [...page.data].reverse().map((turn) => ({ id: turn.id, items: threadStreamItemsFromTurn(turn) })),
     nextCursor: page.nextCursor,
-    hadTurns: page.data.length > 0,
   };
 }
 
-export function threadStreamItemsFromTurns(turns: readonly TurnRecord[]): ThreadStreamItem[] {
+export function threadStreamItemsFromTurn(turn: TurnRecord): ThreadStreamItem[] {
   const items: ThreadStreamItem[] = [];
-  for (const turn of turns) {
-    for (const item of turn.itemsView === "notLoaded" ? [] : turn.items) {
-      const streamItem = threadStreamItemFromTurnItem(item, turn.id);
-      if (streamItem) items.push(streamItem);
-    }
-    const errorItem = turnErrorThreadStreamItem(turn);
-    if (errorItem) items.push(errorItem);
+  for (const item of turn.itemsView === "notLoaded" ? [] : turn.items) {
+    const streamItem = threadStreamItemFromTurnItem(item, turn.id);
+    if (streamItem) items.push(streamItem);
   }
+  const errorItem = turnErrorThreadStreamItem(turn);
+  if (errorItem) items.push(errorItem);
   return items;
 }
 

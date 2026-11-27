@@ -1,24 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { localUserDialogueItemFromInput } from "../../../../../src/features/chat/application/submission/local-user-dialogue";
-import {
-  HistoryController,
-  type ThreadHistoryPage,
-  type ThreadHistorySource,
-} from "../../../../../src/features/chat/application/threads/history-controller";
+import { HistoryController, type ThreadHistorySource } from "../../../../../src/features/chat/application/threads/history-controller";
 import { projectTurnRuntimeFact } from "../../../../../src/features/chat/application/turns/runtime-fact-projection";
+import type { ThreadHistoryPage } from "../../../../../src/features/chat/domain/thread-stream/history";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred, eventOrders } from "../../../../support/async";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { chatStateFixture } from "../../support/state";
-import { chatStateThreadStreamItems, taskProgressFixture as taskProgress } from "../../support/thread-stream";
+import { chatStateThreadStreamItems, historyPage, taskProgressFixture as taskProgress } from "../../support/thread-stream";
 
 describe("HistoryController", () => {
   it.each(["loadLatest", "loadOlder"] as const)("keeps a completed live turn when %s returns an older snapshot", async (method) => {
     const pending = deferred<ThreadHistoryPage>();
-    const { loader, stateStore } = historyFixture(() => pending.promise);
-    loader.applyInitialPage("thread", historyPage([], "cursor"));
+    const { loader, stateStore } = historyFixture(() => pending.promise, { historyCursor: "cursor" });
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "running" });
     stateStore.dispatch({ type: "thread-stream/assistant-delta-appended", itemId: "answer", turnId: "running", delta: "Hello" });
     const loading = loader[method]();
@@ -29,7 +25,7 @@ describe("HistoryController", () => {
       turnItems: [],
     });
 
-    pending.resolve(historyPage([message("older", "Earlier", "older-turn"), message("answer", "Stale", "running")], null));
+    pending.resolve(historyPage({ "older-turn": [message("older", "Earlier")], running: [message("answer", "Stale")] }));
     await loading;
 
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
@@ -40,27 +36,19 @@ describe("HistoryController", () => {
 
   it("replaces old history but keeps a turn completed after the latest read started", async () => {
     const pending = deferred<ThreadHistoryPage>();
-    const { loader, stateStore, setThreadTurnPresence } = historyFixture(() => pending.promise);
-    stateStore.dispatch({ type: "thread-stream/content-replaced", items: [message("old", "Old history", "old-turn")] });
+    const { loader, stateStore, setThreadTurnPresence } = historyFixture(() => pending.promise, {
+      stableItems: [message("old", "Old history", "old-turn")],
+    });
     const loading = loader.loadLatest();
     completeLiveTurn(stateStore);
 
-    pending.resolve(historyPage([], null));
+    pending.resolve(historyPage({}));
     await loading;
 
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([expect.objectContaining({ id: "answer", text: "Hello" })]);
     expect(setThreadTurnPresence).not.toHaveBeenCalledWith(false);
     await loader.loadLatest();
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
-  });
-
-  it("preserves live completion before applying a preloaded resume page", () => {
-    const { loader, stateStore } = historyFixture();
-    completeLiveTurn(stateStore);
-
-    loader.applyInitialPage("thread", historyPage([message("older", "Earlier", "older-turn")], null));
-
-    expect(chatStateThreadStreamItems(stateStore.getState()).map((item) => item.id)).toEqual(["older", "answer"]);
   });
 
   it.each(eventOrders("first", "latest", "live"))("keeps the latest page and live completion for $order", async ({ order }) => {
@@ -75,7 +63,7 @@ describe("HistoryController", () => {
       if (event === "live") completeLiveTurn(stateStore);
       else {
         const reply = event === "first" ? first : latest;
-        reply.resolve(historyPage([message("page", event, "old-turn")], event));
+        reply.resolve(historyPage({ "old-turn": [message("page", event)] }, event));
         await loads[event];
         published ||= event === "latest";
       }
@@ -101,7 +89,7 @@ describe("HistoryController", () => {
         stateStore.dispatch({ type: "active-thread/resumed", ...threadActivationFixture(panelThreadFixture({ id })) });
       }
     }
-    pending.resolve(historyPage([message("assistant", "Stale")], "stale-cursor"));
+    pending.resolve(historyPage({ turn: [message("assistant", "Stale")] }, "stale-cursor"));
     await loading;
 
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
@@ -117,9 +105,8 @@ describe("HistoryController", () => {
       .fn<HistoryPageReader>()
       .mockReturnValueOnce(stale.promise)
       .mockReturnValueOnce(current.promise)
-      .mockResolvedValueOnce(historyPage([message("recovered", "Recovered")], null));
-    const { loader, stateStore, addSystemMessage } = historyFixture(readHistoryPage);
-    stateStore.dispatch({ type: "thread-stream/content-replaced", items: [], historyCursor: "older" });
+      .mockResolvedValueOnce(historyPage({ turn: [message("recovered", "Recovered")] }));
+    const { loader, stateStore, addSystemMessage } = historyFixture(readHistoryPage, { historyCursor: "older" });
 
     const staleLoad = loader[method]();
     loader.invalidate();
@@ -141,35 +128,8 @@ describe("HistoryController", () => {
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([expect.objectContaining({ id: "recovered", text: "Recovered" })]);
   });
 
-  it("reconciles hydrated history with an operation-local fork display snapshot", () => {
-    const { loader, stateStore } = historyFixture();
-    const progress = taskProgress("turn");
-
-    const newer = message("newer", "Next answer", "next-turn");
-    const applied = loader.applyInitialPage("thread", historyPage([message("assistant", "Server history"), newer], "older"), {
-      displayItems: [message("assistant", "Stale display"), progress],
-    });
-
-    expect(applied).toBe(true);
-    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
-      expect.objectContaining({ id: "assistant", text: "Server history" }),
-      progress,
-      newer,
-    ]);
-  });
-
-  it("ignores already returned latest turns pages for stale threads", () => {
-    const { loader, stateStore } = historyFixture();
-
-    const applied = loader.applyInitialPage("other", historyPage([message("assistant", "Stale")], "older"));
-
-    expect(applied).toBe(false);
-    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
-    expect(stateStore.getState().threadStream.historyCursor).toBeNull();
-  });
-
   it("loads only older source pages for a draft and never reloads the source latest page", async () => {
-    const readHistoryPage = vi.fn<HistoryPageReader>().mockResolvedValue(historyPage([message("older", "Older", "older-turn")], null));
+    const readHistoryPage = vi.fn<HistoryPageReader>().mockResolvedValue(historyPage({ "older-turn": [message("older", "Older")] }));
     const { loader, stateStore } = historyFixture(readHistoryPage);
     applyForkDraft(stateStore, "boundary");
 
@@ -178,20 +138,12 @@ describe("HistoryController", () => {
     expect(readHistoryPage).not.toHaveBeenCalled();
     await loader.loadOlder();
 
-    expect(readHistoryPage).toHaveBeenCalledExactlyOnceWith("source", "source-older", 20);
     expect(chatStateThreadStreamItems(stateStore.getState()).map((item) => item.id)).toEqual(["older", "boundary"]);
     expect(stateStore.getState().threadStream.historyCursor).toBeNull();
-  });
-
-  it("does not query latest history for a draft with no older cursor", async () => {
-    const readHistoryPage = vi.fn<HistoryPageReader>();
-    const { loader, stateStore } = historyFixture(readHistoryPage);
-    applyForkDraft(stateStore, "first", null);
 
     await loader.loadOlder();
     await loader.loadLatest();
-
-    expect(readHistoryPage).not.toHaveBeenCalled();
+    expect(readHistoryPage).toHaveBeenCalledExactlyOnceWith("source", "source-older", 20);
   });
 
   it.each(["resolve", "reject"] as const)(
@@ -204,7 +156,7 @@ describe("HistoryController", () => {
       const loading = loader.loadOlder();
       applyForkDraft(stateStore, "other-boundary");
 
-      if (outcome === "resolve") pending.resolve(historyPage([message("stale", "Stale")], "stale-cursor"));
+      if (outcome === "resolve") pending.resolve(historyPage({ turn: [message("stale", "Stale")] }, "stale-cursor"));
       else pending.reject(new Error("Stale error"));
       await loading;
 
@@ -219,12 +171,12 @@ describe("HistoryController", () => {
     const inheritedUser = userMessage("local-older", "Inherited older", "older-turn", "older-submission", true);
     const canonicalUser = userMessage("server-older", "Canonical older", "older-turn", "older-submission");
     const earlier = message("earlier", "Earlier answer", "earliest-turn");
-    const readHistoryPage = vi.fn<HistoryPageReader>().mockResolvedValue(historyPage([earlier, canonicalUser], "next"));
-    const { loader, stateStore, showLatestPageAtBottom } = historyFixture(readHistoryPage);
+    const readHistoryPage = vi
+      .fn<HistoryPageReader>()
+      .mockResolvedValue(historyPage({ "earliest-turn": [earlier], "older-turn": [canonicalUser] }, "next"));
     const progress = taskProgress("older-turn");
-    stateStore.dispatch({
-      type: "thread-stream/content-replaced",
-      items: [inheritedUser, progress, message("current", "Current", "current-turn")],
+    const { loader, stateStore, showLatestPageAtBottom } = historyFixture(readHistoryPage, {
+      stableItems: [inheritedUser, progress, message("current", "Current", "current-turn")],
       historyCursor: "cursor",
     });
 
@@ -247,8 +199,7 @@ describe("HistoryController", () => {
 
   it.each(["loadLatest", "loadOlder"] as const)("keeps streaming and pending guidance when %s settles during a turn", async (method) => {
     const pending = deferred<ThreadHistoryPage>();
-    const { loader, stateStore } = historyFixture(() => pending.promise);
-    loader.applyInitialPage("thread", historyPage([], "cursor"));
+    const { loader, stateStore } = historyFixture(() => pending.promise, { historyCursor: "cursor" });
     const loading = loader[method]();
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "running" });
     stateStore.dispatch({ type: "thread-stream/assistant-delta-appended", itemId: "answer", turnId: "running", delta: "Hello" });
@@ -276,7 +227,7 @@ describe("HistoryController", () => {
       item: canonicalUser,
     }).actions)
       stateStore.dispatch(action);
-    pending.resolve(historyPage([message("older", "Earlier answer", "older-turn"), canonicalUser], null));
+    pending.resolve(historyPage({ "older-turn": [message("older", "Earlier answer")], running: [canonicalUser] }));
     await loading;
     expect(stateStore.getState().activeTurn.pendingSteers).toEqual([steer]);
     stateStore.dispatch({ type: "thread-stream/assistant-delta-appended", itemId: "answer", turnId: "running", delta: " world" });
@@ -296,13 +247,12 @@ describe("HistoryController", () => {
     "keeps an optimistic prompt in its turn when %s settles before acknowledgement",
     async (method) => {
       const pending = deferred<ThreadHistoryPage>();
-      const { loader, stateStore } = historyFixture(() => pending.promise);
-      loader.applyInitialPage("thread", historyPage([], "cursor"));
+      const { loader, stateStore } = historyFixture(() => pending.promise, { historyCursor: "cursor" });
       const loading = loader[method]();
       const item = localUserDialogueItemFromInput({ id: "prompt", text: "Continue", codexInput: [] });
       stateStore.dispatch({ type: "turn/optimistic-started", item });
 
-      pending.resolve(historyPage([message("older", "Earlier answer", "older-turn")], null));
+      pending.resolve(historyPage({ "older-turn": [message("older", "Earlier answer")] }));
       await loading;
       expect(stateStore.getState().activeTurn.activeSegment?.items).toEqual([item]);
       stateStore.dispatch({
@@ -319,22 +269,43 @@ describe("HistoryController", () => {
     },
   );
 
-  it("hydrates missing active-turn history before live content without replacing newer text", async () => {
+  it("inserts missing history while keeping live progress in order and continuing the streamed answer", async () => {
     const pending = deferred<ThreadHistoryPage>();
     const { loader, stateStore } = historyFixture(() => pending.promise);
     const loading = loader.loadLatest();
+    const prompt = userMessage("prompt", "Explain the change", "running", "prompt-client");
+    const followUp = userMessage("follow-up", "Include an example", "running", "follow-up-client");
+    const progress = taskProgress("running");
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "running" });
+    stateStore.dispatch({ type: "thread-stream/item-upserted", item: followUp });
+    stateStore.dispatch({ type: "thread-stream/item-upserted", item: progress });
     stateStore.dispatch({ type: "thread-stream/assistant-delta-appended", itemId: "answer", turnId: "running", delta: "Hello" });
-    pending.resolve(
-      historyPage([userMessage("prompt", "Explain", "running", "prompt-client"), message("answer", "Earlier snapshot", "running")], null),
-    );
+
+    pending.resolve(historyPage({ running: [prompt, followUp, message("answer", "Stale answer")] }));
     await loading;
     stateStore.dispatch({ type: "thread-stream/assistant-delta-appended", itemId: "answer", turnId: "running", delta: " world" });
 
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
-      expect.objectContaining({ id: "prompt", text: "Explain" }),
+      prompt,
+      followUp,
+      progress,
       expect.objectContaining({ id: "answer", text: "Hello world" }),
     ]);
+  });
+
+  it("adopts a prompt returned by history before the turn-start acknowledgement", async () => {
+    const pending = deferred<ThreadHistoryPage>();
+    const { loader, stateStore } = historyFixture(() => pending.promise);
+    const loading = loader.loadLatest();
+    const local = localUserDialogueItemFromInput({ id: "local-user-prompt", clientId: "submission", text: "Continue", codexInput: [] });
+    const server = userMessage("server-prompt", "Continue", "running", "submission");
+    stateStore.dispatch({ type: "turn/optimistic-started", item: local });
+    const answer = message("answer", "Response", "running");
+    pending.resolve(historyPage({ running: [server, answer] }));
+    await loading;
+    expect(stateStore.getState().activeTurn.activeSegment?.items).toEqual([server, answer]);
+    stateStore.dispatch({ type: "turn/start-acknowledged", threadId: "thread", turnId: "running", anchorItemId: local.id });
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([server, answer]);
   });
 
   it("clears loading state when the history port has no page", async () => {
@@ -353,8 +324,11 @@ describe("HistoryController", () => {
 
 type HistoryPageReader = ThreadHistorySource["readHistoryPage"];
 
-function historyFixture(readHistoryPage: HistoryPageReader = async () => null) {
-  const stateStore = createChatStateStore(chatStateFixture({ activeThread: { id: "thread" } }));
+function historyFixture(
+  readHistoryPage: HistoryPageReader = async () => null,
+  threadStream: { historyCursor?: string; stableItems?: readonly ThreadStreamItem[] } = {},
+) {
+  const stateStore = createChatStateStore(chatStateFixture({ activeThread: { id: "thread" }, threadStream }));
   const addSystemMessage = vi.fn();
   const showLatestPageAtBottom = vi.fn();
   const setThreadTurnPresence = vi.fn();
@@ -366,10 +340,6 @@ function historyFixture(readHistoryPage: HistoryPageReader = async () => null) {
     setThreadTurnPresence,
   });
   return { loader, stateStore, addSystemMessage, setThreadTurnPresence, showLatestPageAtBottom };
-}
-
-function historyPage(items: ThreadStreamItem[], nextCursor: string | null): ThreadHistoryPage {
-  return { items, nextCursor, hadTurns: items.length > 0 };
 }
 
 function message(id: string, text: string, turnId = "turn"): ThreadStreamItem {
@@ -403,11 +373,7 @@ function userMessage(id: string, text: string, turnId: string, clientId: string,
   };
 }
 
-function applyForkDraft(
-  stateStore: ReturnType<typeof createChatStateStore>,
-  turnId: string,
-  historyCursor: string | null = "source-older",
-): void {
+function applyForkDraft(stateStore: ReturnType<typeof createChatStateStore>, turnId: string): void {
   stateStore.dispatch({
     type: "panel/fork-draft-applied",
     preparation: {
@@ -417,7 +383,7 @@ function applyForkDraft(
         boundary: { kind: "through-turn", turnId },
       },
       runtime: stateStore.getState().runtime,
-      display: { items: [message(turnId, turnId, turnId)], turnDiffs: new Map(), historyCursor },
+      display: { items: [message(turnId, turnId, turnId)], turnDiffs: new Map(), historyCursor: "source-older" },
     },
   });
 }

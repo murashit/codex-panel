@@ -10,7 +10,7 @@ import {
 import { taskProgressThreadStreamItem } from "../../../../../src/features/chat/app-server/mappers/thread-stream/task-progress";
 import {
   threadStreamItemFromTurnItem,
-  threadStreamItemsFromTurns,
+  threadStreamItemsFromTurn,
 } from "../../../../../src/features/chat/app-server/mappers/thread-stream/turn-items";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { appServerAgentMessageFixture, appServerCompletedTurnFixture as completedTurn } from "../../../../support/app-server-records";
@@ -27,7 +27,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       copyText: "Answer text",
       dialogueState: "completed",
     };
-    expect(threadStreamItemsFromTurns([completedTurn([item], { id: "t1" })])).toMatchObject([expected]);
+    expect(threadStreamItemsFromTurn(completedTurn([item], { id: "t1" }))).toMatchObject([expected]);
   });
 
   it.each(["failed", "interrupted"] as const)("restores a %s turn's error reason from history", (status) => {
@@ -45,7 +45,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       },
     });
 
-    expect(threadStreamItemsFromTurns([turn])).toMatchObject([
+    expect(threadStreamItemsFromTurn(turn)).toMatchObject([
       {
         id: "turn-error:error-turn",
         kind: "system",
@@ -245,7 +245,7 @@ describe("turn item conversion preserves app-server semantics", () => {
         turnId: "t1",
       };
 
-      const restored = threadStreamItemsFromTurns([completedTurn([item], { id: "t1" })]);
+      const restored = threadStreamItemsFromTurn(completedTurn([item], { id: "t1" }));
       expect(restored).toMatchObject([expected]);
       expect(restored[0]).not.toHaveProperty("executionState");
     },
@@ -273,12 +273,12 @@ describe("turn item conversion preserves app-server semantics", () => {
       agentPath: "/root/scout",
     };
 
-    expect(
-      threadStreamItemsFromTurns([completedTurn([dynamic, activity], { id: "t1" })]).map((item) => [item.id, item.sourceItemId]),
-    ).toEqual([
-      ["spawn-call", "spawn-call"],
-      ["subagent-activity:spawn-call", "subagent-activity:spawn-call"],
-    ]);
+    expect(threadStreamItemsFromTurn(completedTurn([dynamic, activity], { id: "t1" })).map((item) => [item.id, item.sourceItemId])).toEqual(
+      [
+        ["spawn-call", "spawn-call"],
+        ["subagent-activity:spawn-call", "subagent-activity:spawn-call"],
+      ],
+    );
   });
 
   it("marks completed spawn calls complete even before child state arrives", () => {

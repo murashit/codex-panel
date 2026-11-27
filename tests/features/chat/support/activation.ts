@@ -26,9 +26,7 @@ export function createThreadActivationFixture(overrides: Partial<Omit<ThreadActi
   const resumeThread = vi.fn<ThreadResumeEffects["resumeThread"]>(async (threadId, adopt) => {
     adopt(resumeSnapshot(threadId));
   });
-  const readHistoryPage = vi
-    .fn<ThreadHistorySource["readHistoryPage"]>()
-    .mockResolvedValue({ items: [], nextCursor: null, hadTurns: false });
+  const readHistoryPage = vi.fn<ThreadHistorySource["readHistoryPage"]>().mockResolvedValue({ turns: [], nextCursor: null });
   const addSystemMessage = vi.fn((text: string) => {
     stateStore.dispatch({
       type: "thread-stream/system-item-added",

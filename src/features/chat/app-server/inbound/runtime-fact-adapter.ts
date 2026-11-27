@@ -13,7 +13,7 @@ import {
   type AppServerTurnItem,
   completedTurnTranscriptSummaryFromAppServerTurn,
   threadStreamItemFromTurnItem,
-  threadStreamItemsFromTurns,
+  threadStreamItemsFromTurn,
   turnErrorNoticeSections,
 } from "../mappers/thread-stream/turn-items";
 import type { StreamUpdateNotification, TurnLifecycleNotification, UserVisibleNoticeNotification } from "./notification-routing";
@@ -130,7 +130,7 @@ export function turnRuntimeFactFromNotification(
         threadId: notification.params.threadId,
         turnId: turn.id,
         outcome: completedTurnOutcome(turn.status),
-        completedItems: threadStreamItemsFromTurns([turn]),
+        completedItems: threadStreamItemsFromTurn(turn),
         completedTurnTranscriptSummary: completedTurnTranscriptSummaryFromAppServerTurn(turn),
       };
     }

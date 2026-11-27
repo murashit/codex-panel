@@ -334,6 +334,7 @@ describe("chat app-server adapters", () => {
     const request = vi.fn().mockResolvedValue({
       data: [
         turn([agentMessage("a2", "latest")], { id: "new", startedAt: newer }),
+        turn([], { id: "no-display-items" }),
         turn([userMessage("u1", "prompt"), agentMessage("a1", "answer")], { id: "old", startedAt: older }),
       ],
       nextCursor: "older",
@@ -353,11 +354,16 @@ describe("chat app-server adapters", () => {
       itemsView: "full",
     });
     expect(page?.nextCursor).toBe("older");
-    expect(page?.hadTurns).toBe(true);
-    expect(page?.items).toEqual([
-      expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt", copyText: "prompt" }),
-      expect.objectContaining({ kind: "dialogue", role: "assistant", text: "answer", copyText: "answer" }),
-      expect.objectContaining({ kind: "dialogue", role: "assistant", text: "latest", copyText: "latest" }),
+    expect(page?.turns).toMatchObject([
+      {
+        id: "old",
+        items: [
+          { kind: "dialogue", role: "user", text: "prompt", copyText: "prompt" },
+          { kind: "dialogue", role: "assistant", text: "answer", copyText: "answer" },
+        ],
+      },
+      { id: "no-display-items", items: [] },
+      { id: "new", items: [{ kind: "dialogue", role: "assistant", text: "latest", copyText: "latest" }] },
     ]);
   });
 
@@ -402,8 +408,7 @@ describe("chat app-server adapters", () => {
       rolloutPath: "/tmp/rollout.jsonl",
       initialHistoryPage: {
         nextCursor: "older",
-        hadTurns: true,
-        items: [expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" })],
+        turns: [{ id: "turn", items: [expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" })] }],
       },
     });
   });
