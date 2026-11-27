@@ -1,8 +1,10 @@
 import { threadMeaningfulTitle } from "../../../../domain/threads/title";
 import { type ActiveThreadRuntimeState, initialChatRuntimeState } from "../../domain/runtime/state";
 import { turnOutcomeLabel } from "../../domain/runtime/turn-outcome";
+import { reconcileTurnSnapshot } from "../../domain/thread-stream/turn-snapshot";
+import { completeReasoningItems } from "../../domain/thread-stream/updates";
 import { initialChatRequestState, resolveChatRequest } from "../pending-requests/state";
-import { STATUS_TURN_RUNNING, transitionChatTurnLifecycleState } from "../turns/turn-state";
+import { activeTurnId, STATUS_TURN_RUNNING } from "../turns/turn-state";
 import { initialComposerState } from "./composer";
 import {
   activeThreadState,
@@ -16,7 +18,7 @@ import {
   pendingForkReplacement,
 } from "./model";
 import { patchObject } from "./patch";
-import { initialChatThreadStreamState, threadStreamItems, threadStreamWithItems } from "./thread-stream";
+import { acknowledgeThreadStreamPrompt, initialChatThreadStreamState, threadStreamItems, threadStreamWithItems } from "./thread-stream";
 import type {
   ActiveThreadCreatedAction,
   ActiveThreadResumedAction,
@@ -32,7 +34,6 @@ import type {
 import {
   activeTurnOptimisticallyStarted,
   activeTurnStarted,
-  activeTurnWithLifecycle,
   chatThreadStreamViewState,
   initialChatActiveTurnState,
   reduceThreadStream,
@@ -114,6 +115,7 @@ export function reduceChatTransition(state: ChatState, action: ChatTransitionAct
       return reduceViewStateClearedTransition(state);
     case "panel/disposed":
       return { ...state, panelTargetRevision: state.panelTargetRevision + 1 };
+    case "turn/start-acknowledged":
     case "turn/started":
       return reduceTurnStartedTransition(state, action);
     case "turn/completed":
@@ -122,8 +124,6 @@ export function reduceChatTransition(state: ChatState, action: ChatTransitionAct
       return clearTurnScopedState(state);
     case "turn/optimistic-started":
       return reduceTurnOptimisticStartedTransition(state, action);
-    case "turn/start-acknowledged":
-      return reduceTurnStartAcknowledgedTransition(state, action);
     case "turn/start-failed":
       return reduceTurnStartFailedTransition(state, action);
     case "request/resolved":
@@ -171,11 +171,7 @@ function reduceActiveThreadActivatedTransition(state: ChatState, action: ActiveT
   const nextPanelTargetRevision = sameConversation ? state.panelTargetRevision : state.panelTargetRevision + 1;
   const threadStream = initialChatThreadStreamState(creatingFork ? state.threadStream.stableItems : (action.items ?? []));
   const restoredTurn = action.activeTurnId
-    ? activeTurnStarted(
-        activeTurnWithLifecycle(initialChatActiveTurnState(), { kind: "running", turnId: action.activeTurnId }),
-        threadStream,
-        action.activeTurnId,
-      )
+    ? activeTurnStarted(initialChatActiveTurnState(), threadStream, action.activeTurnId)
     : { activeTurn: initialChatActiveTurnState(), threadStream };
   return patchObject(turnScopedState, {
     connection: {
@@ -241,25 +237,42 @@ function reduceViewStateClearedTransition(state: ChatState): ChatState {
   return patchObject(cleared, { connection: { ...cleared.connection, statusText: "Idle" } });
 }
 
-function reduceTurnStartedTransition(state: ChatState, action: TurnStartedAction): ChatState {
-  const lifecycle = transitionChatTurnLifecycleState(state.activeTurn.lifecycle, { type: "started", turnId: action.turnId });
-  if (lifecycle === state.activeTurn.lifecycle) return state;
-  const activeThread = activeThreadState(state);
-  if (!activeThread || activeThread.id !== action.threadId) return state;
-  const stream = activeTurnStarted(state.activeTurn, state.threadStream, action.turnId);
-  return patchObject(state, {
-    activeTurn: activeTurnWithLifecycle(stream.activeTurn, lifecycle),
-    connection: { ...state.connection, statusText: STATUS_TURN_RUNNING },
-    threadStream: stream.threadStream,
-  });
+function reduceTurnStartedTransition(state: ChatState, action: TurnStartedAction | TurnStartAcknowledgedAction): ChatState {
+  if (activeThreadState(state)?.id !== action.threadId) return state;
+  const running = activeTurnId(state.activeTurn) === action.turnId;
+  const current = state.activeTurn.lifecycle;
+  if (
+    action.type === "turn/start-acknowledged" &&
+    !running &&
+    (current.kind !== "starting" || current.anchorItemId !== action.anchorItemId)
+  )
+    return state;
+  const next = running
+    ? state
+    : patchObject(state, {
+        ...activeTurnStarted(state.activeTurn, state.threadStream, action.turnId),
+        connection: { ...state.connection, statusText: STATUS_TURN_RUNNING },
+      });
+  if (action.type === "turn/started") return next;
+  const activeSegment = acknowledgeThreadStreamPrompt(next.activeTurn.activeSegment, action.anchorItemId, action.turnId);
+  return patchObject(next, { activeTurn: patchObject(next.activeTurn, { activeSegment }) });
 }
 
 function reduceTurnCompletedTransition(state: ChatState, action: TurnCompletedAction): ChatState {
-  const lifecycle = transitionChatTurnLifecycleState(state.activeTurn.lifecycle, { type: "completed", turnId: action.turnId });
-  if (lifecycle === state.activeTurn.lifecycle) return state;
+  if (activeTurnId(state.activeTurn) !== action.turnId) return state;
+  const segment = state.activeTurn.activeSegment?.items ?? [];
+  const items = reconcileTurnSnapshot(action.turnItems, segment).map((item) => {
+    const source = item.provenance;
+    return !item.turnId && source?.source === "localUser" && source.channel === "optimistic" && source.interaction === "prompt"
+      ? { ...item, turnId: action.turnId }
+      : item;
+  });
   return patchObject(state, {
-    activeTurn: activeTurnWithLifecycle(state.activeTurn, lifecycle),
-    threadStream: threadStreamWithItems(state.threadStream, action.items),
+    activeTurn: initialChatActiveTurnState(),
+    threadStream: threadStreamWithItems(state.threadStream, [
+      ...state.threadStream.stableItems,
+      ...completeReasoningItems(items, action.turnId),
+    ]),
     connection: { ...state.connection, statusText: turnOutcomeLabel(action.outcome) },
   });
 }
@@ -271,48 +284,21 @@ function reduceTurnOptimisticStartedTransition(state: ChatState, action: TurnOpt
   ) {
     return state;
   }
-  const lifecycle = transitionChatTurnLifecycleState(state.activeTurn.lifecycle, {
-    type: "optimistic-started",
-    anchorItemId: action.item.id,
-  });
-  const stream = activeTurnOptimisticallyStarted(state.activeTurn, state.threadStream, action.item);
   return patchObject(state, {
-    activeTurn: activeTurnWithLifecycle(stream.activeTurn, lifecycle),
+    activeTurn: activeTurnOptimisticallyStarted(state.activeTurn, action.item),
     pendingSubmission: action.pendingSubmissionId ? null : state.pendingSubmission,
-    threadStream: stream.threadStream,
-  });
-}
-
-function reduceTurnStartAcknowledgedTransition(state: ChatState, action: TurnStartAcknowledgedAction): ChatState {
-  if (panelThreadId(state) !== action.threadId) return state;
-  const current = state.activeTurn.lifecycle;
-  if (current.kind === "starting" && current.anchorItemId !== action.anchorItemId) return state;
-  const lifecycle = transitionChatTurnLifecycleState(state.activeTurn.lifecycle, {
-    type: "start-acknowledged",
-    turnId: action.turnId,
-  });
-  if (lifecycle === state.activeTurn.lifecycle) return state;
-  const items = threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn)).map((item) =>
-    item.id === action.anchorItemId ? { ...item, turnId: action.turnId } : item,
-  );
-  const stream = activeTurnStarted(state.activeTurn, state.threadStream, action.turnId, items);
-  return patchObject(state, {
-    activeTurn: activeTurnWithLifecycle(stream.activeTurn, lifecycle),
-    threadStream: stream.threadStream,
-    connection: { ...state.connection, statusText: STATUS_TURN_RUNNING },
   });
 }
 
 function reduceTurnStartFailedTransition(state: ChatState, action: TurnStartFailedAction): ChatState {
   const current = state.activeTurn.lifecycle;
   if (panelThreadId(state) !== action.threadId || current.kind !== "starting" || current.anchorItemId !== action.anchorItemId) return state;
-  const lifecycle = transitionChatTurnLifecycleState(state.activeTurn.lifecycle, { type: "start-failed" });
   return patchObject(state, {
-    activeTurn: activeTurnWithLifecycle(state.activeTurn, lifecycle),
-    threadStream: threadStreamWithItems(
-      state.threadStream,
-      threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn)).filter((item) => item.id !== action.anchorItemId),
-    ),
+    activeTurn: initialChatActiveTurnState(),
+    threadStream: threadStreamWithItems(state.threadStream, [
+      ...state.threadStream.stableItems,
+      ...(state.activeTurn.activeSegment?.items ?? []).filter((item) => item.id !== action.anchorItemId),
+    ]),
   });
 }
 

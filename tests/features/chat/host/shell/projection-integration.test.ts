@@ -91,7 +91,7 @@ describe("chat panel projection integration", () => {
       type: "turn/completed",
       turnId: "turn",
       outcome: "completed",
-      items: [
+      turnItems: [
         { ...prompt, turnId: "turn" },
         {
           id: "assistant",

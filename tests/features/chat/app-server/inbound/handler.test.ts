@@ -315,11 +315,16 @@ describe("ChatInboundHandler", () => {
     });
 
     it("marks active reasoning completed when assistant text starts", () => {
-      let state = activeRunningState();
-      state = withChatStateStableThreadStreamItems(state, [
-        { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "turn-active" },
-      ]);
-      const handler = handlerForState(state);
+      const handler = handlerForState(activeRunningState());
+      handler.handleNotification({
+        method: "item/started",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          startedAtMs: 1,
+          item: { type: "reasoning", id: "r1", summary: ["thinking"], content: [] },
+        },
+      });
 
       handler.handleNotification({
         method: "item/agentMessage/delta",

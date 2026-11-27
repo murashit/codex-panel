@@ -1,4 +1,4 @@
-import type { ThreadStreamDialogueItem, ThreadStreamItem } from "./items";
+import type { ThreadStreamItem, UserThreadStreamDialogueItem } from "./items";
 
 function isLocalUserDialogueId(id: string): boolean {
   return id.startsWith("local-user-") || id.startsWith("local-steer-");
@@ -8,7 +8,7 @@ export function isLocalSteerDialogueClientId(id: string | null | undefined): boo
   return id?.startsWith("local-steer-") ?? false;
 }
 
-export function isOptimisticUserDialogue(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { role: "user" } {
+export function isOptimisticUserDialogue(item: ThreadStreamItem): item is UserThreadStreamDialogueItem {
   return (
     item.kind === "dialogue" &&
     item.role === "user" &&
@@ -16,6 +16,13 @@ export function isOptimisticUserDialogue(item: ThreadStreamItem): item is Thread
   );
 }
 
-export function optimisticDialogueClientId(item: ThreadStreamDialogueItem): string {
-  return item.clientId ?? item.id;
+export function matchesOptimisticUserDialogue(local: ThreadStreamItem, observed: ThreadStreamItem): local is UserThreadStreamDialogueItem {
+  return (
+    observed.kind === "dialogue" &&
+    observed.role === "user" &&
+    Boolean(observed.clientId) &&
+    isOptimisticUserDialogue(local) &&
+    (local.clientId ?? local.id) === observed.clientId &&
+    (!local.turnId || !observed.turnId || local.turnId === observed.turnId)
+  );
 }

@@ -526,24 +526,27 @@ describe("chatReducer", () => {
     expect(chatStateThreadStreamItems(failed)).toEqual([dialogueItem("previous")]);
   });
 
-  it.each(["notification", "response"] as const)("preserves optimistic input and server activity when %s arrives first", (first) => {
-    let state = chatReducer(chatStateFixture({ activeThread: { id: "thread" } }), {
-      type: "turn/optimistic-started",
-      item: userItem("local-user"),
-    });
+  it.each(["notification", "response"] as const)("preserves prompt ownership and live order when %s arrives first", (first) => {
+    const prompt = userItem("local-user");
+    const notice = { id: "notice", kind: "system", role: "system", text: "Connection restored" } as const;
+    let state = chatReducer(chatStateFixture({ activeThread: { id: "thread" } }), { type: "turn/optimistic-started", item: prompt });
     const notification: ChatAction = { type: "turn/started", threadId: "thread", turnId: "turn" };
-    const response: ChatAction = { type: "turn/start-acknowledged", threadId: "thread", anchorItemId: "local-user", turnId: "turn" };
+    const response: ChatAction = { type: "turn/start-acknowledged", threadId: "thread", anchorItemId: prompt.id, turnId: "turn" };
     state = chatReducer(state, first === "notification" ? notification : response);
+    state = chatReducer(state, { type: "thread-stream/system-item-added", item: notice });
     state = chatReducer(state, { type: "thread-stream/assistant-delta-appended", itemId: "assistant", turnId: "turn", delta: "working" });
     const next = chatReducer(state, first === "notification" ? response : notification);
 
-    expect(chatStateThreadStreamItems(next)).toEqual([
-      { ...userItem("local-user"), turnId: "turn" },
-      expect.objectContaining({ id: "assistant", text: "working", turnId: "turn" }),
-    ]);
-    expect(chatReducer(next, { type: "turn/start-acknowledged", threadId: "thread", anchorItemId: "local-user", turnId: "old-turn" })).toBe(
+    const expected = [{ ...prompt, turnId: "turn" }, notice, expect.objectContaining({ id: "assistant", text: "working", turnId: "turn" })];
+    expect(chatStateThreadStreamItems(next)).toEqual(expected);
+    expect(chatReducer(next, { type: "turn/start-acknowledged", threadId: "thread", anchorItemId: prompt.id, turnId: "old-turn" })).toBe(
       next,
     );
+
+    const answer = { ...dialogueItem("assistant"), text: "Done", turnId: "turn" };
+    const completed = chatReducer(next, { type: "turn/completed", turnId: "turn", outcome: "completed", turnItems: [answer] });
+    const finalItems = [{ ...prompt, turnId: "turn" }, notice, expect.objectContaining(answer)];
+    expect(chatStateThreadStreamItems(completed)).toEqual(finalItems);
   });
 
   it("ignores stale turn start failures after the turn is already running", () => {
@@ -617,19 +620,25 @@ describe("chatReducer", () => {
     expect([...next.ui.disclosures.textDetails]).toEqual(["existing:details"]);
   });
 
-  it("ignores turn start acknowledgements after the turn has already gone idle", () => {
-    let state = chatStateFixture({ activeThread: { id: "thread" } });
-    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "idle" } } });
+  it("keeps an earlier prompt when the next turn completes with the same text and no client ID", () => {
+    const prompt = userItem("local-user");
+    let state = chatReducer(chatStateFixture({ activeThread: { id: "thread" } }), { type: "turn/optimistic-started", item: prompt });
+    state = chatReducer(state, { type: "turn/started", threadId: "thread", turnId: "first" });
+    state = chatReducer(state, { type: "turn/completed", turnId: "first", outcome: "completed", turnItems: [] });
+    const late = chatReducer(state, { type: "turn/start-acknowledged", threadId: "thread", turnId: "first", anchorItemId: prompt.id });
+    expect(late).toBe(state);
 
-    const next = chatReducer(state, {
-      type: "turn/start-acknowledged",
-      turnId: "completed-turn",
-      threadId: "thread",
-      anchorItemId: "local-user",
-    });
-
-    expect(chatTurnBusy(next.activeTurn)).toBe(false);
-    expect(activeTurnId(next.activeTurn)).toBeNull();
+    const server = {
+      id: "server-user",
+      kind: "dialogue",
+      role: "user",
+      dialogueKind: "user",
+      text: prompt.text,
+      turnId: "second",
+    } as const;
+    state = chatReducer(state, { type: "turn/started", threadId: "thread", turnId: "second" });
+    state = chatReducer(state, { type: "turn/completed", turnId: "second", outcome: "completed", turnItems: [server] });
+    expect(chatStateThreadStreamItems(state)).toEqual([{ ...prompt, turnId: "first" }, server]);
   });
 
   it("marks the service tier returned by activation as known", () => {

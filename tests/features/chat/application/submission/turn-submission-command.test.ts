@@ -290,7 +290,7 @@ describe("TurnSubmissionCommand", () => {
       type: "turn/completed",
       turnId: "turn",
       outcome: "completed",
-      items: [
+      turnItems: [
         {
           ...canonicalUser,
           ...(web ? { contextAttachments: [{ label: "Web page", detail: "https://example.com/" }] } : {}),
@@ -639,7 +639,7 @@ describe("TurnSubmissionCommand", () => {
     steerTurn.mockImplementation(() => steering.promise);
     const submitting = claimedCommand(host).sendTurnText({ preparedInput: preparedText("follow up") });
     await vi.waitFor(() => expect(steerTurn).toHaveBeenCalledOnce());
-    stateStore.dispatch({ type: "turn/completed", turnId: "first-turn", outcome: "completed", items: [] });
+    stateStore.dispatch({ type: "turn/completed", turnId: "first-turn", outcome: "completed", turnItems: [] });
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "next-turn" });
     const nextTurn = stateStore.getState().activeTurn;
     vi.mocked(host.setStatus).mockClear();

@@ -1,7 +1,7 @@
 import { definedPatch } from "../../../../domain/objects/optional-properties";
 import { threadStreamUserRoles } from "../../domain/thread-stream/conversation";
 import type { ThreadStreamDialogueItem, ThreadStreamItem, UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
-import { isOptimisticUserDialogue, optimisticDialogueClientId } from "../../domain/thread-stream/local-dialogue-ids";
+import { matchesOptimisticUserDialogue } from "../../domain/thread-stream/local-dialogue-ids";
 import {
   appendAssistantStreamingDelta,
   appendPlanStreamingDelta,
@@ -133,29 +133,21 @@ export function threadStreamWithItems(
   return patchObject(state, { stableItems: items, ...patch });
 }
 
-export function threadStreamWithActiveTurnItems(
-  state: ChatThreadStreamViewState,
-  turnId: string,
-  items: readonly ThreadStreamItem[],
-): ChatThreadStreamViewState {
-  const stableItems = items.filter((item) => item.turnId !== turnId);
-  const activeItems = items.filter((item) => item.turnId === turnId);
-  return patchObject(state, {
-    stableItems,
-    activeSegment: activeSegmentFromItems(turnId, activeItems),
-    pendingSteers: state.pendingSteers.filter((item) => item.turnId === turnId),
-  });
-}
-
-export function threadStreamStartActiveSegment(
-  state: ChatThreadStreamViewState,
+export function threadStreamActiveState(
   turnId: string | null,
   items: readonly ThreadStreamItem[],
-): ChatThreadStreamViewState {
-  return patchObject(state, {
+  pendingSteers: readonly UserThreadStreamDialogueItem[] = [],
+): ChatThreadStreamActiveState {
+  return {
     activeSegment: activeSegmentFromItems(turnId, items),
-    pendingSteers: state.pendingSteers.filter((item) => !turnId || item.turnId === turnId),
-  });
+    pendingSteers: turnId ? pendingSteers.filter((item) => item.turnId === turnId) : pendingSteers,
+  };
+}
+
+export function acknowledgeThreadStreamPrompt(segment: ChatThreadStreamActiveSegment | null, anchorItemId: string, turnId: string) {
+  const index = segment?.indexById.get(anchorItemId);
+  if (!segment || index === undefined) return segment;
+  return replaceActiveSegmentItem(segment, index, (item) => (item.turnId ? item : { ...item, turnId }));
 }
 
 export function reduceThreadStreamSlice(state: ChatThreadStreamViewState, action: ThreadStreamAction): ChatThreadStreamViewState {
@@ -259,14 +251,7 @@ function observeUserMessage(state: ChatThreadStreamViewState, item: UserThreadSt
     displayedItems.find(
       (candidate): candidate is UserThreadStreamDialogueItem =>
         candidate.kind === "dialogue" && candidate.dialogueKind === "user" && candidate.id === item.id,
-    ) ??
-    displayedItems.find(
-      (candidate): candidate is UserThreadStreamDialogueItem =>
-        Boolean(item.clientId) &&
-        isOptimisticUserDialogue(candidate) &&
-        optimisticDialogueClientId(candidate) === item.clientId &&
-        sameTurn(candidate),
-    );
+    ) ?? displayedItems.find((candidate): candidate is UserThreadStreamDialogueItem => matchesOptimisticUserDialogue(candidate, item));
   const canonical = userDialogueWithLocalContext(item, local, pending);
   const next = pending ? patchObject(state, { pendingSteers: state.pendingSteers.filter((candidate) => candidate !== pending) }) : state;
   if (local && next.stableItems.includes(local)) {
@@ -317,21 +302,10 @@ function updateStreamItemBySourceId(
 }
 
 function completeReasoningInThreadStream(state: ChatThreadStreamViewState, turnId: string): ChatThreadStreamViewState {
-  const stableItems = completeReasoningItems(state.stableItems, turnId);
-  const activeSegment = state.activeSegment;
-
-  if (activeSegment?.turnId !== turnId) {
-    return stableItems !== state.stableItems ? patchObject(state, { stableItems }) : state;
-  }
-
-  const activeItems = completeReasoningItems(activeSegment.items, turnId);
-
-  return stableItems !== state.stableItems || activeItems !== activeSegment.items
-    ? patchObject(state, {
-        stableItems,
-        activeSegment: activeItems !== activeSegment.items ? activeSegmentFromItems(activeSegment.turnId, activeItems) : activeSegment,
-      })
-    : state;
+  const segment = state.activeSegment;
+  if (segment?.turnId !== turnId) return state;
+  const items = completeReasoningItems(segment.items, turnId);
+  return items === segment.items ? state : patchObject(state, { activeSegment: activeSegmentFromItems(turnId, items) });
 }
 
 function updateActiveSegment(

@@ -49,7 +49,7 @@ export function completeReasoningItems(items: readonly ThreadStreamItem[], turnI
   let changed = false;
   const nextItems: ThreadStreamItem[] = [];
   for (const item of items) {
-    if (item.kind !== "reasoning" || item.turnId !== turnId) {
+    if (item.kind !== "reasoning" || item.turnId !== turnId || (item.executionState === "completed" && item.statusLabel === "Completed")) {
       nextItems.push(item);
       continue;
     }
