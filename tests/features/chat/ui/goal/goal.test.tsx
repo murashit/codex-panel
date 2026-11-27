@@ -55,12 +55,12 @@ describe("GoalPanel", () => {
     const parent = document.createElement("div");
 
     await act(async () => {
-      renderGoal(parent, goal({ objective: "Ship goal support", tokenBudget: 100, tokensUsed: 12 }), actions());
+      renderGoal(parent, goal({ objective: "Ship goal support", tokenBudget: 100, tokensUsed: 12, timeUsedSeconds: 65 }), actions());
     });
 
     expect(parent.textContent).toContain("Goal");
     expect(parent.textContent).toContain("Ship goal support");
-    expect(parent.textContent).toContain("12 / 100 tokens");
+    expect(parent.textContent).toContain("12 / 100 tokens, 1m 5s");
     expect(parent.querySelector('[aria-label="Goal active"]')).toBeNull();
     expect(parent.querySelector('[aria-label="Pause goal"]')).not.toBeNull();
   });
