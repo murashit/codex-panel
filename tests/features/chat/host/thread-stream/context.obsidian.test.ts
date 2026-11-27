@@ -98,7 +98,7 @@ describe("thread stream surface", () => {
       type: "turn/completed",
       turnId: "turn",
       outcome: "completed",
-      items: [
+      turnItems: [
         {
           id: "assistant",
           kind: "dialogue",

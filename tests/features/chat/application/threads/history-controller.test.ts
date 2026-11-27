@@ -26,7 +26,7 @@ describe("HistoryController", () => {
       type: "turn/completed",
       turnId: "running",
       outcome: "completed",
-      items: chatStateThreadStreamItems(stateStore.getState()),
+      turnItems: [],
     });
 
     pending.resolve(historyPage([message("older", "Earlier", "older-turn"), message("answer", "Stale", "running")], null));
@@ -429,6 +429,6 @@ function completeLiveTurn(stateStore: ReturnType<typeof createChatStateStore>): 
     type: "turn/completed",
     turnId: "running",
     outcome: "completed",
-    items: chatStateThreadStreamItems(stateStore.getState()),
+    turnItems: [],
   });
 }

@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   initialChatThreadStreamState,
   reduceThreadStreamSlice,
+  threadStreamActiveState,
   threadStreamItems,
   threadStreamRollbackCandidate,
-  threadStreamStartActiveSegment,
 } from "../../../../../src/features/chat/application/state/thread-stream";
 import { chatThreadStreamViewState, initialChatActiveTurnState } from "../../../../../src/features/chat/application/state/turn-scope";
 import type { ThreadStreamItem, UserThreadStreamDialogueItem } from "../../../../../src/features/chat/domain/thread-stream/items";
@@ -26,7 +26,7 @@ describe("thread stream state", () => {
 
   it("appends assistant deltas after stable history", () => {
     const history = dialogueItem("history");
-    const running = threadStreamStartActiveSegment(initialView([history]), "turn", []);
+    const running = activeView("turn", [], [history]);
     const next = reduceThreadStreamSlice(running, {
       type: "thread-stream/assistant-delta-appended",
       itemId: "assistant",
@@ -38,7 +38,7 @@ describe("thread stream state", () => {
   });
 
   it("keeps pending steers outside canonical stream items until the server observes them", () => {
-    let state = threadStreamStartActiveSegment(initialView(), "turn", [dialogueItem("prompt")]);
+    let state = activeView("turn", [dialogueItem("prompt")]);
     const pending = {
       id: "local-steer",
       clientId: "local-steer",
@@ -98,9 +98,7 @@ describe("thread stream state", () => {
       provenance: { source: "localUser", channel: "optimistic", interaction: "prompt" },
     });
     const tool = { id: "tool", kind: "tool", role: "tool", text: "working", turnId: "turn" } as const;
-    let state = stable
-      ? threadStreamStartActiveSegment(initialView([local]), "turn", [tool])
-      : threadStreamStartActiveSegment(initialView(), null, [local, tool]);
+    let state = stable ? activeView("turn", [tool], [local]) : activeView(null, [local, tool]);
     const server = userDialogue("server", {
       sourceItemId: "server",
       clientId: "client",
@@ -128,7 +126,7 @@ describe("thread stream state", () => {
       text: "same",
       turnId: localTurnId,
     });
-    const state = threadStreamStartActiveSegment(initialView([local]), "turn", []);
+    const state = activeView("turn", [], [local]);
     const next = reduceThreadStreamSlice(state, {
       type: "thread-stream/user-message-observed",
       item: userDialogue("external", { text, sourceItemId, turnId: "turn", clientId }),
@@ -137,7 +135,7 @@ describe("thread stream state", () => {
   });
 
   it("does not carry pending steers into a different active turn", () => {
-    let state = threadStreamStartActiveSegment(initialView(), "turn-old", []);
+    let state = activeView("turn-old", []);
     state = reduceThreadStreamSlice(state, {
       type: "thread-stream/pending-steer-added",
       item: {
@@ -151,13 +149,13 @@ describe("thread stream state", () => {
       },
     });
 
-    const next = threadStreamStartActiveSegment(state, "turn-new", []);
+    const next = threadStreamActiveState("turn-new", [], state.pendingSteers);
 
     expect(next.pendingSteers).toEqual([]);
   });
 
   it("commits one pending steer without disturbing the remaining FIFO order", () => {
-    let state = threadStreamStartActiveSegment(initialView(), "turn", []);
+    let state = activeView("turn", []);
     for (const clientId of ["first", "second", "third"]) {
       state = reduceThreadStreamSlice(state, {
         type: "thread-stream/pending-steer-added",
@@ -191,7 +189,7 @@ describe("thread stream state", () => {
   });
 
   it("updates repeated output by source item id without exposing the private index", () => {
-    let state = threadStreamStartActiveSegment(initialView(), "turn", []);
+    let state = activeView("turn", []);
     state = reduceThreadStreamSlice(state, {
       type: "thread-stream/item-output-appended",
       itemId: "cmd",
@@ -213,7 +211,7 @@ describe("thread stream state", () => {
   });
 
   it("keeps v2 activity correlation separate from a dynamic tool with the same protocol id", () => {
-    let state = threadStreamStartActiveSegment(initialView(), "turn", []);
+    let state = activeView("turn", []);
     state = reduceThreadStreamSlice(state, {
       type: "thread-stream/item-upserted",
       item: {
@@ -248,7 +246,7 @@ describe("thread stream state", () => {
   });
 
   it("ignores deltas from a different active turn", () => {
-    let state = threadStreamStartActiveSegment(initialView(), "turn-active", []);
+    let state = activeView("turn-active", []);
     state = reduceThreadStreamSlice(state, {
       type: "thread-stream/assistant-delta-appended",
       itemId: "assistant",
@@ -266,7 +264,7 @@ describe("thread stream state", () => {
   });
 
   it("appends text only when an existing source item has the same kind", () => {
-    let state = threadStreamStartActiveSegment(initialView(), "turn", []);
+    let state = activeView("turn", []);
     state = reduceThreadStreamSlice(state, {
       type: "thread-stream/item-text-appended",
       itemId: "shared-source",
@@ -363,6 +361,10 @@ function dialogueItem(id: string): ThreadStreamItem {
 
 function userDialogue(id: string, fields: Partial<UserThreadStreamDialogueItem> = {}): UserThreadStreamDialogueItem {
   return { id, kind: "dialogue", dialogueKind: "user", role: "user", text: "same", ...fields };
+}
+
+function activeView(turnId: string | null, items: readonly ThreadStreamItem[], stableItems: readonly ThreadStreamItem[] = []) {
+  return { ...initialChatThreadStreamState(stableItems), ...threadStreamActiveState(turnId, items) };
 }
 
 function initialView(items: readonly ThreadStreamItem[] = []) {

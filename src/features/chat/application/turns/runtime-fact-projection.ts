@@ -1,10 +1,6 @@
-import { reconcileCompletedTurnItems } from "../../domain/thread-stream/completed-turn-reconciliation";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
-import { completeReasoningItems } from "../../domain/thread-stream/updates";
 import type { ChatState } from "../state/model";
 import type { ChatAction } from "../state/reducer";
-import { threadStreamItems } from "../state/thread-stream";
-import { chatThreadStreamViewState } from "../state/turn-scope";
 import type { TurnRuntimeFact } from "./runtime-facts";
 import { activeTurnId } from "./turn-state";
 
@@ -151,18 +147,13 @@ function turnStartedProjection(fact: Extract<TurnRuntimeFact, { type: "turnStart
 
 function turnCompletedProjection(state: ChatState, fact: Extract<TurnRuntimeFact, { type: "turnCompleted" }>): TurnRuntimeProjection {
   if (activeTurnId(state.activeTurn) !== fact.turnId) return EMPTY_PROJECTION;
-  const reconciledItems = reconcileCompletedTurnItems({
-    currentItems: threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn)),
-    completedTurnId: fact.turnId,
-    turnItems: fact.completedItems,
-  });
   return {
     actions: [
       {
         type: "turn/completed",
         turnId: fact.turnId,
         outcome: fact.outcome,
-        items: completeReasoningItems(reconciledItems, fact.turnId),
+        turnItems: fact.completedItems,
       },
     ],
     outcomes: [

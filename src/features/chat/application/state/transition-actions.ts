@@ -97,7 +97,7 @@ export interface TurnCompletedAction {
   type: "turn/completed";
   turnId: string;
   outcome: TurnOutcome;
-  items: readonly ThreadStreamItem[];
+  turnItems: readonly ThreadStreamItem[];
 }
 
 export interface RequestResolvedAction {

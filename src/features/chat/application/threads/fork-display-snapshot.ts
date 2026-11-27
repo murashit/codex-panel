@@ -1,5 +1,5 @@
-import { reconcileCompletedTurnItems } from "../../domain/thread-stream/completed-turn-reconciliation";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import { reconcileTurnSnapshot } from "../../domain/thread-stream/turn-snapshot";
 import type { ChatThreadStreamViewState } from "../state/thread-stream";
 import { threadStreamItems } from "../state/thread-stream";
 
@@ -50,11 +50,10 @@ export function reconcileForkDisplayItems(
   const pendingItemsByTurn = new Map(
     orderedTurnIds(historyItemsWithDisplayState).map((turnId) => [
       turnId,
-      reconcileCompletedTurnItems({
-        currentItems: displayItems.filter((item) => item.turnId === turnId),
-        completedTurnId: turnId,
-        turnItems: historyItemsWithDisplayState.filter((item) => item.turnId === turnId),
-      }),
+      reconcileTurnSnapshot(
+        historyItemsWithDisplayState.filter((item) => item.turnId === turnId),
+        displayItems.filter((item) => item.turnId === turnId),
+      ),
     ]),
   );
   const retainedItems = displayItems.flatMap((item) => {

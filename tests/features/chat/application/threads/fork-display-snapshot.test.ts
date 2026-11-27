@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { threadStreamItemFromTurnItem } from "../../../../../src/features/chat/app-server/mappers/thread-stream/turn-items";
-import {
-  initialChatThreadStreamState,
-  threadStreamStartActiveSegment,
-} from "../../../../../src/features/chat/application/state/thread-stream";
-import { initialChatActiveTurnState } from "../../../../../src/features/chat/application/state/turn-scope";
+import { initialChatThreadStreamState, threadStreamActiveState } from "../../../../../src/features/chat/application/state/thread-stream";
 import {
   captureForkDisplaySnapshot,
   reconcileForkDisplayItems,
@@ -27,19 +23,15 @@ describe("fork display snapshots", () => {
       taskProgress("turn-1"),
       message("u2", "turn-2"),
     ]);
-    const state = threadStreamStartActiveSegment(
-      {
-        ...stable,
-        historyCursor: "older",
-        ...initialChatActiveTurnState(),
-        turnDiffs: new Map([
-          ["turn-1", "diff one"],
-          ["turn-2", "diff two"],
-        ]),
-      },
-      "turn-active",
-      [message("active", "turn-active")],
-    );
+    const state = {
+      ...stable,
+      historyCursor: "older",
+      ...threadStreamActiveState("turn-active", [message("active", "turn-active")]),
+      turnDiffs: new Map([
+        ["turn-1", "diff one"],
+        ["turn-2", "diff two"],
+      ]),
+    };
 
     const snapshot = captureForkDisplaySnapshot(state, { kind, turnId });
 

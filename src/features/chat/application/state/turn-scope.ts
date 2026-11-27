@@ -1,4 +1,4 @@
-import type { ThreadStreamItem, UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
+import type { UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
 import type { AuthRecoveryProgress } from "../turns/auth-recovery";
 import type { ChatTurnLifecycleState } from "../turns/turn-state";
 import { patchObject } from "./patch";
@@ -14,9 +14,7 @@ import {
   type ChatThreadStreamViewState,
   reduceThreadStreamSlice,
   type ThreadStreamAction,
-  threadStreamItems,
-  threadStreamStartActiveSegment,
-  threadStreamWithActiveTurnItems,
+  threadStreamActiveState,
 } from "./thread-stream";
 
 export interface ChatActiveTurnState extends ChatThreadStreamActiveState {
@@ -58,49 +56,30 @@ export function chatThreadStreamViewState(
   };
 }
 
-export function activeTurnWithLifecycle(state: ChatActiveTurnState, lifecycle: ChatTurnLifecycleState): ChatActiveTurnState {
-  if (lifecycle === state.lifecycle) return state;
-  const scopeChanged = !sameTurnScope(state.lifecycle, lifecycle);
-  const transientReset =
-    lifecycle.kind === "idle" && state.lifecycle.kind !== "idle"
-      ? { activeSegment: null, pendingSteers: [], subagents: initialSubagentActivityState(), authRecovery: null }
-      : scopeChanged
-        ? { subagents: initialSubagentActivityState(), authRecovery: null }
-        : {};
+export function activeTurnStarted(state: ChatActiveTurnState, threadStream: ChatThreadStreamState, turnId: string): TurnScopeResult {
+  // Rows for the newly identified turn may already exist in loaded history or in the provisional segment.
+  const stableItems = threadStream.stableItems.filter((item) => item.turnId !== turnId);
+  const activeItems = threadStream.stableItems.filter((item) => item.turnId === turnId);
+  for (const item of state.activeSegment?.items ?? []) {
+    if (item.turnId === turnId || (!item.turnId && state.lifecycle.kind === "starting")) activeItems.push(item);
+    else stableItems.push(item);
+  }
   return {
-    ...state,
-    ...transientReset,
-    lifecycle,
+    threadStream: patchObject(threadStream, { stableItems }),
+    activeTurn: {
+      ...initialChatActiveTurnState(),
+      lifecycle: { kind: "running", turnId },
+      ...threadStreamActiveState(turnId, activeItems, state.pendingSteers),
+    },
   };
 }
 
-function sameTurnScope(left: ChatTurnLifecycleState, right: ChatTurnLifecycleState): boolean {
-  if (left.kind !== right.kind) return false;
-  if (left.kind === "starting" && right.kind === "starting") {
-    return left.anchorItemId === right.anchorItemId;
-  }
-  if (left.kind === "running" && right.kind === "running") return left.turnId === right.turnId;
-  return true;
-}
-
-export function activeTurnStarted(
-  state: ChatActiveTurnState,
-  threadStream: ChatThreadStreamState,
-  turnId: string,
-  items?: readonly ThreadStreamItem[],
-): TurnScopeResult {
-  const view = chatThreadStreamViewState(threadStream, state);
-  const nextView = threadStreamWithActiveTurnItems(view, turnId, items ?? threadStreamItems(view));
-  return splitViewState(state, threadStream, nextView);
-}
-
-export function activeTurnOptimisticallyStarted(
-  state: ChatActiveTurnState,
-  threadStream: ChatThreadStreamState,
-  item: UserThreadStreamDialogueItem,
-): TurnScopeResult {
-  const view = chatThreadStreamViewState(threadStream, state);
-  return splitViewState(state, threadStream, threadStreamStartActiveSegment(view, null, [item]));
+export function activeTurnOptimisticallyStarted(state: ChatActiveTurnState, item: UserThreadStreamDialogueItem): ChatActiveTurnState {
+  return {
+    ...initialChatActiveTurnState(),
+    lifecycle: { kind: "starting", anchorItemId: item.id },
+    ...threadStreamActiveState(null, [item], state.pendingSteers),
+  };
 }
 
 export function reduceTurnScope(

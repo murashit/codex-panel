@@ -4,7 +4,7 @@ import { createChatStateStore } from "../../../../../src/features/chat/applicati
 import { threadStreamItems } from "../../../../../src/features/chat/application/state/thread-stream";
 import { chatThreadStreamViewState } from "../../../../../src/features/chat/application/state/turn-scope";
 import { activeTurnId, chatTurnBusy } from "../../../../../src/features/chat/application/turns/turn-state";
-import type { ThreadStreamItem, UserThreadStreamDialogueItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import type { UserThreadStreamDialogueItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { chatStateFixture } from "../../support/state";
 
 describe("active turn aggregate", () => {
@@ -93,7 +93,7 @@ describe("active turn aggregate", () => {
       type: "turn/completed",
       turnId: "turn-1",
       outcome: "completed",
-      items: [userItem("local-user", "turn-1"), assistantItem("assistant", "turn-1", "working more")],
+      turnItems: [],
     });
     expect(completed.activeTurn.lifecycle).toEqual({ kind: "idle" });
     expect(chatTurnBusy(completed.activeTurn)).toBe(false);
@@ -103,10 +103,9 @@ describe("active turn aggregate", () => {
     expect(completed.activeTurn.pendingSteers).toEqual([]);
     expect(completed.activeTurn.subagents.byThreadId).toEqual(new Map());
     expect(completed.activeTurn.authRecovery).toBeNull();
-    expect(threadStreamItems(chatThreadStreamViewState(completed.threadStream, completed.activeTurn))).toEqual([
-      userItem("local-user", "turn-1"),
-      assistantItem("assistant", "turn-1", "working more"),
-    ]);
+    expect(threadStreamItems(chatThreadStreamViewState(completed.threadStream, completed.activeTurn))).toEqual(
+      threadStreamItems(chatThreadStreamViewState(withAuthRecovery.threadStream, withAuthRecovery.activeTurn)),
+    );
   });
 
   it("does not publish stream updates that leave the conversation unchanged", () => {
@@ -141,7 +140,7 @@ describe("active turn aggregate", () => {
         turnId: "turn-a",
       },
     });
-    state = chatReducer(state, { type: "turn/completed", turnId: "turn-a", outcome: "completed", items: [] });
+    state = chatReducer(state, { type: "turn/completed", turnId: "turn-a", outcome: "completed", turnItems: [] });
     const optimisticItem = userItem("local-user-b");
     state = chatReducer(state, {
       type: "turn/optimistic-started",
@@ -187,17 +186,5 @@ function userItem(id: string, turnId?: string): UserThreadStreamDialogueItem {
     role: "user",
     text: id,
     ...(turnId ? { turnId } : {}),
-  };
-}
-
-function assistantItem(id: string, turnId: string, text: string): ThreadStreamItem {
-  return {
-    id,
-    kind: "dialogue",
-    dialogueKind: "assistantResponse",
-    role: "assistant",
-    text,
-    turnId,
-    dialogueState: "streaming",
   };
 }
