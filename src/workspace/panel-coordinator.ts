@@ -311,9 +311,7 @@ export class WorkspacePanelCoordinator {
   }
 
   private findIdleEmptyThreadPanelLeaf(): WorkspaceLeaf | null {
-    return this.findAttachedPanelLeaf(
-      (snapshot, leaf) => !this.materializingPanels.get(leaf)?.isCurrent() && isIdleEmptyPanelSnapshot(snapshot),
-    );
+    return this.findAttachedPanelLeaf((snapshot, leaf) => !this.materializingPanels.get(leaf)?.isCurrent() && snapshot.availableForReuse);
   }
 
   private findPanelLeafByViewId(viewId: string): WorkspaceLeaf | null {
@@ -562,17 +560,6 @@ export class WorkspacePanelCoordinator {
   }
 }
 
-function isIdleEmptyPanelSnapshot(snapshot: ChatWorkspacePanelSnapshot): boolean {
-  return (
-    !snapshot.loadingThread &&
-    snapshot.threadId === null &&
-    !snapshot.turnBusy &&
-    !snapshot.pending &&
-    !snapshot.hasComposerDraft &&
-    !snapshot.hasForkDraft
-  );
-}
-
 function focusedPanelViewId(leaf: WorkspaceLeaf | null): string | null {
   return isAttachedChatView(leaf?.view) ? leaf.view.surface.openPanelSnapshot().viewId : null;
 }
@@ -591,14 +578,11 @@ function restoredPanelSnapshot(leaf: WorkspaceLeaf, index: number): WorkspacePan
   if (!threadId) return null;
   return {
     viewId: `restored:${String(index)}:${threadId}`,
-    loadingThread: false,
+    availableForReuse: false,
     threadId,
     turnBusy: false,
     pending: false,
     unread: false,
-    hasComposerDraft: false,
-    hasForkDraft: false,
-    connected: false,
     lastFocused: false,
   };
 }

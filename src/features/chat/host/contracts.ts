@@ -137,15 +137,12 @@ export interface ChatRuntimeView {
 }
 
 export interface ChatWorkspacePanelSnapshot {
-  loadingThread: boolean;
+  availableForReuse: boolean;
   viewId: string;
   threadId: string | null;
   turnBusy: boolean;
   pending: boolean;
   unread: boolean;
-  hasComposerDraft: boolean;
-  hasForkDraft: boolean;
-  connected: boolean;
 }
 
 interface ChatWorkspacePanelOperationOptions {

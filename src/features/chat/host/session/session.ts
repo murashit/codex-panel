@@ -99,14 +99,21 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   openPanelSnapshot(): ChatWorkspacePanelSnapshot {
-    const activity = panelActivity(this.state);
+    const state = this.state;
+    const activity = panelActivity(state);
     return {
       viewId: this.environment.obsidian.viewId,
       ...activity,
       threadId: this.closing ? null : activity.threadId,
-      loadingThread: this.runtime.thread.activation.isLoading(),
-      hasComposerDraft: this.state.composer.draft.trim().length > 0,
-      connected: this.runtime.connection.manager.isConnected(),
+      availableForReuse:
+        !this.closing &&
+        state.panelThread.kind === "empty" &&
+        !state.panelThread.operation &&
+        !this.runtime.thread.activation.isLoading() &&
+        !state.pendingSubmission &&
+        !this.runtime.composer.input.isSubmissionPreparing() &&
+        state.composer.draft.trim().length === 0 &&
+        state.ui.goalEditor.kind === "closed",
     };
   }
 
@@ -344,13 +351,11 @@ interface PanelActivity {
   readonly turnBusy: boolean;
   readonly pending: boolean;
   readonly unread: boolean;
-  readonly hasForkDraft: boolean;
 }
 
 function panelActivity(state: ChatState): PanelActivity {
   return {
     threadId: panelThreadId(state),
-    hasForkDraft: state.panelThread.kind === "fork-draft",
     turnBusy: chatTurnBusy(state.activeTurn),
     unread: state.threadReadReceipt?.unread ?? false,
     pending: hasPendingRequests(pendingRequestCountsFromQueues(state.requests)),
@@ -363,7 +368,6 @@ function panelActivityEquals(left: PanelActivity | null, right: PanelActivity): 
     left.threadId === right.threadId &&
     left.turnBusy === right.turnBusy &&
     left.pending === right.pending &&
-    left.unread === right.unread &&
-    left.hasForkDraft === right.hasForkDraft
+    left.unread === right.unread
   );
 }

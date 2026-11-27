@@ -103,7 +103,7 @@ describe("fork cancellation", () => {
     await waitForAsyncWork(() => expect(host.workspace.returnFromForkDraft).toHaveBeenCalledOnce());
     await waitForAsyncWork(() => expect(button.disabled).toBe(false));
     expect(resume).toHaveBeenCalledOnce();
-    expect(view.surface.openPanelSnapshot().hasForkDraft).toBe(true);
+    expect(view.getDisplayText()).toBe("Fork draft");
     expect(composerElement(view).value).toBe("original prompt");
     button.click();
     await waitForAsyncWork(() => expect(host.workspace.returnFromForkDraft).toHaveBeenCalledTimes(2));

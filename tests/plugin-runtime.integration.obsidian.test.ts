@@ -1,6 +1,7 @@
 import * as contextConnection from "../src/app-server/connection/context-connection";
 // @vitest-environment jsdom
 
+import * as obsidian from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { AppServerClient } from "../src/app-server/connection/client";
 import type { ConnectionManagerHandlers } from "../src/app-server/connection/connection-manager";
@@ -12,7 +13,14 @@ import { CodexChatView } from "../src/features/chat/host/view.obsidian";
 import { CodexThreadsView } from "../src/features/threads-view/view.obsidian";
 import { CodexTurnDiffView } from "../src/features/turn-diff/view.obsidian";
 import type CodexPanelPlugin from "../src/main";
-import { completedTurn, connectedClient, resumedThread } from "./features/chat/host/view-connection-harness";
+import {
+  completedTurn,
+  connectedClient,
+  editToolbarGoal,
+  requiredTextArea,
+  resumedThread,
+  submitComposerByEnter,
+} from "./features/chat/host/view-connection-harness";
 import { notices } from "./mocks/obsidian";
 import { deferred, waitForAsyncWork } from "./support/async";
 import { installObsidianDomShims } from "./support/dom";
@@ -163,6 +171,40 @@ describe("CodexPanelPlugin runtime integration", () => {
         .filter((panel) => leaves.some((entry) => entry.view === panel))
         .map((panel) => panel.surface.openPanelSnapshot().threadId),
     ).toEqual(clear ? ["two"] : ["one", "two"]);
+  });
+
+  it("keeps an unsaved goal in its panel when another thread opens in an available panel", async () => {
+    const { first, second, workspace } = await twoAvailablePanels();
+    await editToolbarGoal(first, "Finish the release notes");
+
+    await workspace.openThreadInAvailableView("thread-1");
+
+    expect(second.getState()).toMatchObject({ threadId: "thread-1" });
+    expect(first.getState()).toEqual({ version: 1 });
+    expect(requiredTextArea(first.containerEl, ".codex-panel__goal-objective-input").value).toBe("Finish the release notes");
+  });
+
+  it("keeps a pending web submission in its panel when another thread opens in an available panel", async () => {
+    const { first, second, workspace } = await twoAvailablePanels();
+    const page = deferred<never>();
+    const request = vi
+      .spyOn(obsidian, "requestUrl")
+      .mockReturnValue(Object.assign(page.promise, { arrayBuffer: page.promise, json: page.promise, text: page.promise }));
+    const draft = "/web https://example.org Summarize the page";
+    first.surface.setComposerText(draft);
+    try {
+      await submitComposerByEnter(first);
+      await waitForAsyncWork(() => expect(request).toHaveBeenCalledOnce());
+      expect(requiredTextArea(first.containerEl, ".codex-panel__composer-input").value).toBe("");
+
+      await workspace.openThreadInAvailableView("thread-1");
+
+      expect(second.getState()).toMatchObject({ threadId: "thread-1" });
+      expect(first.getState()).toEqual({ version: 1 });
+    } finally {
+      page.reject(new Error("Page unavailable"));
+    }
+    await waitForAsyncWork(() => expect(requiredTextArea(first.containerEl, ".codex-panel__composer-input").value).toBe(draft));
   });
 
   it("keeps scoped navigation usable after a failed save and revokes it across A-to-B-to-A replacement", async () => {
@@ -483,16 +525,15 @@ describe("CodexPanelPlugin runtime integration", () => {
     try {
       await view.onOpen();
       await vi.waitFor(() => expect(view.containerEl.textContent).toContain("initial executable failed"));
-      expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, connected: false });
+      expect(client.request).not.toHaveBeenCalled();
       expect(notices).toContain("Codex app-server connection failed.");
 
       await publishCodexPath(plugin, "corrected-codex");
-      await vi.waitFor(() => expect(view.surface.openPanelSnapshot().connected).toBe(true));
+      await vi.waitFor(() => expect(client.request).toHaveBeenCalledWith("config/read", expect.anything()));
 
       expect(contextConnectionClientMock).toHaveBeenCalledWith("corrected-codex", "/vault");
       expect(view.containerEl.textContent).not.toContain("initial executable failed");
       expect(view.getState()).toEqual({ version: 1 });
-      expect(client.request).toHaveBeenCalledWith("config/read", expect.anything());
     } finally {
       notices.length = 0;
     }
@@ -531,7 +572,6 @@ describe("CodexPanelPlugin runtime integration", () => {
       });
 
       expect(contextConnectionClientMock).toHaveBeenCalledWith("corrected-codex", "/vault");
-      expect(foreground.surface.openPanelSnapshot()).toMatchObject({ threadId: "foreground", connected: true });
       expect(foreground.getState()).toMatchObject({ threadId: "foreground" });
       expect(background.getState()).toMatchObject({ threadId: "background", threadTitle: "Saved background" });
       expect(client.request.mock.calls.filter(([method]) => method === "thread/resume")).toEqual([
@@ -587,7 +627,7 @@ describe("CodexPanelPlugin runtime integration", () => {
         await view.onOpen();
         await vi.waitFor(() => expect(starts).toContain("codex"));
         await publishCodexPath(plugin, "corrected-codex");
-        await vi.waitFor(() => expect(view.surface.openPanelSnapshot().connected).toBe(true));
+        await vi.waitFor(() => expect(nextClient.request).toHaveBeenCalledWith("config/read", expect.anything()));
         if (outcome === "resolve") {
           oldInitialization.resolve({ codexHome: "/old", platformFamily: "unix", platformOs: "macos", userAgent: "old" });
         } else {
@@ -595,12 +635,14 @@ describe("CodexPanelPlugin runtime integration", () => {
         }
         await flushMicrotasks();
 
-        expect(starts).toContain("corrected-codex");
-        expect(view.surface.openPanelSnapshot().connected).toBe(true);
         expect(view.containerEl.textContent).not.toContain("late old startup failure");
         expect(notices).not.toContain("Codex app-server connection failed.");
+        view.surface.setComposerText("Continue after correcting the executable");
+        await submitComposerByEnter(view);
+        await vi.waitFor(() =>
+          expect(nextClient.request).toHaveBeenCalledWith("turn/start", expect.objectContaining({ threadId: "thread-new" })),
+        );
         expect(oldClient.request).not.toHaveBeenCalled();
-        expect(nextClient.request).toHaveBeenCalledWith("config/read", expect.anything());
       } finally {
         notices.length = 0;
       }
@@ -791,6 +833,17 @@ async function settingsSurfaces() {
     plugin.runtime.reset();
   });
   return { plugin, refreshChat, refreshThreads };
+}
+
+async function twoAvailablePanels() {
+  contextConnectionClientMock.mockReturnValue(connectedClient());
+  const firstLeaf = leaf();
+  const secondLeaf = leaf();
+  const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
+  const first = attachTestPanel(plugin, firstLeaf);
+  const second = attachTestPanel(plugin, secondLeaf);
+  await first.onOpen();
+  return { first, second, workspace: currentChatHost(plugin).workspace };
 }
 
 function attachTestPanel(plugin: CodexPanelPlugin, target: TestLeaf) {

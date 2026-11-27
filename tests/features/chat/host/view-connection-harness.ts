@@ -20,6 +20,7 @@ import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/setti
 import { createKeyedOperationCoordinator } from "../../../../src/shared/async/keyed-operation-coordinator";
 import { notices } from "../../../mocks/obsidian";
 import { appServerTurnFixture } from "../../../support/app-server-records";
+import { waitForAsyncWork } from "../../../support/async";
 import { installObsidianDomShims } from "../../../support/dom";
 import { panelThreadFixture } from "../../../support/panel-thread";
 import { threadMutationCommandsMock } from "../../../support/thread-mutations";
@@ -359,6 +360,23 @@ export function requiredButton(parent: ParentNode, selector: string): HTMLButton
   const element = parent.querySelector<HTMLButtonElement>(selector);
   if (!element) throw new Error(`Missing ${selector}`);
   return element;
+}
+
+export async function editToolbarGoal(view: { containerEl: HTMLElement }, objective: string): Promise<void> {
+  const root = view.containerEl;
+  requiredButton(root, '[aria-label="Show chat actions"]').click();
+  await waitForAsyncWork(() => {
+    const action = [...root.querySelectorAll<HTMLElement>(".codex-panel__chat-actions-panel-item")].find(
+      (item) => item.textContent === "Set goal...",
+    );
+    if (!action) throw new Error("Missing Set goal action");
+    action.click();
+  });
+  await waitForAsyncWork(() => {
+    const input = requiredTextArea(root, ".codex-panel__goal-objective-input");
+    input.value = objective;
+    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+  });
 }
 
 export async function submitComposerByEnter(view: { containerEl: HTMLElement }): Promise<void> {

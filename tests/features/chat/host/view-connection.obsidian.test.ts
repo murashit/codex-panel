@@ -19,6 +19,7 @@ import {
   completedTurn,
   connectedClient,
   connectionMockState,
+  editToolbarGoal,
   expectMetadataRequestedOnce,
   expectRequestTimes,
   openedChatView,
@@ -276,7 +277,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(connectionMockState().connected).toBe(true);
     expect(connectionMockState().connectCalls).toBe(1);
     expect(connected).toBe(false);
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
+    expect(view.getState()).toMatchObject({ threadId: "thread-1" });
 
     config.resolve({});
     await fullyConnected;
@@ -344,7 +345,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     await waitForAsyncWork(() => {
       expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("Edited while reconnecting");
-      expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
+      expect(view.getState()).toMatchObject({ threadId: "thread-1" });
     });
   });
 
@@ -373,7 +374,7 @@ describe("CodexChatView connection lifecycle", () => {
       expect(view.containerEl.querySelector(".codex-panel__fork-and-archive-dialogue")).not.toBeNull();
     });
     requiredButton(view.containerEl, ".codex-panel__fork-and-archive-dialogue").click();
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: true });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, availableForReuse: false });
     expect(requestMethods(client)).not.toContain("thread/fork");
     await view.surface.activateThread("thread-1", { focus: false });
 
@@ -437,7 +438,7 @@ describe("CodexChatView connection lifecycle", () => {
     );
 
     await waitForAsyncWork(() => {
-      expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: false });
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, availableForReuse: true });
       expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("");
     });
     expectRequestTimes(nextClient, "thread/fork", 0);
@@ -470,7 +471,7 @@ describe("CodexChatView connection lifecycle", () => {
     const switching =
       target === "draft" ? view.surface.applyForkDraft(sideChatDraft("another", "Another")) : view.surface.activateThread("other");
     await expect(switching).resolves.toBe(false);
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "side", turnBusy: true, hasForkDraft: false });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "side", turnBusy: true });
     expectRequestTimes(client, "thread/unsubscribe", 0);
     expectRequestTimes(client, "turn/interrupt", 0);
   });
@@ -643,11 +644,11 @@ describe("CodexChatView connection lifecycle", () => {
     );
     expect(start?.classList.contains("is-disabled")).toBe(false);
     start?.click();
-    await waitForAsyncWork(() => expect(view.surface.openPanelSnapshot().hasForkDraft).toBe(true));
+    await waitForAsyncWork(() => expect(view.getDisplayText()).toBe("Side chat"));
     expectRequestTimes(client, "thread/fork", 0);
     expect(view.getDisplayText()).toBe("Side chat");
     expect(view.getState()).toEqual({ version: 1 });
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: true });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, availableForReuse: false });
 
     view.surface.setComposerText("First message");
     await submitComposerByEnter(view);
@@ -665,7 +666,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(forkParams).not.toHaveProperty("beforeTurnId");
     expect(forkParams).not.toHaveProperty("deferGoalContinuation");
     fork.resolve({ thread: threadFixture("side") });
-    await waitForAsyncWork(() => expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "side", hasForkDraft: false }));
+    await waitForAsyncWork(() => expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "side" }));
   });
 
   it("starts an empty thread when saving a toolbar goal from a blank panel", async () => {
@@ -679,19 +680,7 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await openedChatView(client);
     view.surface.setComposerText("Keep my unsent prompt");
 
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Show chat actions"]')?.click();
-    await waitForAsyncWork(() => {
-      expect(view.containerEl.textContent).toContain("Set goal...");
-    });
-    [...view.containerEl.querySelectorAll<HTMLElement>(".codex-panel__chat-actions-panel-item")]
-      .find((item) => item.textContent === "Set goal...")
-      ?.click();
-    await waitForAsyncWork(() => {
-      expect(view.containerEl.querySelector(".codex-panel__goal-objective-input")).not.toBeNull();
-    });
-    const input = requiredTextArea(view.containerEl, ".codex-panel__goal-objective-input");
-    input.value = "Ship the feature";
-    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    await editToolbarGoal(view, "Ship the feature");
     await waitForAsyncWork(() => {
       const save = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Save goal"]');
       expect(save?.disabled).toBe(false);
@@ -744,7 +733,7 @@ describe("CodexChatView connection lifecycle", () => {
       expect(view.containerEl.querySelector(".codex-panel__goal-load-error")?.textContent).toContain("goal unavailable");
     });
 
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
+    expect(view.getState()).toMatchObject({ threadId: "thread-1" });
   });
 
   it("keeps a goal update notification over an earlier in-flight goal read", async () => {
@@ -856,7 +845,10 @@ describe("CodexChatView connection lifecycle", () => {
       expect(view.containerEl.querySelector(".codex-panel__threads")?.textContent).toContain("No threads");
       expect(view.containerEl.textContent).not.toContain("Obsolete history");
     });
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: false });
+    requiredButton(view.containerEl, ".codex-panel__status-menu-toggle").click();
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.querySelector(".codex-panel__status-panel-item")?.textContent).toBe("Connect");
+    });
   });
 });
 
