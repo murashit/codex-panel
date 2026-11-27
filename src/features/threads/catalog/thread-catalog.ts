@@ -1,3 +1,4 @@
+import type { BeginThreadReplacement } from "../../../domain/threads/catalog";
 import type { Thread } from "../../../domain/threads/model";
 import type { ObservedPaginatedResultListener, ResultObservation } from "../../../shared/async/observed-result";
 
@@ -14,7 +15,8 @@ export interface ThreadCatalogPaginatedActiveReader {
 }
 
 export interface ThreadCatalogSearchReader {
-  fetchActiveThreadSearchInventory(): Promise<readonly Thread[]>;
+  watchActiveThreadSearch(changed: () => void): ResultObservation<readonly Thread[]>;
+  fetchActiveThreadSearch(): Promise<readonly Thread[]>;
 }
 
 export interface ThreadCatalogArchivedReader {
@@ -23,12 +25,7 @@ export interface ThreadCatalogArchivedReader {
   watchArchivedThreads(changed: () => void): ResultObservation<readonly Thread[]>;
 }
 
-interface ThreadReplacementPublication {
-  attach(replacementThread: Thread): void;
-  finish(sourceArchived: boolean): void;
-}
-
 export interface ThreadCatalogPublication {
-  beginReplacement(sourceThreadId: string): ThreadReplacementPublication;
+  beginReplacement: BeginThreadReplacement;
   visibleThreadId(visibleThreads: readonly Thread[], threadId: string | null): string | null;
 }

@@ -1,5 +1,12 @@
 import { isThreadVisibleInCatalog, type Thread } from "./model";
 
+export interface ThreadReplacementPublication {
+  readonly attach: (replacement: Thread) => void;
+  finish(sourceArchived: boolean): void;
+}
+
+export type BeginThreadReplacement = (sourceThreadId: string, mode: "create" | "retry") => ThreadReplacementPublication;
+
 type ThreadCatalogList = "active" | "archived";
 
 export type ThreadCatalogChange =

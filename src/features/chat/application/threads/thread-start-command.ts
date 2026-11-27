@@ -49,18 +49,13 @@ export interface ThreadStartCommandHost {
 }
 
 export interface ThreadStartCommand {
-  startThread: (
-    preview?: string,
-    options?: {
-      onCreated?: (thread: Thread) => void;
-    },
-  ) => Promise<ThreadStartOutcome>;
+  startThread: (preview?: string, recordStartedThread?: (thread: Thread) => void) => Promise<ThreadStartOutcome>;
 }
 
 export function createThreadStartCommand(host: ThreadStartCommandHost): ThreadStartCommand {
   let creation: { revision: number; promise: Promise<ThreadStartOutcome> } | null = null;
   return {
-    startThread: (preview, options) => {
+    startThread: (preview, recordStartedThread) => {
       const state = host.stateStore.getState();
       if (creation?.revision === state.panelTargetRevision) {
         return creation.promise;
@@ -72,7 +67,7 @@ export function createThreadStartCommand(host: ThreadStartCommandHost): ThreadSt
       if (state.panelThread.operation) return Promise.resolve({ kind: "not-started" });
       if (draft) host.stateStore.dispatch({ type: "panel/fork-operation-set", revision: state.panelTargetRevision, operation: "creating" });
       else host.stateStore.dispatch({ type: "panel/creation-state-set", revision: state.panelTargetRevision, operation: "creating" });
-      const promise = startThread(host, preview, options).finally(() => {
+      const promise = startThread(host, preview, recordStartedThread).finally(() => {
         if (creation?.promise === promise) creation = null;
         if (draft) host.stateStore.dispatch({ type: "panel/fork-operation-set", revision: state.panelTargetRevision });
         else {
@@ -89,9 +84,7 @@ export function createThreadStartCommand(host: ThreadStartCommandHost): ThreadSt
 async function startThread(
   host: ThreadStartCommandHost,
   preview?: string,
-  options: {
-    onCreated?: (thread: Thread) => void;
-  } = {},
+  recordStartedThread = host.recordStartedThread,
 ): Promise<ThreadStartOutcome> {
   const requestState = host.stateStore.getState();
   const draft = requestState.panelThread.kind === "fork-draft" ? requestState.panelThread.draft : null;
@@ -124,8 +117,7 @@ async function startThread(
         ? activation.thread
         : { ...activation.thread, preview: fallbackPreview };
     const patchedActivation = thread === activation.thread ? activation : { ...activation, thread };
-    options.onCreated?.(thread);
-    if (!sideChat && !thread.ephemeral) host.recordStartedThread(thread);
+    if (!sideChat && !thread.ephemeral) recordStartedThread(thread);
     const current = host.stateStore.getState();
     if (!panelTargetLeaseIsCurrent(current, panelTarget)) {
       return { kind: "created-not-activated" };

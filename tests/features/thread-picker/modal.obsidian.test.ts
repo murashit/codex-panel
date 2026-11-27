@@ -1,281 +1,135 @@
 // @vitest-environment jsdom
 
-import { SuggestModal } from "obsidian";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { Thread } from "../../../src/domain/threads/model";
-import { openThreadPicker, type ThreadPickerHost } from "../../../src/features/thread-picker/modal.obsidian";
+import { openThreadPicker } from "../../../src/features/thread-picker/modal.obsidian";
 import { notices } from "../../mocks/obsidian";
-import { deferred } from "../../support/async";
+import { deferred, waitForAsyncWork } from "../../support/async";
 import { popoutWindow } from "../../support/dom";
-import { panelThreadFixture } from "../../support/panel-thread";
+import { panelThreadFixture as thread } from "../../support/panel-thread";
+import { threadCatalogFixture } from "../../support/thread-catalog";
 
-describe("threadPickerSuggestions", () => {
-  it("places pinned threads first only for empty queries", async () => {
-    const modal = await openedThreadPicker([
-      thread({ id: "recent", name: "Recent target", recencyAt: 30 }),
-      thread({ id: "pinned", name: "Pinned unrelated", recencyAt: 10, isPinned: true }),
-    ]);
+const recent = thread({ id: "recent", name: "Target" });
+const older = thread({ id: "older", name: "Older target" });
 
-    expect((await modal.getSuggestions("")).map((item) => item.thread.id)).toEqual(["pinned", "recent"]);
-    expect((await modal.getSuggestions("target")).map((item) => item.thread.id)).toEqual(["recent"]);
+function picker(read = async (): Promise<readonly Thread[]> => [recent]) {
+  const { catalog } = threadCatalogFixture(read);
+  const onClosed = vi.fn();
+  const openThreadInCurrentView = vi.fn(async (_id: string) => undefined);
+  const openThreadInAvailableView = vi.fn(async (_id: string) => undefined);
+  const modal = openThreadPicker(
+    { app: {} as never, threadCatalog: catalog, openThreadInCurrentView, openThreadInAvailableView },
+    onClosed,
+  );
+  onTestFinished(() => modal.close());
+  const display = vi.fn<(ids: string[]) => void>();
+  // The native SuggestModal renders getSuggestions(current input) on each input event.
+  modal.inputEl.addEventListener("input", () => {
+    display(modal.getSuggestions(modal.inputEl.value).map(({ id }) => id));
   });
-
-  it("loads complete history only for search, coalesces requests, and retries a failed load", async () => {
-    const host = threadPickerHost([thread({ id: "recent" })], [thread({ id: "recent" }), thread({ id: "older-target", name: "Needle" })]);
-    const load = vi.spyOn(host.threadCatalog, "fetchActiveThreadSearchInventory");
-    load.mockRejectedValueOnce(new Error("Search unavailable"));
-    const modal = await openedThreadPicker(host);
-
-    expect((await modal.getSuggestions("")).map((item) => item.thread.id)).toEqual(["recent"]);
-    expect(host.completeHistoryLoads).toBe(0);
-    expect(host.sharedRefreshes).toBe(0);
-
-    const previousNotices = notices.length;
-    expect(await modal.getSuggestions("needle")).toEqual([]);
-    expect(notices.slice(previousNotices)).toEqual(["Search unavailable"]);
-    const [needleSuggestions] = await Promise.all([modal.getSuggestions("needle"), modal.getSuggestions("target")]);
-    expect(needleSuggestions.map((item) => item.thread.id)).toEqual(["older-target"]);
-    await expect(modal.getSuggestions("needle")).resolves.toEqual(needleSuggestions);
-    expect(load).toHaveBeenCalledTimes(2);
-    expect(host.completeHistoryLoads).toBe(1);
-  });
-
-  it("uses the native searching empty state until the complete inventory resolves", async () => {
-    const pending = deferred<readonly Thread[]>();
-    const host = threadPickerHost([thread({ id: "recent" })]);
-    host.threadCatalog.fetchActiveThreadSearchInventory = () => pending.promise;
-    const modal = await openedThreadPicker(host);
-
-    const suggestions = modal.getSuggestions("needle");
-
-    expect(modal.emptyStateText).toBe("Searching older Codex threads…");
-    expect(modal.resultContainerEl.textContent).toBe("Searching older Codex threads…");
-    pending.resolve([thread({ id: "older", name: "Needle" })]);
-    await expect(suggestions).resolves.toMatchObject([{ thread: { id: "older" } }]);
-    expect(modal.emptyStateText).toBe("No matching Codex threads");
-  });
-
-  it("clears the searching empty state when the query is cleared", async () => {
-    const pending = deferred<readonly Thread[]>();
-    const host = threadPickerHost([thread({ id: "recent" })]);
-    host.threadCatalog.fetchActiveThreadSearchInventory = () => pending.promise;
-    const modal = await openedThreadPicker(host);
-
-    const suggestions = modal.getSuggestions("needle");
-    expect(modal.emptyStateText).toBe("Searching older Codex threads…");
-
-    await expect(modal.getSuggestions("")).resolves.toMatchObject([{ thread: { id: "recent" } }]);
-    expect(modal.emptyStateText).toBe("No matching Codex threads");
-
-    pending.resolve([]);
-    await suggestions;
-  });
-
-  it("uses a modal-local inventory when the shared recent list is cold", async () => {
-    const threadHistory = [thread({ id: "thread" })];
-    const host = threadPickerHost([], threadHistory, threadHistory, false);
-    const modal = await openedThreadPicker(host);
-
-    expect((await modal.getSuggestions("")).map((item) => item.thread.id)).toEqual(["thread"]);
-    expect((await modal.getSuggestions("thread")).map((item) => item.thread.id)).toEqual(["thread"]);
-    expect(host.completeHistoryLoads).toBe(1);
-    expect(host.sharedRefreshes).toBe(0);
-  });
-});
-
-describe("threadOpenModeFromEvent", () => {
-  it("uses the current panel for plain Enter or mouse selection", async () => {
-    const host = threadPickerHost([thread({ id: "thread" })]);
-    const modal = await openedThreadPicker(host);
-
-    modal.onChooseSuggestion(await firstSuggestion(modal), new KeyboardEvent("keydown", { key: "Enter" }));
-    modal.onChooseSuggestion(await firstSuggestion(modal), new MouseEvent("click"));
-    modal.onChooseSuggestion(await firstSuggestion(modal), new MouseEvent("click", { ctrlKey: true }));
-
-    expect(host.openedCurrent).toEqual(["thread", "thread", "thread"]);
-    expect(host.openedAvailable).toEqual([]);
-  });
-
-  it.each(["main window", "popout window"])("uses an available panel for Cmd/Ctrl+Enter from the %s", async (target) => {
-    const host = threadPickerHost([thread({ id: "thread" })]);
-    const modal = await openedThreadPicker(host);
-    const viewWindow = target === "popout window" ? popoutWindow() : window;
-    const EventConstructor = (viewWindow as Window & { KeyboardEvent: typeof KeyboardEvent }).KeyboardEvent;
-    modal.onChooseSuggestion(await firstSuggestion(modal), new EventConstructor("keydown", { key: "Enter", metaKey: true }));
-    modal.onChooseSuggestion(await firstSuggestion(modal), new EventConstructor("keydown", { key: "Enter", ctrlKey: true }));
-
-    expect(host.openedCurrent).toEqual([]);
-    expect(host.openedAvailable).toEqual(["thread", "thread"]);
-  });
-});
-
-describe("thread picker lifecycle", () => {
-  it.each(["success", "failure"])("ignores search %s after the modal closes", async (outcome) => {
-    const pending = deferred<readonly Thread[]>();
-    const host = threadPickerHost([thread({ id: "recent" })]);
-    host.threadCatalog.fetchActiveThreadSearchInventory = () => pending.promise;
-    const { modal } = await openedThreadPickerSession(host);
-    const searching = modal.getSuggestions("needle");
-    modal.onClose();
-    const noticesBefore = [...notices];
-    if (outcome === "success") pending.resolve([thread({ id: "older", name: "Needle" })]);
-    else pending.reject(new Error("old search failed"));
-    await expect(searching).resolves.toEqual([]);
-    expect(notices).toEqual(noticesBefore);
-  });
-
-  it("reports natural close only once", async () => {
-    const onClosed = vi.fn();
-    const { controller, modal } = await openedThreadPickerSession([thread({ id: "thread" })], onClosed);
-
-    modal.onClose();
-    controller.close();
-
-    expect(onClosed).toHaveBeenCalledOnce();
-  });
-
-  it("finishes when the initial inventory is empty", async () => {
-    const onClosed = vi.fn();
-
-    openThreadPicker(threadPickerHost([]), onClosed);
-    await flushMicrotasks();
-
-    expect(onClosed).toHaveBeenCalledOnce();
-  });
-
-  it("finishes when the initial inventory fails to load", async () => {
-    const host = threadPickerHost([], [], [], false);
-    host.threadCatalog.fetchActiveThreads = async () => {
-      throw new Error("inventory unavailable");
-    };
-    const onClosed = vi.fn();
-
-    openThreadPicker(host, onClosed);
-    await flushMicrotasks();
-
-    expect(onClosed).toHaveBeenCalledOnce();
-  });
-
-  it("does not open after being replaced during the initial inventory load", async () => {
-    const pending = deferred<readonly Thread[]>();
-    const host = threadPickerHost([], [], [], false);
-    host.threadCatalog.fetchActiveThreads = () => pending.promise;
-    const open = vi.spyOn(SuggestModal.prototype, "open");
-    const onClosed = vi.fn();
-
-    try {
-      const controller = openThreadPicker(host, onClosed);
-      await Promise.resolve();
-      controller.close();
-      pending.resolve([thread({ id: "stale" })]);
-      await flushMicrotasks();
-
-      expect(open).not.toHaveBeenCalled();
-      expect(onClosed).toHaveBeenCalledOnce();
-    } finally {
-      open.mockRestore();
-    }
-  });
-});
-
-interface ThreadSuggestion {
-  thread: Thread;
-  title: string;
-}
-
-interface CapturedThreadPickerModal {
-  emptyStateText: string;
-  resultContainerEl: HTMLElement;
-  getSuggestions(query: string): Promise<ThreadSuggestion[]>;
-  onClose(): void;
-  onChooseSuggestion(item: ThreadSuggestion, evt: MouseEvent | KeyboardEvent): void;
-}
-
-async function openedThreadPicker(input: readonly Thread[] | TestThreadPickerHost): Promise<CapturedThreadPickerModal> {
-  return (await openedThreadPickerSession(input)).modal;
-}
-
-async function openedThreadPickerSession(
-  input: readonly Thread[] | TestThreadPickerHost,
-  onClosed: () => void = () => undefined,
-): Promise<{ controller: ReturnType<typeof openThreadPicker>; modal: CapturedThreadPickerModal }> {
-  const captured: CapturedThreadPickerModal[] = [];
-  const open = vi.spyOn(SuggestModal.prototype, "open").mockImplementation(function (this: SuggestModal<ThreadSuggestion>): void {
-    captured.push(this as CapturedThreadPickerModal);
-  });
-  let controller: ReturnType<typeof openThreadPicker>;
-  try {
-    controller = openThreadPicker(isThreadPickerHost(input) ? input : threadPickerHost(input), onClosed);
-    await flushMicrotasks();
-  } finally {
-    open.mockRestore();
-  }
-  const modal = captured[0];
-  if (!modal) throw new Error("Expected thread picker modal to open");
-  return { controller, modal };
-}
-
-async function firstSuggestion(modal: CapturedThreadPickerModal): Promise<ThreadSuggestion> {
-  const suggestion = (await modal.getSuggestions(""))[0];
-  if (!suggestion) throw new Error("Expected thread picker suggestion");
-  return suggestion;
-}
-
-function isThreadPickerHost(input: readonly Thread[] | TestThreadPickerHost): input is TestThreadPickerHost {
-  return "threadCatalog" in input;
-}
-
-interface TestThreadPickerHost extends ThreadPickerHost {
-  openedCurrent: string[];
-  openedAvailable: string[];
-  completeHistoryLoads: number;
-  sharedRefreshes: number;
-}
-
-function threadPickerHost(
-  firstPage: readonly Thread[],
-  completeHistory: readonly Thread[] = firstPage,
-  loadedThreads: readonly Thread[] = firstPage,
-  hasSharedSnapshot = true,
-): TestThreadPickerHost {
-  const openedCurrent: string[] = [];
-  const openedAvailable: string[] = [];
-  const host: TestThreadPickerHost = {
-    app: {} as never,
-    openedCurrent,
-    openedAvailable,
-    completeHistoryLoads: 0,
-    sharedRefreshes: 0,
-    threadCatalog: {
-      activeThreadsSnapshot: () => (hasSharedSnapshot ? firstPage : null),
-      recentActiveThreadsSnapshot: () => (hasSharedSnapshot ? firstPage : null),
-      fetchActiveThreads: async () => loadedThreads,
-      fetchActiveThreadSearchInventory: async () => {
-        host.completeHistoryLoads += 1;
-        return completeHistory;
-      },
-      refreshActiveThreads: async () => {
-        host.sharedRefreshes += 1;
-      },
-      hasMoreActiveThreads: () => false,
-      loadMoreActiveThreads: async () => undefined,
-      observeActiveThreadsResult: () => () => undefined,
-    },
-    openThreadInCurrentView: async (threadId) => {
-      openedCurrent.push(threadId);
-    },
-    openThreadInAvailableView: async (threadId) => {
-      openedAvailable.push(threadId);
-    },
+  const type = (query: string) => {
+    modal.inputEl.value = query;
+    modal.inputEl.dispatchEvent(new Event("input"));
   };
-  return host;
+  const shows = (ids: string[]) => waitForAsyncWork(() => expect(display).toHaveBeenLastCalledWith(ids));
+  return { catalog, modal, display, type, shows, onClosed, openThreadInCurrentView, openThreadInAvailableView };
 }
 
-function thread(options: Partial<Thread> & { id: string }): Thread {
-  return panelThreadFixture({ preview: options.id, ...options });
-}
+describe("Open thread picker", () => {
+  it("uses recent pin order and searches older rows by title", async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce([recent, older])
+      .mockResolvedValue([recent, older, thread({ id: "oldest", name: "Another target" })]);
+    const { catalog, type, shows } = picker(read);
+    await shows(["recent", "older"]);
+    catalog.facts.apply({ type: "thread-upserted", thread: recent });
+    catalog.facts.apply({ type: "thread-pinned", threadId: older.id, isPinned: true });
+    await shows(["older", "recent"]);
+    expect(read).toHaveBeenCalledOnce();
+    type("target");
+    await shows(["recent", "older", "oldest"]);
+    type("another");
+    await shows(["oldest"]);
+    expect(read).toHaveBeenCalledTimes(2);
+  });
 
-async function flushMicrotasks(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
-}
+  it("shows a failed search in the picker and retries on the next input", async () => {
+    const read = vi.fn().mockResolvedValueOnce([recent]).mockRejectedValueOnce(new Error("Search unavailable")).mockResolvedValue([older]);
+    const { modal, type, shows } = picker(read);
+    await shows(["recent"]);
+    type("target");
+    await waitForAsyncWork(() => expect(modal.emptyStateText).toBe("Search unavailable"));
+    expect(read).toHaveBeenCalledTimes(2);
+    type("target");
+    await shows(["older"]);
+  });
+
+  it.each(["clear", "close"])("keeps a pending scan from updating the display after %s", async (action) => {
+    const scan = deferred<readonly Thread[]>();
+    const read = vi.fn().mockResolvedValueOnce([recent]).mockReturnValueOnce(scan.promise);
+    const { modal, type, display, shows } = picker(read);
+    await shows(["recent"]);
+    type("older");
+    await shows([]);
+    expect(modal.emptyStateText).toBe("Searching older Codex threads…");
+    if (action === "clear") type("");
+    else modal.close();
+    const lastDisplay = display.mock.lastCall;
+    scan.resolve([recent, older]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(display.mock.lastCall).toBe(lastDisplay);
+  });
+
+  it.each(["", "target"])("reflects a published replacement without editing query %j", async (query) => {
+    let rows = [recent];
+    const { catalog, type, shows, display } = picker(async () => rows);
+    await shows(["recent"]);
+    type(query);
+    await shows(["recent"]);
+    const replacement = catalog.beginReplacement(recent.id, "create");
+    replacement.attach(older);
+    rows = [older];
+    replacement.finish(true);
+    await waitForAsyncWork(() => expect(display).toHaveBeenLastCalledWith(["older"]));
+  });
+
+  it.each(["main", "popout"])("dispatches the selected thread to the requested panel in a %s window", async (target) => {
+    const { modal, shows, openThreadInCurrentView, openThreadInAvailableView } = picker();
+    await shows(["recent"]);
+    const viewWindow = target === "popout" ? popoutWindow() : window;
+    const Key = (viewWindow as Window & { KeyboardEvent: typeof KeyboardEvent }).KeyboardEvent;
+    modal.onChooseSuggestion(recent, new MouseEvent("click", { ctrlKey: true }));
+    modal.onChooseSuggestion(recent, new Key("keydown", { key: "Enter" }));
+    modal.inputEl.dispatchEvent(new Key("keydown", { key: "Enter", ctrlKey: true }));
+    modal.inputEl.dispatchEvent(new Key("keydown", { key: "Enter", metaKey: true }));
+    expect(openThreadInCurrentView.mock.calls).toEqual([["recent"], ["recent"]]);
+    expect(openThreadInAvailableView.mock.calls).toEqual([["recent"], ["recent"]]);
+  });
+
+  it.each([
+    { message: "No Codex threads found.", read: async () => [] },
+    {
+      message: "Offline",
+      read: async () => {
+        throw new Error("Offline");
+      },
+    },
+  ])("reports $message when the initial list cannot open", async ({ message, read }) => {
+    const { onClosed, display } = picker(read);
+    await waitForAsyncWork(() => expect(onClosed).toHaveBeenCalledOnce());
+    expect(notices.at(-1)).toBe(message);
+    expect(display).not.toHaveBeenCalled();
+  });
+
+  it("stays closed when an initial load completes after dismissal", async () => {
+    const pending = deferred<readonly Thread[]>();
+    const { modal, display, onClosed } = picker(() => pending.promise);
+    modal.close();
+    pending.resolve([recent]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    modal.close();
+    expect(display).not.toHaveBeenCalled();
+    expect(onClosed).toHaveBeenCalledOnce();
+  });
+});

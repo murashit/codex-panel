@@ -108,7 +108,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
   });
   const turnSubmissionCommand = createTurnSubmissionCommand({
     forkReplacement: {
-      beginPublication: (sourceThreadId) => host.environment.plugin.threadCatalog.beginReplacement(sourceThreadId),
+      beginPublication: (sourceThreadId, mode) => host.environment.plugin.threadCatalog.beginReplacement(sourceThreadId, mode),
       latestTurnId: (sourceThreadId) =>
         host.environment.plugin.appServerConnection.withClient((client) => readLatestThreadTurnId(client, sourceThreadId)),
       archiveSource: async (sourceThreadId, saveMarkdown) => {

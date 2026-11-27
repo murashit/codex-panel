@@ -1,13 +1,17 @@
 import { type App, Notice, Platform, SuggestModal } from "obsidian";
 import { errorMessage } from "../../domain/text/error-message";
-import { compareThreadsPinnedFirst, type Thread } from "../../domain/threads/model";
+import type { Thread } from "../../domain/threads/model";
 import { threadSearchMatches } from "../../domain/threads/search";
 import { threadDisplayTitle } from "../../domain/threads/title";
 import type { ThreadCatalogPaginatedActiveReader, ThreadCatalogSearchReader } from "../threads/catalog/thread-catalog";
 
 export interface ThreadPickerHost {
   readonly app: App;
-  readonly threadCatalog: ThreadCatalogPaginatedActiveReader & ThreadCatalogSearchReader;
+  readonly threadCatalog: Pick<
+    ThreadCatalogPaginatedActiveReader,
+    "recentActiveThreadsSnapshot" | "fetchActiveThreads" | "hasMoreActiveThreads" | "observeActiveThreadsResult"
+  > &
+    ThreadCatalogSearchReader;
   openThreadInCurrentView(threadId: string): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
 }
@@ -16,71 +20,25 @@ export interface ThreadPickerController {
   close(): void;
 }
 
-interface ThreadSuggestion {
-  thread: Thread;
-  title: string;
+export function openThreadPicker(host: ThreadPickerHost, onClosed: () => void) {
+  const modal = new ThreadPickerModal(host, onClosed);
+  void modal.openWhenReady();
+  return modal;
 }
 
-type ThreadOpenMode = "current" | "available";
+// A catalog update redraws native suggestions without requesting a search.
+class CatalogUpdateEvent extends Event {}
 
-const THREAD_PICKER_MODIFIER_ENTER_LISTENER_OPTIONS = { capture: true } as const;
-
-export function openThreadPicker(host: ThreadPickerHost, onClosed: () => void): ThreadPickerController {
-  const state: { closed: boolean; modal: ThreadPickerModal | null } = { closed: false, modal: null };
-  const finish = (): void => {
-    if (state.closed) return;
-    state.closed = true;
-    state.modal = null;
-    onClosed();
-  };
-  const loadAndOpen = async (): Promise<void> => {
-    try {
-      const recentSnapshot = host.threadCatalog.recentActiveThreadsSnapshot();
-      const loadedThreads = recentSnapshot ?? (await host.threadCatalog.fetchActiveThreads());
-      if (state.closed) return;
-      const recentThreads = host.threadCatalog.recentActiveThreadsSnapshot() ?? loadedThreads;
-      if (recentThreads.length === 0 && !host.threadCatalog.hasMoreActiveThreads()) {
-        new Notice("No Codex threads found.");
-        finish();
-        return;
-      }
-      state.modal = new ThreadPickerModal(host, recentThreads, finish);
-      state.modal.open();
-    } catch (error) {
-      if (!state.closed) new Notice(errorMessage(error));
-      finish();
-    }
-  };
-  queueMicrotask(() => void loadAndOpen());
-  return {
-    close: () => {
-      if (state.closed) return;
-      state.modal?.close();
-      finish();
-    },
-  };
-}
-
-function threadOpenModeFromEvent(evt: MouseEvent | KeyboardEvent): ThreadOpenMode {
-  if ("key" in evt && (evt.metaKey || evt.ctrlKey)) return "available";
-  return "current";
-}
-
-class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
-  private closed = false;
-  private readonly recentSuggestions: readonly ThreadSuggestion[];
-  private completeThreadsPromise: Promise<readonly Thread[]> | null = null;
+class ThreadPickerModal extends SuggestModal<Thread> {
+  private phase: "loading" | "open" | "closed" = "loading";
+  private stopRecent?: () => void;
+  private search?: ReturnType<ThreadCatalogSearchReader["watchActiveThreadSearch"]>;
 
   constructor(
     private readonly host: ThreadPickerHost,
-    recentThreads: readonly Thread[],
     private readonly onClosed: () => void,
   ) {
     super(host.app);
-    this.recentSuggestions = [...recentThreads]
-      .sort(compareThreadsPinnedFirst)
-      .map((thread) => ({ thread, title: threadDisplayTitle(thread) }));
-    this.emptyStateText = "No matching Codex threads";
     this.setPlaceholder("Open Codex thread...");
     this.setInstructions([
       { command: "↵", purpose: "to open in current panel" },
@@ -88,44 +46,83 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
     ]);
   }
 
+  async openWhenReady(): Promise<void> {
+    try {
+      const catalog = this.host.threadCatalog;
+      const threads = await (catalog.recentActiveThreadsSnapshot() ?? catalog.fetchActiveThreads());
+      if (this.phase === "closed") return;
+      if (threads.length > 0 || catalog.hasMoreActiveThreads()) {
+        this.phase = "open";
+        this.open();
+        return;
+      }
+      new Notice("No Codex threads found.");
+    } catch (error) {
+      if (this.phase === "closed") return;
+      new Notice(errorMessage(error));
+    }
+    this.close();
+  }
+
+  override close(): void {
+    if (this.phase === "open") super.close();
+    else if (this.phase === "loading") {
+      this.phase = "closed";
+      this.onClosed();
+    }
+  }
+
   override onOpen(): void {
     void super.onOpen();
-    this.inputEl.addEventListener("keydown", this.handleInputKeydown, THREAD_PICKER_MODIFIER_ENTER_LISTENER_OPTIONS);
+    this.inputEl.addEventListener("keydown", this.handleInputKeydown, true);
+    this.inputEl.addEventListener("input", this.handleSearchInput, true);
+    this.stopRecent = this.host.threadCatalog.observeActiveThreadsResult(() => {
+      if (!this.inputEl.value.trim()) this.inputEl.dispatchEvent(new CatalogUpdateEvent("input"));
+    });
   }
 
   override onClose(): void {
-    this.closed = true;
-    this.inputEl.removeEventListener("keydown", this.handleInputKeydown, THREAD_PICKER_MODIFIER_ENTER_LISTENER_OPTIONS);
+    this.phase = "closed";
+    this.stopRecent?.();
+    this.search?.close();
+    this.inputEl.removeEventListener("input", this.handleSearchInput, true);
+    this.inputEl.removeEventListener("keydown", this.handleInputKeydown, true);
     super.onClose();
     this.onClosed();
   }
 
-  override async getSuggestions(query: string): Promise<ThreadSuggestion[]> {
-    if (query.trim().length === 0) {
-      this.emptyStateText = "No matching Codex threads";
-      return [...this.recentSuggestions];
-    }
-
-    this.emptyStateText = "Searching older Codex threads…";
-    this.onNoSuggestion();
-    try {
-      const threads = await this.loadCompleteThreadList();
-      return this.closed ? [] : threadSearchMatches(threads, query);
-    } catch (error) {
-      if (!this.closed) new Notice(errorMessage(error));
-      return [];
-    } finally {
-      if (!this.closed) this.emptyStateText = "No matching Codex threads";
-    }
+  override getSuggestions(query: string): Thread[] {
+    this.emptyStateText = "No matching Codex threads";
+    if (!query.trim()) return [...(this.host.threadCatalog.recentActiveThreadsSnapshot() ?? [])];
+    const result = this.search?.read();
+    if (result?.error) this.emptyStateText = errorMessage(result.error);
+    else if (result?.isFetching) this.emptyStateText = "Searching older Codex threads…";
+    return threadSearchMatches(result?.value ?? [], query).map((match) => match.thread);
   }
 
-  override renderSuggestion(value: ThreadSuggestion, el: HTMLElement): void {
+  private readonly handleSearchInput = (event: Event): void => {
+    if (event instanceof CatalogUpdateEvent || !this.inputEl.value.trim()) return;
+    this.search ??= this.host.threadCatalog.watchActiveThreadSearch(() => {
+      if (this.inputEl.value.trim()) this.inputEl.dispatchEvent(new CatalogUpdateEvent("input"));
+    });
+    void this.host.threadCatalog.fetchActiveThreadSearch().catch(() => {
+      // The observed search result supplies the error to the modal.
+    });
+  };
+
+  override renderSuggestion(thread: Thread, el: HTMLElement): void {
     const contentEl = el.createDiv({ cls: "suggestion-content" });
-    contentEl.createDiv({ cls: "suggestion-title", text: value.title });
+    contentEl.createDiv({ cls: "suggestion-title", text: threadDisplayTitle(thread) });
   }
 
-  override onChooseSuggestion(item: ThreadSuggestion, evt: MouseEvent | KeyboardEvent): void {
-    void this.openThread(item.thread.id, threadOpenModeFromEvent(evt));
+  override onChooseSuggestion(thread: Thread, evt: MouseEvent | KeyboardEvent): void {
+    const opening =
+      "key" in evt && (evt.metaKey || evt.ctrlKey)
+        ? this.host.openThreadInAvailableView(thread.id)
+        : this.host.openThreadInCurrentView(thread.id);
+    void opening.catch((error: unknown) => {
+      new Notice(errorMessage(error));
+    });
   }
 
   private readonly handleInputKeydown = (evt: KeyboardEvent): void => {
@@ -134,27 +131,4 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
     evt.stopImmediatePropagation();
     this.selectActiveSuggestion(evt);
   };
-
-  private async openThread(threadId: string, mode: ThreadOpenMode): Promise<void> {
-    try {
-      if (mode === "available") {
-        await this.host.openThreadInAvailableView(threadId);
-      } else {
-        await this.host.openThreadInCurrentView(threadId);
-      }
-    } catch (error) {
-      new Notice(errorMessage(error));
-    }
-  }
-
-  private async loadCompleteThreadList(): Promise<readonly Thread[]> {
-    this.completeThreadsPromise ??= this.host.threadCatalog.fetchActiveThreadSearchInventory().then(
-      (threads) => Object.freeze([...threads]),
-      (error: unknown) => {
-        this.completeThreadsPromise = null;
-        throw error;
-      },
-    );
-    return this.completeThreadsPromise;
-  }
 }
